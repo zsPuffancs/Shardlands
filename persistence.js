@@ -32,7 +32,7 @@ function openJsonStore(file) {
 function createGameSaves({ players, saveStore, pluginStore }) {
   const saves = saveStore.data;
 
-  function savePlayer(player) { saves[player.name.toLowerCase()] = { ph: player.ph, data: player.data, name: player.name, cls: player.cls, lvl: player.lvl, xp: player.xp, gold: player.gold, inv: player.inv, bag: player.bag, eq: player.eq, sk: player.sk, sp: player.sp }; }
+  function savePlayer(player) { saves[player.name.toLowerCase()] = { ph: player.ph, data: player.data, name: player.name, cls: player.cls, lvl: player.lvl, xp: player.xp, gold: player.gold, souls: player.souls || 0, inv: player.inv, bag: player.bag, eq: player.eq, sk: player.sk, sp: player.sp }; }
   function saveAll() {
     for (const player of players.values()) savePlayer(player);
     return Promise.allSettled([saveStore.save(), pluginStore.save()]).then(results => {

@@ -16,6 +16,8 @@ function createLoot({ loot, players, allocateId, rates, ev, say, toast, broadcas
     const template = MOBTYPES[monster.ty], boss = !!template.boss, stone = !!template.stone, alpha = !!monster.alpha;
     const gold = Math.round(rint(template.gold[0], template.gold[1]) * monster.gm * rates.goldRate * (stone ? 1.5 : 1) * (1 + goldFind(player) / 100));
     if (gold > 0) dropAt(monster.x + rnd(-25, 25), monster.y + rnd(-25, 25), { kind: 'gold', v: gold, name: gold + ' gold' }, player.id);
+    // souls: the Soul Mystic's currency, only from stones, Alphas and bosses
+    if (stone || boss || alpha) { const souls = rint(1, 5); dropAt(monster.x + rnd(-30, 30), monster.y + rnd(-30, 30), { kind: 'souls', v: souls, name: souls + (souls === 1 ? ' soul' : ' souls') }, player.id); }
     const consumableCount = stone ? 4 : boss ? 4 : alpha ? 2 : (Math.random() < Math.min(1, 0.16 * rates.potionDropRate) ? 1 : 0);
     for (let i = 0; i < consumableCount; i++) {
       const pool = Object.keys(ITEMS).filter(k => ITEMS[k].w > 0 && (k !== 'hp2' || monster.tier >= 1));
@@ -38,10 +40,11 @@ function createLoot({ loot, players, allocateId, rates, ev, say, toast, broadcas
       for (const player of players.values()) {
         if (player.dead || (drop.owner && now < drop.free && drop.owner !== player.id) || Math.abs(player.x - drop.x) > 58 || Math.abs(player.y - drop.y) > 58 || Math.hypot(player.x - drop.x, player.y - drop.y) > 58) continue;
         if (drop.kind === 'gold') { player.gold += drop.v; ev('gold', drop.x, drop.y, messageText('server.pickedUpGold', 'You gained: {gold} gold', { gold: drop.v }), { pickupBy: player.id }); }
+        else if (drop.kind === 'souls') { player.souls = (player.souls || 0) + drop.v; ev('souls', drop.x, drop.y, messageText('server.pickedUpSouls', 'You gained: {souls} souls', { souls: drop.v }), { pickupBy: player.id }); }
         else if (drop.kind === 'item') { player.inv[drop.k] = (player.inv[drop.k] || 0) + drop.n; ev('loot', drop.x, drop.y, messageText('server.pickedUp', 'You picked up: {item}', { item: messageText('item.' + drop.k + '.name', drop.name) }), { r: 0, pickupBy: player.id }); }
         else if (drop.kind === 'gear') {
           if (!addGear(player, drop.item)) { if (now > (player.fullT || 0)) { player.fullT = now + 3000; say(player, messageText("server.lootBagFull", "Your bag is full! Merge, sell or equip something.")); toast(player, messageText("server.bagFullShort", "Bag full!"), '#ff8a6a'); } continue; }
-          ev('loot', drop.x, drop.y, messageText('server.pickedUp', 'You picked up: {item}', { item: gearText(drop.name) }), { r: drop.rar, pickupBy: player.id }); if (drop.rar >= 3) toast(player, messageText("server.rareLoot", "{rarity}: {item}", { rarity: messageText('rarity.' + drop.rar, RARITY[drop.rar].n), item: gearText(drop.name) }), ['', '', '', '#b25cff', '#ff9d2e'][drop.rar]);
+          ev('loot', drop.x, drop.y, messageText('server.pickedUp', 'You picked up: {item}', { item: gearText(drop.name) }), { r: drop.rar, pickupBy: player.id }); if (drop.rar >= 3) toast(player, messageText("server.rareLoot", "{rarity}: {item}", { rarity: messageText('rarity.' + drop.rar, RARITY[drop.rar].n), item: gearText(drop.name) }), ['', '', '', '#b25cff', '#ff9d2e', '#ff4560'][drop.rar]);
         }
         loot.delete(drop.id); break;
       }

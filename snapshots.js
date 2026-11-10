@@ -89,7 +89,7 @@ function ownPlayerSnapshot(player, now) {
   return {
     x: player.x, y: player.y, hp: Math.round(player.hp), mh: player.maxhp,
     mp: Math.round(player.mp), mm: player.maxmp, l: player.lvl,
-    xp: player.xp, xn: xpNeed(player.lvl), g: player.gold, w: player.w,
+    xp: player.xp, xn: xpNeed(player.lvl), g: player.gold, so: player.souls || 0, w: player.w,
     inv: player.inv, sk: player.sk, sp: player.sp, buf: activeBuffs(player, now),
     c1: Math.max(0, player.cd1 - now), c2: Math.max(0, player.cd2 - now), c3: Math.max(0, player.cd3 - now),
     tg: player.target, dead: player.dead ? player.dead - now : 0, vil: inVillage(player) ? 1 : 0,

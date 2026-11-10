@@ -5,7 +5,7 @@ const esc = value => String(value).replace(/[&<>"']/g, character => ({
 })[character]);
 const hex = h => [parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255];
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-const RC_CSS = ['#d8d8d8', '#4ee26a', '#4da3ff', '#b25cff', '#ff9d2e'], RCV = RC_CSS.map(hex);
+const RC_CSS = ['#d8d8d8', '#4ee26a', '#4da3ff', '#b25cff', '#ff9d2e', '#ff4560'], RCV = RC_CSS.map(hex);
 let WORLD = null, ZT = [], I = null, me = null, pl = [], mo = [], lo = [], ws, sel = 'blade', keys = {}, held = false, lastHold = null, serverTm = 0, dt = 0.016, intent = null;
 const ents = new Map(), floaters = [], fxs = [], parts = [], labels = new Map();
 const cam = { yaw: 0, pitch: 0.82, dist: 440, x: 3600, z: 3600, shake: 0 };
@@ -310,8 +310,8 @@ window.Shardlands = { MODEL, addModel: (id, def) => { MODEL[id] = def; }, human,
 // ---------- dynamic world bits + loot ----------
 const ICOL = {}; const itemCol = k => ICOL[k] || (ICOL[k] = hex((I && I.items[k] && I.items[k].color) || '#cccccc'));
 const itemColCss = k => (I && I.items[k] && I.items[k].color) || '#cccccc';
-const NPCE = { merchant: { rx: 0, ry: 0, yaw: 0, x: 0, y: 0, ph: 0, mv: 0, atkT: -9999, flash: 0, id: 3 }, smith: { rx: 0, ry: 0, yaw: -2.2, x: 0, y: 0, ph: 0, mv: 0, atkT: -9999, flash: 0, id: 4 } };
-const NPCNAME = { merchant: '🏪 Merchant', smith: '⚒ Blacksmith' };
+const NPCE = { merchant: { rx: 0, ry: 0, yaw: 0, x: 0, y: 0, ph: 0, mv: 0, atkT: -9999, flash: 0, id: 3 }, smith: { rx: 0, ry: 0, yaw: -2.2, x: 0, y: 0, ph: 0, mv: 0, atkT: -9999, flash: 0, id: 4 }, mystic: { rx: 0, ry: 0, yaw: -.6, x: 0, y: 0, ph: 0, mv: 0, atkT: -9999, flash: 0, id: 5 } };
+const NPCNAME = { merchant: '🏪 Merchant', smith: '⚒ Blacksmith', mystic: '🔮 Soul Mystic' };
 let pendingNpc = null, nearNpcK = null;
 const npcDist = k => { const n = WORLD.npcs[k]; return Math.hypot(S.rx - n.x, S.ry - n.y); };
 function drawWorld(now) {
@@ -327,12 +327,15 @@ function drawWorld(now) {
     if (Math.hypot(cam.x - sN.x, cam.z - sN.y) < 700) burst(anvil.x, 14, anvil.z, 7, [1, .75, .3], 120, .5, 1.2, 1);
   }, 260); }
   if (!drawChar(sm, 'Monk', { h: 68, tint: [1, .92, .85] }, now)) human(sm, { sc: 1.08, kind: 'smith', body: hex('#7a5a3a'), leg: hex('#3a2e24'), skin: hex('#d9a27a'), arm: hex('#d9a27a'), wide: 11, pad: 0 });
+  { const yN = WORLD.npcs.mystic, my = NPCE.mystic; if (yN) { my.rx = yN.x; my.ry = yN.y; my.x = yN.x; my.y = yN.y; my.ph = now / 400; if (!drawChar(my, 'Wizard', { h: 66, tint: [.62, .45, .95], emc: [.06, .02, .12] }, now)) human(my, { sc: 1.05, kind: 'merchant', body: hex('#5a3a8a'), leg: hex('#2a1e3a'), skin: hex('#d9b08a'), arm: hex('#5a3a8a'), wide: 10, pad: 0 }); if (Math.random() < .25) burst(yN.x + Math.sin(now / 300) * 14, 40 + Math.cos(now / 200) * 8, yN.y + Math.cos(now / 300) * 14, 1, [.6, .35, 1], 30, 1, 1.2, .8, -40);
+    if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc3', esc(text('npc.mystic', NPCNAME.mystic)) + (nearNpcK === 'mystic' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', yN.x, 98, yN.y, 0, 150); } }
   if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc', esc(text('npc.merchant', NPCNAME.merchant)) + (nearNpcK === 'merchant' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', mN.x, 98, mN.y + 11, 0, 150);
   if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc2', esc(text('npc.smith', NPCNAME.smith)) + (nearNpcK === 'smith' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', sN.x, 98, sN.y, 0, 150);
 }
 function drawLoot(L, now) {
   const b = Math.sin(now / 260 + L.id) * 2.5, rot = now / 700 + L.id, x = L.x, z = L.y;
-  if (L.k === 'gold') { D(M.cyl, x, 1, z, 7, 2.2, 7, 0, 0, [1, .82, .2], .5); D(M.cyl, x + 5, 3.4, z + 3, 6, 2.2, 6, rot, 0, [1, .85, .25], .5); D(M.cyl, x - 4, 1, z + 5, 6, 2.2, 6, 0, 0, [.95, .75, .15], .5); }
+  if (L.k === 'souls') { const fl = Math.sin(now / 160 + L.id) * 1.5; D(M.ball, x, 12 + b + fl, z, 7, 9, 7, rot, 0, [.55, .25, 1], 1, .85); D(M.ball, x, 13 + b + fl, z, 4, 5.5, 4, 0, 0, [.85, .7, 1], 1); if (Math.random() < .2) burst(x, 14 + b, z, 1, [.6, .35, 1], 40, .9, 1.4, 1, -60); }
+  else if (L.k === 'gold') { D(M.cyl, x, 1, z, 7, 2.2, 7, 0, 0, [1, .82, .2], .5); D(M.cyl, x + 5, 3.4, z + 3, 6, 2.2, 6, rot, 0, [1, .85, .25], .5); D(M.cyl, x - 4, 1, z + 5, 6, 2.2, 6, 0, 0, [.95, .75, .15], .5); }
   else if (L.k === 'item') { const c = itemCol(L.i); D(M.ball, x, b * .4 + 8, z, 5.4, 6.4, 5.4, rot, 0, c, .5); D(M.cyl, x, b * .4 + 13, z, 2.2, 4, 2.2, 0, 0, [.9, .9, .92]); D(M.cyl, x, b * .4 + 17, z, 2.6, 2, 2.6, 0, 0, [.55, .38, .2]); }
   else {
     const c = RCV[L.r], e = .35 + L.r * .13, y = 12 + b;
@@ -360,7 +363,7 @@ function burst(x, y, z, n, col, spd, life, size, emis, grav) {
 }
 const FXC = { blade: [1, 1, 1], archer: [.5, 1, .5], mage: [.7, .5, 1], heal: [.4, 1, .6], lvl: [1, .9, .3], rage: [1, .3, .2], buff: [.5, .8, 1] };
 window.Shardlands.FXC = FXC;
-const FLOATER_STYLE = { dmg: 'damage', hurt: 'hurt', gold: 'gold', xp: 'xp', heal: 'heal', mana: 'mana', lvl: 'level', loot: 'loot' };
+const FLOATER_STYLE = { dmg: 'damage', hurt: 'hurt', gold: 'gold', xp: 'xp', heal: 'heal', mana: 'mana', lvl: 'level', loot: 'loot', souls: 'loot' };
 function onEvent(f) {
   const now = performance.now(), E = f.a && (I && f.a === I.id ? S : ents.get(f.a));
   if (f.k === 'warn') { fxWarn(f); if (E) { E.atkT = now + 500; E.skill = true; } return; }
@@ -376,6 +379,7 @@ function onEvent(f) {
   if (f.k === 'dmg') { burst(f.x, 24, f.y, f.c ? 12 : 5, f.c ? [1, .8, .2] : [1, 1, .9], f.c ? 190 : 110, .45, 1.7, .9); sfx(f.c ? 'crit' : 'hit', f.x, f.y); }
   if (f.k === 'gold') { burst(f.x, 20, f.y, 8, [1, .85, .2], 150, .7, 1.8, .9); sfx('coin', f.x, f.y); }
   if (f.k === 'loot') { burst(f.x, 20, f.y, 10 + (f.r || 0) * 5, RCV[f.r || 0], 160, .8, 1.7, .9); sfx('loot', f.x, f.y, f.r || 0); }
+  if (f.k === 'souls') { burst(f.x, 20, f.y, 14, [.6, .35, 1], 140, .9, 1.8, 1, -80); sfx('heal', f.x, f.y); }
   if (f.k === 'heal' || f.k === 'mana') sfx('heal', f.x, f.y);
   if (I && f.pickupBy === I.id) log('*', f.text || f.v, 'loot');
   if (I && f.combatPlayerId === I.id) logCombatEvent(f);
@@ -384,11 +388,11 @@ function onEvent(f) {
   const isDamage = f.k === 'dmg' || f.k === 'hurt';
   const el = document.createElement('div');
   el.className = 'ft';
-  GameText.present(el, { message: f.text || f.v, style, color: f.k === 'loot' ? RC_CSS[f.r || 0] : undefined });
+  GameText.present(el, { message: f.text || f.v, style, color: f.k === 'loot' ? RC_CSS[f.r || 0] : f.k === 'souls' ? '#c9a0ff' : undefined });
   $('floaters').appendChild(el);
   floaters.push({
     el, isDamage, x: f.x + (isDamage ? (Math.random() - .5) * 24 : 0), z: f.y,
-    h: isDamage ? 38 : 56, t0: now, life: f.k === 'loot' || f.k === 'lvl' ? 1600 : 950,
+    h: isDamage ? 38 : 56, t0: now, life: f.k === 'loot' || f.k === 'lvl' || f.k === 'souls' ? 1600 : 950,
   });
 }
 
@@ -437,7 +441,7 @@ function onMsg(m) {
     I = m; ZT = m.world.tiers; WORLD.npcs = m.world.npcs; WORLD.npcRange = m.world.npcRange; S.id = m.id; cam.dist = 440; cam.pitch = 0.82; cam.yaw = 0; $('login').style.display = 'none'; if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); $('hud').style.display = 'block';
     hudInit(); log('*', m.resumed ? text("login.welcomeBack", "Welcome back, ") + m.name + '!' : text("login.welcome", "Welcome, ") + m.name + text("login.welcomeHint", "! Loot drops on the ground - walk over it. Talk to the Merchant and the Blacksmith in the village (click them or press F)."));
   } else if (m.t === 'inv') onInv(m);
-  else if (m.t === 'toast') toast(m.text || m.m, m.c); else if (m.t === 'forge') onForge(m);
+  else if (m.t === 'toast') toast(m.text || m.m, m.c); else if (m.t === 'forge') onForge(m); else if (m.t === 'reroll') onReroll(m);
   else if (m.t === 'chat') log(m.n, m.text || m.m, m.channel); else if (m.t === 'msg') log('*', m.text || m.m);
   else if (m.t === 's') {
     if (!me) { S.rx = m.me.x; S.ry = m.me.y; cam.x = m.me.x; cam.z = m.me.y; } serverTm = m.tm; me = m.me; pl = m.pl; lo = m.lo;
@@ -629,8 +633,8 @@ function frame(now) {
     if (now - zoneCheck > 400) { zoneCheck = now; const z = zoneOf(S.rx, S.ry); if (z !== lastZone) { if (lastZone !== -9) banner(zoneName(z < 0 ? 'Dawnhearth' : ZT[z].name), z < 0 ? text("zone.safe", "Safe zone") : text("zone.levels", "Levels ") + ZT[z].lv[0] + ' - ' + ZT[z].lv[1] + (ZT[z].outer ? text("zone.danger", " · enter at your own risk") : ''), z >= 0 && ZT[z].outer); lastZone = z; } }
     nearNpcK = null; let nd = WORLD.npcRange - 30; for (const k in WORLD.npcs) { const d = npcDist(k); if (d < nd) { nd = d; nearNpcK = k; } }
     if (pendingNpc && npcDist(pendingNpc) < WORLD.npcRange - 40) { openNpc(pendingNpc); pendingNpc = null; }
-    if (isOpen('shopw') && npcDist('merchant') > WORLD.npcRange + 60) closeWin('shopw'); if (isOpen('smithw') && npcDist('smith') > WORLD.npcRange + 60) closeWin('smithw');
-    const pr = nearNpcK && !isOpen(nearNpcK === 'merchant' ? 'shopw' : 'smithw') ? '<b>' + esc(keyName(BINDS.talk)) + '</b>' + esc(text(nearNpcK === 'merchant' ? 'prompt.merchant' : 'prompt.smith', nearNpcK === 'merchant' ? 'Talk to the Merchant' : 'Talk to the Blacksmith')) : '';
+    for (const k in NPCWIN) if (WORLD.npcs[k] && isOpen(NPCWIN[k]) && npcDist(k) > WORLD.npcRange + 60) closeWin(NPCWIN[k]);
+    const pr = nearNpcK && !isOpen(NPCWIN[nearNpcK]) ? '<b>' + esc(keyName(BINDS.talk)) + '</b>' + esc(text('prompt.' + nearNpcK, { merchant: 'Talk to the Merchant', smith: 'Talk to the Blacksmith', mystic: 'Talk to the Soul Mystic' }[nearNpcK])) : '';
     if (pr !== _hc.prompt) { _hc.prompt = pr; $('prompt').innerHTML = pr; $('prompt').style.display = pr ? 'block' : 'none'; }
   }
   for (const [k, L] of labels) if (!L.used) { L.el.remove(); labels.delete(k); }

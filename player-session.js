@@ -29,7 +29,7 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     const classId = savedPlayer ? savedPlayer.cls : (typeof message.cls === 'string' && Object.hasOwn(CLASSES, message.cls) ? message.cls : 'blade');
     const level = savedPlayer ? savedPlayer.lvl : 1;
     const startingInventory = Object.assign(Object.fromEntries(Object.keys(ITEMS).map(k => [k, 0])), savedPlayer ? (savedPlayer.inv || { hp: savedPlayer.pots || 0 }) : { hp: 3, mp: 1 });
-    const player = { id: allocateId(), c: connection, name: savedPlayer ? savedPlayer.name : name, cls: classId, lvl: level, xp: savedPlayer ? savedPlayer.xp : 0, gold: savedPlayer ? (Number.isFinite(savedPlayer.gold) ? savedPlayer.gold : 0) : 100, w: 0, inv: startingInventory, bag: (savedPlayer && Array.isArray(savedPlayer.bag) ? savedPlayer.bag.filter(it => it && typeof it === 'object').map(sanitize) : []), eq: Object.assign({ weapon: null, helm: null, armor: null, boots: null, ring: null, amulet: null }, savedPlayer && savedPlayer.eq),
+    const player = { id: allocateId(), c: connection, name: savedPlayer ? savedPlayer.name : name, cls: classId, lvl: level, xp: savedPlayer ? savedPlayer.xp : 0, gold: savedPlayer ? (Number.isFinite(savedPlayer.gold) ? savedPlayer.gold : 0) : 100, souls: savedPlayer && Number.isFinite(savedPlayer.souls) ? savedPlayer.souls : 0, w: 0, inv: startingInventory, bag: (savedPlayer && Array.isArray(savedPlayer.bag) ? savedPlayer.bag.filter(it => it && typeof it === 'object').map(sanitize) : []), eq: Object.assign({ weapon: null, helm: null, armor: null, boots: null, ring: null, amulet: null }, savedPlayer && savedPlayer.eq),
       sk: Object.assign(newSk(), savedPlayer && savedPlayer.sk), sp: savedPlayer ? (savedPlayer.sp !== undefined ? savedPlayer.sp : level) : 1, buf: { atk: 0, def: 0, spd: 0, xp: 0, rage: 0 }, potCd: 0, g: {},
       ph: savedPlayer ? (savedPlayer.ph || passwordHash) : passwordHash, data: (savedPlayer && savedPlayer.data) || {},
       x: CX + rnd(-50, 50), y: CY + rnd(30, 95), dir: { x: 0, y: 0 }, dest: null, target: 0, chasingTarget: false, cd: 0, cd1: 0, cd2: 0, cd3: 0, dead: 0 };
@@ -102,6 +102,7 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     unequip: (player, message) => inventory.unequipItem(player, message.slot),
     merge: (player, message) => inventory.doMerge(player, message.uids),
     automerge: (player, message) => inventory.autoMerge(player, message.max),
+    reroll: (player, message) => inventory.rerollItem(player, String(message.uid || '')),
     sell: (player, message) => inventory.sellItem(player, message.uid),
     sellall: (player, message) => inventory.sellByRarity(player, message.rar),
     buy: (player, message) => inventory.buyItem(player, message.i, message.n),

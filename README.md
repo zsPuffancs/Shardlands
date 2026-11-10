@@ -13,7 +13,7 @@ Console commands are defined in `server-console.js`. Give each `Command` a name,
 
 ## What's new in v0.5
 - Real 3D models: Quaternius CC0 characters (animated heroes, NPCs, bandits, goblins, orcs, void knights) and nature packs (forests, farms, rocks, flowers per zone).
-- Map is twice as wide (10600 x 10600). Every zone has more room, 10-16 Spirit Stones and 5-30 Alphas.
+- Map is twice as wide (10600 x 10600). Every zone has more room, 10-30 Spirit Stones (more in the harder zones) and 5-30 Alphas.
 - Harder and slower: monsters have more HP and hit harder, the XP curve is steeper.
 - Spirit Stones are a real fight: waves of guardians (plus Alpha guardians) as they crack, a shockwave you have to dodge, 4-7 rare+ items, potions, 2x XP and extra gold.
 - Bosses have signature attacks with their own telegraphs: charge (red lane), fire/frost/void breath (red cone), meteor rain (red circles), summon portal, ground slam.
@@ -47,11 +47,17 @@ Console commands are defined in `server-console.js`. Give each `Command` a name,
 ## Village NPCs (click them or press F when close)
 - **Merchant** - potions, elixirs, scrolls (incl. Skill Reset). Buys your gear (Shift/right-click a bag item, or "Sell junk").
 - **Blacksmith** - upgrades the equipment you are wearing +0 to +9. Each + adds 10% to the item's stats (weapons +15% damage). From +5 a failure drops it one level.
+- **Soul Mystic** - rerolls every stat of a worn or bag item for souls (1 common/uncommon, 2 rare, 3 epic, 5 legendary, 10 mythic). Name, colour, item level and + upgrades stay.
 
 ## Gear & merging
-6 slots, 5 colours (common, uncommon, rare, epic, legendary). Helmets, armor and boots never roll damage or crit.
-**Merge**: Inventory → Merge → pick any 3 items of the same colour (any slot, any level) → you get 1 item of the next colour
-at your level ±20% (slot of the first item, best +forge kept). Auto-merge buttons do it for all greens or all blues.
+6 slots, 6 colours (common, uncommon, rare, epic, legendary, **mythic**). Helmets, armor and boots never roll damage or crit.
+**Mythic** items (red) are only made by merging. Besides stats they add 2-3 passive skill ranks (+1 to +3 each, up to 5 above the normal cap) while worn.
+**Merge**: Inventory → Merge → pick items of the same colour (any slot, any level) → you get 1 item of the next colour
+at your level ±20% (slot of the first item, best +forge kept). It takes 2 common → uncommon, 3 uncommon → rare, 4 rare → epic,
+5 epic → legendary, 15 legendary → mythic. Mythics can't be merged. Auto-merge buttons go up to green, blue, purple or orange.
+
+## Souls
+Spirit Stones, Alphas and bosses drop 1-5 souls each (purple orb). Souls show next to your gold and are spent at the Soul Mystic.
 
 ## Skills
 1 point per level. Active skills (keys 1-3) go to rank 5, passives to rank 10. Open with K and switch tabs.
@@ -68,7 +74,7 @@ Windows can be dragged by their title bar.
 
 ## Admin commands
 Create the hero with a password before adding its name to `admins` in `config.json`. For an existing passwordless hero, remove its name from `admins` while setting the password on a trusted local server, then restore the admin entry.
-/give /gear /drop /gold /level /heal /tp /zone <0-6> /spawn /god /stats /rate /xprate /droprate /announce /kick /players
+/give /gear /drop /gold /souls /level /heal /tp /zone <0-6> /spawn /god /stats /rate /xprate /droprate /announce /kick /players
 `/spawn <type> [count] [level]` spawns a temporary monster. For example, `/spawn wolf 3 5` creates three level-5 wolves from the same template.
 
 `/stats` shows monster count and server tick time - handy while stress testing the Death Zone. `/god` makes you immune.

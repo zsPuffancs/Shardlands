@@ -3,7 +3,13 @@
 const { rnd, rint, pick } = require('./game-world');
 
 const SLOTS = ['weapon', 'helm', 'armor', 'boots', 'ring', 'amulet'], NO_DMG = { helm: 1, armor: 1, boots: 1 };
-const RARITY = [{ n: 'Common', m: 1, x: 0, w: 60 }, { n: 'Uncommon', m: 1.25, x: 1, w: 25 }, { n: 'Rare', m: 1.55, x: 2, w: 11 }, { n: 'Epic', m: 1.9, x: 3, w: 3.5 }, { n: 'Legendary', m: 2.4, x: 4, w: 0.6 }];
+const RARITY = [{ n: 'Common', m: 1, x: 0, w: 60 }, { n: 'Uncommon', m: 1.25, x: 1, w: 25 }, { n: 'Rare', m: 1.55, x: 2, w: 11 }, { n: 'Epic', m: 1.9, x: 3, w: 3.5 }, { n: 'Legendary', m: 2.4, x: 4, w: 0.6 }, { n: 'Mythic', m: 3.1, x: 5, w: 0 }];
+// Mythic items also raise passive skills (ranks on top of what you learned)
+const MYTHIC = 5, PASSIVES = ['vit', 'might', 'swift', 'crit', 'critdmg', 'lifesteal', 'guard', 'haste', 'focus', 'fortune'];
+// how many items of a rarity it takes to merge into the next one (common -> uncommon ... legendary -> mythic)
+const MERGE_COST = [2, 3, 4, 5, 15];
+// souls the Soul Mystic asks to reroll an item, by rarity
+const REROLL_COST = [1, 1, 2, 3, 5, 10];
 const MATS = ['Rusty', 'Iron', 'Steel', 'Runed', 'Dragonbone', 'Voidforged', 'Starmetal', 'Celestial', 'Doomforged'];
 const BASES = { weapon: { sword: 'Sword', bow: 'Bow', staff: 'Staff' }, helm: ['Helm', 'Cap', 'Hood'], armor: ['Mail', 'Robe', 'Vest'], boots: ['Boots', 'Greaves', 'Sandals'], ring: ['Ring', 'Band', 'Signet'], amulet: ['Amulet', 'Pendant', 'Charm'] };
 const SUFFIX = ['of the Wolf', 'of Embers', 'of the Bear', 'of Storms', 'of the Fox', 'of Ruin', 'of Kings', 'of the Void', 'of Dawn', 'of Frost', 'of the Abyss'];
@@ -27,19 +33,25 @@ function createEquipment({ rates }) {
     for (let i = 0; i < weights.length; i++) { roll -= weights[i]; if (roll <= 0) { selectedRarity = i; break; } }
     return Math.max(selectedRarity, minimumRarity || 0);
   }
+  // 2-3 different passive skills, +1 to +3 ranks each
+  function rollPassives() { const pool = PASSIVES.slice(), out = {}; for (let i = rint(2, 3); i > 0; i--) out[pool.splice(rint(0, pool.length - 1), 1)[0]] = rint(1, 3); return out; }
+  // new random stats (and passive bonuses) for an existing item; keeps its name, level, rarity and upgrades
+  function rerollGear(item) { const fresh = genGear(item.slot, item.ilvl, item.rar, item.fam); item.stats = fresh.stats; if (fresh.psk) item.psk = fresh.psk; else delete item.psk; return item; }
   const roundStat = (statKey, value) => (STATDEF[statKey] && STATDEF[statKey].pct) ? Math.round(value * 10) / 10 : Math.round(value);
   function genGear(slot, itemLevel, rarity, weaponFamily) {
-    slot = SLOTS.includes(slot) ? slot : pick(SLOTS); itemLevel = Math.max(1, itemLevel | 0); rarity = rarity === undefined || rarity === null ? rollRarity(0) : Math.max(0, Math.min(4, rarity | 0));
+    slot = SLOTS.includes(slot) ? slot : pick(SLOTS); itemLevel = Math.max(1, itemLevel | 0); rarity = rarity === undefined || rarity === null ? rollRarity(0) : Math.max(0, Math.min(MYTHIC, rarity | 0));
     const rarityDefinition = RARITY[rarity], stats = {};
     for (const statKey in PRIMARY[slot]) stats[statKey] = roundStat(statKey, PRIMARY[slot][statKey](itemLevel) * rarityDefinition.m * rnd(0.9, 1.1));
     const pool = Object.keys(STATDEF).filter(statKey => !(statKey in stats) && !(NO_DMG[slot] && (statKey === 'dmg' || statKey === 'crit')));
     for (let i = 0; i < rarityDefinition.x && pool.length; i++) { const statKey = pool.splice(rint(0, pool.length - 1), 1)[0]; stats[statKey] = roundStat(statKey, STATDEF[statKey].f(itemLevel) * (0.6 + 0.4 * rarityDefinition.m) * rnd(0.85, 1.15)); }
     let base; if (slot === 'weapon') { weaponFamily = BASES.weapon[weaponFamily] ? weaponFamily : pick(Object.keys(BASES.weapon)); base = BASES.weapon[weaponFamily]; } else { base = pick(BASES[slot]); weaponFamily = undefined; }
     const name = MATS[Math.min(MATS.length - 1, Math.floor((itemLevel - 1) / 7))] + ' ' + base + (rarity >= 2 ? ' ' + pick(SUFFIX) : '');
-    return { uid: newUid(), slot, fam: weaponFamily, name, rar: rarity, ilvl: itemLevel, req: Math.max(1, itemLevel - 3), stats, plus: 0 };
+    const item = { uid: newUid(), slot, fam: weaponFamily, name, rar: rarity, ilvl: itemLevel, req: Math.max(1, itemLevel - 3), stats, plus: 0 };
+    if (rarity >= MYTHIC) item.psk = rollPassives();
+    return item;
   }
 
-  return { rollRarity, genGear };
+  return { rollRarity, genGear, rerollGear };
 }
 
-module.exports = { SLOTS, NO_DMG, RARITY, BASES, STATDEF, UP_RATE, sanitize, plusMul, sellValue, upCostFor, createEquipment };
+module.exports = { SLOTS, NO_DMG, RARITY, MYTHIC, PASSIVES, MERGE_COST, REROLL_COST, BASES, STATDEF, UP_RATE, sanitize, plusMul, sellValue, upCostFor, createEquipment };

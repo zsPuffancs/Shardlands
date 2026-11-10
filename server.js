@@ -52,7 +52,7 @@ const { spawnMob, populateMonsters, respawnMonster } = createMonsterSpawner({
   mobs, rates, world: { width: W, height: H, centerX: CX, centerY: CY }, allocateId, rnd, rint, pick,
 });
 const equipment = createEquipment({ rates });
-const inventory = createInventory({ ...notifications, genGear: equipment.genGear });
+const inventory = createInventory({ ...notifications, genGear: equipment.genGear, rerollGear: equipment.rerollGear });
 const { gainXp, learnSkill } = createProgression({ ...notifications, sendInv: inventory.sendInv });
 const lootService = createLoot({
   ...notifications, ...equipment, addGear: inventory.addGear, players, loot, rates, allocateId,

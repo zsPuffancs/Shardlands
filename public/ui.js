@@ -1,6 +1,8 @@
 // Shardlands 3D client UI: HUD, windows (inventory, skills, merchant, blacksmith, settings), tooltips, sound, toasts.
 let BAG = [], EQ = {}, GS = {}, sig = '', cdMax = [2000, 8000, 25000], mergeMode = false, mergeSel = [], smSel = null;
-const RC = ['#d8d8d8', '#4ee26a', '#4da3ff', '#b25cff', '#ff9d2e'];
+const RC = ['#d8d8d8', '#4ee26a', '#4da3ff', '#b25cff', '#ff9d2e', '#ff4560'];
+const MERGE_COST = [2, 3, 4, 5, 15], REROLL_COST = [1, 1, 2, 3, 5, 10], NPCWIN = { merchant: 'shopw', smith: 'smithw', mystic: 'mysticw' };
+let SKB = {}, SOULS = 0, mySel = null;
 const SLOTICON = { weapon: '⚔️', helm: '⛑️', armor: '🛡️', boots: '🥾', ring: '💍', amulet: '📿', sword: '⚔️', bow: '🏹', staff: '🪄' };
 const SLOTNAME = { weapon: 'Weapon', helm: 'Helm', armor: 'Armor', boots: 'Boots', ring: 'Ring', amulet: 'Amulet' };
 const STATORDER = ['dmg', 'hp', 'mp', 'def', 'crit', 'spd', 'gf', 'xpb'];
@@ -8,7 +10,7 @@ const BUFFN = { atk: '⚔ Fury', def: '🛡 Iron', spd: '💨 Swift', xp: '📖 
 const SK = ['s1', 'mend', 'frenzy', 'vit', 'might', 'swift'];
 const CLSICON = { blade: '⚔️', archer: '🏹', mage: '🔮' }, S1ICON = { blade: '🌀', archer: '🎯', mage: '✴️' };
 const ITEMICON = { hp: '❤️', hp2: '💖', mp: '💧', atk: '⚔️', def: '🛡️', spd: '💨', xp: '📖', ret: '🏠', reset: '♻️' };
-const RNAME = ['common', 'uncommon', 'rare', 'epic', 'legendary'], CONS_ICON = { hp: 1, mp: 1, hp2: 1, atk: 1, def: 1, spd: 1, xp: 1, ret: 1, reset: 1 };
+const RNAME = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'], CONS_ICON = { hp: 1, mp: 1, hp2: 1, atk: 1, def: 1, spd: 1, xp: 1, ret: 1, reset: 1 };
 const uiImg = (f, cls) => '<img class="ui-ico' + (cls ? ' ' + cls : '') + '" src="ui/icons/' + f + '.png" alt="" draggable="false">';
 const iconOf = it => uiImg('gear-' + (it.slot === 'weapon' ? ({ sword: 1, bow: 1, staff: 1 }[it.fam] ? it.fam : 'sword') : it.slot) + '-' + (RNAME[it.rar] || 'common'));
 const slotIcon = s => uiImg('slot-empty-' + s), consIcon = k => uiImg('item-' + (CONS_ICON[k] ? k : 'hp'));
@@ -210,10 +212,10 @@ function hurtFlash(strong) { const h = $('hurtfx'); if (!h.classList.contains('l
 // ---------- windows ----------
 let zTop = 20;
 const isOpen = id => $(id).style.display === 'flex';
-function openWin(id) { const w = $(id); w.style.display = 'flex'; w.style.zIndex = ++zTop; if (id === 'invp') buildInv(); if (id === 'skillp') buildSkills(); if (id === 'shopw') buildShop(); if (id === 'smithw') buildSmith(); if (id === 'setw') buildSettings(); tip.style.display = 'none'; }
+function openWin(id) { const w = $(id); w.style.display = 'flex'; w.style.zIndex = ++zTop; if (id === 'invp') buildInv(); if (id === 'skillp') buildSkills(); if (id === 'shopw') buildShop(); if (id === 'smithw') buildSmith(); if (id === 'mysticw') buildMystic(); if (id === 'setw') buildSettings(); tip.style.display = 'none'; }
 function closeWin(id) { $(id).style.display = 'none'; if (id === 'invp') { mergeMode = false; mergeSel = []; } tip.style.display = 'none'; }
 function togglePanel(id) { if (isOpen(id)) closeWin(id); else openWin(id); }
-function closeAll() { for (const id of ['invp', 'skillp', 'shopw', 'smithw', 'setw']) closeWin(id); }
+function closeAll() { for (const id of ['invp', 'skillp', 'shopw', 'smithw', 'mysticw', 'setw']) closeWin(id); }
 document.querySelectorAll('.win').forEach(w => {
   const h = w.querySelector('.win-h'); w.addEventListener('mousedown', () => { w.style.zIndex = ++zTop; });
   h.addEventListener('mousedown', e => { if (e.target.closest('button')) return; const r = w.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top;
@@ -221,13 +223,13 @@ document.querySelectorAll('.win').forEach(w => {
     const up = () => { removeEventListener('mousemove', mv); removeEventListener('mouseup', up); }; addEventListener('mousemove', mv); addEventListener('mouseup', up); e.preventDefault(); });
 });
 // NPCs: open the window that belongs to the NPC (game.js calls this when you reach them)
-function openNpc(k) { closeWin(k === 'merchant' ? 'smithw' : 'shopw'); openWin(k === 'merchant' ? 'shopw' : 'smithw'); if (!isOpen('invp')) openWin('invp'); sfx('click'); }
+function openNpc(k) { for (const n in NPCWIN) if (n !== k) closeWin(NPCWIN[n]); openWin(NPCWIN[k] || 'shopw'); if (!isOpen('invp')) openWin('invp'); sfx('click'); }
 
 // ---------- inventory ----------
 function slotHtml(it, attrs, extra) {
   return '<div class="slot r' + it.rar + (extra || '') + '" ' + attrs + '>' + iconOf(it) + '<sup>' + it.ilvl + '</sup>' + (it.plus ? '<sub>+' + it.plus + '</sub>' : '') + '</div>';
 }
-function onInv(m) { BAG = m.bag; EQ = m.eq; GS = m.gs; mergeSel = mergeSel.filter(u => BAG.some(i => i.uid === u)); if (isOpen('invp')) buildInv(); if (isOpen('smithw')) buildSmith(); }
+function onInv(m) { BAG = m.bag; EQ = m.eq; GS = m.gs; SKB = m.skb || {}; SOULS = m.souls || 0; mergeSel = mergeSel.filter(u => BAG.some(i => i.uid === u)); if (isOpen('invp')) buildInv(); if (isOpen('smithw')) buildSmith(); if (isOpen('mysticw')) buildMystic(); if (isOpen('skillp')) buildSkills(); }
 let bagPage = 0;
 
 function renderBagPage() {
@@ -277,9 +279,9 @@ function buildInv() {
   renderBagPage();
   $('bagc').textContent = BAG.length + ' / ' + I.bagMax; $('bagfull').textContent = BAG.length >= I.bagMax ? text("inventory.full", "Bag full - merge or sell items.") : '';
   $('mergeBtn').classList.toggle('on', mergeMode); $('mergebar').style.display = mergeMode ? 'flex' : 'none';
-  if (mergeMode) { const it = mergeSel.map(u => BAG.find(i => i.uid === u)).filter(Boolean), r = it.length ? it[0].rar : -1, lo = Math.max(1, Math.round(me.l * .8)), hi = Math.round(me.l * 1.2);
-    $('mergeinfo').innerHTML = !it.length ? esc(text("inventory.mergePrompt", "Pick 3 bag items of the same colour (any slot, any level).")) : it.length + '/3 <b style="color:' + RC[r] + '">' + esc(text('rarity.' + (r), I.rarity[r])) + '</b> → <b style="color:' + RC[Math.min(4, r + 1)] + '">' + esc(text('rarity.' + (Math.min(4, r + 1)), I.rarity[Math.min(4, r + 1)])) + ' ' + esc(text('slot.' + it[0].slot, SLOTNAME[it[0].slot])) + '</b> · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + lo + '-' + hi;
-    $('mergeGo').disabled = it.length !== 3; }
+  if (mergeMode) { const it = mergeSel.map(u => BAG.find(i => i.uid === u)).filter(Boolean), r = it.length ? it[0].rar : -1, need = MERGE_COST[r] || 0, lo = Math.max(1, Math.round(me.l * .8)), hi = Math.round(me.l * 1.2);
+    $('mergeinfo').innerHTML = !it.length ? esc(text("inventory.mergePromptCounts", "Pick items of one colour: 2 Common, 3 Uncommon, 4 Rare, 5 Epic or 15 Legendary make 1 item of the next colour.")) : it.length + '/' + need + ' <b style="color:' + RC[r] + '">' + esc(text('rarity.' + (r), I.rarity[r])) + '</b> → <b style="color:' + RC[r + 1] + '">' + esc(text('rarity.' + (r + 1), I.rarity[r + 1])) + ' ' + esc(text('slot.' + it[0].slot, SLOTNAME[it[0].slot])) + '</b> · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + lo + '-' + hi;
+    $('mergeGo').disabled = !need || it.length !== need; }
   const list = Object.keys(I.items).filter(k => me.inv[k] > 0);
   $('inl').innerHTML = list.length ? list.map(k => '<div class="chip" data-use="' + k + '" data-tip="cons:' + k + '">' + consIcon(k) + esc(itemName(k, I.items[k].n)) + ' ×' + me.inv[k] + '</div>').join('') : '<span class="mu" style="font-size:0.75rem">' + esc(text("inventory.noConsumables", "Nothing yet. Monsters drop potions and scrolls.")) + '</span>';
 }
@@ -288,6 +290,7 @@ function tipItem(it, cmp, plusOverride) {
   let h = '<b class="nm" style="color:' + RC[it.rar] + '">' + esc(gearName(it.name)) + (pl ? ' +' + pl : '') + '</b><div class="mu">' + esc(text('rarity.' + (it.rar), I.rarity[it.rar])) + ' ' + (it.slot === 'weapon' ? esc(text('weapon.' + it.fam, { sword: 'Sword', bow: 'Bow', staff: 'Staff' }[it.fam] || 'Weapon')) : esc(text('slot.' + it.slot, SLOTNAME[it.slot]))) + ' · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + it.ilvl + '</div><div style="margin:5px 0">';
   for (const k of STATORDER) if (k in it.stats) { const v = eff(it, k, pl); let d = ''; if (cmp && cmp.uid !== it.uid) { const df = v - (k in cmp.stats ? eff(cmp, k) : 0); if (Math.abs(df) > 0.049) d = '<span class="' + (df > 0 ? 'up' : 'dn') + '">' + (df > 0 ? '▲' : '▼') + fmtS(k, Math.abs(df)) + '</span>'; } h += '<div class="ln"><span>+' + fmtS(k, v) + ' ' + esc(text('stat.' + k, I.stat[k].n)) + '</span>' + d + '</div>'; }
   if (cmp && cmp.uid !== it.uid) for (const k of STATORDER) if (k in cmp.stats && !(k in it.stats)) h += '<div class="ln dn"><span>-' + fmtS(k, eff(cmp, k)) + ' ' + esc(text('stat.' + k, I.stat[k].n)) + '</span><span>▼</span></div>';
+  if (it.psk) h += '<div class="ln" style="color:#ff8a9a;margin-top:2px"><span>' + esc(text('inventory.mythicPassives', 'Mythic: passive skill ranks')) + '</span></div>' + Object.keys(it.psk).map(k => '<div class="ln" style="color:#ff6a80"><span>+' + it.psk[k] + ' ' + esc(text('passive.' + k, PAS[k] ? PAS[k][0] : k)) + '</span></div>').join('');
   h += '</div><div class="' + (me.l < it.req ? 'dn' : 'mu') + '">' + esc(text('inventory.requiresLevel', 'Requires level {level}', { level: it.req })) + '</div>';
   if (isOpen('shopw')) h += '<div class="mu">' + esc(text('shop.sellPrice', 'Merchant pays {gold}g', { gold: sellValue(it) })) + '</div>';
   return h;
@@ -298,7 +301,7 @@ document.addEventListener('mouseover', e => {
   const [kind, id] = el.dataset.tip.split(':'); let h = '';
   if (kind === 'bag') { const it = BAG.find(x => x.uid === id); if (it) h = tipItem(it, EQ[it.slot]) + '<div class="mu" style="margin-top:4px">' + (mergeMode ? text("inventory.selectForMerge", "Click: select for merging") : text("inventory.clickEquip", "Click: equip") + (isOpen('shopw') ? text("inventory.shiftSell", " · Shift/right-click: sell") : '')) + '</div>'; }
   else if (kind === 'eq') { const it = EQ[id]; if (it) h = tipItem(it) + '<div class="mu" style="margin-top:4px">' + esc(text("inventory.clickUnequip", "Click: unequip")) + '</div>'; }
-  else if (kind === 'sm') { const it = findItem(id); if (it) h = tipItem(it); }
+  else if (kind === 'sm' || kind === 'my') { const it = findItem(id); if (it) h = tipItem(it); }
   else if (kind === 'cons') { const it = I.items[id]; h = '<b class="nm" style="color:' + (it.color || '#fff') + '">' + esc(itemName(id, it.n)) + '</b><div>' + esc(itemDescription(id, it.d)) + '</div><div class="mu">' + esc(text('shop.buyPrice', 'Merchant price {gold}g', { gold: it.price })) + '</div>'; }
   if (!h) { tip.style.display = 'none'; return; } tip.innerHTML = h; tip.style.display = 'block';
 });
@@ -306,7 +309,7 @@ document.addEventListener('mousemove', e => { if (tip.style.display === 'block')
 document.addEventListener('mouseout', e => { if (!e.relatedTarget || !e.relatedTarget.closest || !e.relatedTarget.closest('[data-tip]')) tip.style.display = 'none'; });
 const findItem = uid => BAG.find(i => i.uid === uid) || Object.values(EQ).find(i => i && i.uid === uid);
 document.addEventListener('click', e => {
-  const t = e.target.closest('button,[data-bag],[data-eq],[data-use],[data-sm]'); if (!t) return; sfx('click');
+  const t = e.target.closest('button,[data-bag],[data-eq],[data-use],[data-sm],[data-my]'); if (!t) return; sfx('click');
   if (t.dataset.close !== undefined) { closeWin(t.closest('.win').id); return; }
   if (t.dataset.open) { togglePanel(t.dataset.open); return; }
   if (t.dataset.bagPage !== undefined) {
@@ -317,12 +320,15 @@ document.addEventListener('click', e => {
   }
   if (t.dataset.sm) { smSel = t.dataset.sm; buildSmith(); return; }
   if (t.dataset.bag && mergeMode) { const id = t.dataset.bag, it = BAG.find(i => i.uid === id), k = mergeSel.indexOf(id); if (!it) return;
-    if (k >= 0) mergeSel.splice(k, 1); else { const f = BAG.find(i => i.uid === mergeSel[0]); if (f && f.rar !== it.rar) mergeSel = []; if (mergeSel.length < 3) mergeSel.push(id); } buildInv(); return; }
+    if (k >= 0) mergeSel.splice(k, 1); else if (it.rar < MERGE_COST.length) { const f = BAG.find(i => i.uid === mergeSel[0]); if (f && f.rar !== it.rar) mergeSel = []; if (mergeSel.length < MERGE_COST[it.rar]) mergeSel.push(id); } else toast(text('inventory.mythicNoMerge', 'Mythic items cannot be merged.'), '#ff4560'); buildInv(); return; }
   if (t.id === 'mergeBtn') { mergeMode = !mergeMode; mergeSel = []; buildInv(); return; }
-  if (t.id === 'mergeGo') { if (mergeSel.length === 3) { send({ t: 'merge', uids: mergeSel }); mergeSel = []; sfx('equip'); } return; }
+  if (t.id === 'mergeGo') { const f = BAG.find(i => i.uid === mergeSel[0]); if (f && mergeSel.length === MERGE_COST[f.rar]) { send({ t: 'merge', uids: mergeSel }); mergeSel = []; sfx('equip'); } return; }
   if (t.id === 'autoMerge') { send({ t: 'automerge', max: 1 }); return; }
   if (t.id === 'autoMerge2') { send({ t: 'automerge', max: 2 }); return; }
   if (t.id === 'autoMerge3') { send({ t: 'automerge', max: 3 }); return; }
+  if (t.id === 'autoMerge4') { send({ t: 'automerge', max: 4 }); return; }
+  if (t.dataset.my) { mySel = t.dataset.my; buildMystic(); return; }
+  if (t.id === 'mygo') { if (mySel) { send({ t: 'reroll', uid: mySel }); $('myres').textContent = '…'; $('myres').style.color = '#ccc'; } return; }
   if (t.id === 'junk') { send({ t: 'sellall', rar: 1 }); sfx('sell'); return; }
   if (t.id === 'junk2') { send({ t: 'sellall', rar: 2 }); sfx('sell'); return; }
   if (t.id === 'smgo') { if (smSel) { send({ t: 'upgrade', uid: smSel }); $('smres').textContent = '…'; $('smres').style.color = '#ccc'; sfx('click'); } return; }
@@ -355,6 +361,19 @@ function buildSmith() {
     (it.plus >= 5 ? '<div class="dn" style="margin-top:4px">' + esc(text('smith.failureLevel', '⚠ Failure drops the item to +{level}', { level: it.plus - 1 })) + '</div>' : '<div class="mu" style="margin-top:4px">' + esc(text("smith.goldOnly", "Failure only costs gold.")) + '</div>') + '</div>';
   $('smgo').disabled = me.g < c; $('smgo').textContent = text("smith.upgradeFor", "Upgrade for {cost}g", { cost: GameText.number(c) });
 }
+function buildMystic() {
+  if (!I || !me) return;
+  const worn = I.slots.map(s => EQ[s]).filter(Boolean), all = worn.concat(BAG);
+  if (mySel && !findItem(mySel)) mySel = null; if (!mySel && worn.length) mySel = worn[0].uid;
+  $('mysouls').innerHTML = uiImg('item-souls', 'soulico') + ' ' + GameText.number(SOULS);
+  $('mypick').innerHTML = all.map(it => slotHtml(it, 'data-my="' + it.uid + '" data-tip="my:' + it.uid + '"', mySel === it.uid ? ' pick' : '')).join('');
+  const it = mySel && findItem(mySel);
+  if (!it) { $('mycard').innerHTML = '<div class="mu">' + esc(text('mystic.noItem', 'Pick an item.')) + '</div>'; $('mygo').disabled = true; return; }
+  const c = REROLL_COST[it.rar] || 1;
+  $('mycard').innerHTML = '<div class="itemcard">' + tipItem(it) + '<div class="ln" style="margin-top:6px"><span>' + esc(text('mystic.cost', 'Cost')) + '</span><b style="color:' + (SOULS >= c ? '#c9a0ff' : '#ff7a6a') + '">' + c + ' ' + esc(text('mystic.souls', 'souls')) + '</b></div><div class="mu" style="margin-top:4px">' + esc(text('mystic.keeps', 'Keeps the name, rarity, item level and + upgrades. All stats are rolled again.')) + '</div></div>';
+  $('mygo').disabled = SOULS < c; $('mygo').textContent = text('mystic.rerollFor', 'Reroll for {cost} souls', { cost: c });
+}
+function onReroll() { const r = $('myres'); r.textContent = text('mystic.done', '✦ The souls reshape the item.'); r.style.color = '#c9a0ff'; sfx('lvl'); }
 function onForge(m) {
   const r = $('smres'); r.textContent = m.ok ? text("smith.success", "✔ Success! Now +{level}", { level: m.plus }) : (m.drop ? text("smith.dropped", "✖ Failed - dropped to +{level}", { level: m.plus }) : text("smith.failed", "✖ Failed")); r.style.color = m.ok ? '#6fe39a' : '#ff7a6a';
   sfx(m.ok ? 'lvl' : 'fail'); if (m.ok && m.plus >= 7) toast(text("smith.forged", "Forged +{level}!", { level: m.plus }), '#ffd24a');
@@ -377,7 +396,7 @@ function skillInfo(k) {
     case 'frenzy': return [text('class.' + I.cls + '.s3', c.s3), '3', skillIcon('frenzy'),
       text('skill.rageDescription', '+{damage}% damage & faster attacks for {seconds}s · 30 MP', { damage: Math.round(20 + 5 * n), seconds: 6 + 2 * n })];
   }
-  const p = PAS[k]; return [text('passive.' + k, p[0]), '', skillIcon(k), (r ? '+' + Math.round(p[3] * r * 10) / 10 + '% ' + text('passive.' + k + '.effect', p[2]) + ' · ' : '') + text('skill.nextRank', 'next rank +{bonus}%', { bonus: p[3] })];
+  const p = PAS[k], gb = SKB[k] || 0, re = Math.min((I.pMax || 10) + 5, r + gb); return [text('passive.' + k, p[0]) + (gb ? ' (+' + gb + ' ' + text('skill.fromGear', 'from gear') + ')' : ''), '', skillIcon(k), (re ? '+' + Math.round(p[3] * re * 10) / 10 + '% ' + text('passive.' + k + '.effect', p[2]) + ' · ' : '') + text('skill.nextRank', 'next rank +{bonus}%', { bonus: p[3] })];
 }
 function buildSkills() {
   if (!I || !me) return; $('spn').textContent = me.sp ? text("skill.points", "★ Points: {count}", { count: me.sp }) : text("skill.noPoints", "no points"); $('spn').style.color = me.sp ? '#ffe97a' : '';
@@ -451,7 +470,7 @@ function hudInit() {
 function hud() {
   setT('plvl', me.l); setBar('hp', me.hp, me.mh, me.hp + ' / ' + me.mh); setBar('mp', me.mp, me.mm, me.mp + ' / ' + me.mm);
   setBar('xpbar', me.xp, me.xn, text("zone.levelShort", "Lv ") + me.l + ' · ' + Math.floor(me.xp / me.xn * 1000) / 10 + '%');
-  setT('goldl', '💰 ' + GameText.number(me.g) + '   🎒 ' + me.bag + '/' + I.bagMax); setD('sppill', me.sp > 0 ? 'block' : 'none');
+  setT('goldl', '💰 ' + GameText.number(me.g) + '   🔮 ' + GameText.number(me.so || 0) + '   🎒 ' + me.bag + '/' + I.bagMax); setD('sppill', me.sp > 0 ? 'block' : 'none');
   setH('buffs', Object.keys(me.buf).map(k => '<span class="bf">'  + esc(text('buff.' + k, BUFFN[k] || k)) + ' ' + Math.ceil(me.buf[k] / 1000) + 's</span>').join(''));
   if (!_hot) _hot = { sk: [...document.querySelectorAll('#hotbar [data-sk]')].map(el => ({ el, rk: el.querySelector('.rk'), u: el.querySelector('u') })), it: [...document.querySelectorAll('#hotbar [data-it]')].map(el => ({ el, em: el.querySelector('em'), k: el.dataset.it })) };
   _hot.sk.forEach((h, i) => { const r = me.sk[['s1', 'mend', 'frenzy'][i]], c = [me.c1, me.c2, me.c3][i]; if (c > cdMax[i]) cdMax[i] = c; const cd = Math.round(Math.min(100, c / cdMax[i] * 100)); if (h.r !== r) { h.r = r; h.el.classList.toggle('lock', r < 1); h.rk.textContent = r ? 'R' + r : ''; } if (h.cd !== cd) { h.cd = cd; h.u.style.setProperty('--p', cd); } });

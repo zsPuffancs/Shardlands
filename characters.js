@@ -2,7 +2,7 @@
 
 const { localizedText: messageText } = require('./localized-text');
 
-const { SLOTS, NO_DMG, plusMul } = require('./equipment');
+const { SLOTS, NO_DMG, PASSIVES, plusMul } = require('./equipment');
 
 const CLASSES = {
   blade:  { name: 'Blade',  desc: 'Melee tank with a sweeping whirlwind.', color: '#b9bccb', fam: 'sword', range: 40,  hp: 1.25, mp: 0.8, atk: 1.0,  s1: 'Whirlwind', s1r: 100, s1m: 1.8, s1c: 15, s1n: 99, s2: 'Second Wind',  s3: 'Battle Rage' },
@@ -26,16 +26,24 @@ const maxRank = k => ACTIVE[k] ? MAXRANK : PMAX;
 const xpNeed = l => Math.floor(55 * Math.pow(l, 1.85));
 const newSk = () => ({ s1: 1, mend: 0, frenzy: 0, vit: 0, might: 0, swift: 0, crit: 0, critdmg: 0, lifesteal: 0, guard: 0, haste: 0, focus: 0, fortune: 0 });
 
-function gearSum(player) { const g = {}; for (const slot of SLOTS) { const item = player.eq[slot]; if (item) for (const statKey in item.stats) { if (NO_DMG[slot] && (statKey === 'dmg' || statKey === 'crit')) continue; g[statKey] = (g[statKey] || 0) + item.stats[statKey] * plusMul(item, statKey); } } return g; }
+function gearSum(player) {
+  const g = {}, bonus = {};
+  for (const slot of SLOTS) { const item = player.eq[slot]; if (!item) continue; for (const statKey in item.stats) { if (NO_DMG[slot] && (statKey === 'dmg' || statKey === 'crit')) continue; g[statKey] = (g[statKey] || 0) + item.stats[statKey] * plusMul(item, statKey); }
+    if (item.psk) for (const k in item.psk) if (PASSIVES.includes(k)) bonus[k] = (bonus[k] || 0) + (item.psk[k] | 0); }
+  player.skb = bonus; return g;
+}
+// skill rank including passive ranks granted by Mythic gear
+// (gear can push a passive up to 5 ranks past the normal maximum)
+const rank = (player, k) => Math.min(PMAX + 5, (player.sk[k] || 0) + ((player.skb && player.skb[k]) || 0));
 function stats(player) {
   const characterClass = CLASSES[player.cls]; player.g = gearSum(player);
-  player.maxhp = Math.floor((100 + player.lvl * 28) * characterClass.hp * (1 + 0.05 * player.sk.vit) + (player.g.hp || 0));
-  player.maxmp = Math.floor(((40 + player.lvl * 8) * characterClass.mp + (player.g.mp || 0)) * (1 + 0.05 * player.sk.focus));
+  player.maxhp = Math.floor((100 + player.lvl * 28) * characterClass.hp * (1 + 0.05 * rank(player, 'vit')) + (player.g.hp || 0));
+  player.maxmp = Math.floor(((40 + player.lvl * 8) * characterClass.mp + (player.g.mp || 0)) * (1 + 0.05 * rank(player, 'focus')));
   player.w = player.eq.weapon ? player.eq.weapon.plus : 0;
 }
-const defRed = player => { const defense = player.g.def || 0; return 1 - (1 - defense / (defense + 100 + 8 * player.lvl)) * (1 - 0.025 * player.sk.guard); };
-const critCh = player => Math.min(0.8, 0.12 + (player.g.crit || 0) / 100 + 0.015 * player.sk.crit), critMul = player => 1.8 + 0.12 * player.sk.critdmg, goldFind = player => (player.g.gf || 0) + 6 * player.sk.fortune;
-const dmgMul = (player, now) => (1 + 0.05 * player.sk.might) * (now < player.buf.atk ? 1.3 : 1) * (now < player.buf.rage ? 1.2 + 0.05 * player.sk.frenzy : 1);
+const defRed = player => { const defense = player.g.def || 0; return 1 - (1 - defense / (defense + 100 + 8 * player.lvl)) * (1 - 0.025 * rank(player, 'guard')); };
+const critCh = player => Math.min(0.8, 0.12 + (player.g.crit || 0) / 100 + 0.015 * rank(player, 'crit')), critMul = player => 1.8 + 0.12 * rank(player, 'critdmg'), goldFind = player => (player.g.gf || 0) + 6 * rank(player, 'fortune');
+const dmgMul = (player, now) => (1 + 0.05 * rank(player, 'might')) * (now < player.buf.atk ? 1.3 : 1) * (now < player.buf.rage ? 1.2 + 0.05 * player.sk.frenzy : 1);
 const playerDmg = player => ((6 + player.lvl * 2.6) * CLASSES[player.cls].atk + (player.g.dmg || 0)) * dmgMul(player, Date.now());
 
 function createProgression({ fire, ev, say, toast, broadcast, sendInv }) {
@@ -67,4 +75,4 @@ function createProgression({ fire, ev, say, toast, broadcast, sendInv }) {
   return { gainXp, learnSkill };
 }
 
-module.exports = { CLASSES, ITEMS, SKILLS, MAXRANK, PMAX, maxRank, xpNeed, newSk, stats, defRed, critCh, critMul, goldFind, playerDmg, createProgression };
+module.exports = { rank, CLASSES, ITEMS, SKILLS, MAXRANK, PMAX, maxRank, xpNeed, newSk, stats, defRed, critCh, critMul, goldFind, playerDmg, createProgression };

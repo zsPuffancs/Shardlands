@@ -58,6 +58,8 @@ kbd { border: 4px solid transparent; border-image: url(ui/keycap.png) 12 fill / 
 .slot { border: 0 !important; border-radius: 0; box-shadow: none !important; background: url(ui/slot.png) 0 0 / 100% 100%; }
 .slot.r0 { background-image: url(ui/slot-common.png); } .slot.r1 { background-image: url(ui/slot-uncommon.png); } .slot.r2 { background-image: url(ui/slot-rare.png); }
 .slot.r3 { background-image: url(ui/slot-epic.png); } .slot.r4 { background-image: url(ui/slot-legendary.png); }
+.slot.r5 { background-image: url(ui/slot-mythic.png); }
+.soulico { width: 16px; height: 16px; vertical-align: -3px; }
 .slot.empty { opacity: 1; } .slot.empty .ui-ico { opacity: .9; width: 64%; height: 64%; }
 .slot:hover:not(.empty) { filter: none; } .slot:hover:not(.empty)::after, .sk:hover::after { content: ""; position: absolute; inset: 0; background: url(ui/slot-hover.png) 0 0 / 100% 100%; pointer-events: none; }
 .slot.sel { outline: 0; filter: brightness(1.2); } .slot.sel::before { content: ""; position: absolute; inset: -3px; border: 2px solid #ffe97a; border-radius: 9px; box-shadow: 0 0 10px #ffe97a; pointer-events: none; }
@@ -126,3 +128,4 @@ kbd { border: 4px solid transparent; border-image: url(ui/keycap.png) 12 fill / 
 .hero-level::before { left: -.58em; }
 .hero-level::after { right: -.58em; }
 #invp { width: 404px !important; } #skillp, #shopw, #smithw { width: 370px !important; }
+#mergeGo { white-space: nowrap; flex-shrink: 0; }

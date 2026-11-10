@@ -3,14 +3,15 @@
 const { localizedText: messageText, gearText, isLocalizedText } = require('./localized-text');
 
 const { NPCS, CX, CY, nearNpc, inVillage, rnd } = require('./game-world');
-const { BASES, SLOTS, RARITY, UP_RATE, upCostFor, sellValue } = require('./equipment');
-const { CLASSES, ITEMS, SKILLS, newSk, stats, defRed, critCh, critMul, goldFind, playerDmg } = require('./characters');
+const { BASES, SLOTS, RARITY, MYTHIC, MERGE_COST, REROLL_COST, UP_RATE, upCostFor, sellValue } = require('./equipment');
+const RARITY_COLOR = ['#d8d8d8', '#4ee26a', '#4da3ff', '#b25cff', '#ff9d2e', '#ff4560'];
+const { CLASSES, ITEMS, SKILLS, newSk, stats, defRed, critCh, critMul, goldFind, playerDmg, rank } = require('./characters');
 
 const BAG_PAGE_SIZE = 30;
 const BAGMAX = BAG_PAGE_SIZE * 3;
 
-function createInventory({ send, say, toast, broadcast, ev, fire, genGear }) {
-  function sendInv(player) { send(player.c, { t: 'inv', bag: player.bag, eq: player.eq, gs: Object.assign({}, player.g, { _dmg: Math.round(playerDmg(player)), _dr: Math.round(defRed(player) * 100), _hp: player.maxhp, _mp: player.maxmp, _crit: Math.round(critCh(player) * 100), _cdmg: Math.round(critMul(player) * 100), _ls: Math.round(0.8 * player.sk.lifesteal * 10) / 10, _haste: Math.round(3.5 * player.sk.haste), _gf: Math.round(goldFind(player)) }) }); }
+function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerollGear }) {
+  function sendInv(player) { send(player.c, { t: 'inv', bag: player.bag, eq: player.eq, skb: player.skb || {}, souls: player.souls || 0, gs: Object.assign({}, player.g, { _dmg: Math.round(playerDmg(player)), _dr: Math.round(defRed(player) * 100), _hp: player.maxhp, _mp: player.maxmp, _crit: Math.round(critCh(player) * 100), _cdmg: Math.round(critMul(player) * 100), _ls: Math.round(0.8 * rank(player, 'lifesteal') * 10) / 10, _haste: Math.round(3.5 * rank(player, 'haste')), _gf: Math.round(goldFind(player)) }) }); }
   function afterGearChange(player) { const previousMaxHealth = player.maxhp; stats(player); if (player.maxhp > previousMaxHealth) player.hp += player.maxhp - previousMaxHealth; player.hp = Math.min(player.hp, player.maxhp); player.mp = Math.min(player.mp, player.maxmp); sendInv(player); }
   function starterWeapon(player, plus) { const item = genGear('weapon', 1, 0, CLASSES[player.cls].fam); item.name = 'Worn ' + BASES.weapon[item.fam]; item.plus = plus || 0; return item; }
   function addGear(player, item) { if (player.bag.length >= BAGMAX) return false; player.bag.push(item); sendInv(player); return true; }
@@ -41,28 +42,31 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear }) {
 
   function mergeItems(player, items) {
     const rarity = items[0].rar, first = items[0], itemLevel = Math.max(1, Math.round(player.lvl * rnd(0.8, 1.2)));
-    const result = genGear(first.slot, itemLevel, Math.min(4, rarity + 1), first.fam); result.plus = Math.max(...items.map(i => i.plus || 0));
+    const result = genGear(first.slot, itemLevel, Math.min(MYTHIC, rarity + 1), first.fam); result.plus = Math.max(...items.map(i => i.plus || 0));
     const firstItemIndex = player.bag.indexOf(first); player.bag = player.bag.filter(i => !items.includes(i)); player.bag.splice(Math.min(firstItemIndex, player.bag.length), 0, result);
     fire('merge', player, result, items); return result;
   }
   function doMerge(player, uids) {
-    if (player.dead || !Array.isArray(uids) || uids.length !== 3 || new Set(uids).size !== 3) return;
+    if (player.dead || !Array.isArray(uids) || uids.length < 2 || uids.length > 15 || new Set(uids).size !== uids.length) return;
     const items = uids.map(u => player.bag.find(i => i.uid === u)); if (items.some(i => !i)) return;
-    if (items.some(i => i.rar !== items[0].rar)) return say(player, messageText("server.mergeRarity", "Pick 3 items of the same rarity (colour) to merge."));
+    if (items.some(i => i.rar !== items[0].rar)) return say(player, messageText("server.mergeRarity", "Pick items of the same rarity (colour) to merge."));
+    if (items[0].rar >= MYTHIC) return say(player, messageText("server.mergeMythic", "Mythic items are the highest tier and cannot be merged."));
+    const need = MERGE_COST[items[0].rar];
+    if (items.length !== need) return say(player, messageText("server.mergeNeedCount", "Merging {rarity} items needs exactly {count} of them.", { rarity: messageText('rarity.' + items[0].rar, RARITY[items[0].rar].n), count: need }));
     const result = mergeItems(player, items); ev('fx', player.x, player.y, 60, { s: 'lvl', a: player.id }); ev('loot', player.x, player.y, messageText("server.mergeResult", "Merged: {item}", { item: gearText(result.name) }), { r: result.rar });
-    toast(player, messageText("server.mergeDetail", "Merged → {rarity} {item} (iLvl {level})", { rarity: messageText('rarity.' + result.rar, RARITY[result.rar].n), item: gearText(result.name), level: result.ilvl }), ['#d8d8d8', '#4ee26a', '#4da3ff', '#b25cff', '#ff9d2e'][result.rar]);
+    toast(player, messageText("server.mergeDetail", "Merged → {rarity} {item} (iLvl {level})", { rarity: messageText('rarity.' + result.rar, RARITY[result.rar].n), item: gearText(result.name), level: result.ilvl }), RARITY_COLOR[result.rar]);
     if (result.rar >= 3) broadcast({ t: 'chat', n: '*', m: messageText("server.playerMerged", "{player} merged a {rarity} {item}!", { player: player.name, rarity: messageText('rarity.' + result.rar, RARITY[result.rar].n), item: gearText(result.name) }) });
     sendInv(player);
   }
   function autoMerge(player, maxRarity) {
-    if (player.dead) return; maxRarity = Math.max(0, Math.min(3, maxRarity | 0)); let n = 0, best = null;
+    if (player.dead) return; maxRarity = Math.max(0, Math.min(MYTHIC - 1, maxRarity | 0)); let n = 0, used = 0, best = null;
     for (let r = 0; r <= maxRarity; r++) for (;;) {
-      const g = player.bag.filter(i => i.rar === r).sort((a, b) => a.ilvl - b.ilvl); if (g.length < 3) break;
-      const result = mergeItems(player, g.slice(0, 3)); n++; if (!best || result.rar > best.rar) best = result;
+      const need = MERGE_COST[r], g = player.bag.filter(i => i.rar === r).sort((a, b) => a.ilvl - b.ilvl); if (g.length < need) break;
+      const result = mergeItems(player, g.slice(0, need)); n++; used += need; if (!best || result.rar > best.rar) best = result;
     }
-    if (!n) return say(player, messageText("server.nothingToMerge", "Nothing to merge: you need 3 bag items of the same rarity."));
+    if (!n) return say(player, messageText("server.nothingToMergeCounts", "Nothing to merge: you need 2 Common, 3 Uncommon, 4 Rare, 5 Epic or 15 Legendary items of the same rarity."));
     ev('fx', player.x, player.y, 60, { s: 'lvl', a: player.id }); ev('loot', player.x, player.y, messageText("server.mergeCount", "Merges: {count}!", { count: n }), { r: best.rar });
-    say(player, messageText("server.bestMerge", "Merged {used} items into {count}. Best result: {rarity} {item}.", { used: n * 3, count: n, rarity: messageText('rarity.' + best.rar, RARITY[best.rar].n), item: gearText(best.name) })); toast(player, messageText("server.mergeDone", "Completed merges: {count}", { count: n }), '#ffe97a'); sendInv(player);
+    say(player, messageText("server.bestMerge", "Merged {used} items into {count}. Best result: {rarity} {item}.", { used, count: n, rarity: messageText('rarity.' + best.rar, RARITY[best.rar].n), item: gearText(best.name) })); toast(player, messageText("server.mergeDone", "Completed merges: {count}", { count: n }), '#ffe97a'); sendInv(player);
   }
   function upgradeItem(player, uid) {
     if (!nearNpc(player, 'smith')) return say(player, messageText("server.upgradeAtSmith", "Talk to the Blacksmith in the village to upgrade equipment."));
@@ -72,6 +76,18 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear }) {
     player.gold -= cost; const smith = NPCS.smith;
     if (Math.random() < UP_RATE[item.plus]) { item.plus++; send(player.c, { t: 'forge', ok: 1, uid, plus: item.plus }); ev('fx', smith.x, smith.y, 50, { s: 'lvl' }); if (item.plus >= 7) broadcast({ t: 'chat', n: '*', m: messageText("server.playerForged", "{player} forged a +{level} {item}!", { player: player.name, level: item.plus, item: gearText(item.name) }) }); }
     else { const drop = item.plus >= 5; if (drop) item.plus--; send(player.c, { t: 'forge', ok: 0, uid, plus: item.plus, drop }); ev('fx', smith.x, smith.y, 40, { s: 'rage' }); }
+    afterGearChange(player);
+  }
+
+  function rerollItem(player, uid) {
+    if (!nearNpc(player, 'mystic')) return say(player, messageText("server.rerollAtMystic", "Talk to the Soul Mystic in the village to reroll equipment."));
+    let item = player.bag.find(i => i.uid === uid) || null; for (const slot of SLOTS) if (!item && player.eq[slot] && player.eq[slot].uid === uid) item = player.eq[slot];
+    if (!item) return;
+    const cost = REROLL_COST[item.rar] || 1;
+    if ((player.souls || 0) < cost) return say(player, messageText("server.rerollCost", "The Soul Mystic wants {souls} souls.", { souls: cost }));
+    player.souls -= cost; rerollGear(item); fire('reroll', player, item);
+    const mystic = NPCS.mystic; ev('fx', mystic.x, mystic.y, 55, { s: 'summon' }); send(player.c, { t: 'reroll', uid: item.uid });
+    if (item.rar >= 4) broadcast({ t: 'chat', n: '*', channel: 'loot', m: messageText("server.playerRerolled", "{player} rerolled {rarity} {item}.", { player: player.name, rarity: messageText('rarity.' + item.rar, RARITY[item.rar].n), item: gearText(item.name) }) });
     afterGearChange(player);
   }
 
@@ -135,7 +151,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear }) {
     say(player, messageText("server.bought", "Bought {count} x {item}.", { count, item: messageText('item.' + itemKey + '.name', item.n) }));
   }
 
-  return { equipItem, unequipItem, sellItem, sellByRarity, buyItem, sendInv, afterGearChange, starterWeapon, addGear, useItem, doMerge, autoMerge, upgradeItem };
+  return { rerollItem, equipItem, unequipItem, sellItem, sellByRarity, buyItem, sendInv, afterGearChange, starterWeapon, addGear, useItem, doMerge, autoMerge, upgradeItem };
 }
 
 module.exports = { BAGMAX, BAG_PAGE_SIZE, createInventory };

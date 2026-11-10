@@ -154,6 +154,10 @@
   "w": 64,
   "h": 64
  },
+ "slot-mythic": {
+  "w": 64,
+  "h": 64
+ },
  "slot-set": {
   "w": 64,
   "h": 64
@@ -426,6 +430,42 @@
   "h": 64
  },
  "icons/gear-amulet-legendary": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-sword-mythic": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-bow-mythic": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-staff-mythic": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-helm-mythic": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-armor-mythic": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-boots-mythic": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-ring-mythic": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-amulet-mythic": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/item-souls": {
   "w": 64,
   "h": 64
  },

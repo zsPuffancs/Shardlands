@@ -7,6 +7,7 @@ const W = 10600, H = 10600, CX = 5300, CY = 5300, VILLAGE = 220;
 const NPCS = {
   merchant: { x: CX - 12, y: CY - 65, name: 'Merchant' },
   smith: { x: CX + 104, y: CY + 58, name: 'Blacksmith' },
+  mystic: { x: CX - 58, y: CY + 122, name: 'Soul Mystic' },
 };
 const NPC_RANGE = 210;
 

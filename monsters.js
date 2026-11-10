@@ -62,12 +62,12 @@ const MOBTYPES = {
 const TIERS = [
   { name: 'Whispering Meadows', min: 400,  max: 1250, lv: [1, 6],   types: ['wolf', 'slime', 'boar', 'shroom'],        bosses: ['alphawolf', 'kingslime'],   bossCount: 2, count: 170, stones: 10, stone: 'stone',      alphas: 5 },
   { name: 'Gloomwood',          min: 1250, max: 2100, lv: [7, 14],  types: ['goblin', 'orc', 'spider', 'bandit'],      bosses: ['warlord', 'broodmother'],   bossCount: 2, count: 230, stones: 12, stone: 'jadestone',  alphas: 6 },
-  { name: 'Ashen Barrens',      min: 2100, max: 2900, lv: [15, 22], types: ['skeleton', 'ogre', 'wraith'],             bosses: ['boneking', 'ogrechief'],    bossCount: 2, count: 240, stones: 12, stone: 'bonestone',  alphas: 6 },
-  { name: 'Ember Wastes',       min: 2900, max: 3650, lv: [23, 30], types: ['hellhound', 'drake', 'golem'],            bosses: ['elderdrake', 'infernal'],   bossCount: 2, count: 230, stones: 12, stone: 'emberstone', alphas: 6 },
-  { name: 'Frostfang Peaks',    min: 3650, max: 4350, lv: [30, 40], types: ['frostfang', 'yeti', 'icegolem'],          bosses: ['frostwyrm', 'yetiking'],    bossCount: 2, count: 240, stones: 12, stone: 'froststone', alphas: 7 },
-  { name: 'Voidreach',          min: 4350, max: 4950, lv: [40, 50], types: ['shade', 'voidweaver', 'voidknight'],      bosses: ['voidlord', 'abyssalwyrm'],  bossCount: 2, count: 240, stones: 12, stone: 'voidstone',  alphas: 7 },
+  { name: 'Ashen Barrens',      min: 2100, max: 2900, lv: [15, 22], types: ['skeleton', 'ogre', 'wraith'],             bosses: ['boneking', 'ogrechief'],    bossCount: 2, count: 240, stones: 15, stone: 'bonestone',  alphas: 6 },
+  { name: 'Ember Wastes',       min: 2900, max: 3650, lv: [23, 30], types: ['hellhound', 'drake', 'golem'],            bosses: ['elderdrake', 'infernal'],   bossCount: 2, count: 230, stones: 18, stone: 'emberstone', alphas: 6 },
+  { name: 'Frostfang Peaks',    min: 3650, max: 4350, lv: [30, 40], types: ['frostfang', 'yeti', 'icegolem'],          bosses: ['frostwyrm', 'yetiking'],    bossCount: 2, count: 240, stones: 21, stone: 'froststone', alphas: 7 },
+  { name: 'Voidreach',          min: 4350, max: 4950, lv: [40, 50], types: ['shade', 'voidweaver', 'voidknight'],      bosses: ['voidlord', 'abyssalwyrm'],  bossCount: 2, count: 240, stones: 24, stone: 'voidstone',  alphas: 7 },
   { name: 'Death Zone',         min: 4950, max: 99999, lv: [50, 60], types: ['voidknight', 'shade', 'voidweaver', 'yeti', 'icegolem', 'hellhound', 'golem', 'drake', 'frostfang'],
-    bosses: ['deathlord', 'deathlord', 'deathlord', 'deathlord', 'voidlord', 'abyssalwyrm', 'frostwyrm', 'yetiking'], count: 'death', stones: 16, stone: 'doomstone', alphas: 30, scale: true, outer: true },
+    bosses: ['deathlord', 'deathlord', 'deathlord', 'deathlord', 'voidlord', 'abyssalwyrm', 'frostwyrm', 'yetiking'], count: 'death', stones: 30, stone: 'doomstone', alphas: 30, scale: true, outer: true },
 ];
 // boss signature attacks (they alternate with a ground slam)
 const SPECIAL = { alphawolf: 'charge', kingslime: 'summon', warlord: 'charge', broodmother: 'summon', boneking: 'summon', ogrechief: 'slam', elderdrake: 'breath', infernal: 'meteor', yetiking: 'charge', frostwyrm: 'breath', voidlord: 'meteor', abyssalwyrm: 'breath', deathlord: 'meteor' };
