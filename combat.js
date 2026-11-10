@@ -2,7 +2,7 @@
 
 const { localizedText: messageText } = require('./localized-text');
 
-const { W, H, inVillage, dist, rnd, rint, pick } = require('./game-world');
+const { clampWorld, inVillage, dist, rnd, rint, pick } = require('./game-world');
 const { MOBTYPES, TIERS, SPECIAL } = require('./monsters');
 const { CLASSES, critCh, critMul, defRed, playerDmg, rank } = require('./characters');
 
@@ -29,7 +29,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
       const step = Math.ceil((monster.hp / monster.mh) * 5);
       while (monster.stoneStep > step && monster.hp > 0) {
         monster.stoneStep--;
-        for (let i = 0; i < 3 + monster.tier; i++) { const a = rnd(0, 6.283), r = rnd(60, 140); const g = spawnMob(pick(TIERS[monster.tier].types), monster.x + Math.cos(a) * r, monster.y + Math.sin(a) * r, monster.tier); g.target = player.id; g.hx = monster.x; g.hy = monster.y; g.summoned = true; g.expiresAt = Date.now() + SUMMON_LIFETIME_MS; g.awake = true; }
+        for (let i = 0; i < Math.min(9, 3 + monster.tier); i++) { const a = rnd(0, 6.283), r = rnd(60, 140); const g = spawnMob(pick(TIERS[monster.tier].types), monster.x + Math.cos(a) * r, monster.y + Math.sin(a) * r, monster.tier); g.target = player.id; g.hx = monster.x; g.hy = monster.y; g.summoned = true; g.expiresAt = Date.now() + SUMMON_LIFETIME_MS; g.awake = true; }
         if (monster.stoneStep === 3 || monster.stoneStep === 1) { const g = spawnMob(pick(TIERS[monster.tier].types), monster.x + rnd(-60, 60), monster.y + rnd(-60, 60), monster.tier, { alpha: true }); g.target = player.id; g.hx = monster.x; g.hy = monster.y; g.summoned = true; g.expiresAt = Date.now() + SUMMON_LIFETIME_MS; g.awake = true; }
         ev('fx', monster.x, monster.y, 160, { s: 'summon' });
       }
@@ -78,10 +78,8 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     if (attack === 'breath') { cast.r = monster.r + 300; cast.half = 0.55; }
     if (attack === 'charge') {
       const length = Math.min(480, Math.max(260, distance + 120));
-      const end = {
-        x: Math.max(20, Math.min(W - 20, monster.x + Math.sin(cast.ang) * length)),
-        y: Math.max(20, Math.min(H - 20, monster.y + Math.cos(cast.ang) * length)),
-      };
+      const end = { x: monster.x + Math.sin(cast.ang) * length, y: monster.y + Math.cos(cast.ang) * length };
+      clampWorld(end);
       const destination = inVillage(end) ? monster : end;
       cast.tx = destination.x;
       cast.ty = destination.y;

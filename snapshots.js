@@ -1,7 +1,7 @@
 'use strict';
 
 const { CLASSES, xpNeed, playerDmg } = require('./characters');
-const { inVillage } = require('./game-world');
+const { inVillage, mapOf, worldInfo } = require('./game-world');
 
 const SNAPSHOT_RADIUS = 1150;
 const SNAPSHOT_MOB_LIMIT = 420;
@@ -43,8 +43,8 @@ function snapshotMobs(mobs, player, cells) {
   return nearby;
 }
 // Wire fields: mo is a full list, md contains changed rows, and mi carries the new ID order.
-function mobSnapshot(connection, nearby, typeIndex) {
-  const rows = nearby.map(mob => [mob.id, typeIndex[mob.ty], Math.round(mob.x), Math.round(mob.y), Math.max(0, Math.round(mob.hp)), mob.mh, mob.lvl, mob.alpha]);
+function mobSnapshot(connection, nearby, typeIndex, originX = 0, originY = 0) {
+  const rows = nearby.map(mob => [mob.id, typeIndex[mob.ty], Math.round(mob.x - originX), Math.round(mob.y - originY), Math.max(0, Math.round(mob.hp)), mob.mh, mob.lvl, mob.alpha]);
   if (!connection.mobDeltas) return { mo: rows };
 
   const previous = connection.mobRows;
@@ -85,9 +85,9 @@ function activeBuffs(player, now) {
 }
 
 // These field names are the client protocol. Use descriptive names in the server implementation.
-function ownPlayerSnapshot(player, now) {
+function ownPlayerSnapshot(player, now, map) {
   return {
-    x: player.x, y: player.y, hp: Math.round(player.hp), mh: player.maxhp,
+    x: player.x - map.x0, y: player.y - map.y0, hp: Math.round(player.hp), mh: player.maxhp,
     mp: Math.round(player.mp), mm: player.maxmp, l: player.lvl,
     xp: player.xp, xn: xpNeed(player.lvl), g: player.gold, so: player.souls || 0, w: player.w,
     inv: player.inv, sk: player.sk, sp: player.sp, buf: activeBuffs(player, now),
@@ -97,20 +97,36 @@ function ownPlayerSnapshot(player, now) {
   };
 }
 
-function otherPlayerSnapshot(player, now) {
+function otherPlayerSnapshot(player, now, map) {
   return {
-    id: player.id, n: player.name, x: Math.round(player.x), y: Math.round(player.y),
+    id: player.id, n: player.name, x: Math.round(player.x - map.x0), y: Math.round(player.y - map.y0),
     hp: Math.round(player.hp), mh: player.maxhp, l: player.lvl, c: player.cls,
     w: player.w, d: player.dead ? 1 : 0, rg: now < player.buf.rage ? 1 : 0,
   };
 }
 
-function lootSnapshot(drop) {
+function lootSnapshot(drop, map) {
   return {
-    id: drop.id, x: drop.x, y: drop.y, k: drop.kind, n: drop.name, r: drop.rar || 0, i: drop.k,
+    id: drop.id, x: drop.x - map.x0, y: drop.y - map.y0, k: drop.kind, n: drop.name, r: drop.rar || 0, i: drop.k,
     s: drop.item ? (drop.item.slot === 'weapon' ? drop.item.fam : drop.item.slot) : undefined,
   };
 }
+
+// Events are created in world coordinates. Every position field is shifted to the receiver's map.
+function localEvent(event, map) {
+  if (!map.x0 && !map.y0) return event;
+  const local = { ...event, x: event.x - map.x0, y: event.y - map.y0 };
+  if (typeof local.tx === 'number') local.tx -= map.x0;
+  if (typeof local.ty === 'number') local.ty -= map.y0;
+  if (typeof local.x0 === 'number') local.x0 -= map.x0;
+  if (typeof local.y0 === 'number') local.y0 -= map.y0;
+  if (Array.isArray(local.pts)) local.pts = local.pts.map(point => [point[0] - map.x0, point[1] - map.y0]);
+  return local;
+}
+const mobTypesForClient = mobTypes => Object.fromEntries(Object.keys(mobTypes).map(key => {
+  const type = mobTypes[key];
+  return [key, { n: type.name, r: type.r, c: type.color, st: !!type.stone, boss: !!type.boss, lvl: type.lvl, shape: type.shape, as: type.archetype, wb: type.worldBoss ? 1 : undefined }];
+}));
 
 function createSnapshotPublisher({ mobs, loot, drainEvents, refreshMobTypes, send, canSend }) {
   return function publishSnapshots(activePlayers, now) {
@@ -119,6 +135,10 @@ function createSnapshotPublisher({ mobs, loot, drainEvents, refreshMobTypes, sen
     const mobCells = activePlayers.length > 1 ? indexLivingMobs(mobs) : null;
     for (const player of activePlayers) {
       if (!canSend(player.c)) continue;
+      const map = mapOf(player);
+      // However a player changed map (portal, admin teleport), the client is told before it sees the new positions.
+      if (player.c.mapIndex === undefined) player.c.mapIndex = map.index;
+      else if (player.c.mapIndex !== map.index) { player.c.mapIndex = map.index; send(player.c, { t: 'map', world: worldInfo(map), arrived: true }); }
       const isNearby = (entity, radius) => Math.abs(entity.x - player.x) < radius && Math.abs(entity.y - player.y) < radius;
       const nearbyMonsters = snapshotMobs(mobs, player, mobCells);
       const nearbyPlayers = activePlayers.filter(other => other !== player && isNearby(other, 1500));
@@ -126,14 +146,14 @@ function createSnapshotPublisher({ mobs, loot, drainEvents, refreshMobTypes, sen
         (!drop.owner || drop.owner === player.id || now >= drop.free));
       send(player.c, {
         t: 's', tm: now,
-        me: ownPlayerSnapshot(player, now),
-        pl: nearbyPlayers.map(other => otherPlayerSnapshot(other, now)),
-        ...mobSnapshot(player.c, nearbyMonsters, indices),
-        lo: nearbyLoot.map(lootSnapshot),
-        ev: events.filter(event => isNearby(event, 1300)),
+        me: ownPlayerSnapshot(player, now, map),
+        pl: nearbyPlayers.map(other => otherPlayerSnapshot(other, now, map)),
+        ...mobSnapshot(player.c, nearbyMonsters, indices, map.x0, map.y0),
+        lo: nearbyLoot.map(drop => lootSnapshot(drop, map)),
+        ev: events.filter(event => isNearby(event, 1300)).map(event => localEvent(event, map)),
       });
     }
   };
 }
 
-module.exports = { createMobTypeIndex, createSnapshotPublisher, indexLivingMobs, snapshotMobs, mobSnapshot };
+module.exports = { mobTypesForClient, createMobTypeIndex, createSnapshotPublisher, indexLivingMobs, snapshotMobs, mobSnapshot };

@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { localizedText, isLocalizedText, gearText } = require('./localized-text');
-const { W, H, CX, CY, VILLAGE, NPCS, tierOf, clampWorld } = require('./game-world');
+const { W, H, CX, CY, VILLAGE, NPCS, tierOf, clampWorld, mapOf, placeInVillage } = require('./game-world');
 const { MOBTYPES, TIERS } = require('./monsters');
 const { SLOTS, STATDEF, RARITY } = require('./equipment');
 const { ITEMS, CLASSES, SKILLS, stats } = require('./characters');
@@ -45,7 +45,10 @@ function createPluginHost({ directory, config, rates, players, mobs, loot, plugi
       giveItem(p, k, n) { if (!ITEMS[k]) return false; p.inv[k] = (p.inv[k] || 0) + (n === undefined ? 1 : n); return true; },
       giveGold(p, n) { p.gold = Math.max(0, p.gold + n); }, giveXp: (p, n) => gainXp(p, n), refresh: p => afterGearChange(p),
       heal(p) { p.hp = p.maxhp; p.mp = p.maxmp; },
-      teleport(p, x, y) { p.x = +x; p.y = +y; clampWorld(p); p.dest = null; p.target = 0; p.chasingTarget = false; },
+      // Positions given to teleport are local to the map the player is on. toVillage returns them to that map's village.
+      toVillage(p) { placeInVillage(p); p.dest = null; p.target = 0; p.chasingTarget = false; },
+      teleportTo(p, target) { p.x = target.x; p.y = target.y; clampWorld(p); p.dest = null; p.target = 0; p.chasingTarget = false; },
+      teleport(p, x, y) { const map = mapOf(p); p.x = map.x0 + +x; p.y = map.y0 + +y; clampWorld(p); p.dest = null; p.target = 0; p.chasingTarget = false; },
       setLevel(p, l) { p.lvl = Math.max(1, Math.min(200, l | 0)); p.xp = 0; const spent = SKILLS.reduce((s, k) => s + p.sk[k], 0) - 1; p.sp = Math.max(0, p.lvl - spent); stats(p); p.hp = p.maxhp; p.mp = p.maxmp; sendInv(p); },
       effect(x, y, radius, style) { ev('fx', x, y, radius || 60, { s: style || 'buff' }); }, text(x, y, message, kind) { ev(kind || 'xp', x, y, isLocalizedText(message) ? message : String(message)); },
       isAdmin, kick(p) { try { p.c.sock.end(); } catch (e) {} }, data: () => (pluginData[pluginName] = pluginData[pluginName] || {}),

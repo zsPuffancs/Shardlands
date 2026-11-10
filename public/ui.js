@@ -1,7 +1,7 @@
 // Shardlands 3D client UI: HUD, windows (inventory, skills, merchant, blacksmith, settings), tooltips, sound, toasts.
 let BAG = [], EQ = {}, GS = {}, sig = '', cdMax = [2000, 8000, 25000], mergeMode = false, mergeSel = [], smSel = null;
 const RC = ['#d8d8d8', '#4ee26a', '#4da3ff', '#b25cff', '#ff9d2e', '#ff4560'];
-const MERGE_COST = [2, 3, 4, 5, 15], REROLL_COST = [1, 1, 2, 3, 5, 10], NPCWIN = { merchant: 'shopw', smith: 'smithw', mystic: 'mysticw' };
+const MERGE_COST = [2, 3, 4, 5, 15], REROLL_COST = [1, 1, 2, 3, 5, 10], NPCWIN = { merchant: 'shopw', smith: 'smithw', mystic: 'mysticw', portal: 'portalw' };
 let SKB = {}, SOULS = 0, mySel = null;
 const SLOTICON = { weapon: '⚔️', helm: '⛑️', armor: '🛡️', boots: '🥾', ring: '💍', amulet: '📿', sword: '⚔️', bow: '🏹', staff: '🪄' };
 const SLOTNAME = { weapon: 'Weapon', helm: 'Helm', armor: 'Armor', boots: 'Boots', ring: 'Ring', amulet: 'Amulet' };
@@ -212,10 +212,10 @@ function hurtFlash(strong) { const h = $('hurtfx'); if (!h.classList.contains('l
 // ---------- windows ----------
 let zTop = 20;
 const isOpen = id => $(id).style.display === 'flex';
-function openWin(id) { const w = $(id); w.style.display = 'flex'; w.style.zIndex = ++zTop; if (id === 'invp') buildInv(); if (id === 'skillp') buildSkills(); if (id === 'shopw') buildShop(); if (id === 'smithw') buildSmith(); if (id === 'mysticw') buildMystic(); if (id === 'chronw') { buildChronicle(); send({ t: 'universe' }); } if (id === 'setw') buildSettings(); tip.style.display = 'none'; }
+function openWin(id) { const w = $(id); w.style.display = 'flex'; w.style.zIndex = ++zTop; if (id === 'invp') buildInv(); if (id === 'skillp') buildSkills(); if (id === 'shopw') buildShop(); if (id === 'smithw') buildSmith(); if (id === 'mysticw') buildMystic(); if (id === 'chronw') { buildChronicle(); send({ t: 'universe' }); } if (id === 'portalw') { buildPortal(); send({ t: 'portal' }); } if (id === 'setw') buildSettings(); tip.style.display = 'none'; }
 function closeWin(id) { $(id).style.display = 'none'; if (id === 'invp') { mergeMode = false; mergeSel = []; } if (id === 'setw') bindWait = null; tip.style.display = 'none'; }
 function togglePanel(id) { if (isOpen(id)) closeWin(id); else openWin(id); }
-function closeAll() { for (const id of ['invp', 'skillp', 'shopw', 'smithw', 'mysticw', 'chronw', 'setw']) closeWin(id); }
+function closeAll() { for (const id of ['invp', 'skillp', 'shopw', 'smithw', 'mysticw', 'portalw', 'chronw', 'setw']) closeWin(id); }
 document.querySelectorAll('.win').forEach(w => {
   const h = w.querySelector('.win-h'); w.addEventListener('mousedown', () => { w.style.zIndex = ++zTop; });
   h.addEventListener('mousedown', e => { if (e.target.closest('button')) return; const r = w.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top;
@@ -223,7 +223,7 @@ document.querySelectorAll('.win').forEach(w => {
     const up = () => { removeEventListener('mousemove', mv); removeEventListener('mouseup', up); }; addEventListener('mousemove', mv); addEventListener('mouseup', up); e.preventDefault(); });
 });
 // NPCs: open the window that belongs to the NPC (game.js calls this when you reach them)
-function openNpc(k) { for (const n in NPCWIN) if (n !== k) closeWin(NPCWIN[n]); openWin(NPCWIN[k] || 'shopw'); if (!isOpen('invp')) openWin('invp'); sfx('click'); }
+function openNpc(k) { for (const n in NPCWIN) if (n !== k) closeWin(NPCWIN[n]); openWin(NPCWIN[k] || 'shopw'); if (k !== 'portal' && !isOpen('invp')) openWin('invp'); sfx('click'); }
 
 // ---------- inventory ----------
 function slotHtml(it, attrs, extra) {
@@ -378,6 +378,7 @@ document.addEventListener('click', e => {
   if (t.id === 'autoMerge2') { send({ t: 'automerge', max: 2 }); return; }
   if (t.id === 'autoMerge3') { send({ t: 'automerge', max: 3 }); return; }
   if (t.id === 'autoMerge4') { send({ t: 'automerge', max: 4 }); return; }
+  if (t.dataset.travel) { send({ t: 'travel', map: +t.dataset.travel }); closeWin('portalw'); return; }
   if (t.dataset.my) { mySel = t.dataset.my; buildMystic(); return; }
   if (t.id === 'mygo') { if (mySel) { send({ t: 'reroll', uid: mySel }); $('myres').textContent = '…'; $('myres').style.color = '#ccc'; } return; }
   if (t.id === 'junk') { send({ t: 'sellall', rar: 1 }); sfx('sell'); return; }
@@ -457,6 +458,20 @@ function buildMystic() {
   $('mygo').disabled = SOULS < c; $('mygo').textContent = text('mystic.rerollFor', 'Reroll for {cost} souls', { cost: c });
 }
 function onReroll() { const r = $('myres'); r.textContent = text('mystic.done', '✦ The souls reshape the item.'); r.style.color = '#c9a0ff'; sfx('lvl'); }
+// ---------- world portal ----------
+let PORTAL = null;
+const BIOME_NAME = { volcanic: 'Volcanic', glacier: 'Glacier', voidscar: 'Voidscar', wildwood: 'Wildwood', warfields: 'Warfields', necropolis: 'Necropolis' };
+function onPortal(m) { PORTAL = m; if (isOpen('portalw')) buildPortal(); }
+function buildPortal() {
+  const p = PORTAL; if (!p) { $('portalb').innerHTML = '<div class="mu">…</div>'; return; }
+  const row = m => {
+    const here = m.index === p.here, title = m.founding ? text('portal.founding', 'The Founding Lands') : m.name;
+    const info = m.founding ? text('portal.foundingInfo', 'World Tiers 1-7 · Levels {min}-{max}', { min: m.levels[0], max: m.levels[1] }) : text('portal.regionInfo', 'World Tier {tier} · {biome} · Levels {min}-{max}', { tier: m.tier, biome: text('biome.' + m.biome, BIOME_NAME[m.biome] || m.biome), min: m.levels[0], max: m.levels[1] });
+    const boss = m.founding ? '' : '<small>' + esc(text('universe.worldBoss', 'World Boss')) + ': <b style="color:' + (m.defeated ? '#8fd18f' : '#ffd24a') + '">' + esc(m.boss) + '</b> · ' + esc(m.defeated ? text('portal.defeated', 'defeated') : text('portal.undefeated', 'undefeated')) + '</small>';
+    return '<div class="row' + (here ? ' here' : '') + '"><div class="t">' + esc(title) + '<small>' + esc(info) + '</small>' + boss + '<small>' + esc(text('portal.heroes', 'Heroes there now: {count}', { count: m.players })) + '</small></div><button' + (here ? ' disabled' : ' class="pri" data-travel="' + m.index + '"') + '>' + esc(here ? text('portal.here', 'You are here') : text('portal.travel', 'Travel')) + '</button></div>';
+  };
+  $('portalb').innerHTML = '<div class="mu" style="font-size:0.75rem;margin-bottom:6px">' + esc(text('portal.unlocked', 'Maps unlocked on this server: {count} · World Tier {tier}', { count: p.maps.length, tier: p.tier })) + '</div><div class="portal-list">' + p.maps.map(row).join('') + '</div><div class="mu" style="font-size:0.6875rem;margin-top:8px">' + esc(text('portal.hint', 'Defeat the World Boss of the newest region to unlock the next map.')) + '</div>';
+}
 // ---------- universe chronicle ----------
 let UNI = null;
 const CHRONICLE_TEXT = {
@@ -473,7 +488,7 @@ function showUniverseLine() {
   const u = WORLD && WORLD.universe, el = $('uni'); if (!el || !u) return;
   el.textContent = text('universe.loginLine', '{universe} · World Tier {tier} · seed {seed}', { universe: u.name, tier: u.tier, seed: u.seed });
 }
-function onUniverse(u) { UNI = u; if (WORLD) { WORLD.universe.tier = u.tier; } if (isOpen('chronw')) buildChronicle(); }
+function onUniverse(u) { UNI = u; if (WORLD && WORLD.universe) { WORLD.universe.tier = u.tier; } if (isOpen('chronw')) buildChronicle(); }
 function buildChronicle() {
   const u = UNI; if (!u) { $('chronb').innerHTML = '<div class="mu">…</div>'; return; }
   const f = u.frontier, wb = f.worldBoss;

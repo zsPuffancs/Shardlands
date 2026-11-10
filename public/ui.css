@@ -137,3 +137,8 @@ kbd { border: 4px solid transparent; border-image: url(ui/keycap.png) 12 fill / 
 .uni-tier div { display: flex; flex-direction: column; gap: 2px; } .uni-tier span, .uni-tier small { font-size: 0.6875rem; } .uni-tier small { opacity: .7; }
 .uni-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow: auto; }
 .uni-row { display: grid; grid-template-columns: 86px 1fr; gap: 8px; font-size: 0.8125rem; } .uni-row small { display: block; font-size: 0.6875rem; opacity: .7; }
+
+/* world portal */
+.portal-list { display: flex; flex-direction: column; gap: 4px; max-height: 60vh; overflow: auto; }
+.portal-list .row.here { border-color: rgba(201, 160, 255, .6); background: rgba(120, 80, 200, .12); }
+.portal-list .row small { display: block; }

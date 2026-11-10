@@ -93,7 +93,8 @@ function generateRegion(seed, tier, historySnapshot, generatorVersion) {
     levels: [60 + (depth - 1) * 10, 60 + depth * 10],
     families: shuffled(biome.families, random).slice(0, 3),
     stones: Math.min(40, 24 + depth * 2), modifiers,
-    worldBoss: { type: archetype, name: properName(random) + ' ' + random.pick(BOSS_TITLES[biome.element]), signature: SPECIAL[archetype] || 'slam' },
+    // The World Boss is its own monster type (wb<tier>) built on an existing boss archetype.
+    worldBoss: { type: 'wb' + tier, archetype, name: properName(random) + ' ' + random.pick(BOSS_TITLES[biome.element]), signature: SPECIAL[archetype] || 'slam' },
     generatorVersion,
   };
 }
@@ -117,7 +118,9 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
   // A region is generated once, when it becomes known, and stored with the snapshot it was generated from.
   function regionFor(tier) {
     if (!state.regions[tier]) { const snapshot = historySnapshot(); state.regions[tier] = { ...generateRegion(state.seed, tier, snapshot, state.generatorVersion), snapshot: tier > FOUNDING_TIERS ? snapshot : undefined }; }
-    return state.regions[tier];
+    const region = state.regions[tier];
+    if (region.kind === 'frontier' && !region.worldBoss.archetype) { region.worldBoss.archetype = region.worldBoss.type; region.worldBoss.type = 'wb' + tier; }
+    return region;
   }
   for (let tier = 1; tier <= Math.max(state.worldTier, FOUNDING_TIERS); tier++) regionFor(tier);
 
@@ -179,7 +182,7 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
       const zone = TIERS[monster.tier] || TIERS[0];
       if (template.stone) { state.stats.stones++; recordOnce('stone:' + monster.tier, 'stoneFirst', party, { region: zone.name }); return; }
       state.stats.bossKills[monster.ty] = (state.stats.bossKills[monster.ty] || 0) + 1;
-      const element = BOSS_ELEMENT[monster.ty]; if (element) state.stats.elements[element] = (state.stats.elements[element] || 0) + 1;
+      const element = BOSS_ELEMENT[monster.ty] || template.element; if (element) state.stats.elements[element] = (state.stats.elements[element] || 0) + 1;
       recordOnce('boss:' + monster.ty, 'bossFirstKill', party, { boss: template.name, bossType: monster.ty, region: zone.name, level: monster.lvl });
       // World progression: only the current tier's World Boss, in its own region, advances the universe.
       // The check and the tier change happen in one synchronous step, so a tier can never unlock twice.
@@ -187,6 +190,8 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
       if (frontier.playable && frontier.worldBoss.type === monster.ty && monster.tier === state.worldTier - 1) {
         const beaten = state.worldTier; state.worldTier = beaten + 1;
         const next = regionFor(state.worldTier);
+        // Tiers beyond the founding lands get their map built before the victory is announced.
+        if (universe.onTierUnlocked) try { universe.onTierUnlocked(state.worldTier); } catch (error) { console.error('[universe] could not open World Tier ' + state.worldTier + ':', error); }
         recordOnce('tier:' + beaten, 'worldBoss', party, { boss: template.name, bossType: monster.ty, beatenTier: beaten, tier: state.worldTier, region: next.name });
       }
     },
@@ -210,7 +215,8 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
       history: state.history.slice(-200), legends: legends(), stats: { ...state.stats, bossKills: undefined, elements: { ...state.stats.elements } },
     };
   }
-  return { state, hooks, identity, summary, founded, record, recordOnce, regionFor, layoutRandom: label => seededRandom(state.seed, label) };
+  const universe = { state, hooks, identity, summary, founded, record, recordOnce, regionFor, onTierUnlocked: null, layoutRandom: label => seededRandom(state.seed, label) };
+  return universe;
 }
 
 module.exports = { GENERATOR_VERSION, hashString, seededRandom, newSeed, universeName, generateRegion, createUniverse };

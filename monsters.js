@@ -73,7 +73,7 @@ const TIERS = [
 const SPECIAL = { alphawolf: 'charge', kingslime: 'summon', warlord: 'charge', broodmother: 'summon', boneking: 'summon', ogrechief: 'slam', elderdrake: 'breath', infernal: 'meteor', yetiking: 'charge', frostwyrm: 'breath', voidlord: 'meteor', abyssalwyrm: 'breath', deathlord: 'meteor' };
 const STONE_DMG = [30, 70, 120, 180, 250, 330, 430];
 
-function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick }) {
+function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick, clampWorld }) {
   const { width, height, centerX, centerY } = world;
   const maxHealth = monster => Math.max(1, Math.round(monster.hb * rates.monsterHp));
 
@@ -102,8 +102,8 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick 
     const damageMultiplier = levelDamageMultiplier * (isAlpha ? 1.6 : 1);
     const experienceMultiplier = levelRatio ** 2 * (isAlpha ? 6 : 1);
     const goldMultiplier = levelRatio ** 1.5 * (isAlpha ? 5 : 1);
-    x = Math.max(20, Math.min(width - 20, x));
-    y = Math.max(20, Math.min(height - 20, y));
+    if (clampWorld) { const point = { x, y }; clampWorld(point); x = point.x; y = point.y; }
+    else { x = Math.max(20, Math.min(width - 20, x)); y = Math.max(20, Math.min(height - 20, y)); }
     const monster = {
       id: allocateId(), ty: type, x, y, hx: x, hy: y, sx: x, sy: y, tier, lvl: spawnLevel,
       hb: template.hp * healthMultiplier, dmg: template.dmg * damageMultiplier,
@@ -120,23 +120,29 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick 
   }
 
   function randomSpawnPoint(zone, rnd) {
+    // A zone on its own map carries that map as zone.area; the founding zones use the founding world.
+    const area = zone.area || { x0: 0, y0: 0, w: width, h: height, cx: centerX, cy: centerY };
     if (zone.outer) {
       for (let attempt = 0; attempt < 50; attempt++) {
-        const x = rnd(60, width - 60), y = rnd(60, height - 60);
-        if (Math.hypot(x - centerX, y - centerY) >= zone.min + 20) return { x, y };
+        const x = area.x0 + rnd(60, area.w - 60), y = area.y0 + rnd(60, area.h - 60);
+        if (Math.hypot(x - area.cx, y - area.cy) >= zone.min + 20) return { x, y };
       }
-      return { x: 80, y: 80 };
+      return { x: area.x0 + 80, y: area.y0 + 80 };
     }
     const angle = rnd(0, Math.PI * 2), distance = rnd(zone.min, zone.max);
-    return { x: centerX + Math.cos(angle) * distance, y: centerY + Math.sin(angle) * distance };
+    return { x: area.cx + Math.cos(angle) * distance, y: area.cy + Math.sin(angle) * distance };
   }
 
   // The layout (camps, stones, alphas, bosses) comes from one random stream. Pass a seeded
   // stream and the same seed always lays the world out the same way.
   function populateMonsters(random) {
+    for (const [tier, zone] of TIERS.entries()) if (!zone.generated) populateZone(tier, random);
+  }
+  function populateZone(tier, random) {
     random = random || Math.random;
     const rnd = (a, b) => a + random() * (b - a), rint = (a, b) => Math.floor(rnd(a, b + 1)), pick = list => list[Math.floor(random() * list.length)];
-    for (const [tier, zone] of TIERS.entries()) {
+    const zone = TIERS[tier];
+    {
       const monsterCount = zone.count === 'death' ? Math.round(rates.deathZoneMonsters) : (zone.count || 60);
       // Each camp mainly spawns one family of monsters.
       for (let spawned = 0; spawned < monsterCount;) {
@@ -151,7 +157,7 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick 
       }
       for (let i = 0; i < (zone.stones || 0); i++) {
         const point = randomSpawnPoint(zone, rnd);
-        spawnMob(zone.stone || 'stone', point.x, point.y, tier);
+        spawnMob(zone.stone || 'stone', point.x, point.y, tier, zone.generated ? { level: zone.lv[0] } : undefined);
       }
       for (let i = 0; i < (zone.alphas || 0); i++) {
         const point = randomSpawnPoint(zone, rnd);
@@ -177,7 +183,7 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick 
     monster.y = monster.hy = monster.sy;
   }
 
-  return { spawnMob, populateMonsters, respawnMonster };
+  return { spawnMob, populateMonsters, populateZone, respawnMonster };
 }
 
 module.exports = { MOBTYPES, TIERS, SPECIAL, STONE_DMG, createMonsterSpawner };

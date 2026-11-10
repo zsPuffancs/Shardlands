@@ -17,13 +17,26 @@ let seed = 1337; const R = () => (seed = (seed * 16807) % 2147483647) / 21474836
 let lamps = [], lava = [];
 function zoneOf(x, z) { const d = Math.hypot(x - WORLD.CX, z - WORLD.CY); if (d < WORLD.V) return -1; for (let i = 0; i < ZT.length; i++) if (d < ZT[i].max) return i; return ZT.length - 1; }
 const ZCOL = ['#4f7a38', '#2f4f2d', '#6b5f52', '#4d2620', '#c3d0db', '#2b1f3c', '#1c0f10'];
+// Generated regions borrow the scenery of a founding zone: a zone's "look" is that zone's index.
+const lookIndex = i => i < 0 ? i : (ZT[i].look === undefined ? i : ZT[i].look);
+const lookZoneOf = (x, z) => lookIndex(zoneOf(x, z));
+let snapNext = false;
+// Switch to (or refresh) the map this client is on. Positions are always local to the current map.
+function setWorld(world, arrived) {
+  const changed = !WORLD || world.map !== WORLD.map;
+  WORLD = world; ZT = world.tiers;
+  if (!changed) return;
+  bakeWorld(); buildGround(); ents.clear(); fxs.length = 0; parts.length = 0; mobRows.clear(); mobIds = []; mo = []; lo = []; pl = [];
+  for (const f of floaters) f.el.remove(); floaters.length = 0; snapNext = true; lastZone = -9;
+  if (arrived) { banner(world.map ? zoneName(ZT[0].name) : text('portal.founding', 'The Founding Lands'), world.map ? text('portal.arrivedTier', 'World Tier {tier}', { tier: world.map + 7 }) : text('zone.safe', 'Safe zone')); sfx('lvl'); }
+}
 function smithAnvilPosition() {
   const smith = WORLD.npcs.smith;
   return { x: smith.x - 19, z: smith.y - 14 };
 }
 
 function bakeWorld() {
-  seed = (WORLD.universe && WORLD.universe.seedNumber) || 1337; const { W, H, CX, CY, V } = WORLD, B = GL.bakeAdd; lamps = []; lava = []; GL.bakeBegin();
+  seed = ((WORLD.universe && WORLD.universe.seedNumber) || 1337) + (WORLD.map || 0) * 7919; const zoneOf = lookZoneOf; const { W, H, CX, CY, V } = WORLD, B = GL.bakeAdd; lamps = []; lava = []; GL.bakeBegin();
   const NZ = ZT.length, roadEnd = ZT[Math.max(0, NZ - 2)].max, area = W * H / 25e6;
   const onRoad = (x, z, w) => [0, 1, 2, 3].some(k => { const a = k * 1.5708, px = Math.cos(a), pz = Math.sin(a), t = (x - CX) * px + (z - CY) * pz, dd = Math.abs((x - CX) * -pz + (z - CY) * px); return t > 0 && t < roadEnd && dd < (w || 46); });
   const G = (b, v) => { const k = (R() - .5) * v; return [b[0] + k, b[1] + k * 1.3, b[2] + k * .7]; }, up = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
@@ -75,7 +88,7 @@ function bakeWorld() {
     B(M.tuft, x, 0, z, 7 + R() * 4, 6 + R() * 6, 7 + R() * 4, r, 0, zn === 0 ? G([.3, .62, .24], .14) : G([.16, .38, .24], .08));
   }
   }
-  for (let i = 0; i < 110; i++) { const a = R() * 6.283, d = ZT[3].min + 50 + R() * (ZT[3].max - ZT[3].min - 100), x = CX + Math.cos(a) * d, z = CY + Math.sin(a) * d, r = 25 + R() * 55; if (onRoad(x, z, 80)) continue; lava.push({ x, z, r }); B(M.disc, x, .9, z, r, 1, r, 0, 0, [1, .36, .05], .95); B(M.ring, x, 1.1, z, r * 1.14, 1, r * 1.14, 0, 0, [.13, .09, .08]); }
+  if (NZ > 3) for (let i = 0; i < 110; i++) { const a = R() * 6.283, d = ZT[3].min + 50 + R() * (ZT[3].max - ZT[3].min - 100), x = CX + Math.cos(a) * d, z = CY + Math.sin(a) * d, r = 25 + R() * 55; if (onRoad(x, z, 80)) continue; lava.push({ x, z, r }); B(M.disc, x, .9, z, r, 1, r, 0, 0, [1, .36, .05], .95); B(M.ring, x, 1.1, z, r * 1.14, 1, r * 1.14, 0, 0, [.13, .09, .08]); }
   if (NZ > 6) for (let i = 0; i < 160; i++) { const x = R() * W, z = R() * H; if (zoneOf(x, z) !== 6) continue; const r = 25 + R() * 60; lava.push({ x, z, r }); B(M.disc, x, .9, z, r, 1, r, 0, 0, [.55, .04, .04], .9); B(M.ring, x, 1.1, z, r * 1.12, 1, r * 1.12, 0, 0, [.06, .03, .03]); }
   if (NZ > 4) for (let i = 0; i < 70; i++) { const a = R() * 6.283, d = ZT[4].min + 60 + R() * (ZT[4].max - ZT[4].min - 120), x = CX + Math.cos(a) * d, z = CY + Math.sin(a) * d, r = 30 + R() * 60; if (onRoad(x, z, 80)) continue; B(M.disc, x, .8, z, r, 1, r * .8, a, 0, [.7, .88, 1], .25); }
   const per = (W + H) * 2, step = 62; for (let t = 0; t < per; t += step) { const e = t % W, q = Math.floor(t / W), p = q === 0 ? [e, 0] : q === 1 ? [W, e] : q === 2 ? [W - e, H] : [0, H - e]; B(M.trunk, p[0], 0, p[1], 8, 100, 8, 0, 0, [.17, .14, .15]); B(M.octa, p[0], 112, p[1], 5.5, 11, 5.5, 0, 0, [1, .22, .12], 1); }
@@ -113,11 +126,11 @@ function bakeWorld() {
 }
 function buildGround() {
   const SZ = WORLD.W + 400, X0 = -200, N = 2048, cv = document.createElement('canvas'); cv.width = cv.height = N; const g = cv.getContext('2d'), t = v => (v - X0) / SZ * N, sc = N / SZ;
-  g.fillStyle = '#08090a'; g.fillRect(0, 0, N, N); g.fillStyle = ZCOL[Math.min(6, ZT.length - 1)]; g.fillRect(t(0), t(0), WORLD.W * sc, WORLD.H * sc);
+  g.fillStyle = '#08090a'; g.fillRect(0, 0, N, N); g.fillStyle = ZCOL[Math.min(6, lookIndex(ZT.length - 1))]; g.fillRect(t(0), t(0), WORLD.W * sc, WORLD.H * sc);
   try { g.filter = 'blur(6px)'; } catch (e) {}
   const disc = (r, c) => { g.fillStyle = c; g.beginPath(); g.arc(t(WORLD.CX), t(WORLD.CY), r * sc, 0, 7); g.fill(); };
   const last = ZT[ZT.length - 1].outer ? ZT.length - 2 : ZT.length - 1;
-  for (let i = last; i >= 0; i--) disc(ZT[i].max, ZCOL[i] || '#444'); disc(ZT[0].min, '#648a44');
+  for (let i = last; i >= 0; i--) disc(ZT[i].max, ZCOL[lookIndex(i)] || '#444'); disc(ZT[0].min, '#648a44');
   g.strokeStyle = 'rgba(150,128,88,.6)'; g.lineWidth = 38 * sc; g.lineCap = 'round'; const re = ZT[last].max;
   for (let k = 0; k < 4; k++) { const a = k * 1.5708; g.beginPath(); g.moveTo(t(WORLD.CX), t(WORLD.CY)); g.lineTo(t(WORLD.CX + Math.cos(a) * re), t(WORLD.CY + Math.sin(a) * re)); g.stroke(); }
   try { g.filter = 'blur(2px)'; } catch (e) {} g.fillStyle = '#9a8a66'; g.beginPath(); g.arc(t(WORLD.CX), t(WORLD.CY), WORLD.V * sc, 0, 7); g.fill(); g.fillStyle = '#b3a37c'; g.beginPath(); g.arc(t(WORLD.CX), t(WORLD.CY), 60 * sc, 0, 7); g.fill();
@@ -296,7 +309,7 @@ const MODEL = {
   deathlord: { fn: human, kind: 'deathlord', sc: 2.4, robe: hex('#121014'), body: hex('#1a1a1e'), leg: hex('#101012'), skin: hex('#d8d0c0'), top: 72 },
   stone: { top: 92 },
 };
-function modelFor(ty, t) { let o = MODEL[ty]; if (t.st) return o || (MODEL[ty] = { top: t.shape === 'obelisk' ? 104 : 92 }); if (!o) { const c = hex(t.c || '#cccccc'), k = Math.max(.6, t.r / 15); o = MODEL[ty] = { fn: beast, kind: 'wolf', sc: k, body: c, leg: mix(c, [0, 0, 0], .4), top: 40 }; } return o; }
+function modelFor(ty, t) { let o = MODEL[ty] || (t.as && MODEL[t.as] && (MODEL[ty] = MODEL[t.as])); if (t.st) return o || (MODEL[ty] = { top: t.shape === 'obelisk' ? 104 : 92 }); if (!o) { const c = hex(t.c || '#cccccc'), k = Math.max(.6, t.r / 15); o = MODEL[ty] = { fn: beast, kind: 'wolf', sc: k, body: c, leg: mix(c, [0, 0, 0], .4), top: 40 }; } return o; }
 function drawPlayer(e, cls, w, dead, rg) {
   const cm = classModel(cls); if (cm && drawChar(e, cm, { dead, rage: rg, wemc: w ? WCOL[w].map(v => v * Math.min(.6, .06 * w)) : null, tint: I.classes[cls] && I.classes[cls].tint }, performance.now())) return;
   if (dead) { D(M.box, e.rx, 3, e.ry, 22, 6, 12, 0, 0, [.45, .45, .5]); D(M.box, e.rx, 20, e.ry, 14, 30, 5, 0, 0, [.55, .55, .6]); D(M.cyl, e.rx, 35, e.ry - 2.5, 7, 5, 7, 0, 1.5708, [.55, .55, .6]); return; }
@@ -311,7 +324,7 @@ window.Shardlands = { MODEL, addModel: (id, def) => { MODEL[id] = def; }, human,
 const ICOL = {}; const itemCol = k => ICOL[k] || (ICOL[k] = hex((I && I.items[k] && I.items[k].color) || '#cccccc'));
 const itemColCss = k => (I && I.items[k] && I.items[k].color) || '#cccccc';
 const NPCE = { merchant: { rx: 0, ry: 0, yaw: 0, x: 0, y: 0, ph: 0, mv: 0, atkT: -9999, flash: 0, id: 3 }, smith: { rx: 0, ry: 0, yaw: -2.2, x: 0, y: 0, ph: 0, mv: 0, atkT: -9999, flash: 0, id: 4 }, mystic: { rx: 0, ry: 0, yaw: -.6, x: 0, y: 0, ph: 0, mv: 0, atkT: -9999, flash: 0, id: 5 } };
-const NPCNAME = { merchant: '🏪 Merchant', smith: '⚒ Blacksmith', mystic: '🔮 Soul Mystic' };
+const NPCNAME = { merchant: '🏪 Merchant', smith: '⚒ Blacksmith', mystic: '🔮 Soul Mystic', portal: '🌀 World Portal' };
 let pendingNpc = null, nearNpcK = null;
 const npcDist = k => { const n = WORLD.npcs[k]; return Math.hypot(S.rx - n.x, S.ry - n.y); };
 function drawWorld(now) {
@@ -327,6 +340,10 @@ function drawWorld(now) {
     if (Math.hypot(cam.x - sN.x, cam.z - sN.y) < 700) burst(anvil.x, 14, anvil.z, 7, [1, .75, .3], 120, .5, 1.2, 1);
   }, 260); }
   if (!drawChar(sm, 'Monk', { h: 68, tint: [1, .92, .85] }, now)) human(sm, { sc: 1.08, kind: 'smith', body: hex('#7a5a3a'), leg: hex('#3a2e24'), skin: hex('#d9a27a'), arm: hex('#d9a27a'), wide: 11, pad: 0 });
+  { const pN = WORLD.npcs.portal; if (pN) { const pu = .9 + Math.sin(now / 260) * .1; D(M.disc, pN.x, 1.2, pN.y, 34, 1, 34, 0, 0, [.12, .05, .25], .6); D(M.ring, pN.x, 2, pN.y, 37 * pu, 1, 37 * pu, -now / 500, 0, [.75, .6, 1], 1);
+    for (let i = 0; i < 4; i++) { const k = (now / 1100 + i / 4) % 1, r = 31 * (1 - k * .6); D(M.ring, pN.x, 5 + k * 78, pN.y, r, 1, r, now / 300 + i, 0, [.55, .4, 1], 1, (1 - k) * .9); }
+    if (Math.random() < .4) burst(pN.x + (Math.random() - .5) * 44, 6, pN.y + (Math.random() - .5) * 44, 1, [.6, .45, 1], 30, 1.4, 1.5, 1, -70);
+    if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc4', esc(text('npc.portal', NPCNAME.portal)) + (nearNpcK === 'portal' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', pN.x, 104, pN.y, 0, 150); } }
   { const yN = WORLD.npcs.mystic, my = NPCE.mystic; if (yN) { my.rx = yN.x; my.ry = yN.y; my.x = yN.x; my.y = yN.y; my.ph = now / 400; if (!drawChar(my, 'Wizard', { h: 66, tint: [.62, .45, .95], emc: [.06, .02, .12] }, now)) human(my, { sc: 1.05, kind: 'merchant', body: hex('#5a3a8a'), leg: hex('#2a1e3a'), skin: hex('#d9b08a'), arm: hex('#5a3a8a'), wide: 10, pad: 0 }); if (Math.random() < .25) burst(yN.x + Math.sin(now / 300) * 14, 40 + Math.cos(now / 200) * 8, yN.y + Math.cos(now / 300) * 14, 1, [.6, .35, 1], 30, 1, 1.2, .8, -40);
     if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc3', esc(text('npc.mystic', NPCNAME.mystic)) + (nearNpcK === 'mystic' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', yN.x, 98, yN.y, 0, 150); } }
   if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc', esc(text('npc.merchant', NPCNAME.merchant)) + (nearNpcK === 'merchant' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', mN.x, 98, mN.y + 11, 0, 150);
@@ -443,13 +460,14 @@ function onMsg(m) {
   if (m.t === 'err') GameText.present($('err'), { message: m.text || m.m });
   else if (m.t === 'init') {
     clearTimeout(onlineCountTimer);
-    I = m; ZT = m.world.tiers; WORLD.npcs = m.world.npcs; WORLD.npcRange = m.world.npcRange; S.id = m.id; cam.dist = 440; cam.pitch = 0.82; cam.yaw = 0; $('login').style.display = 'none'; if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); $('hud').style.display = 'block';
+    I = m; setWorld(m.world); S.id = m.id; cam.dist = 440; cam.pitch = 0.82; cam.yaw = 0; $('login').style.display = 'none'; if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); $('hud').style.display = 'block';
     hudInit(); log('*', m.resumed ? text("login.welcomeBack", "Welcome back, ") + m.name + '!' : text("login.welcome", "Welcome, ") + m.name + text("login.welcomeHint", "! Loot drops on the ground - walk over it. Talk to the Merchant and the Blacksmith in the village (click them or press F)."));
   } else if (m.t === 'inv') onInv(m);
-  else if (m.t === 'toast') toast(m.text || m.m, m.c); else if (m.t === 'forge') onForge(m); else if (m.t === 'reroll') onReroll(m); else if (m.t === 'universe') onUniverse(m.u);
+  else if (m.t === 'toast') toast(m.text || m.m, m.c); else if (m.t === 'forge') onForge(m); else if (m.t === 'reroll') onReroll(m); else if (m.t === 'universe') onUniverse(m.u); else if (m.t === 'portal') onPortal(m);
+  else if (m.t === 'types') { if (I) { I.types = m.types; I.tl = m.tl; } } else if (m.t === 'map') { setWorld(m.world, m.arrived); if (isOpen('portalw')) send({ t: 'portal' }); }
   else if (m.t === 'chat') log(m.n, m.text || m.m, m.channel); else if (m.t === 'msg') log('*', m.text || m.m);
   else if (m.t === 's') {
-    if (!me) { S.rx = m.me.x; S.ry = m.me.y; cam.x = m.me.x; cam.z = m.me.y; }
+    if (!me || snapNext) { snapNext = false; S.rx = m.me.x; S.ry = m.me.y; cam.x = m.me.x; cam.z = m.me.y; }
     if (m.me.dead && !me?.dead) {
       intent = null;
       pendingNpc = null;
@@ -639,7 +657,7 @@ function frame(now) {
       if ((hd < 620 && nl < 45) || m.id === me.tg || ((t.boss || m.al || t.st) && hd < 1100)) {
         nl++;
         const nameColor = t.st ? t.c : t.boss ? '#ffd24a' : m.al ? '#ffb04a' : '#fff';
-        label('m' + m.id, '<span style="color:' + nameColor + '">' + (t.boss ? '★ ' : m.al ? esc(text("mob.alpha", "Alpha ")) : '') + esc(mobName(m.ty, t.n)) + '</span> ' + monsterLevelLabel(m.l, me.l), t.boss ? 'mob boss' : m.al ? 'mob alpha' : 'mob', e.rx, Math.min(260, (o.top || 56) * (o.sc || 1)) + 16, e.ry, m.hp / m.mh, t.boss ? 150 : m.al ? 130 : 110);
+        label('m' + m.id, '<span style="color:' + nameColor + '">' + (t.wb ? '👑 ' : t.boss ? '★ ' : m.al ? esc(text("mob.alpha", "Alpha ")) : '') + esc(mobName(m.ty, t.n)) + '</span> ' + monsterLevelLabel(m.l, me.l), t.boss ? 'mob boss' : m.al ? 'mob alpha' : 'mob', e.rx, Math.min(260, (o.top || 56) * (o.sc || 1)) + 16, e.ry, m.hp / m.mh, t.boss ? 150 : m.al ? 130 : 110);
       }
     }
     for (const o of pl) { const e = ents.get(o.id); if (!onScreen(e.rx, e.ry, 160)) continue; drawPlayer(e, o.c, o.w, o.d, o.rg); label('p' + o.id, esc(o.n) + ' <span style="color:#aaa">' + esc(text("zone.levelShort", "Lv ")) + o.l + '</span>', 'pl', e.rx, 92, e.ry, o.hp / o.mh, 120); }
@@ -652,7 +670,7 @@ function frame(now) {
     nearNpcK = null; let nd = WORLD.npcRange - 30; for (const k in WORLD.npcs) { const d = npcDist(k); if (d < nd) { nd = d; nearNpcK = k; } }
     if (pendingNpc && npcDist(pendingNpc) < WORLD.npcRange - 40) { openNpc(pendingNpc); pendingNpc = null; }
     for (const k in NPCWIN) if (WORLD.npcs[k] && isOpen(NPCWIN[k]) && npcDist(k) > WORLD.npcRange + 60) closeWin(NPCWIN[k]);
-    const pr = nearNpcK && !isOpen(NPCWIN[nearNpcK]) ? '<b>' + esc(keyName(BINDS.talk)) + '</b>' + esc(text('prompt.' + nearNpcK, { merchant: 'Talk to the Merchant', smith: 'Talk to the Blacksmith', mystic: 'Talk to the Soul Mystic' }[nearNpcK])) : '';
+    const pr = nearNpcK && !isOpen(NPCWIN[nearNpcK]) ? '<b>' + esc(keyName(BINDS.talk)) + '</b>' + esc(text('prompt.' + nearNpcK, { merchant: 'Talk to the Merchant', smith: 'Talk to the Blacksmith', mystic: 'Talk to the Soul Mystic', portal: 'Use the World Portal' }[nearNpcK])) : '';
     if (pr !== _hc.prompt) { _hc.prompt = pr; $('prompt').innerHTML = pr; $('prompt').style.display = pr ? 'block' : 'none'; }
   }
   for (const [k, L] of labels) if (!L.used) { L.el.remove(); labels.delete(k); }
@@ -690,8 +708,8 @@ function updateFloaters(now) {
 }
 function drawMini() {
   if (!me) return; const g = mini, N = 320, s = N / WORLD.W, c = N / 2;
-  g.fillStyle = ZCOL[Math.min(6, ZT.length - 1)]; g.fillRect(0, 0, N, N);
-  for (let i = ZT.length - 1; i >= 0; i--) { if (ZT[i].outer) continue; g.fillStyle = ZCOL[i] || '#444'; g.beginPath(); g.arc(c, c, ZT[i].max * s, 0, 7); g.fill(); }
+  g.fillStyle = ZCOL[Math.min(6, lookIndex(ZT.length - 1))]; g.fillRect(0, 0, N, N);
+  for (let i = ZT.length - 1; i >= 0; i--) { if (ZT[i].outer) continue; g.fillStyle = ZCOL[lookIndex(i)] || '#444'; g.beginPath(); g.arc(c, c, ZT[i].max * s, 0, 7); g.fill(); }
   g.fillStyle = '#e8bf55'; g.beginPath(); g.arc(c, c, WORLD.V * s, 0, 7); g.fill();
   for (const m of mo) { const t = I.types[m.ty]; if (t.st) { g.fillStyle = t.c; g.fillRect(m.x * s - 2.5, m.y * s - 2.5, 5, 5); } else if (t.boss) { g.fillStyle = '#f33'; g.beginPath(); g.arc(m.x * s, m.y * s, 4.5, 0, 7); g.fill(); g.strokeStyle = '#fd4'; g.lineWidth = 1.5; g.stroke(); } else if (m.al) { g.fillStyle = '#ffb04a'; g.beginPath(); g.arc(m.x * s, m.y * s, 3, 0, 7); g.fill(); } }
   g.fillStyle = '#ffd24a'; for (const L of lo) if (L.k === 'gear' && L.r >= 2) g.fillRect(L.x * s - 1.5, L.y * s - 1.5, 3, 3);

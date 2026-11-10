@@ -47,7 +47,7 @@ Give a boss a signature attack with `special` in its addMob definition: `'charge
 
 ## Helpers
 `players()`, `mobs()`, `findPlayer(name)`, `spawn(type, x, y, {temp:true})`, `say(player, text)`, `broadcast(text)`,
-`giveItem(p, id, n)`, `giveGold(p, n)`, `giveXp(p, n)`, `heal(p)`, `teleport(p, x, y)`, `setLevel(p, n)`, `refresh(p)` (call after you change a player's gear/stats),
+`giveItem(p, id, n)`, `giveGold(p, n)`, `giveXp(p, n)`, `heal(p)`, `teleport(p, x, y)` (x and y are local to the map the player is on), `teleportTo(p, otherPlayer)`, `toVillage(p)`, `setLevel(p, n)`, `refresh(p)` (call after you change a player's gear/stats),
 `effect(x, y, radius, style)` (styles: blade archer mage heal lvl rage buff), `text(x, y, text, kind)`,
 `toast(p, text, colour)` (big centre message), `stats()` (server load), `NPCS` (merchant/smith positions), `isAdmin(p)`, `kick(p)`, `data()` (a JSON object saved automatically for your plugin), `config`, `consts` (map size, village centre), plus raw `MOBTYPES`, `ITEMS`, `CLASSES`, `TIERS`.
 `player.data` is a free JSON object saved with each hero: store per-hero plugin state there.

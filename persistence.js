@@ -1,6 +1,7 @@
 'use strict';
 const fs = require('node:fs');
 const { basename } = require('node:path');
+const { mapOf } = require('./game-world');
 
 function openJsonStore(file) {
   const data = Object.create(null);
@@ -36,7 +37,7 @@ function createGameSaves({ players, saveStore, pluginStore, extraStores = [] }) 
     saves[player.name.toLowerCase()] = {
       ph: player.ph, data: player.data, name: player.name, cls: player.cls, lvl: player.lvl, xp: player.xp,
       gold: player.gold, souls: player.souls || 0, inv: player.inv, bag: player.bag, eq: player.eq, sk: player.sk, sp: player.sp,
-      x: player.x, y: player.y, hp: player.hp, mp: player.mp, dead: player.dead, buf: player.buf,
+      map: mapOf(player).index, x: player.x - mapOf(player).x0, y: player.y - mapOf(player).y0, hp: player.hp, mp: player.mp, dead: player.dead, buf: player.buf,
       cd: player.cd, cd1: player.cd1, cd2: player.cd2, cd3: player.cd3, potCd: player.potCd,
     };
   }

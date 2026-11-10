@@ -2,7 +2,7 @@
 
 const { localizedText: messageText, gearText, isLocalizedText } = require('./localized-text');
 
-const { NPCS, CX, CY, nearNpc, inVillage, rnd } = require('./game-world');
+const { NPCS, CX, CY, nearNpc, inVillage, rnd, placeInVillage, npcPosition, mapOf } = require('./game-world');
 const { BASES, SLOTS, RARITY, MYTHIC, MERGE_COST, REROLL_COST, UP_RATE, upCostFor, sellValue } = require('./equipment');
 const RARITY_COLOR = ['#d8d8d8', '#4ee26a', '#4da3ff', '#b25cff', '#ff9d2e', '#ff4560'];
 const { CLASSES, ITEMS, SKILLS, newSk, stats, defRed, critCh, critMul, goldFind, playerDmg, rank } = require('./characters');
@@ -45,7 +45,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     }
     else if (itemKey === 'atk' || itemKey === 'def' || itemKey === 'spd') { player.buf[itemKey] = now + 60000; ev('fx', player.x, player.y, 50, { s: 'buff', a: player.id }); }
     else if (itemKey === 'xp') { player.buf.xp = now + 300000; ev('fx', player.x, player.y, 50, { s: 'buff', a: player.id }); }
-    else if (itemKey === 'ret') { ev('fx', player.x, player.y, 60, { s: 'buff', a: player.id }); player.x = CX + rnd(-50, 50); player.y = CY + rnd(30, 95); player.dest = null; player.target = 0; player.chasingTarget = false; ev('fx', player.x, player.y, 60, { s: 'buff', a: player.id }); }
+    else if (itemKey === 'ret') { ev('fx', player.x, player.y, 60, { s: 'buff', a: player.id }); placeInVillage(player); player.dest = null; player.target = 0; player.chasingTarget = false; ev('fx', player.x, player.y, 60, { s: 'buff', a: player.id }); }
     else if (itemKey === 'reset') { player.sk = newSk(); player.sp = player.lvl; stats(player); player.hp = Math.min(player.hp, player.maxhp); say(player, messageText("server.skillRefund", "Skill points refunded: {count} available.", { count: player.sp })); sendInv(player); }
     if (!isPotion && itemKey !== 'ret' && itemKey !== 'reset') say(player, messageText("server.itemUsed", "{item} used.", { item: messageText('item.' + itemKey + '.name', item.n) }));
   }
@@ -103,7 +103,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     let cost = upCostFor(item);
     if (player.gold < cost) return rejectUpgrade(messageText('server.upgradeCost', 'The Blacksmith wants {gold} gold.', { gold: cost }));
 
-    const smith = NPCS.smith;
+    const smith = npcPosition(mapOf(player), 'smith');
     if (!automatic) {
       const { success, drop } = tryUpgrade(player, item, cost);
       send(player.c, { t: 'forge', ok: success ? 1 : 0, uid, plus: item.plus, ...(success ? {} : { drop }) });
@@ -133,7 +133,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     const cost = REROLL_COST[item.rar] || 1;
     if ((player.souls || 0) < cost) return say(player, messageText("server.rerollCost", "The Soul Mystic wants {souls} souls.", { souls: cost }));
     player.souls -= cost; rerollGear(item); fire('reroll', player, item);
-    const mystic = NPCS.mystic; ev('fx', mystic.x, mystic.y, 55, { s: 'summon' }); send(player.c, { t: 'reroll', uid: item.uid });
+    const mystic = npcPosition(mapOf(player), 'mystic'); ev('fx', mystic.x, mystic.y, 55, { s: 'summon' }); send(player.c, { t: 'reroll', uid: item.uid });
     if (item.rar >= 4) broadcast({ t: 'chat', n: '*', channel: 'loot', m: messageText("server.playerRerolled", "{player} rerolled {rarity} {item}.", { player: player.name, rarity: messageText('rarity.' + item.rar, RARITY[item.rar].n), item: gearText(item.name) }) });
     afterGearChange(player);
   }

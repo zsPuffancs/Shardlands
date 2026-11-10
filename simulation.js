@@ -1,6 +1,6 @@
 'use strict';
 
-const { CX, CY, rnd, dist, clampWorld, moveToward, inVillage } = require('./game-world');
+const { CX, CY, rnd, dist, clampWorld, moveToward, inVillage, placeInVillage } = require('./game-world');
 const { CLASSES, playerDmg, rank } = require('./characters');
 const { MOBTYPES, STONE_DMG } = require('./monsters');
 
@@ -27,8 +27,7 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
           player.dead = 0;
           player.hp = player.maxhp;
           player.mp = player.maxmp;
-          player.x = CX + rnd(-50, 50);
-          player.y = CY + rnd(30, 95);
+          placeInVillage(player);
           player.target = 0;
           player.chasingTarget = false;
           player.dest = null;

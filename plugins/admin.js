@@ -14,8 +14,8 @@ module.exports = { name: 'admin', version: '1.0', init(api) {
   api.command('souls', A, (p, a) => { p.souls = Math.max(0, (p.souls || 0) + num(a[0], 50)); return api.message("admin.souls", "Souls: {souls}", { souls: p.souls }); });
   api.command('level', A, (p, a) => { api.setLevel(p, num(a[0], p.lvl + 1)); return api.message("admin.level", "You are level {level}", { level: p.lvl }); });
   api.command('heal', A, (p, a) => { const t = target(p, a[0]); if (!t) return api.message("admin.noPlayer", "No such player."); api.heal(t); });
-  api.command('tp', A, (p, a) => { if (isNaN(+a[0])) { const t = api.findPlayer(a[0]); if (!t) return api.message("admin.noPlayer", "No such player."); api.teleport(p, t.x, t.y); return api.message("admin.teleported", "Teleported."); } api.teleport(p, num(a[0], api.consts.CX), num(a[1], api.consts.CY)); return api.message("admin.teleported", "Teleported."); });
-  api.command('home', {}, p => { api.teleport(p, api.consts.CX, api.consts.CY); return api.message("admin.home", "Welcome home."); });
+  api.command('tp', A, (p, a) => { if (isNaN(+a[0])) { const t = api.findPlayer(a[0]); if (!t) return api.message("admin.noPlayer", "No such player."); api.teleportTo(p, t); return api.message("admin.teleported", "Teleported."); } api.teleport(p, num(a[0], api.consts.CX), num(a[1], api.consts.CY)); return api.message("admin.teleported", "Teleported."); });
+  api.command('home', {}, p => { api.toVillage(p); return api.message("admin.home", "Welcome home."); });
   api.command('spawn', A, (player, [type, countText = '1', levelText]) => {
     if (!Object.hasOwn(api.MOBTYPES, type)) return api.message("admin.unknownMob", "Unknown mob. Ids: {ids}", { ids: Object.keys(api.MOBTYPES).join(', ') });
     const count = Number(countText), level = levelText === undefined ? undefined : Number(levelText);

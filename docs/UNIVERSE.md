@@ -13,6 +13,7 @@ how that foundation works, why it is built this way, and what is deliberately le
 | World Tier | `state.worldTier` | Starts at 1. Rises by one when the current tier's World Boss is defeated in its own region. |
 | World Boss | `generateRegion(...).worldBoss` | One boss per region, chosen by the seed. Servers differ in which boss is the gatekeeper. |
 | Region generator | `generateRegion(seed, tier, historySnapshot, generatorVersion)` | Pure function. Tiers 1-7 describe the seven hand-built zones. Tier 8 and above return a generated region description: name, biome, levels, monster families, stone count, modifiers and a named World Boss. |
+| Generated maps and World Portal | `regions.js`, `game-world.js` | Each tier from 8 up is a playable map with its own village. The portal lists the unlocked maps and moves players between them. |
 | Chronicle | `state.history` | Permanent list of verified events, each with a type, a time, the World Tier, the players involved and structured data. |
 | Legends | `summary().legends` | Ranking computed from the chronicle. Nothing is stored that the chronicle does not prove. |
 | Client | Chronicle window (H or the 🏛 button), login screen line | Shows the universe name, seed, World Tier, frontier region, World Boss, chronicle and legends. |
@@ -49,17 +50,41 @@ Boss and stone records list the killer first, then everyone else who damaged it 
   `recordAdminHistory: true` in `config.json` to change that, for example on a test server).
   Monsters created with `/spawn` never count.
 - **Existing saves keep working.** A server with heroes but no `universe.json` founds its universe
-  on the next start. Nothing is gated: all seven zones stay open whatever the World Tier is.
+  on the next start. The seven founding zones are never gated. Generated maps appear in the portal only once unlocked.
+
+## Maps beyond the founding lands
+
+From World Tier 8, every tier is its own generated map (`regions.js`).
+
+- **When:** the moment the current World Boss dies, the next region is generated, its map is built
+  and filled, and only then is the victory announced. On a restart, every map up to the current
+  World Tier is rebuilt from the seed, so layouts are the same as before.
+- **One coordinate plane.** Each map occupies its own square, 16000 units apart (`game-world.js`).
+  Distance checks, aggro, skills and loot need no map checks because other maps are simply far away.
+  Only `mapAt`, `clampWorld`, `inVillage`, `nearNpc`, `tierOf` and `placeInVillage` know about maps.
+- **Clients only see local coordinates.** Snapshots, events and the world description are shifted by
+  the map's origin on the way out, and click-to-move is shifted back on the way in. The client is
+  told about a map change by one `map` message, whatever caused it (portal or admin teleport),
+  and rebuilds its scenery from the seed and the map number.
+- **A region is a zone.** A generated region is appended to the zone table with its own map as its
+  area, so spawning, level scaling, stones, loot and respawns are the existing code. Its World Boss
+  is a new monster type (`wb8`, `wb9`, ...) built on an existing boss, with its own name.
+- **Every map has a village** with the three NPCs and the portal at the same places as at home.
+  Death and Return Scrolls bring you to the village of the map you are on.
+- **Saved positions** are stored as map number plus local position.
+- **Scenery** reuses the look of the founding zone that fits the biome (for example glacier uses
+  the Frostfang look).
 
 ## Not implemented yet
 
-- **Playing in generated regions.** From World Tier 8 the next region is generated, named and
-  shown, but it cannot be entered. `playable: false` marks this, and the World Tier stops there.
-  Making it real needs terrain, spawning and client rendering for generated regions.
 - **Region modifiers have no gameplay effect.** They are generated and stored only.
+- **New monsters, terrain shapes and boss mechanics per region.** Regions reuse existing monster
+  families, stones and boss attacks at higher levels on a flat square map.
+- **Unloading maps.** Every unlocked map stays in memory (about 300 monsters each; sleeping monsters
+  cost almost nothing). A server that reaches hundreds of tiers will need unloading.
 - **Guilds, factions, PvP and territory.** The game has none yet, so the chronicle has no such events.
 - **Landmarks, statues and titles** named after legends.
-- **Loading and unloading regions, several simulation servers, anti-cheat.** One process simulates everything.
+- **Several simulation servers, anti-cheat.** One process simulates everything.
 - **Hand-built zones do not change with history.** Only their monster layout and decoration follow the seed.
 
 ## Risks to keep in mind

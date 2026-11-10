@@ -3,13 +3,14 @@
 const { localizedText: messageText, isLocalizedText } = require('./localized-text');
 
 const crypto = require('node:crypto');
-const { CX, CY, rnd, worldInfo, clampWorld } = require('./game-world');
+const { CX, CY, rnd, worldInfo, clampWorld, maps, mapOf } = require('./game-world');
 const { MOBTYPES } = require('./monsters');
+const { mobTypesForClient } = require('./snapshots');
 const { CLASSES, ITEMS, MAXRANK, PMAX, newSk, stats } = require('./characters');
 const { SLOTS, STATDEF, UP_RATE, RARITY, sanitize } = require('./equipment');
 const { BAGMAX, BAG_PAGE_SIZE } = require('./inventory');
 
-function createPlayerSessions({ config, players, mobs, saves, allocateId, refreshMobTypes, universe, send, say, broadcast, fire, commands, skill, learnSkill, inventory, savePlayer }) {
+function createPlayerSessions({ config, players, mobs, saves, allocateId, refreshMobTypes, universe, regions, send, say, broadcast, fire, commands, skill, learnSkill, inventory, savePlayer }) {
   const isAdminName = name => config.admins.some(a => String(a).toLowerCase() === name.toLowerCase());
   const isAdmin = player => Boolean(player.ph && isAdminName(player.name));
   const clamp1 = v => Math.max(-1, Math.min(1, +v || 0));
@@ -49,8 +50,9 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
       player.dead = expiresAt(savedPlayer.dead);
       if (!savedPlayer.dead || player.dead) {
         if (Number.isFinite(savedPlayer.x) && Number.isFinite(savedPlayer.y)) {
-          player.x = savedPlayer.x;
-          player.y = savedPlayer.y;
+          // Saved positions are local to their map. A map that no longer exists sends the hero home.
+          const map = maps[savedPlayer.map || 0];
+          if (map) { player.x = map.x0 + savedPlayer.x; player.y = map.y0 + savedPlayer.y; }
           clampWorld(player);
         }
         if (Number.isFinite(savedPlayer.hp)) player.hp = Math.max(0, Math.min(player.maxhp, savedPlayer.hp));
@@ -58,11 +60,12 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
       }
     }
     connection.p = player;
+    connection.mapIndex = mapOf(player).index;
     connection.mobDeltas = message.mobDeltas === true;
     players.set(player.id, player);
     const { types: typeList } = refreshMobTypes();
-    const types = {}; for (const k in MOBTYPES) types[k] = { n: MOBTYPES[k].name, r: MOBTYPES[k].r, c: MOBTYPES[k].color, st: !!MOBTYPES[k].stone, boss: !!MOBTYPES[k].boss, lvl: MOBTYPES[k].lvl, shape: MOBTYPES[k].shape };
-    send(connection, { t: 'init', id: player.id, name: player.name, cls: player.cls, world: worldInfo(), types, tl: typeList, classes: CLASSES, items: ITEMS, maxRank: MAXRANK, pMax: PMAX, bagMax: BAGMAX, bagPageSize: BAG_PAGE_SIZE, slots: SLOTS, rarity: RARITY.map(r => r.n), upRate: UP_RATE, stat: Object.fromEntries(Object.entries(STATDEF).map(([k, v]) => [k, { n: v.n, pct: !!v.pct }])), resumed: !!savedPlayer, server: config.serverName, admin: isAdmin(player) });
+    const types = mobTypesForClient(MOBTYPES);
+    send(connection, { t: 'init', id: player.id, name: player.name, cls: player.cls, world: worldInfo(mapOf(player)), types, tl: typeList, classes: CLASSES, items: ITEMS, maxRank: MAXRANK, pMax: PMAX, bagMax: BAGMAX, bagPageSize: BAG_PAGE_SIZE, slots: SLOTS, rarity: RARITY.map(r => r.n), upRate: UP_RATE, stat: Object.fromEntries(Object.entries(STATDEF).map(([k, v]) => [k, { n: v.n, pct: !!v.pct }])), resumed: !!savedPlayer, server: config.serverName, admin: isAdmin(player) });
     inventory.sendInv(player);
     broadcast({ t: 'chat', n: '*', m: messageText("server.joined", "{player} entered {server}.", { player: player.name, server: config.serverName }) });
     if (config.motd) say(player, config.motd);
@@ -105,7 +108,8 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     },
     move(player, message) {
       if (player.dead || !Number.isFinite(message.x) || !Number.isFinite(message.y)) return;
-      player.dest = { x: message.x, y: message.y };
+      const map = mapOf(player);
+      player.dest = { x: map.x0 + message.x, y: map.y0 + message.y };
       player.chasingTarget = false;
     },
     target(player, message) {
@@ -127,6 +131,8 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     merge: (player, message) => inventory.doMerge(player, message.uids),
     automerge: (player, message) => inventory.autoMerge(player, message.max),
     universe: player => send(player.c, { t: 'universe', u: universe.summary() }),
+    portal: player => send(player.c, regions.portalList(player)),
+    travel: (player, message) => regions.travel(player, message.map),
     reroll: (player, message) => inventory.rerollItem(player, String(message.uid || '')),
     sell: (player, message) => inventory.sellItem(player, message.uid),
     sellall: (player, message) => inventory.sellByRarity(player, message.rar),
