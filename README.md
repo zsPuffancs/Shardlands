@@ -53,7 +53,7 @@ Console commands are defined in `server-console.js`. Give each `Command` a name,
 6 slots, 6 colours (common, uncommon, rare, epic, legendary, **mythic**). Helmets, armor and boots never roll damage or crit.
 **Mythic** items (red) are only made by merging. Besides stats they add 2-3 passive skill ranks (+1 to +3 each, up to 5 above the normal cap) while worn.
 **Merge**: Inventory → Merge → pick items of the same colour (any slot, any level) → you get 1 item of the next colour
-at your level ±20% (slot of the first item, best +forge kept). It takes 2 common → uncommon, 3 uncommon → rare, 4 rare → epic,
+whose item level is the average of the merged items (slot of the first item, best +forge kept). It takes 2 common → uncommon, 3 uncommon → rare, 4 rare → epic,
 5 epic → legendary, 15 legendary → mythic. Mythics can't be merged. Auto-merge buttons go up to green, blue, purple or orange.
 
 ## Souls
