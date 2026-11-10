@@ -1,0 +1,10 @@
+{
+  "serverName": "My Shardlands",
+  "motd": "Welcome! Type /help for commands. Press I for inventory, K for skills.",
+  "admins": [],
+  "disabledPlugins": [],
+  "port": 3000,
+  "xpRate": 1.5,
+  "dropRate": 1,
+  "deathGoldLoss": 0.1
+}

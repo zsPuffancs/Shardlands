@@ -1,0 +1,3 @@
+3D models in this folder (nature.bin / nature.json and chars/*.glb) come from Quaternius
+(https://quaternius.com) and are released under CC0 1.0 (public domain). Thank you, Quaternius!
+nature.* was converted from the Quaternius nature OBJ packs. chars/*.glb are the RPG character pack.
