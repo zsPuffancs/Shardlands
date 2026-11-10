@@ -433,6 +433,7 @@ function updateMobSnapshot(message) {
 function onMsg(m) {
   if (m.t === 'err') GameText.present($('err'), { message: m.text || m.m });
   else if (m.t === 'init') {
+    clearTimeout(onlineCountTimer);
     I = m; ZT = m.world.tiers; WORLD.npcs = m.world.npcs; WORLD.npcRange = m.world.npcRange; S.id = m.id; cam.dist = 440; cam.pitch = 0.82; cam.yaw = 0; $('login').style.display = 'none'; if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); $('hud').style.display = 'block';
     hudInit(); log('*', m.resumed ? text("login.welcomeBack", "Welcome back, ") + m.name + '!' : text("login.welcome", "Welcome, ") + m.name + text("login.welcomeHint", "! Loot drops on the ground - walk over it. Talk to the Merchant and the Blacksmith in the village (click them or press F)."));
   } else if (m.t === 'inv') onInv(m);
@@ -661,10 +662,35 @@ function renderLoginClasses(classes) {
   });
 }
 
+const ONLINE_COUNT_REFRESH_MS = 10000;
+let onlineCountTimer, displayedOnlineCount;
+
+function showOnlineCount(count) {
+  const counter = $('online-count');
+  counter.hidden = !Number.isInteger(count) || count < 0;
+  if (counter.hidden || displayedOnlineCount === count) return;
+  displayedOnlineCount = count;
+  GameText.present(counter, { message: { key: 'login.onlineCount', fallback: 'Online players: {count}', values: { count } } });
+}
+
+async function refreshOnlineCount() {
+  if (I) return;
+  try {
+    const response = await fetch('/api/info', { cache: 'no-store' });
+    const info = response.ok ? await response.json() : {};
+    if (!I) showOnlineCount(info.online);
+  } catch {
+    if (!I) showOnlineCount();
+  }
+  if (!I) onlineCountTimer = setTimeout(refreshOnlineCount, ONLINE_COUNT_REFRESH_MS);
+}
+
 async function boot() {
   GameText.init();
   let info; try { info = await (await fetch('/api/info')).json(); } catch (e) { $('srv').textContent = text("login.unreachable", "Server not reachable."); return; }
   WORLD = info.world; ZT = WORLD.tiers; document.title = info.serverName + ' - Shardlands 3D'; $('srv').textContent = text('login.server', '{server} · private server', { server: info.serverName });
+  showOnlineCount(info.online);
+  onlineCountTimer = setTimeout(refreshOnlineCount, ONLINE_COUNT_REFRESH_MS);
   sel = Object.keys(info.classes)[0];
   renderLoginClasses(info.classes);
   document.addEventListener('game-language-change', () => {

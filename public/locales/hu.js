@@ -187,6 +187,7 @@ GameText.addCatalog('hu', {
   "login.failed": "Nem sikerült kapcsolódni.",
   "login.loadingWorld": "{server} · a világ betöltése…",
   "login.name": "Karakter neve",
+  "login.onlineCount": "Online játékosok: {count}",
   "login.password": "Jelszó (opcionális, védi a karaktert)",
   "login.server": "{server} · privát szerver",
   "login.unreachable": "A szerver nem érhető el.",
