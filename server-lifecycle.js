@@ -35,7 +35,18 @@ function startServer({ server, transport, port, saveAll, tick, tickIntervalMs, g
     if (message === 'shutdown') void shutdown();
   });
 
+  function onStartupError(error) {
+    clearInterval(autosave);
+    clearInterval(simulationTimer);
+    transport.close();
+    const message = error.code === 'EADDRINUSE'
+      ? 'Port ' + port + ' is already in use. Stop the other server or choose a different port.'
+      : 'Could not start the server: ' + error.message;
+    process.stderr.write(message + '\n', () => process.exit(1));
+  }
+  server.once('error', onStartupError);
   server.listen(port, () => {
+    server.off('error', onStartupError);
     console.log('\n  Server is running!  Open http://localhost:' + port + '\n  Friends on your network can join via http://<your-LAN-IP>:' + port + '\n  (' + monsterCount() + ' monsters, map ' + width + 'x' + height + ', ' + zoneCount + ' zones)  Edit rates.json any time to change XP / gold / drops.\n');
     if (localLauncher || process.stdin.isTTY) {
       serverConsole = startServerConsole({ getStatus: getStatus, save: requestSave, shutdown, canRestart: localLauncher });

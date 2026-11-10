@@ -49,6 +49,7 @@ function attachWebSockets(server, onMessage, onLeave) {
   }
 
   function receive(client, chunk) {
+    if (client.closed) return;
     client.buf = client.buf.length ? Buffer.concat([client.buf, chunk]) : chunk;
     while (!client.sock.destroyed && client.buf.length >= 2) {
       const buffer = client.buf, opcode = buffer[0] & 15;

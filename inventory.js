@@ -38,7 +38,11 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
       const restoredHealth = Math.round(player.hp - previousHealth);
       ev('heal', player.x, player.y, '+' + restoredHealth, { combatPlayerId: player.id, restoredHealth });
     }
-    else if (itemKey === 'mp') { const h = Math.floor(player.maxmp * 0.5); player.mp = Math.min(player.maxmp, player.mp + h); ev('mana', player.x, player.y, '+' + h); }
+    else if (itemKey === 'mp') {
+      const restoredMana = Math.min(player.maxmp - player.mp, Math.floor(player.maxmp * 0.5));
+      player.mp += restoredMana;
+      ev('mana', player.x, player.y, '+' + Math.round(restoredMana));
+    }
     else if (itemKey === 'atk' || itemKey === 'def' || itemKey === 'spd') { player.buf[itemKey] = now + 60000; ev('fx', player.x, player.y, 50, { s: 'buff', a: player.id }); }
     else if (itemKey === 'xp') { player.buf.xp = now + 300000; ev('fx', player.x, player.y, 50, { s: 'buff', a: player.id }); }
     else if (itemKey === 'ret') { ev('fx', player.x, player.y, 60, { s: 'buff', a: player.id }); player.x = CX + rnd(-50, 50); player.y = CY + rnd(30, 95); player.dest = null; player.target = 0; player.chasingTarget = false; ev('fx', player.x, player.y, 60, { s: 'buff', a: player.id }); }
@@ -91,12 +95,13 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
   }
 
   function upgradeItem(player, uid, automatic = false) {
-    if (!nearNpc(player, 'smith')) return say(player, messageText('server.upgradeAtSmith', 'Talk to the Blacksmith in the village to upgrade equipment.'));
+    const rejectUpgrade = message => send(player.c, { t: 'forge', uid, m: message });
+    if (!nearNpc(player, 'smith')) return rejectUpgrade(messageText('server.upgradeAtSmith', 'Talk to the Blacksmith in the village to upgrade equipment.'));
     const item = SLOTS.map(slot => player.eq[slot]).find(gear => gear?.uid === uid);
-    if (!item) return say(player, messageText('server.upgradeWorn', 'The Blacksmith only upgrades equipment you are wearing.'));
-    if (item.plus >= 9) return say(player, messageText('server.upgradeMax', '{item} is already +9.', { item: gearText(item.name) }));
+    if (!item) return rejectUpgrade(messageText('server.upgradeWorn', 'The Blacksmith only upgrades equipment you are wearing.'));
+    if (item.plus >= 9) return rejectUpgrade(messageText('server.upgradeMax', '{item} is already +9.', { item: gearText(item.name) }));
     let cost = upCostFor(item);
-    if (player.gold < cost) return say(player, messageText('server.upgradeCost', 'The Blacksmith wants {gold} gold.', { gold: cost }));
+    if (player.gold < cost) return rejectUpgrade(messageText('server.upgradeCost', 'The Blacksmith wants {gold} gold.', { gold: cost }));
 
     const smith = NPCS.smith;
     if (!automatic) {

@@ -1,6 +1,6 @@
 'use strict';
 
-const { CLASSES, xpNeed } = require('./characters');
+const { CLASSES, xpNeed, playerDmg } = require('./characters');
 const { inVillage } = require('./game-world');
 
 const SNAPSHOT_RADIUS = 1150;
@@ -92,7 +92,7 @@ function ownPlayerSnapshot(player, now) {
     xp: player.xp, xn: xpNeed(player.lvl), g: player.gold, so: player.souls || 0, w: player.w,
     inv: player.inv, sk: player.sk, sp: player.sp, buf: activeBuffs(player, now),
     c1: Math.max(0, player.cd1 - now), c2: Math.max(0, player.cd2 - now), c3: Math.max(0, player.cd3 - now),
-    tg: player.target, dead: player.dead ? player.dead - now : 0, vil: inVillage(player) ? 1 : 0,
+    dmg: Math.round(playerDmg(player)), tg: player.target, dead: player.dead ? player.dead - now : 0, vil: inVillage(player) ? 1 : 0,
     bag: player.bag.length, spd: Math.round(player.spdNow || 190), rng: CLASSES[player.cls].range,
   };
 }

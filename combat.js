@@ -44,7 +44,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
       player.chasingTarget = false;
     }
     const experienceMultiplier = template.stone ? 2 : template.boss || monster.alpha ? 1 : Math.max(0.1, 1 - Math.max(0, player.lvl - monster.lvl - 5) * 0.12);
-    gainXp(player, Math.max(1, Math.round(monster.xp * rates.xpRate * experienceMultiplier)));
+    if (rates.xpRate > 0) gainXp(player, Math.max(1, Math.round(monster.xp * rates.xpRate * experienceMultiplier)));
     dropLoot(player, monster); ev('die', monster.x, monster.y, monster.ty, { b: monster.alpha ? 1 : 0 });
     if (template.boss) { broadcast({ t: 'chat', n: '*', m: messageText("server.bossSlain", "{player} has slain {monster}!", { player: player.name, monster: messageText('monster.' + monster.ty, template.name) }) }); broadcast({ t: 'toast', m: messageText("server.bossSlain", "{player} has slain {monster}!", { player: player.name, monster: messageText('monster.' + monster.ty, template.name) }), c: '#ffd24a' }); }
     fire('kill', player, monster);
@@ -58,7 +58,11 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     if (!damage) return;
     player.hp -= damage; ev('hurt', player.x, player.y, damage, { a: monster.id, combatPlayerId: player.id, monsterType: monster.ty });
     if (player.hp <= 0) {
-      player.hp = 0; player.dead = now + 5000; player.target = 0; player.chasingTarget = false; const loss = Math.floor(player.gold * rates.deathGoldLoss); player.gold -= loss;
+      player.hp = 0; player.dead = now + 5000; player.target = 0; player.chasingTarget = false;
+      const availableGold = Math.max(0, player.gold);
+      const lossRate = Math.max(0, Math.min(1, rates.deathGoldLoss));
+      const loss = Math.floor(availableGold * lossRate);
+      player.gold = availableGold - loss;
       say(player, messageText("server.died", "You died. Lost {gold} gold. Respawning in the village...", { gold: loss })); fire('death', player, monster);
       for (const attacker of mobs.values()) if (attacker.target === player.id) attacker.target = 0;
     }
@@ -72,7 +76,17 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     if (!inRange[attack]) { if (attack === signature) monster.alt = !monster.alt; attack = 'slam'; if (!inRange.slam) return; }
     const cast = { s: attack, at: now + (attack === 'meteor' ? 1450 : 1150), r: radius, ang: Math.atan2(targetPlayer.x - monster.x, targetPlayer.y - monster.y) };
     if (attack === 'breath') { cast.r = monster.r + 300; cast.half = 0.55; }
-    if (attack === 'charge') { const L = Math.min(480, Math.max(260, distance + 120)); cast.tx = monster.x + Math.sin(cast.ang) * L; cast.ty = monster.y + Math.cos(cast.ang) * L; }
+    if (attack === 'charge') {
+      const length = Math.min(480, Math.max(260, distance + 120));
+      const end = {
+        x: Math.max(20, Math.min(W - 20, monster.x + Math.sin(cast.ang) * length)),
+        y: Math.max(20, Math.min(H - 20, monster.y + Math.cos(cast.ang) * length)),
+      };
+      const destination = inVillage(end) ? monster : end;
+      cast.tx = destination.x;
+      cast.ty = destination.y;
+      cast.r = monster.r + 45;
+    }
     if (attack === 'meteor') { cast.pts = []; for (const player of players.values()) if (!player.dead && dist(player, monster) < 700) for (let i = 0; i < 3; i++) cast.pts.push([Math.round(player.x + rnd(-120, 120)), Math.round(player.y + rnd(-120, 120))]); cast.pts.push([Math.round(targetPlayer.x), Math.round(targetPlayer.y)]); cast.r = 95; }
     monster.cast = cast; monster.slamT = now + rnd(5500, 8500);
     ev('warn', monster.x, monster.y, cast.r, { a: monster.id, s: attack, ang: Math.round(cast.ang * 100) / 100, tx: cast.tx && Math.round(cast.tx), ty: cast.ty && Math.round(cast.ty), pts: cast.pts, half: cast.half });
@@ -81,8 +95,8 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     const cast = monster.cast; monster.cast = null; const baseDamage = monster.dmg * rates.monsterDamage;
     if (cast.s === 'slam') { ev('slam', monster.x, monster.y, cast.r, { s: 'slam' }); for (const player of activePlayers) if (!player.dead && !inVillage(player) && dist(player, monster) <= cast.r) hurtPlayer(player, monster, baseDamage * 1.8, now); }
     else if (cast.s === 'breath') { ev('slam', monster.x, monster.y, cast.r, { s: 'breath', ang: cast.ang, half: cast.half, ty: monster.ty }); for (const player of activePlayers) { if (player.dead || inVillage(player)) continue; const dd = dist(player, monster); if (dd > cast.r) continue; let da = Math.atan2(player.x - monster.x, player.y - monster.y) - cast.ang; da = Math.atan2(Math.sin(da), Math.cos(da)); if (Math.abs(da) <= cast.half) hurtPlayer(player, monster, baseDamage * 1.7, now); } }
-    else if (cast.s === 'charge') { const x0 = monster.x, y0 = monster.y; monster.x = Math.max(20, Math.min(W - 20, cast.tx)); monster.y = Math.max(20, Math.min(H - 20, cast.ty)); if (inVillage(monster)) { monster.x = x0; monster.y = y0; } ev('slam', monster.x, monster.y, 70, { s: 'charge', x0: Math.round(x0), y0: Math.round(y0) });
-      for (const player of activePlayers) { if (player.dead || inVillage(player)) continue; const vx = monster.x - x0, vy = monster.y - y0, L2 = vx * vx + vy * vy || 1, k = Math.max(0, Math.min(1, ((player.x - x0) * vx + (player.y - y0) * vy) / L2)), ex = x0 + vx * k - player.x, ey = y0 + vy * k - player.y; if (Math.hypot(ex, ey) < monster.r + 45) hurtPlayer(player, monster, baseDamage * 1.5, now); } }
+    else if (cast.s === 'charge') { const x0 = monster.x, y0 = monster.y; monster.x = cast.tx; monster.y = cast.ty; ev('slam', monster.x, monster.y, 70, { s: 'charge', x0: Math.round(x0), y0: Math.round(y0) });
+      for (const player of activePlayers) { if (player.dead || inVillage(player)) continue; const vx = monster.x - x0, vy = monster.y - y0, L2 = vx * vx + vy * vy || 1, k = Math.max(0, Math.min(1, ((player.x - x0) * vx + (player.y - y0) * vy) / L2)), ex = x0 + vx * k - player.x, ey = y0 + vy * k - player.y; if (Math.hypot(ex, ey) < cast.r) hurtPlayer(player, monster, baseDamage * 1.5, now); } }
     else if (cast.s === 'meteor') { ev('slam', monster.x, monster.y, cast.r, { s: 'meteor', pts: cast.pts, ty: monster.ty }); for (const player of activePlayers) { if (player.dead || inVillage(player)) continue; for (const q of cast.pts) if (Math.hypot(player.x - q[0], player.y - q[1]) <= cast.r) { hurtPlayer(player, monster, baseDamage * 1.4, now); break; } } }
     else if (cast.s === 'summon') { ev('slam', monster.x, monster.y, 140, { s: 'summon' }); const T = TIERS[monster.tier] || TIERS[0]; const targetPlayer = monster.target; for (let i = 0; i < 4; i++) { const a = rnd(0, 6.283); const g = spawnMob(pick(T.types), monster.x + Math.cos(a) * 110, monster.y + Math.sin(a) * 110, monster.tier); g.summoned = true; g.expiresAt = Date.now() + SUMMON_LIFETIME_MS; g.awake = true; g.target = targetPlayer; g.hx = monster.x; g.hy = monster.y; } }
   }

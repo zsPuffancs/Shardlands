@@ -4,7 +4,7 @@
 1. Install Node.js 18+ (https://nodejs.org). Nothing else. No internet needed to play.
 2. Windows: double-click `start.bat`.  Mac/Linux: `./start.sh`
 3. Open http://localhost:3000. Friends on your LAN join at http://YOUR-LAN-IP:3000 (over the internet: Tailscale or a cloudflared/ngrok tunnel).
-Set a hero password on the login screen so nobody can take your name.
+Set a password when creating a hero to protect it. Passwordless heroes are shared guests and cannot be assigned a password through login.
 
 ## Local server console
 Start the game with `start.bat` or `start.sh`. Type `help` for the command list or `help restart` for details. Use `status` to inspect the server, `save` to save immediately, `restart` to save and start a fresh server process, or `stop` to save and shut down. Restart disconnects players, who can refresh to reconnect.
@@ -73,7 +73,7 @@ WASD and ground clicks stop chasing and keep your target selected. Auto-attacks 
 Windows can be dragged by their title bar.
 
 ## Admin commands
-Create the hero with a password before adding its name to `admins` in `config.json`. For an existing passwordless hero, remove its name from `admins` while setting the password on a trusted local server, then restore the admin entry.
+Create the hero with a password before adding its name to `admins` in `config.json`.
 /give /gear /drop /gold /souls /level /heal /tp /zone <0-6> /spawn /god /stats /rate /xprate /droprate /announce /kick /players
 `/spawn <type> [count] [level]` spawns a temporary monster. For example, `/spawn wolf 3 5` creates three level-5 wolves from the same template.
 

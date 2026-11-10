@@ -160,7 +160,7 @@ function fxClaw(x, z, yaw) { for (let i = -1; i <= 1; i++) fxPush({ k: 'slash', 
 function fxWarn(f) {
   const s = f.s || 'slam', dur = s === 'meteor' ? 1450 : s === 'pulse' ? 1300 : 1150;
   if (s === 'breath') fxPush({ k: 'tcone', x: f.x, z: f.y, r: f.v, ang: f.ang, dur });
-  else if (s === 'charge') fxPush({ k: 'tline', x: f.x, z: f.y, x1: f.tx, z1: f.ty, w: 60, dur });
+  else if (s === 'charge') fxPush({ k: 'tline', x: f.x, z: f.y, x1: f.tx, z1: f.ty, r: f.v, dur });
   else if (s === 'meteor') for (const p of f.pts || []) fxPush({ k: 'tele', x: p[0], z: p[1], r: f.v, dur });
   else if (s === 'summon') fxPush({ k: 'portal', x: f.x, z: f.y, r: 120, dur, col: CLR.summon });
   else fxPush({ k: 'tele', x: f.x, z: f.y, r: f.v, dur, col: s === 'pulse' ? null : null });
@@ -194,7 +194,21 @@ function drawFx2(f, a, now) {
     case 'portal': { const pu = .85 + Math.sin(now / 90) * .15; D(M.ring, f.x, 2, f.z, f.r * pu, 1, f.r * pu, now / 300, 0, f.col, 1, (1 - a) * .9); D(M.disc, f.x, 1.5, f.z, f.r * .9, 1, f.r * .9, 0, 0, [.15, .03, .25], .4, (1 - a) * .55); if (Math.random() < .5) burst(f.x + (Math.random() - .5) * f.r, 4, f.z + (Math.random() - .5) * f.r, 1, f.col, 40, 1, 1.6, 1, -90); return true; }
     case 'tele': { D(M.disc, f.x, 1.6, f.z, f.r * a, 1, f.r * a, 0, 0, [1, .12, .08], .8, .22 + .25 * a); D(M.ring, f.x, 1.9, f.z, f.r, 1, f.r, now / 300, 0, [1, .2, .1], 1, .5 + .4 * Math.sin(now / 60)); return true; }
     case 'tcone': { const k = f.r * (.3 + .7 * a); D(M.fan, f.x, 1.7, f.z, k, 1, k, f.ang, 0, [1, .15, .08], .8, .2 + .3 * a); D(M.fan, f.x, 1.5, f.z, f.r, 1, f.r, f.ang, 0, [1, .2, .1], 1, .18 + .1 * Math.sin(now / 60)); return true; }
-    case 'tline': { const L = Math.hypot(f.x1 - f.x, f.z1 - f.z), yaw = Math.atan2(f.x1 - f.x, f.z1 - f.z); D(M.box, (f.x + f.x1) / 2, 1.6, (f.z + f.z1) / 2, f.w, 1, L * Math.min(1, a * 1.4), yaw, 0, [1, .15, .08], .8, .25 + .25 * a); for (let i = 1; i < 4; i++) { const k = i / 4; D(M.cone, f.x + (f.x1 - f.x) * k, 2.5, f.z + (f.z1 - f.z) * k, 10, 1, 16, yaw, 1.5708, [1, .3, .15], 1, .5); } return true; }
+    case 'tline': {
+      const length = Math.hypot(f.x1 - f.x, f.z1 - f.z);
+      const yaw = Math.atan2(f.x1 - f.x, f.z1 - f.z);
+      const color = [1, .15, .08], opacity = .25 + .25 * a;
+      D(M.disc, f.x, 1.6, f.z, f.r, 1, f.r, 0, 0, color, .8, opacity);
+      if (length > 0) {
+        D(M.box, (f.x + f.x1) / 2, 1.6, (f.z + f.z1) / 2, 2 * f.r, 1, length, yaw, 0, color, .8, opacity);
+        D(M.disc, f.x1, 1.6, f.z1, f.r, 1, f.r, 0, 0, color, .8, opacity);
+        for (let i = 1; i < 4; i++) {
+          const fraction = i / 4;
+          D(M.cone, f.x + (f.x1 - f.x) * fraction, 2.5, f.z + (f.z1 - f.z) * fraction, 10, 1, 16, yaw, 1.5708, [1, .3, .15], 1, .5);
+        }
+      }
+      return true;
+    }
     case 'meteor': { const y = 600 * (1 - a); D(M.rock, f.x, y + 10, f.z, 16, 16, 16, now / 200, 0, f.col, .9); if (Math.random() < .8) parts.push({ x: f.x + (Math.random() - .5) * 10, y: y + 20, z: f.z, vx: 0, vy: 60, vz: 0, t0: now, life: .5, col: f.col, size: 4, emis: 1, g: 0 });
       if (a > .96 && !f.hit) { f.hit = 1; addRing(f.x, f.z, 10, f.r * 1.2, f.col, 500, 3); burst(f.x, 10, f.z, 36, f.col, 280, .8, 3, 1, 500); burst(f.x, 10, f.z, 16, [.35, .3, .28], 200, 1, 3, .05, 600); sfx('slam', f.x, f.z); if (Math.hypot(S.rx - f.x, S.ry - f.z) < 300) cam.shake = 6; } return true; }
   }

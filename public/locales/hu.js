@@ -303,6 +303,7 @@ GameText.addCatalog('hu', {
   "server.adminPassword": "Az adminisztrátori hozzáféréshez előbb jelszót kell beállítani a karakterhez.",
   "server.alreadyOnline": "Ez a karakter már online van.",
   "server.badPassword": "Hibás jelszó.",
+  "server.guestPassword": "Ez a vendégkarakter jelszó nélkül jött létre. A belépéshez hagyd üresen a jelszómezőt.",
   "server.bagFull": "Megtelt a táskád.",
   "server.bagFullShort": "Megtelt a táska!",
   "server.bestMerge": "{used} tárgyból {count} készült. A legjobb: {rarity} {item}.",

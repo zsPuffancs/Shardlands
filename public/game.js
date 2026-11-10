@@ -373,7 +373,7 @@ function onEvent(f) {
   if (f.k === 'die') { const t = I.types[f.v], c = hex(t ? t.c : '#cccccc'), big = t && (t.boss || f.b); burst(f.x, 18, f.y, big ? 70 : 22, c, 200, 1.1, 2.2, .25, 560); addRing(f.x, f.y, 4, big ? 80 : 40, big ? [1, .7, .3] : [.85, .85, .85], 500, 14, .2); sfx(big ? 'boss' : 'die', f.x, f.y); return; }
   if (f.k === 'hurt') {
     const A = f.a && ents.get(f.a); if (A) { A.atkT = now; A.skill = false; A.yaw = Math.atan2(f.x - A.rx, f.y - A.ry); fxClaw(f.x, f.y, A.yaw); }
-    if (me && f.x === Math.round(me.x) && f.y === Math.round(me.y)) { S.flash = now; hurtFlash(f.v > me.mh * .15); cam.shake = Math.min(7, 2 + f.v / Math.max(1, me.mh) * 40); sfx('hurt'); } else sfx('hurt', f.x, f.y);
+    if (me && f.combatPlayerId === I.id) { S.flash = now; hurtFlash(f.v > me.mh * .15); cam.shake = Math.min(7, 2 + f.v / Math.max(1, me.mh) * 40); sfx('hurt'); } else sfx('hurt', f.x, f.y);
     burst(f.x, 30, f.y, 6, [.9, .15, .1], 120, .5, 1.8, .3);
   }
   if (f.k === 'dmg') { burst(f.x, 24, f.y, f.c ? 12 : 5, f.c ? [1, .8, .2] : [1, 1, .9], f.c ? 190 : 110, .45, 1.7, .9); sfx(f.c ? 'crit' : 'hit', f.x, f.y); }
@@ -485,6 +485,7 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (k === 'enter') { ci.style.display = 'block'; ci.focus(); keys = {}; e.preventDefault(); return; }
   const act = actionOf(k);
+  if (e.repeat && ['skills', 'inv', 'settings', 'mute', 'talk', 'gfx', 'fps'].includes(act)) return;
   if (act === 'attack') {
     if (e.target?.closest('button, select, input, textarea, [contenteditable]')) return;
     e.preventDefault();
@@ -500,7 +501,7 @@ addEventListener('keydown', e => {
   if ('wasd'.includes(k) && k.length === 1 || k.startsWith('arrow')) { keys[k] = 1; e.preventDefault(); }
 });
 addEventListener('keyup', e => { delete keys[e.key.toLowerCase()]; });
-addEventListener('blur', () => { keys = {}; held = false; });
+addEventListener('blur', () => { keys = {}; held = false; rotating = false; });
 const cv = $('c'); let rotating = false, lx = 0, ly = 0, lastDir = [0, 0], lastSend = 0;
 cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('wheel', e => { cam.dist = Math.max(160, Math.min(950, cam.dist * (e.deltaY > 0 ? 1.08 : 0.92))); e.preventDefault(); }, { passive: false });

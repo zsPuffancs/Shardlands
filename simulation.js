@@ -83,8 +83,9 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
       if (!monster.awake && !monster.target) continue;
       if (monster.cast && now >= monster.cast.at) resolveCast(monster, activePlayers, now);
       let targetPlayer = monster.target ? players.get(monster.target) : null; const leash = template.boss ? 1000 : monster.alpha ? 850 : 700;
-      if (targetPlayer && (targetPlayer.dead || inVillage(targetPlayer) || Math.hypot(targetPlayer.x - monster.sx, targetPlayer.y - monster.sy) > leash)) { targetPlayer = null; monster.target = 0; }
-      if (!targetPlayer) for (const player of activePlayers) if (!player.dead && Math.abs(player.x - monster.x) < template.aggro && Math.abs(player.y - monster.y) < template.aggro && dist(player, monster) < template.aggro && !inVillage(player)) { monster.target = player.id; targetPlayer = player; break; }
+      const canTarget = player => !player.dead && !inVillage(player) && Math.hypot(player.x - monster.sx, player.y - monster.sy) <= leash;
+      if (targetPlayer && !canTarget(targetPlayer)) { targetPlayer = null; monster.target = 0; }
+      if (!targetPlayer) for (const player of activePlayers) if (Math.abs(player.x - monster.x) < template.aggro && Math.abs(player.y - monster.y) < template.aggro && dist(player, monster) < template.aggro && canTarget(player)) { monster.target = player.id; targetPlayer = player; break; }
       if (targetPlayer) {
         const distance = dist(monster, targetPlayer);
         if (template.boss && !monster.cast && now > monster.slamT) startCast(monster, targetPlayer, distance, now);
@@ -93,7 +94,12 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
         else if (now >= monster.cd) { monster.cd = now + (monster.alpha ? 950 : 1100); hurtPlayer(targetPlayer, monster, monster.dmg * rates.monsterDamage * rnd(0.8, 1.2), now); }
       } else {
         const d = moveToward(monster, monster.hx, monster.hy, template.spd * 0.5, tickSeconds);
-        if (d < 5 && Math.random() < 0.02) { monster.hx = monster.sx + rnd(-70, 70); monster.hy = monster.sy + rnd(-70, 70); }
+        if (d < 5 && Math.random() < 0.02) {
+          const home = { x: monster.sx + rnd(-70, 70), y: monster.sy + rnd(-70, 70) };
+          clampWorld(home);
+          monster.hx = home.x;
+          monster.hy = home.y;
+        }
         if (monster.hp < monster.mh) monster.hp = Math.min(monster.mh, monster.hp + monster.mh * 0.05 * tickSeconds);
       }
     }
@@ -106,14 +112,14 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
       const radius = monster.cast.r;
       ev('slam', monster.x, monster.y, radius, { s: 'pulse' });
       for (const player of activePlayers) {
-        if (!player.dead && dist(player, monster) <= radius) {
+        if (!player.dead && !inVillage(player) && dist(player, monster) <= radius) {
           const damage = STONE_DMG[Math.min(6, monster.tier)] * monster.pulseMultiplier * rates.monsterDamage;
           hurtPlayer(player, monster, damage, now);
         }
       }
       monster.cast = null;
     } else if (!monster.cast && monster.stoneStep < 5 && now > (monster.slamT || 0)) {
-      if (!activePlayers.some(player => !player.dead && dist(player, monster) < 300)) return;
+      if (!activePlayers.some(player => !player.dead && !inVillage(player) && dist(player, monster) < 300)) return;
       monster.slamT = now + 6500;
       monster.cast = { at: now + 1300, r: 230 };
       ev('warn', monster.x, monster.y, 230, { s: 'pulse', a: monster.id });

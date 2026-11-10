@@ -102,6 +102,8 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick 
     const damageMultiplier = levelDamageMultiplier * (isAlpha ? 1.6 : 1);
     const experienceMultiplier = levelRatio ** 2 * (isAlpha ? 6 : 1);
     const goldMultiplier = levelRatio ** 1.5 * (isAlpha ? 5 : 1);
+    x = Math.max(20, Math.min(width - 20, x));
+    y = Math.max(20, Math.min(height - 20, y));
     const monster = {
       id: allocateId(), ty: type, x, y, hx: x, hy: y, sx: x, sy: y, tier, lvl: spawnLevel,
       hb: template.hp * healthMultiplier, dmg: template.dmg * damageMultiplier,

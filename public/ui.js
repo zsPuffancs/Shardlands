@@ -213,7 +213,7 @@ function hurtFlash(strong) { const h = $('hurtfx'); if (!h.classList.contains('l
 let zTop = 20;
 const isOpen = id => $(id).style.display === 'flex';
 function openWin(id) { const w = $(id); w.style.display = 'flex'; w.style.zIndex = ++zTop; if (id === 'invp') buildInv(); if (id === 'skillp') buildSkills(); if (id === 'shopw') buildShop(); if (id === 'smithw') buildSmith(); if (id === 'mysticw') buildMystic(); if (id === 'setw') buildSettings(); tip.style.display = 'none'; }
-function closeWin(id) { $(id).style.display = 'none'; if (id === 'invp') { mergeMode = false; mergeSel = []; } tip.style.display = 'none'; }
+function closeWin(id) { $(id).style.display = 'none'; if (id === 'invp') { mergeMode = false; mergeSel = []; } if (id === 'setw') bindWait = null; tip.style.display = 'none'; }
 function togglePanel(id) { if (isOpen(id)) closeWin(id); else openWin(id); }
 function closeAll() { for (const id of ['invp', 'skillp', 'shopw', 'smithw', 'mysticw', 'setw']) closeWin(id); }
 document.querySelectorAll('.win').forEach(w => {
@@ -275,7 +275,7 @@ function buildInv() {
   $('gld').textContent = '💰 ' + GameText.number(me.g);
   $('eqwrap').innerHTML = I.slots.map(s => EQ[s] ? slotHtml(EQ[s], 'data-tip="eq:' + s + '" data-eq="' + s + '"') : '<div class="slot empty" title="' + esc(text('slot.' + s, SLOTNAME[s])) + '">' + slotIcon(s) + '</div>').join('');
   const line = (n, v) => '<div>' + esc(text('inventory.metric.' + n, n)) + '<b>' + v + '</b></div>';
-  $('gst').innerHTML = line('⚔ Damage', GS._dmg || 0) + line('🎯 Crit', (GS._crit || 12) + '%') + line('❤ Max HP', GS._hp || 0) + line('🛡 Reduction', (GS._dr || 0) + '%') + line('💧 Max MP', GS._mp || 0) + line('💨 Speed', '+' + Math.min(60, GS.spd || 0).toFixed(1) + '%') + line('📖 XP bonus', '+' + (GS.xpb || 0).toFixed(1) + '%') + line('💥 Crit damage', (GS._cdmg || 180) + '%') + line('🩸 Lifesteal', (GS._ls || 0) + '%') + line('⚡ Attack speed', '+' + (GS._haste || 0) + '%') + line('💰 Total gold find', '+' + (GS._gf || 0) + '%');
+  $('gst').innerHTML = line('⚔ Damage', me.dmg ?? GS._dmg ?? 0) + line('🎯 Crit', (GS._crit || 12) + '%') + line('❤ Max HP', GS._hp || 0) + line('🛡 Reduction', (GS._dr || 0) + '%') + line('💧 Max MP', GS._mp || 0) + line('💨 Speed', '+' + Math.min(60, GS.spd || 0).toFixed(1) + '%') + line('📖 XP bonus', '+' + (GS.xpb || 0).toFixed(1) + '%') + line('💥 Crit damage', (GS._cdmg || 180) + '%') + line('🩸 Lifesteal', (GS._ls || 0) + '%') + line('⚡ Attack speed', '+' + (GS._haste || 0) + '%') + line('💰 Total gold find', '+' + (GS._gf || 0) + '%');
   renderBagPage();
   $('bagc').textContent = BAG.length + ' / ' + I.bagMax; $('bagfull').textContent = BAG.length >= I.bagMax ? text("inventory.full", "Bag full - merge or sell items.") : '';
   $('mergeBtn').classList.toggle('on', mergeMode); $('mergebar').style.display = mergeMode ? 'flex' : 'none';
@@ -458,6 +458,13 @@ function buildMystic() {
 }
 function onReroll() { const r = $('myres'); r.textContent = text('mystic.done', '✦ The souls reshape the item.'); r.style.color = '#c9a0ff'; sfx('lvl'); }
 function onForge(m) {
+  if (m.m) {
+    const result = $('smres');
+    result.textContent = GameText.resolve(m.text || m.m);
+    result.style.color = '#ff7a6a';
+    sfx('fail');
+    return;
+  }
   if (m.automatic) {
     const result = $('smres');
     result.textContent = text('smith.autoResult', 'Final level: +{level} · Attempts: {attempts} · Gold spent: {gold}', {
@@ -615,6 +622,9 @@ function hud() {
   const low = me.hp / me.mh < 0.3 && !me.dead; if (_hc.low !== low) { _hc.low = low; $('hurtfx').classList.toggle('low', low); if (!low) $('hurtfx').style.opacity = 0; }
   const T = me.tg && mo.find(m => m.id === me.tg);
   if (T) { const t = I.types[T.ty]; setD('tgt', 'block'); setH('tgtn', (t.boss ? '<span style="color:#ffd24a">★ </span>' : '') + (T.al ? '<span style="color:#ffb04a">' + esc(text("mob.alpha", "Alpha ")) + '</span>' : '') + esc(mobName(T.ty, t.n)) + ' ' + monsterLevelLabel(T.l, me.l) + (t.boss ? '<span class="tag" style="background:#ffd24a;color:#000">' + esc(text("mob.bossTag", "BOSS")) + '</span>' : T.al ? '<span class="tag" style="background:#ffb04a;color:#000">' + esc(text("mob.alphaTag", "ALPHA")) + '</span>' : '')); const b = $('tgt').querySelector('.bar'), p = Math.round(Math.max(0, T.hp / T.mh * 100)); if (_hc.tp !== p) { _hc.tp = p; b.firstChild.style.width = p + '%'; } const tx = GameText.number(T.hp) + ' / ' + GameText.number(T.mh); if (_hc.tt !== tx) { _hc.tt = tx; b.lastChild.textContent = tx; } } else setD('tgt', 'none');
+  const damageChanged = _hc.inventoryDamage !== me.dmg;
+  _hc.inventoryDamage = me.dmg;
   const s = me.sp + '|' + me.g + '|' + me.l + '|' + JSON.stringify(me.sk) + JSON.stringify(me.inv);
   if (s !== sig) { sig = s; if (isOpen('skillp')) buildSkills(); if (isOpen('invp')) buildInv(); if (isOpen('smithw')) buildSmith(); }
+  else if (damageChanged && isOpen('invp')) buildInv();
 }

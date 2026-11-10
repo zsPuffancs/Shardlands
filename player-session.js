@@ -3,7 +3,7 @@
 const { localizedText: messageText, isLocalizedText } = require('./localized-text');
 
 const crypto = require('node:crypto');
-const { CX, CY, rnd, worldInfo } = require('./game-world');
+const { CX, CY, rnd, worldInfo, clampWorld } = require('./game-world');
 const { MOBTYPES } = require('./monsters');
 const { CLASSES, ITEMS, MAXRANK, PMAX, newSk, stats } = require('./characters');
 const { SLOTS, STATDEF, UP_RATE, RARITY, sanitize } = require('./equipment');
@@ -26,16 +26,40 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     const password = String(message.pw || '').slice(0, 64);
     const passwordHash = password ? crypto.createHash('sha256').update(name.toLowerCase() + ':' + password).digest('hex') : '';
     if (savedPlayer && savedPlayer.ph && savedPlayer.ph !== passwordHash) return send(connection, { t: 'err', m: messageText("server.badPassword", "Wrong password for this hero.") });
+    if (savedPlayer && !savedPlayer.ph && passwordHash) {
+      return send(connection, { t: 'err', m: messageText('server.guestPassword', 'This guest hero was created without a password. Leave the password blank to play it.') });
+    }
     const classId = savedPlayer ? savedPlayer.cls : (typeof message.cls === 'string' && Object.hasOwn(CLASSES, message.cls) ? message.cls : 'blade');
     const level = savedPlayer ? savedPlayer.lvl : 1;
     const startingInventory = Object.assign(Object.fromEntries(Object.keys(ITEMS).map(k => [k, 0])), savedPlayer ? (savedPlayer.inv || { hp: savedPlayer.pots || 0 }) : { hp: 3, mp: 1 });
-    const player = { id: allocateId(), c: connection, name: savedPlayer ? savedPlayer.name : name, cls: classId, lvl: level, xp: savedPlayer ? savedPlayer.xp : 0, gold: savedPlayer ? (Number.isFinite(savedPlayer.gold) ? savedPlayer.gold : 0) : 100, souls: savedPlayer && Number.isFinite(savedPlayer.souls) ? savedPlayer.souls : 0, w: 0, inv: startingInventory, bag: (savedPlayer && Array.isArray(savedPlayer.bag) ? savedPlayer.bag.filter(it => it && typeof it === 'object').map(sanitize) : []), eq: Object.assign({ weapon: null, helm: null, armor: null, boots: null, ring: null, amulet: null }, savedPlayer && savedPlayer.eq),
+    const player = { id: allocateId(), c: connection, name: savedPlayer ? savedPlayer.name : name, cls: classId, lvl: level, xp: savedPlayer ? savedPlayer.xp : 0, gold: savedPlayer ? (Number.isFinite(savedPlayer.gold) ? Math.max(0, savedPlayer.gold) : 0) : 100, souls: savedPlayer && Number.isFinite(savedPlayer.souls) ? savedPlayer.souls : 0, w: 0, inv: startingInventory, bag: (savedPlayer && Array.isArray(savedPlayer.bag) ? savedPlayer.bag.filter(it => it && typeof it === 'object').map(sanitize) : []), eq: Object.assign({ weapon: null, helm: null, armor: null, boots: null, ring: null, amulet: null }, savedPlayer && savedPlayer.eq),
       sk: Object.assign(newSk(), savedPlayer && savedPlayer.sk), sp: savedPlayer ? (savedPlayer.sp !== undefined ? savedPlayer.sp : level) : 1, buf: { atk: 0, def: 0, spd: 0, xp: 0, rage: 0 }, potCd: 0, g: {},
-      ph: savedPlayer ? (savedPlayer.ph || passwordHash) : passwordHash, data: (savedPlayer && savedPlayer.data) || {},
+      ph: passwordHash, data: (savedPlayer && savedPlayer.data) || {},
       x: CX + rnd(-50, 50), y: CY + rnd(30, 95), dir: { x: 0, y: 0 }, dest: null, target: 0, chasingTarget: false, cd: 0, cd1: 0, cd2: 0, cd3: 0, dead: 0 };
     for (const slot of SLOTS) sanitize(player.eq[slot]);
     if (!player.eq.weapon) player.eq.weapon = inventory.starterWeapon(player, savedPlayer && savedPlayer.w);
-    stats(player); player.hp = player.maxhp; player.mp = player.maxmp; connection.p = player; connection.mobDeltas = message.mobDeltas === true; players.set(player.id, player);
+    stats(player);
+    player.hp = player.maxhp;
+    player.mp = player.maxmp;
+    if (savedPlayer) {
+      const now = Date.now();
+      const expiresAt = value => Number.isFinite(value) && value > now ? value : 0;
+      for (const key of ['cd', 'cd1', 'cd2', 'cd3', 'potCd']) player[key] = expiresAt(savedPlayer[key]);
+      for (const key of Object.keys(player.buf)) player.buf[key] = expiresAt(savedPlayer.buf?.[key]);
+      player.dead = expiresAt(savedPlayer.dead);
+      if (!savedPlayer.dead || player.dead) {
+        if (Number.isFinite(savedPlayer.x) && Number.isFinite(savedPlayer.y)) {
+          player.x = savedPlayer.x;
+          player.y = savedPlayer.y;
+          clampWorld(player);
+        }
+        if (Number.isFinite(savedPlayer.hp)) player.hp = Math.max(0, Math.min(player.maxhp, savedPlayer.hp));
+        if (Number.isFinite(savedPlayer.mp)) player.mp = Math.max(0, Math.min(player.maxmp, savedPlayer.mp));
+      }
+    }
+    connection.p = player;
+    connection.mobDeltas = message.mobDeltas === true;
+    players.set(player.id, player);
     const { types: typeList } = refreshMobTypes();
     const types = {}; for (const k in MOBTYPES) types[k] = { n: MOBTYPES[k].name, r: MOBTYPES[k].r, c: MOBTYPES[k].color, st: !!MOBTYPES[k].stone, boss: !!MOBTYPES[k].boss, lvl: MOBTYPES[k].lvl, shape: MOBTYPES[k].shape };
     send(connection, { t: 'init', id: player.id, name: player.name, cls: player.cls, world: worldInfo(), types, tl: typeList, classes: CLASSES, items: ITEMS, maxRank: MAXRANK, pMax: PMAX, bagMax: BAGMAX, bagPageSize: BAG_PAGE_SIZE, slots: SLOTS, rarity: RARITY.map(r => r.n), upRate: UP_RATE, stat: Object.fromEntries(Object.entries(STATDEF).map(([k, v]) => [k, { n: v.n, pct: !!v.pct }])), resumed: !!savedPlayer, server: config.serverName, admin: isAdmin(player) });
@@ -111,7 +135,7 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
   };
 
   function handleMessage(connection, message) {
-    if (!message || typeof message !== 'object' || Array.isArray(message) || typeof message.t !== 'string') return;
+    if (connection.closed || !message || typeof message !== 'object' || Array.isArray(message) || typeof message.t !== 'string') return;
     if (message.t === 'join') return joinPlayer(connection, message);
     if (connection.p && Object.hasOwn(messageHandlers, message.t)) {
       messageHandlers[message.t](connection.p, message);
@@ -123,6 +147,7 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     if (!player) return;
     fire('leave', player);
     savePlayer(player);
+    connection.p = null;
     players.delete(player.id);
     for (const monster of mobs.values()) {
       if (monster.target === player.id) monster.target = 0;
