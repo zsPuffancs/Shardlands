@@ -9,7 +9,7 @@ const { CLASSES, ITEMS, MAXRANK, PMAX, newSk, stats } = require('./characters');
 const { SLOTS, STATDEF, UP_RATE, RARITY, sanitize } = require('./equipment');
 const { BAGMAX, BAG_PAGE_SIZE } = require('./inventory');
 
-function createPlayerSessions({ config, players, mobs, saves, allocateId, refreshMobTypes, send, say, broadcast, fire, commands, skill, learnSkill, inventory, savePlayer }) {
+function createPlayerSessions({ config, players, mobs, saves, allocateId, refreshMobTypes, universe, send, say, broadcast, fire, commands, skill, learnSkill, inventory, savePlayer }) {
   const isAdminName = name => config.admins.some(a => String(a).toLowerCase() === name.toLowerCase());
   const isAdmin = player => Boolean(player.ph && isAdminName(player.name));
   const clamp1 = v => Math.max(-1, Math.min(1, +v || 0));
@@ -126,6 +126,7 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     unequip: (player, message) => inventory.unequipItem(player, message.slot),
     merge: (player, message) => inventory.doMerge(player, message.uids),
     automerge: (player, message) => inventory.autoMerge(player, message.max),
+    universe: player => send(player.c, { t: 'universe', u: universe.summary() }),
     reroll: (player, message) => inventory.rerollItem(player, String(message.uid || '')),
     sell: (player, message) => inventory.sellItem(player, message.uid),
     sellall: (player, message) => inventory.sellByRarity(player, message.rar),

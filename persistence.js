@@ -29,7 +29,7 @@ function openJsonStore(file) {
   return { data, save };
 }
 
-function createGameSaves({ players, saveStore, pluginStore }) {
+function createGameSaves({ players, saveStore, pluginStore, extraStores = [] }) {
   const saves = saveStore.data;
 
   function savePlayer(player) {
@@ -42,7 +42,7 @@ function createGameSaves({ players, saveStore, pluginStore }) {
   }
   function saveAll() {
     for (const player of players.values()) savePlayer(player);
-    return Promise.allSettled([saveStore.save(), pluginStore.save()]).then(results => {
+    return Promise.allSettled([saveStore.save(), pluginStore.save(), ...extraStores.map(store => store.save())]).then(results => {
       for (const result of results) if (result.status === 'rejected') console.error(result.reason);
       return results.every(result => result.status === 'fulfilled');
     });

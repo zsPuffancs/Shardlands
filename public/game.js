@@ -23,7 +23,7 @@ function smithAnvilPosition() {
 }
 
 function bakeWorld() {
-  seed = 1337; const { W, H, CX, CY, V } = WORLD, B = GL.bakeAdd; lamps = []; lava = []; GL.bakeBegin();
+  seed = (WORLD.universe && WORLD.universe.seedNumber) || 1337; const { W, H, CX, CY, V } = WORLD, B = GL.bakeAdd; lamps = []; lava = []; GL.bakeBegin();
   const NZ = ZT.length, roadEnd = ZT[Math.max(0, NZ - 2)].max, area = W * H / 25e6;
   const onRoad = (x, z, w) => [0, 1, 2, 3].some(k => { const a = k * 1.5708, px = Math.cos(a), pz = Math.sin(a), t = (x - CX) * px + (z - CY) * pz, dd = Math.abs((x - CX) * -pz + (z - CY) * px); return t > 0 && t < roadEnd && dd < (w || 46); });
   const G = (b, v) => { const k = (R() - .5) * v; return [b[0] + k, b[1] + k * 1.3, b[2] + k * .7]; }, up = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
@@ -446,7 +446,7 @@ function onMsg(m) {
     I = m; ZT = m.world.tiers; WORLD.npcs = m.world.npcs; WORLD.npcRange = m.world.npcRange; S.id = m.id; cam.dist = 440; cam.pitch = 0.82; cam.yaw = 0; $('login').style.display = 'none'; if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); $('hud').style.display = 'block';
     hudInit(); log('*', m.resumed ? text("login.welcomeBack", "Welcome back, ") + m.name + '!' : text("login.welcome", "Welcome, ") + m.name + text("login.welcomeHint", "! Loot drops on the ground - walk over it. Talk to the Merchant and the Blacksmith in the village (click them or press F)."));
   } else if (m.t === 'inv') onInv(m);
-  else if (m.t === 'toast') toast(m.text || m.m, m.c); else if (m.t === 'forge') onForge(m); else if (m.t === 'reroll') onReroll(m);
+  else if (m.t === 'toast') toast(m.text || m.m, m.c); else if (m.t === 'forge') onForge(m); else if (m.t === 'reroll') onReroll(m); else if (m.t === 'universe') onUniverse(m.u);
   else if (m.t === 'chat') log(m.n, m.text || m.m, m.channel); else if (m.t === 'msg') log('*', m.text || m.m);
   else if (m.t === 's') {
     if (!me) { S.rx = m.me.x; S.ry = m.me.y; cam.x = m.me.x; cam.z = m.me.y; }
@@ -490,7 +490,7 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (k === 'enter') { ci.style.display = 'block'; ci.focus(); keys = {}; e.preventDefault(); return; }
   const act = actionOf(k);
-  if (e.repeat && ['skills', 'inv', 'settings', 'mute', 'talk', 'gfx', 'fps'].includes(act)) return;
+  if (e.repeat && ['skills', 'inv', 'history', 'settings', 'mute', 'talk', 'gfx', 'fps'].includes(act)) return;
   if (act === 'attack') {
     if (e.target?.closest('button, select, input, textarea, [contenteditable]')) return;
     e.preventDefault();
@@ -499,7 +499,7 @@ addEventListener('keydown', e => {
   }
   if (act === 'skill1' || act === 'skill2' || act === 'skill3') send({ t: 'skill', n: +act.slice(5) });
   if (act === 'hp' || act === 'mp' || act === 'hp2' || act === 'ret') send({ t: 'use', i: act });
-  if (act === 'skills') togglePanel('skillp'); if (act === 'inv') togglePanel('invp'); if (act === 'settings') togglePanel('setw'); if (act === 'mute') toggleMute();
+  if (act === 'skills') togglePanel('skillp'); if (act === 'inv') togglePanel('invp'); if (act === 'history') togglePanel('chronw'); if (act === 'settings') togglePanel('setw'); if (act === 'mute') toggleMute();
   if (act === 'talk' && nearNpcK) openNpc(nearNpcK);
   if (act === 'gfx') { const n = GFX[(GFX.indexOf(GL.Q.mode) + 1) % GFX.length]; GL.setQuality(n); toast(text('settings.qualityChanged', 'Graphics: {quality}', { quality: qualityName(n) })); }
   if (act === 'fps') { const p = $('perf'); p.style.display = p.style.display === 'block' ? 'none' : 'block'; }
@@ -741,7 +741,7 @@ async function refreshOnlineCount() {
 async function boot() {
   GameText.init();
   let info; try { info = await (await fetch('/api/info')).json(); } catch (e) { $('srv').textContent = text("login.unreachable", "Server not reachable."); return; }
-  WORLD = info.world; ZT = WORLD.tiers; document.title = info.serverName + ' - Shardlands 3D'; $('srv').textContent = text('login.server', '{server} · private server', { server: info.serverName });
+  WORLD = info.world; ZT = WORLD.tiers; showUniverseLine(); document.title = info.serverName + ' - Shardlands 3D'; $('srv').textContent = text('login.server', '{server} · private server', { server: info.serverName });
   showOnlineCount(info.online);
   onlineCountTimer = setTimeout(refreshOnlineCount, ONLINE_COUNT_REFRESH_MS);
   sel = Object.keys(info.classes)[0];

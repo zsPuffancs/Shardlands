@@ -23,6 +23,15 @@ Console commands are defined in `server-console.js`. Give each `Command` a name,
 - The Blacksmith only upgrades equipment you are wearing, and no longer hammers in your ears.
 - Item tooltips always show above windows. The camera fades out trees and roofs between it and your hero.
 
+## Universes
+Every server is its own universe. On the first start it gets a world seed and a name (for example "The Verdant Throne"). The seed decides where monster camps, stones, bosses, trees and rocks are, so no two servers have the same map.
+- **World Tier**: starts at 1. Each region has one World Boss, picked by the seed. Defeating it in its own region raises the World Tier and reveals the next region. Tiers 1-7 are the seven zones; from tier 8 the next region is generated from the seed and the server's history, but it can't be entered yet.
+- **Chronicle** (H or the 🏛 button): the permanent record of firsts - first hero, first to reach level 10-60, first kill of each boss, first stone shattered in each region, first Mythic, every World Boss victory - and the Legends ranking that follows from it.
+- The universe lives in `universe.json`. Back it up with `saves.json`. Delete it to found a new universe. Set `worldSeed` in `config.json` before the first start to choose the seed.
+- Admin heroes are left out of the chronicle unless `recordAdminHistory` is `true` in `config.json`.
+
+Details and design notes: `docs/UNIVERSE.md`.
+
 ## The two settings files
 - **rates.json** - XP, gold, drops and difficulty. Edit and save while the server runs; changes apply within ~2 seconds.
   `xpRate`, `goldRate`, `gearDropRate`, `potionDropRate`, `rarityBoost` (0 normal, 1 = more rare/epic/legendary, 3 = loot shower),
@@ -91,6 +100,7 @@ Very old GPUs that can't do skinned characters fall back to the classic block mo
 - `simulation.js` advances the game world. `combat.js`, `monsters.js` and `loot.js` handle fights, spawns and rewards.
 - `characters.js`, `equipment.js` and `inventory.js` handle character progression, item generation and shop actions.
 - `player-session.js` authenticates players and dispatches game messages. `snapshots.js` builds the state updates sent to clients.
+- `universe.js` holds the world seed, World Tier, region generator and chronicle.
 - `plugin-host.js` registers plugins and their hooks. `web-server.js` serves the client and connects WebSocket transport.
 
 ## Plugins

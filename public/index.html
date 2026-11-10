@@ -123,7 +123,7 @@ kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1
 </style>
 <link rel="stylesheet" href="ui.css"></head><body>
 <canvas id="c"></canvas><div id="labels"></div><div id="floaters"></div><div id="hurtfx"></div><div id="zone"><b></b><span></span></div><div id="toasts"></div><div id="tip"></div><div id="perf"></div>
-<div id="login"><div class="box"><h1>SHARDLANDS</h1><div class="sub" id="srv"><span data-text="login.connecting">Connecting…</span></div>
+<div id="login"><div class="box"><h1>SHARDLANDS</h1><div class="sub" id="srv"><span data-text="login.connecting">Connecting…</span></div><div class="sub" id="uni" style="color:#ffd24a;font-size:0.75rem"></div>
 <div id="online-count" aria-live="polite" hidden></div>
 <input id="name" maxlength="14" placeholder="Hero name" data-placeholder-text="login.name" autofocus autocomplete="off">
 <input id="pw" type="password" maxlength="32" placeholder="Password (optional - protects your hero)" data-placeholder-text="login.password" autocomplete="off">
@@ -137,7 +137,7 @@ kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1
     <div id="goldl"></div><div id="buffs"></div><div id="sppill"><span data-text="hud.skillPoints">★ Skill points available - press K</span></div></div>
   <div class="panel" id="tgt"><span id="tgtn"></span><div class="bar"><i style="background:linear-gradient(#ff6a5a,#a81e16)"></i><span></span></div></div>
   <div class="panel" id="mapbox"><div id="mapwrap"><canvas id="mini" width="320" height="320"></canvas></div><div id="zname"></div><div id="zinfo"></div>
-    <div id="mapbtns"><button data-open="invp" title="Inventory (I)" data-title-text="panel.inventoryShortcut">🎒</button><button data-open="skillp" title="Skills (K)" data-title-text="panel.skillsShortcut">📜</button><button data-open="setw" title="Settings (O)" data-title-text="panel.settingsShortcut">⚙️</button></div></div>
+    <div id="mapbtns"><button data-open="invp" title="Inventory (I)" data-title-text="panel.inventoryShortcut">🎒</button><button data-open="skillp" title="Skills (K)" data-title-text="panel.skillsShortcut">📜</button><button data-open="chronw" title="Chronicle (H)" data-title-text="panel.chronicleShortcut">🏛️</button><button data-open="setw" title="Settings (O)" data-title-text="panel.settingsShortcut">⚙️</button></div></div>
   <div id="chat">
     <div id="log"></div>
     <div id="chat-tabs" role="group" aria-label="Chat filters" data-label-text="chat.filters">
@@ -185,6 +185,7 @@ kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1
   <div class="mu" style="font-size:0.75rem;margin-bottom:6px"><span data-text="mystic.intro">"Bring me souls and I will reshape your gear. Every stat is rolled again - for better or worse."</span></div>
   <div class="hd2" style="margin-top:2px"><span data-text="mystic.pick">Pick an item</span><span id="mysouls" style="text-transform:none;color:#c9a0ff"></span></div><div id="mypick" style="display:grid;grid-template-columns:repeat(8,1fr);gap:5px;max-height:220px;overflow:auto"></div>
   <div id="mycard" style="margin-top:10px"></div><button id="mygo" class="pri" style="width:100%;margin-top:8px" disabled>Reroll</button><div id="myres"></div></div></div>
+<div class="win panel" id="chronw" style="left:50%;top:70px;width:460px;margin-left:-230px"><div class="win-h"><b><span data-text="panel.chronicle">🏛 Chronicle</span></b><button class="x" data-close>✕</button></div><div class="win-b" id="chronb"></div></div>
 <div class="win panel" id="setw" style="left:50%;top:80px;width:400px;margin-left:-200px"><div class="win-h"><b><span data-text="panel.settings">⚙ Settings</span></b><button class="x" data-close>✕</button></div><div class="win-b">
   <div class="tabs"><button data-stab="snd" class="on"><span data-text="settings.sound">🔊 Sound</span></button><button data-stab="gfx"><span data-text="settings.graphics">🖥 Graphics</span></button><button data-stab="keys"><span data-text="settings.keys">⌨ Key bindings</span></button><button data-stab="log"><span data-text="settings.log">Chat log</span></button></div>
   <div data-spage="snd">

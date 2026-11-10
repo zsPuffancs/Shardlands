@@ -119,7 +119,7 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick 
     return monster;
   }
 
-  function randomSpawnPoint(zone) {
+  function randomSpawnPoint(zone, rnd) {
     if (zone.outer) {
       for (let attempt = 0; attempt < 50; attempt++) {
         const x = rnd(60, width - 60), y = rnd(60, height - 60);
@@ -131,31 +131,35 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick 
     return { x: centerX + Math.cos(angle) * distance, y: centerY + Math.sin(angle) * distance };
   }
 
-  function populateMonsters() {
+  // The layout (camps, stones, alphas, bosses) comes from one random stream. Pass a seeded
+  // stream and the same seed always lays the world out the same way.
+  function populateMonsters(random) {
+    random = random || Math.random;
+    const rnd = (a, b) => a + random() * (b - a), rint = (a, b) => Math.floor(rnd(a, b + 1)), pick = list => list[Math.floor(random() * list.length)];
     for (const [tier, zone] of TIERS.entries()) {
       const monsterCount = zone.count === 'death' ? Math.round(rates.deathZoneMonsters) : (zone.count || 60);
       // Each camp mainly spawns one family of monsters.
       for (let spawned = 0; spawned < monsterCount;) {
-        const center = randomSpawnPoint(zone);
+        const center = randomSpawnPoint(zone, rnd);
         const family = pick(zone.types);
         const campSize = tier === 0 ? rint(2, 4) : zone.outer ? rint(4, 8) : rint(3, 6);
         for (let i = 0; i < campSize; i++) {
-          const type = Math.random() < 0.75 ? family : pick(zone.types);
+          const type = random() < 0.75 ? family : pick(zone.types);
           spawnMob(type, center.x + rnd(-120, 120), center.y + rnd(-120, 120), tier);
         }
         spawned += campSize;
       }
       for (let i = 0; i < (zone.stones || 0); i++) {
-        const point = randomSpawnPoint(zone);
+        const point = randomSpawnPoint(zone, rnd);
         spawnMob(zone.stone || 'stone', point.x, point.y, tier);
       }
       for (let i = 0; i < (zone.alphas || 0); i++) {
-        const point = randomSpawnPoint(zone);
+        const point = randomSpawnPoint(zone, rnd);
         spawnMob(pick(zone.types), point.x, point.y, tier, { alpha: true });
       }
       for (const boss of zone.bosses || []) {
         for (let i = 0; i < (zone.bossCount || 1); i++) {
-          const point = randomSpawnPoint(zone);
+          const point = randomSpawnPoint(zone, rnd);
           spawnMob(boss, point.x, point.y, tier);
         }
       }

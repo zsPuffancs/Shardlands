@@ -1,10 +1,11 @@
 'use strict';
 // Shardlands entry point. Compose game services and manage the server lifecycle.
 const path = require('node:path');
-const { withLocalizedText } = require('./localized-text');
+const { withLocalizedText, localizedText } = require('./localized-text');
 const { loadServerConfig } = require('./server-config');
 const { openJsonStore, createGameSaves } = require('./persistence');
-const { W, H, CX, CY, rnd, rint, pick } = require('./game-world');
+const { W, H, CX, CY, rnd, rint, pick, attachUniverse } = require('./game-world');
+const { createUniverse } = require('./universe');
 const { TIERS, MOBTYPES, createMonsterSpawner } = require('./monsters');
 const { createEquipment } = require('./equipment');
 const { createInventory } = require('./inventory');
@@ -22,6 +23,7 @@ const { config, rates } = loadServerConfig(__dirname);
 const port = process.env.PORT || config.port || 3000;
 const saveStore = openJsonStore(path.join(__dirname, 'saves.json'));
 const pluginStore = openJsonStore(path.join(__dirname, 'plugin-data.json'));
+const universeStore = openJsonStore(path.join(__dirname, 'universe.json'));
 const players = new Map(), mobs = new Map(), loot = new Map();
 let nextEntityId = 1;
 const allocateId = () => nextEntityId++;
@@ -44,10 +46,19 @@ function broadcast(message) {
 const send = (connection, message) => transport.send(connection, withLocalizedText(message, 'm'));
 const say = (player, message) => send(player.c, { t: 'msg', m: message });
 const toast = (player, message, color) => send(player.c, { t: 'toast', m: message, c: color });
-const fire = (event, ...args) => pluginHost.fire(event, ...args);
+// The universe chronicle listens to the same game events as plugins, and hears them first.
+function fire(event, ...args) {
+  const record = universe.hooks[event];
+  if (record) try { record(...args); } catch (error) { console.error('[universe] error in "' + event + '":', error); }
+  return pluginHost.fire(event, ...args);
+}
 const notifications = { send, say, toast, broadcast, ev: emitGameEvent, fire };
 
-const { savePlayer, saveAll } = createGameSaves({ players, saveStore, pluginStore });
+const universe = createUniverse({
+  store: universeStore, config, broadcast, messageText: localizedText, isAdmin: player => sessions.isAdmin(player),
+});
+attachUniverse(universe.identity);
+const { savePlayer, saveAll } = createGameSaves({ players, saveStore, pluginStore, extraStores: [universeStore] });
 const { spawnMob, populateMonsters, respawnMonster } = createMonsterSpawner({
   mobs, rates, world: { width: W, height: H, centerX: CX, centerY: CY }, allocateId, rnd, rint, pick,
 });
@@ -76,7 +87,7 @@ const pluginHost = createPluginHost({
 });
 const sessions = createPlayerSessions({
   ...notifications, inventory, config, players, mobs, saves: saveStore.data, allocateId,
-  refreshMobTypes, commands: pluginHost.commands, skill: combat.skill, learnSkill, savePlayer,
+  refreshMobTypes, universe, commands: pluginHost.commands, skill: combat.skill, learnSkill, savePlayer,
 });
 const { server, transport } = createWebServer({
   publicDirectory: path.join(__dirname, 'public'), config, players, clientScripts: pluginHost.clientScripts,
@@ -85,8 +96,10 @@ const { server, transport } = createWebServer({
 });
 
 console.log('\n  ' + config.serverName.toUpperCase());
+console.log('  Universe: ' + universe.state.name + ' (seed ' + universe.state.seed + ', World Tier ' + universe.state.worldTier + ')' + (universe.founded ? ' - newly founded' : ''));
 pluginHost.loadPlugins();
-populateMonsters();
+populateMonsters(universe.layoutRandom('spawns'));
+if (universe.founded) universeStore.save().catch(error => console.error(error));
 startServer({
   server, transport, port, saveAll, tick: simulation.tick, tickIntervalMs: simulation.tickIntervalMs,
   getStatus: simulation.serverStats, monsterCount: () => mobs.size, width: W, height: H, zoneCount: TIERS.length,

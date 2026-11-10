@@ -212,10 +212,10 @@ function hurtFlash(strong) { const h = $('hurtfx'); if (!h.classList.contains('l
 // ---------- windows ----------
 let zTop = 20;
 const isOpen = id => $(id).style.display === 'flex';
-function openWin(id) { const w = $(id); w.style.display = 'flex'; w.style.zIndex = ++zTop; if (id === 'invp') buildInv(); if (id === 'skillp') buildSkills(); if (id === 'shopw') buildShop(); if (id === 'smithw') buildSmith(); if (id === 'mysticw') buildMystic(); if (id === 'setw') buildSettings(); tip.style.display = 'none'; }
+function openWin(id) { const w = $(id); w.style.display = 'flex'; w.style.zIndex = ++zTop; if (id === 'invp') buildInv(); if (id === 'skillp') buildSkills(); if (id === 'shopw') buildShop(); if (id === 'smithw') buildSmith(); if (id === 'mysticw') buildMystic(); if (id === 'chronw') { buildChronicle(); send({ t: 'universe' }); } if (id === 'setw') buildSettings(); tip.style.display = 'none'; }
 function closeWin(id) { $(id).style.display = 'none'; if (id === 'invp') { mergeMode = false; mergeSel = []; } if (id === 'setw') bindWait = null; tip.style.display = 'none'; }
 function togglePanel(id) { if (isOpen(id)) closeWin(id); else openWin(id); }
-function closeAll() { for (const id of ['invp', 'skillp', 'shopw', 'smithw', 'mysticw', 'setw']) closeWin(id); }
+function closeAll() { for (const id of ['invp', 'skillp', 'shopw', 'smithw', 'mysticw', 'chronw', 'setw']) closeWin(id); }
 document.querySelectorAll('.win').forEach(w => {
   const h = w.querySelector('.win-h'); w.addEventListener('mousedown', () => { w.style.zIndex = ++zTop; });
   h.addEventListener('mousedown', e => { if (e.target.closest('button')) return; const r = w.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top;
@@ -457,6 +457,36 @@ function buildMystic() {
   $('mygo').disabled = SOULS < c; $('mygo').textContent = text('mystic.rerollFor', 'Reroll for {cost} souls', { cost: c });
 }
 function onReroll() { const r = $('myres'); r.textContent = text('mystic.done', '✦ The souls reshape the item.'); r.style.color = '#c9a0ff'; sfx('lvl'); }
+// ---------- universe chronicle ----------
+let UNI = null;
+const CHRONICLE_TEXT = {
+  founded: 'The universe {universe} was founded.', firstHero: '{player} was the first hero to walk {universe}.',
+  levelMilestone: '{player} was the first to reach level {level}.', bossFirstKill: '{player} was the first to slay {boss}.',
+  stoneFirst: '{player} shattered the first stone of {region}.', firstMythic: '{player} forged the first Mythic item: {item}.',
+  worldBoss: '{player} defeated the World Boss {boss}. World Tier {tier} begins: {region} is discovered.',
+};
+const zoneKey = name => 'zone.' + String(name).toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '');
+const regionName = region => region.kind === 'founding' ? text(zoneKey(region.name), region.name) : region.name;
+const bossName = boss => boss.type && I && I.types[boss.type] && !/ /.test(boss.name) ? text('monster.' + boss.type, boss.name) : boss.name;
+const dateText = at => new Date(at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+function showUniverseLine() {
+  const u = WORLD && WORLD.universe, el = $('uni'); if (!el || !u) return;
+  el.textContent = text('universe.loginLine', '{universe} · World Tier {tier} · seed {seed}', { universe: u.name, tier: u.tier, seed: u.seed });
+}
+function onUniverse(u) { UNI = u; if (WORLD) { WORLD.universe.tier = u.tier; } if (isOpen('chronw')) buildChronicle(); }
+function buildChronicle() {
+  const u = UNI; if (!u) { $('chronb').innerHTML = '<div class="mu">…</div>'; return; }
+  const f = u.frontier, wb = f.worldBoss;
+  const entryText = e => { const d = Object.assign({}, e.data); if (d.bossType) d.boss = text('monster.' + d.bossType, d.boss); if (d.region && e.type !== 'worldBoss') d.region = text(zoneKey(d.region), d.region); else if (d.region && e.data.tier <= 7) d.region = text(zoneKey(d.region), d.region);
+    return text('chronicle.' + e.type, CHRONICLE_TEXT[e.type] || e.type, Object.assign({ universe: u.name, player: e.players[0] || '' }, d)); };
+  const others = e => e.players.length > 1 ? '<small>' + esc(text('chronicle.with', 'Fought alongside: {players}', { players: e.players.slice(1).join(', ') })) + '</small>' : '';
+  $('chronb').innerHTML =
+    '<div class="uni-head"><b>' + esc(u.name) + '</b><span>' + esc(text('universe.identity', 'Seed {seed} · founded {date}', { seed: u.seed, date: dateText(u.foundedAt) })) + '</span></div>' +
+    '<div class="uni-tier"><div><span class="mu">' + esc(text('universe.worldTier', 'World Tier')) + '</span><b>' + u.tier + '</b></div><div><span class="mu">' + esc(text('universe.frontier', 'Frontier region')) + '</span><b>' + esc(regionName(f)) + '</b><small>' + esc(text('universe.levels', 'Levels {min}-{max}', { min: f.levels[0], max: f.levels[1] })) + '</small></div><div><span class="mu">' + esc(text('universe.worldBoss', 'World Boss')) + '</span><b style="color:#ffd24a">' + esc(bossName(wb)) + '</b></div></div>' +
+    '<div class="mu" style="font-size:0.75rem;margin:6px 0">' + esc(f.playable ? text('universe.frontierHint', 'Defeat the World Boss in its own region to advance this universe to the next World Tier.') : text('universe.frontierLocked', 'This region has been charted from the history of this universe, but it cannot be entered yet.')) + '</div>' +
+    '<div class="hd2">' + esc(text('universe.chronicle', 'Chronicle')) + '</div><div class="uni-list">' + u.history.slice().reverse().map(e => '<div class="uni-row"><span class="mu">' + esc(dateText(e.at)) + '</span><div>' + esc(entryText(e)) + others(e) + '</div></div>').join('') + '</div>' +
+    '<div class="hd2">' + esc(text('universe.legends', 'Legends')) + '</div><div class="uni-list">' + (u.legends.length ? u.legends.map((l, i) => '<div class="uni-row"><span class="mu">' + (i + 1) + '.</span><div><b>' + esc(l.name) + '</b><small>' + esc(text('universe.renown', '{renown} renown · {deeds} deeds in the chronicle', { renown: l.renown, deeds: l.deeds })) + '</small></div></div>').join('') : '<div class="mu">' + esc(text('universe.noLegends', 'No hero has entered the chronicle yet.')) + '</div>') + '</div>';
+}
 function onForge(m) {
   if (m.m) {
     const result = $('smres');
@@ -538,8 +568,8 @@ function buildSkills() {
 }
 document.addEventListener('click', e => { const t = e.target.closest('[data-sktab]'); if (t) { skTab = t.dataset.sktab; buildSkills(); } });
 // ---------- settings & key bindings ----------
-const BIND_DEF = { skill1: '1', skill2: '2', skill3: '3', hp: 'q', mp: 'e', hp2: 'r', ret: 't', talk: 'f', inv: 'i', skills: 'k', settings: 'o', mute: 'm', gfx: 'g', fps: 'p', attack: ' ' };
-const BIND_NAME = { skill1: 'Skill 1', skill2: 'Skill 2', skill3: 'Skill 3', hp: 'Health potion', mp: 'Mana potion', hp2: 'Greater health potion', ret: 'Return scroll', talk: 'Talk to NPC', inv: 'Inventory', skills: 'Skills window', settings: 'Settings', mute: 'Mute', gfx: 'Cycle graphics quality', fps: 'FPS counter', attack: 'Attack nearest monster' };
+const BIND_DEF = { skill1: '1', skill2: '2', skill3: '3', hp: 'q', mp: 'e', hp2: 'r', ret: 't', talk: 'f', inv: 'i', skills: 'k', history: 'h', settings: 'o', mute: 'm', gfx: 'g', fps: 'p', attack: ' ' };
+const BIND_NAME = { skill1: 'Skill 1', skill2: 'Skill 2', skill3: 'Skill 3', hp: 'Health potion', mp: 'Mana potion', hp2: 'Greater health potion', ret: 'Return scroll', talk: 'Talk to NPC', inv: 'Inventory', skills: 'Skills window', history: 'Chronicle', settings: 'Settings', mute: 'Mute', gfx: 'Cycle graphics quality', fps: 'FPS counter', attack: 'Attack nearest monster' };
 let BINDS = Object.assign({}, BIND_DEF); try { Object.assign(BINDS, JSON.parse(localStorage.getItem('sl_keys') || '{}')); } catch (e) {}
 for (const [action, defaultKey] of Object.entries(BIND_DEF)) {
   if (BINDS[action] === 'shift') BINDS[action] = actionOf(defaultKey) ? '' : defaultKey;
