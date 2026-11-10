@@ -57,13 +57,16 @@ at your level ±20% (slot of the first item, best +forge kept). Auto-merge butto
 1 point per level. Active skills (keys 1-3) go to rank 5, passives to rank 10. Open with K and switch tabs.
 
 ## Controls (all rebindable in Settings → Key bindings, except movement)
-Click: move / attack / loot / talk · Space: attack the nearest monster in reach · WASD walk · right-drag or ←→ camera · wheel zoom · 1-3 skills · Q/E/R/T potions & return scroll
+Click: move / attack / loot / talk · Space: attack the selected monster in reach or pick the nearest one in reach · WASD walk · right-drag or ←→ camera · wheel zoom · 1-3 skills · Q/E/R/T potions & return scroll
 F talk · I inventory · K skills · O settings · G graphics quality · P fps · M mute · Enter chat (/help) · Esc close windows.
+WASD and ground clicks stop chasing and keep your target selected. Auto-attacks continue while the target is in reach.
 Windows can be dragged by their title bar.
 
 ## Admin commands
 Create the hero with a password before adding its name to `admins` in `config.json`. For an existing passwordless hero, remove its name from `admins` while setting the password on a trusted local server, then restore the admin entry.
 /give /gear /drop /gold /level /heal /tp /zone <0-6> /spawn /god /stats /rate /xprate /droprate /announce /kick /players
+`/spawn <type> [count] [level]` spawns a temporary monster. For example, `/spawn wolf 3 5` creates three level-5 wolves from the same template.
+
 `/stats` shows monster count and server tick time - handy while stress testing the Death Zone. `/god` makes you immune.
 
 ## Performance
@@ -71,6 +74,14 @@ Graphics default to Auto (lowers resolution and shadows if the frame rate drops)
 only the nearest ~26 humanoid monsters are fully animated, and sleeping monsters cost the server nothing
 (3363 monsters ≈ 0.5 ms per server tick). Use a current Chrome/Edge/Firefox with hardware acceleration on.
 Very old GPUs that can't do skinned characters fall back to the classic block models automatically.
+
+## Server modules
+
+- `server.js` connects the modules. `server-lifecycle.js` starts the server and handles autosave, shutdown and restart.
+- `simulation.js` advances the game world. `combat.js`, `monsters.js` and `loot.js` handle fights, spawns and rewards.
+- `characters.js`, `equipment.js` and `inventory.js` handle character progression, item generation and shop actions.
+- `player-session.js` authenticates players and dispatches game messages. `snapshots.js` builds the state updates sent to clients.
+- `plugin-host.js` registers plugins and their hooks. `web-server.js` serves the client and connects WebSocket transport.
 
 ## Plugins
 See PLUGINS.md. Drop files into `plugins/`, restart.

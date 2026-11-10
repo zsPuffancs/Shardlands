@@ -15,6 +15,11 @@ let seed = 1337; const R = () => (seed = (seed * 16807) % 2147483647) / 21474836
 let lamps = [], lava = [];
 function zoneOf(x, z) { const d = Math.hypot(x - WORLD.CX, z - WORLD.CY); if (d < WORLD.V) return -1; for (let i = 0; i < ZT.length; i++) if (d < ZT[i].max) return i; return ZT.length - 1; }
 const ZCOL = ['#4f7a38', '#2f4f2d', '#6b5f52', '#4d2620', '#c3d0db', '#2b1f3c', '#1c0f10'];
+function smithAnvilPosition() {
+  const smith = WORLD.npcs.smith;
+  return { x: smith.x - 19, z: smith.y - 14 };
+}
+
 function bakeWorld() {
   seed = 1337; const { W, H, CX, CY, V } = WORLD, B = GL.bakeAdd; lamps = []; lava = []; GL.bakeBegin();
   const NZ = ZT.length, roadEnd = ZT[Math.max(0, NZ - 2)].max, area = W * H / 25e6;
@@ -95,7 +100,10 @@ function bakeWorld() {
   for (const [dx, dz, q] of [[-40, -8, 12], [-42, 8, 9], [-34, 3, 7]]) B(M.box, sx + dx, q / 2, sz + dz, q, q, q, dx * .1, 0, [.56, .4, .22]);
   // smithy: forge, chimney, anvil, grindstone, weapon rack, awning
   const fx = CX + 92, fz = CY - 22; B(M.box, fx, 9, fz, 26, 18, 20, .4, 0, [.36, .34, .36]); B(M.box, fx + 4, 34, fz - 4, 10, 32, 10, .4, 0, [.3, .28, .3]);
-  B(M.box, CX + 56, 5, CY - 6, 9, 10, 7, .4, 0, [.3, .3, .33]); B(M.box, CX + 56, 11.5, CY - 6, 17, 3.4, 8, .4, 0, [.22, .22, .25]); B(M.cone, CX + 64.5, 11.5, CY - 9.5, 2.6, 6, 2.6, .4, 1.5708, [.22, .22, .25]);
+  const anvil = smithAnvilPosition();
+  B(M.box, anvil.x, 5, anvil.z, 9, 10, 7, .4, 0, [.3, .3, .33]);
+  B(M.box, anvil.x, 11.5, anvil.z, 17, 3.4, 8, .4, 0, [.22, .22, .25]);
+  B(M.cone, anvil.x + 8.5, 11.5, anvil.z - 3.5, 2.6, 6, 2.6, .4, 1.5708, [.22, .22, .25]);
   B(M.cyl, CX + 104, 0, CY + 10, 9, 3, 9, 0, 1.5708, [.55, .52, .5]); B(M.box, CX + 104, 7, CY + 10, 2, 14, 12, 0, 0, wood);
   for (let i = 0; i < 4; i++) B(M.box, CX + 38 + i * 6, 16, CY + 38, 1.4, 30, 1.4, 0, .15, [.7, .72, .78]); B(M.box, CX + 47, 24, CY + 38, 30, 2, 3, 0, 0, wood);
   for (const s of [-1, 1]) for (const t of [-1, 1]) B(M.box, CX + 74 + s * 30, 22, CY - 8 + t * 22, 2.4, 44, 2.4, 0, 0, wood); B(M.box, CX + 74, 46, CY - 8, 66, 2, 50, 0, -.12, [.4, .3, .22]);
@@ -312,7 +320,10 @@ function drawWorld(now) {
   const fx = CX + 92, fz = CY - 22, f = Math.sin(now / 70); D(M.ball, fx - 8, 20 + f, fz + 4, 6 + f * .5, 7 + f, 6 + f * .5, 0, 0, [1, .5, .1], 1); if (Math.random() < .25) burst(fx - 8, 24, fz + 4, 1, [1, .6, .15], 26, 1.3, 1.3, 1, -70); if (Math.random() < .2) burst(fx + 4, 52, fz - 4, 1, [.35, .33, .33], 18, 2.4, 3, 0, -50);
   const mN = WORLD.npcs.merchant, sN = WORLD.npcs.smith, me_ = NPCE.merchant, sm = NPCE.smith;
   me_.rx = mN.x; me_.ry = mN.y; me_.mv = 0; if (!drawChar(me_, 'Cleric', { h: 66 }, now)) human(me_, { sc: 1, kind: 'npc', body: hex('#6a4a8a'), leg: hex('#3a2a4a'), skin: SKIN, hair: [.35, .2, .1] });
-  sm.rx = sN.x; sm.ry = sN.y; sm.mv = 0; if (now - sm.atkT > 1700) { sm.atkT = now; sm.skill = false; setTimeout(() => { if (Math.hypot(cam.x - sN.x, cam.z - sN.y) < 700) burst(CX + 58, 14, CY - 5, 7, [1, .75, .3], 120, .5, 1.2, 1); }, 260); }
+  sm.rx = sN.x; sm.ry = sN.y; sm.mv = 0; if (now - sm.atkT > 1700) { sm.atkT = now; sm.skill = false; setTimeout(() => {
+    const anvil = smithAnvilPosition();
+    if (Math.hypot(cam.x - sN.x, cam.z - sN.y) < 700) burst(anvil.x, 14, anvil.z, 7, [1, .75, .3], 120, .5, 1.2, 1);
+  }, 260); }
   if (!drawChar(sm, 'Monk', { h: 68, tint: [1, .92, .85] }, now)) human(sm, { sc: 1.08, kind: 'smith', body: hex('#7a5a3a'), leg: hex('#3a2e24'), skin: hex('#d9a27a'), arm: hex('#d9a27a'), wide: 11, pad: 0 });
   if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc', NPCNAME.merchant + (nearNpcK === 'merchant' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', mN.x, 98, mN.y + 11, 0, 150);
   if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc2', NPCNAME.smith + (nearNpcK === 'smith' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', sN.x, 98, sN.y, 0, 150);
@@ -365,8 +376,20 @@ function onEvent(f) {
   if (f.k === 'loot') { burst(f.x, 20, f.y, 10 + (f.r || 0) * 5, RCV[f.r || 0], 160, .8, 1.7, .9); sfx('loot', f.x, f.y, f.r || 0); }
   if (f.k === 'heal' || f.k === 'mana') sfx('heal', f.x, f.y);
   const col = f.k === 'loot' ? RC_CSS[f.r || 0] : f.k === 'dmg' && f.c ? '#ffd23f' : FLOATCOL[f.k]; if (!col || floaters.length > 60) return;
-  const el = document.createElement('div'); el.className = 'ft'; el.textContent = f.v; el.style.color = col; el.style.fontSize = (f.c ? 24 : f.k === 'lvl' ? 22 : 15) + 'px'; $('floaters').appendChild(el);
-  floaters.push({ el, x: f.x + (f.k === 'dmg' || f.k === 'hurt' ? (Math.random() - .5) * 24 : 0), z: f.y, h: f.k === 'dmg' || f.k === 'hurt' ? 38 : 56, t0: now, life: f.k === 'loot' || f.k === 'lvl' ? 1600 : 950 });
+  const isDamage = f.k === 'dmg' || f.k === 'hurt';
+  const isCritical = f.k === 'dmg' && f.c;
+  const el = document.createElement('div');
+  el.className = 'ft';
+  if (isDamage) el.classList.add('ft--damage');
+  if (isCritical) el.classList.add('ft--critical');
+  if (f.k === 'lvl') el.classList.add('ft--level');
+  el.textContent = f.v;
+  el.style.color = col;
+  $('floaters').appendChild(el);
+  floaters.push({
+    el, isDamage, x: f.x + (isDamage ? (Math.random() - .5) * 24 : 0), z: f.y,
+    h: isDamage ? 38 : 56, t0: now, life: f.k === 'loot' || f.k === 'lvl' ? 1600 : 950,
+  });
 }
 
 // ---------- networking ----------
@@ -464,27 +487,34 @@ addEventListener('mousemove', e => { if (rotating) { cam.yaw -= (e.clientX - lx)
 function groundHit(e) { const r = GL.ray(e.clientX, e.clientY); if (r.d[1] >= -0.001) return null; const t = -r.o[1] / r.d[1]; return { x: r.o[0] + r.d[0] * t, z: r.o[2] + r.d[2] * t }; }
 function raySphere(r, cx, cy, cz, rad) { const c = [cx - r.o[0], cy - r.o[1], cz - r.o[2]], tc = c[0] * r.d[0] + c[1] * r.d[1] + c[2] * r.d[2]; if (tc < 0) return -1; const d2 = c[0] * c[0] + c[1] * c[1] + c[2] * c[2] - tc * tc; return d2 < rad * rad ? tc : -1; }
 function moveTo(x, y) { send({ t: 'move', x, y }); intent = { x, y }; }
-function attackTarget(targetId) {
-  send({ t: 'target', id: targetId });
-  intent = null;
-  pendingNpc = null;
-  held = false;
+function attackTarget(targetId, chase = true) {
+  send({ t: 'target', id: targetId, chase });
+  if (chase) {
+    intent = null;
+    pendingNpc = null;
+    held = false;
+  }
   sfx('click');
 }
 
 function attackNearby() {
-  if (!me || me.dead || me.tg) return;
+  if (!me || me.dead) return;
   let nearest = null, nearestDistance = Infinity;
   for (const monster of mo) {
     if (monster.hp <= 0) continue;
     const radius = Math.round(I.types[monster.ty].r * (monster.al ? 1.3 : 1));
     const distance = Math.hypot(monster.x - me.x, monster.y - me.y);
-    if (distance <= me.rng + radius && distance < nearestDistance) {
+    if (distance > me.rng + radius) continue;
+    if (monster.id === me.tg) {
+      attackTarget(monster.id, false);
+      return;
+    }
+    if (distance < nearestDistance) {
       nearest = monster;
       nearestDistance = distance;
     }
   }
-  if (nearest) attackTarget(nearest.id);
+  if (nearest) attackTarget(nearest.id, false);
 }
 
 function click(e) {
@@ -522,7 +552,7 @@ function animate(e, mx, my, d) { const sp = Math.hypot(mx, my) / d; e.mv += (Mat
 function smoothEnt(e, d) { const dx = e.x - e.rx, dy = e.y - e.ry; if (Math.hypot(dx, dy) > 400) { e.rx = e.x; e.ry = e.y; return; } const k = 1 - Math.pow(0.0005, d), mx = dx * k, my = dy * k; e.rx += mx; e.ry += my; animate(e, mx, my, d); }
 function updateSelf(d) { // client-side prediction: our own hero reacts instantly, then eases toward the server position
   const ox = S.rx, oy = S.ry; let vx = 0, vz = 0;
-  if (me.tg || me.dead) intent = null;
+  if (me.dead) intent = null;
   if (!me.dead) { const w = wantDir(); if (w[0] || w[1]) { vx = w[0] * me.spd; vz = w[1] * me.spd; intent = null; } else if (intent) { const dx = intent.x - S.rx, dz = intent.y - S.ry, l = Math.hypot(dx, dz); if (l > 8) { vx = dx / l * me.spd; vz = dz / l * me.spd; } else intent = null; } }
   const ex = me.x - S.rx, ez = me.y - S.ry;
   if (Math.hypot(ex, ez) > 230) { S.rx = me.x; S.ry = me.y; }
@@ -593,7 +623,10 @@ function updateFloaters(now) {
   for (let i = floaters.length - 1; i >= 0; i--) {
     const f = floaters[i], a = (now - f.t0) / f.life; if (a >= 1) { f.el.remove(); floaters.splice(i, 1); continue; }
     const p = GL.project(f.x, f.h + a * 40, f.z); if (!p) { f.el.style.display = 'none'; continue; }
-    f.el.style.display = 'block'; f.el.style.opacity = a < .7 ? 1 : 1 - (a - .7) / .3; f.el.style.transform = 'translate(' + ((p.x - 20) | 0) + 'px,' + ((p.y - 10) | 0) + 'px)';
+    f.el.style.display = 'block';
+    f.el.style.opacity = a < .7 ? 1 : 1 - (a - .7) / .3;
+    const x = (p.x - (f.isDamage ? 0 : 20)) | 0;
+    f.el.style.transform = 'translate(' + x + 'px,' + ((p.y - 10) | 0) + 'px)' + (f.isDamage ? ' translateX(-50%)' : '');
   }
 }
 function drawMini() {

@@ -1,0 +1,45 @@
+'use strict';
+
+const { rnd, rint, pick } = require('./game-world');
+
+const SLOTS = ['weapon', 'helm', 'armor', 'boots', 'ring', 'amulet'], NO_DMG = { helm: 1, armor: 1, boots: 1 };
+const RARITY = [{ n: 'Common', m: 1, x: 0, w: 60 }, { n: 'Uncommon', m: 1.25, x: 1, w: 25 }, { n: 'Rare', m: 1.55, x: 2, w: 11 }, { n: 'Epic', m: 1.9, x: 3, w: 3.5 }, { n: 'Legendary', m: 2.4, x: 4, w: 0.6 }];
+const MATS = ['Rusty', 'Iron', 'Steel', 'Runed', 'Dragonbone', 'Voidforged', 'Starmetal', 'Celestial', 'Doomforged'];
+const BASES = { weapon: { sword: 'Sword', bow: 'Bow', staff: 'Staff' }, helm: ['Helm', 'Cap', 'Hood'], armor: ['Mail', 'Robe', 'Vest'], boots: ['Boots', 'Greaves', 'Sandals'], ring: ['Ring', 'Band', 'Signet'], amulet: ['Amulet', 'Pendant', 'Charm'] };
+const SUFFIX = ['of the Wolf', 'of Embers', 'of the Bear', 'of Storms', 'of the Fox', 'of Ruin', 'of Kings', 'of the Void', 'of Dawn', 'of Frost', 'of the Abyss'];
+const STATDEF = {
+  dmg: { n: 'Damage', f: i => 1.1 * i + 1 }, hp: { n: 'Max HP', f: i => 7 * i + 8 }, mp: { n: 'Max MP', f: i => 3 * i + 3 }, def: { n: 'Defense', f: i => 0.9 * i + 1 },
+  crit: { n: 'Crit Chance %', f: i => 1.5 + i * 0.07, pct: 1 }, spd: { n: 'Move Speed %', f: i => 1.5 + i * 0.05, pct: 1 },
+  gf: { n: 'Gold Find %', f: i => 4 + i * 0.3, pct: 1 }, xpb: { n: 'XP Bonus %', f: i => 2 + i * 0.15, pct: 1 },
+};
+const PRIMARY = { weapon: { dmg: i => 3 * i + 5 }, helm: { def: i => 1.3 * i + 2 }, armor: { hp: i => 12 * i + 20, def: i => 1.6 * i }, boots: { spd: i => 1.5 + i * 0.08, def: i => 0.8 * i }, ring: { dmg: i => 0.9 * i + 1, crit: i => 1 + i * 0.05 }, amulet: { hp: i => 6 * i + 10, mp: i => 2 * i + 4 } };
+const UP_RATE = [1, .9, .8, .7, .6, .5, .4, .3, .2];
+
+function sanitize(item) { if (item && NO_DMG[item.slot]) { delete item.stats.dmg; delete item.stats.crit; } if (item && !item.plus) item.plus = 0; return item; }
+const plusMul = (item, statKey) => 1 + (item.plus || 0) * (item.slot === 'weapon' && statKey === 'dmg' ? 0.15 : 0.1);
+const sellValue = item => Math.round((3 * item.ilvl + 5) * (1 + RARITY[item.rar].x * RARITY[item.rar].x * 0.6) * (1 + (item.plus || 0) * 0.5));
+const upCostFor = item => item ? Math.round(100 * (item.plus + 1) * (item.plus + 1) * (1 + item.ilvl / 12) * (item.slot === 'weapon' ? 1 : 0.8)) : 0;
+
+function createEquipment({ rates }) {
+  let nextItemNumber = 0; const newUid = () => Date.now().toString(36) + '-' + (nextItemNumber++).toString(36);
+  function rollRarity(bonus, minimumRarity) {
+    const rarityBonus = (bonus || 0) + rates.rarityBoost, weights = RARITY.map((roll, i) => roll.w * (1 + rarityBonus * i * 1.5)); let roll = Math.random() * weights.reduce((a, c) => a + c, 0), selectedRarity = 0;
+    for (let i = 0; i < weights.length; i++) { roll -= weights[i]; if (roll <= 0) { selectedRarity = i; break; } }
+    return Math.max(selectedRarity, minimumRarity || 0);
+  }
+  const roundStat = (statKey, value) => (STATDEF[statKey] && STATDEF[statKey].pct) ? Math.round(value * 10) / 10 : Math.round(value);
+  function genGear(slot, itemLevel, rarity, weaponFamily) {
+    slot = SLOTS.includes(slot) ? slot : pick(SLOTS); itemLevel = Math.max(1, itemLevel | 0); rarity = rarity === undefined || rarity === null ? rollRarity(0) : Math.max(0, Math.min(4, rarity | 0));
+    const rarityDefinition = RARITY[rarity], stats = {};
+    for (const statKey in PRIMARY[slot]) stats[statKey] = roundStat(statKey, PRIMARY[slot][statKey](itemLevel) * rarityDefinition.m * rnd(0.9, 1.1));
+    const pool = Object.keys(STATDEF).filter(statKey => !(statKey in stats) && !(NO_DMG[slot] && (statKey === 'dmg' || statKey === 'crit')));
+    for (let i = 0; i < rarityDefinition.x && pool.length; i++) { const statKey = pool.splice(rint(0, pool.length - 1), 1)[0]; stats[statKey] = roundStat(statKey, STATDEF[statKey].f(itemLevel) * (0.6 + 0.4 * rarityDefinition.m) * rnd(0.85, 1.15)); }
+    let base; if (slot === 'weapon') { weaponFamily = BASES.weapon[weaponFamily] ? weaponFamily : pick(Object.keys(BASES.weapon)); base = BASES.weapon[weaponFamily]; } else { base = pick(BASES[slot]); weaponFamily = undefined; }
+    const name = MATS[Math.min(MATS.length - 1, Math.floor((itemLevel - 1) / 7))] + ' ' + base + (rarity >= 2 ? ' ' + pick(SUFFIX) : '');
+    return { uid: newUid(), slot, fam: weaponFamily, name, rar: rarity, ilvl: itemLevel, req: Math.max(1, itemLevel - 3), stats, plus: 0 };
+  }
+
+  return { rollRarity, genGear };
+}
+
+module.exports = { SLOTS, NO_DMG, RARITY, BASES, STATDEF, UP_RATE, sanitize, plusMul, sellValue, upCostFor, createEquipment };

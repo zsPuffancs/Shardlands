@@ -1,0 +1,109 @@
+'use strict';
+
+const { W, H, inVillage, dist, rnd, rint, pick } = require('./game-world');
+const { MOBTYPES, TIERS, SPECIAL } = require('./monsters');
+const { CLASSES, critCh, critMul, defRed, playerDmg } = require('./characters');
+
+const SUMMON_LIFETIME_MS = 120000;
+
+function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLoot, broadcast, say }) {
+  function hitMob(player, monster, damage) {
+    if (monster.dead) return;
+    const criticalHit = Math.random() < critCh(player);
+    if (criticalHit) damage *= critMul(player);
+    damage = Math.max(1, Math.round(damage * rnd(0.9, 1.1)));
+    const hit = { v: damage, crit: criticalHit };
+    fire('damage', player, monster, hit);
+    damage = Math.max(1, Math.round(hit.v));
+    monster.hp -= damage;
+    ev('dmg', monster.x, monster.y, damage, { c: criticalHit ? 1 : 0 });
+    if (player.sk.lifesteal && !player.dead) player.hp = Math.min(player.maxhp, player.hp + damage * 0.008 * player.sk.lifesteal);
+    const template = MOBTYPES[monster.ty];
+    monster.awake = true;
+    if (!template.stone && !monster.target) monster.target = player.id;
+    if (template.stone) {
+      const step = Math.ceil((monster.hp / monster.mh) * 5);
+      while (monster.stoneStep > step && monster.hp > 0) {
+        monster.stoneStep--;
+        for (let i = 0; i < 3 + monster.tier; i++) { const a = rnd(0, 6.283), r = rnd(60, 140); const g = spawnMob(pick(TIERS[monster.tier].types), monster.x + Math.cos(a) * r, monster.y + Math.sin(a) * r, monster.tier); g.target = player.id; g.hx = monster.x; g.hy = monster.y; g.summoned = true; g.expiresAt = Date.now() + SUMMON_LIFETIME_MS; g.awake = true; }
+        if (monster.stoneStep === 3 || monster.stoneStep === 1) { const g = spawnMob(pick(TIERS[monster.tier].types), monster.x + rnd(-60, 60), monster.y + rnd(-60, 60), monster.tier, { alpha: true }); g.target = player.id; g.hx = monster.x; g.hy = monster.y; g.summoned = true; g.expiresAt = Date.now() + SUMMON_LIFETIME_MS; g.awake = true; }
+        ev('fx', monster.x, monster.y, 160, { s: 'summon' });
+      }
+    }
+    if (monster.hp <= 0) killMob(player, monster);
+  }
+  function killMob(player, monster) {
+    const template = MOBTYPES[monster.ty];
+    monster.dead = Date.now() + (template.stone ? 90000 : template.boss ? 180000 : monster.alpha ? 90000 : rint(rates.respawnSeconds * 750, rates.respawnSeconds * 1350));
+    if (player.target === monster.id) {
+      player.target = 0;
+      player.chasingTarget = false;
+    }
+    const experienceMultiplier = template.stone ? 2 : template.boss || monster.alpha ? 1 : Math.max(0.1, 1 - Math.max(0, player.lvl - monster.lvl - 5) * 0.12);
+    gainXp(player, Math.max(1, Math.round(monster.xp * rates.xpRate * experienceMultiplier)));
+    dropLoot(player, monster); ev('die', monster.x, monster.y, monster.ty, { b: monster.alpha ? 1 : 0 });
+    if (template.boss) { broadcast({ t: 'chat', n: '*', m: player.name + ' has slain ' + template.name + '!' }); broadcast({ t: 'toast', m: player.name + ' has slain ' + template.name + '!', c: '#ffd24a' }); }
+    fire('kill', player, monster);
+    if (monster.summoned) mobs.delete(monster.id);
+  }
+  function hurtPlayer(player, monster, damage, now) {
+    damage = Math.max(1, Math.round(damage * (1 - defRed(player)) * (now < player.buf.def ? 0.65 : 1)));
+    const hit = { v: damage };
+    fire('hurt', player, monster, hit);
+    damage = Math.max(0, Math.round(hit.v));
+    if (!damage) return;
+    player.hp -= damage; ev('hurt', player.x, player.y, damage, { a: monster.id });
+    if (player.hp <= 0) {
+      player.hp = 0; player.dead = now + 5000; player.target = 0; player.chasingTarget = false; const loss = Math.floor(player.gold * rates.deathGoldLoss); player.gold -= loss;
+      say(player, 'You died. Lost ' + loss + ' gold. Respawning in the village...'); fire('death', player, monster);
+      for (const attacker of mobs.values()) if (attacker.target === player.id) attacker.target = 0;
+    }
+  }
+  function startCast(monster, targetPlayer, distance, now) {
+    const signature = MOBTYPES[monster.ty]?.special || SPECIAL[monster.ty] || 'slam';
+    monster.alt = !monster.alt;
+    let attack = monster.alt ? signature : 'slam';
+    const radius = monster.r + 120;
+    const inRange = { slam: distance < monster.r + 170, breath: distance < monster.r + 260, charge: distance < 520, meteor: distance < 650, summon: distance < 520 };
+    if (!inRange[attack]) { if (attack === signature) monster.alt = !monster.alt; attack = 'slam'; if (!inRange.slam) return; }
+    const cast = { s: attack, at: now + (attack === 'meteor' ? 1450 : 1150), r: radius, ang: Math.atan2(targetPlayer.x - monster.x, targetPlayer.y - monster.y) };
+    if (attack === 'breath') { cast.r = monster.r + 300; cast.half = 0.55; }
+    if (attack === 'charge') { const L = Math.min(480, Math.max(260, distance + 120)); cast.tx = monster.x + Math.sin(cast.ang) * L; cast.ty = monster.y + Math.cos(cast.ang) * L; }
+    if (attack === 'meteor') { cast.pts = []; for (const player of players.values()) if (!player.dead && dist(player, monster) < 700) for (let i = 0; i < 3; i++) cast.pts.push([Math.round(player.x + rnd(-120, 120)), Math.round(player.y + rnd(-120, 120))]); cast.pts.push([Math.round(targetPlayer.x), Math.round(targetPlayer.y)]); cast.r = 95; }
+    monster.cast = cast; monster.slamT = now + rnd(5500, 8500);
+    ev('warn', monster.x, monster.y, cast.r, { a: monster.id, s: attack, ang: Math.round(cast.ang * 100) / 100, tx: cast.tx && Math.round(cast.tx), ty: cast.ty && Math.round(cast.ty), pts: cast.pts, half: cast.half });
+  }
+  function resolveCast(monster, activePlayers, now) {
+    const cast = monster.cast; monster.cast = null; const baseDamage = monster.dmg * rates.monsterDamage;
+    if (cast.s === 'slam') { ev('slam', monster.x, monster.y, cast.r, { s: 'slam' }); for (const player of activePlayers) if (!player.dead && !inVillage(player) && dist(player, monster) <= cast.r) hurtPlayer(player, monster, baseDamage * 1.8, now); }
+    else if (cast.s === 'breath') { ev('slam', monster.x, monster.y, cast.r, { s: 'breath', ang: cast.ang, half: cast.half, ty: monster.ty }); for (const player of activePlayers) { if (player.dead || inVillage(player)) continue; const dd = dist(player, monster); if (dd > cast.r) continue; let da = Math.atan2(player.x - monster.x, player.y - monster.y) - cast.ang; da = Math.atan2(Math.sin(da), Math.cos(da)); if (Math.abs(da) <= cast.half) hurtPlayer(player, monster, baseDamage * 1.7, now); } }
+    else if (cast.s === 'charge') { const x0 = monster.x, y0 = monster.y; monster.x = Math.max(20, Math.min(W - 20, cast.tx)); monster.y = Math.max(20, Math.min(H - 20, cast.ty)); if (inVillage(monster)) { monster.x = x0; monster.y = y0; } ev('slam', monster.x, monster.y, 70, { s: 'charge', x0: Math.round(x0), y0: Math.round(y0) });
+      for (const player of activePlayers) { if (player.dead || inVillage(player)) continue; const vx = monster.x - x0, vy = monster.y - y0, L2 = vx * vx + vy * vy || 1, k = Math.max(0, Math.min(1, ((player.x - x0) * vx + (player.y - y0) * vy) / L2)), ex = x0 + vx * k - player.x, ey = y0 + vy * k - player.y; if (Math.hypot(ex, ey) < monster.r + 45) hurtPlayer(player, monster, baseDamage * 1.5, now); } }
+    else if (cast.s === 'meteor') { ev('slam', monster.x, monster.y, cast.r, { s: 'meteor', pts: cast.pts, ty: monster.ty }); for (const player of activePlayers) { if (player.dead || inVillage(player)) continue; for (const q of cast.pts) if (Math.hypot(player.x - q[0], player.y - q[1]) <= cast.r) { hurtPlayer(player, monster, baseDamage * 1.4, now); break; } } }
+    else if (cast.s === 'summon') { ev('slam', monster.x, monster.y, 140, { s: 'summon' }); const T = TIERS[monster.tier] || TIERS[0]; const targetPlayer = monster.target; for (let i = 0; i < 4; i++) { const a = rnd(0, 6.283); const g = spawnMob(pick(T.types), monster.x + Math.cos(a) * 110, monster.y + Math.sin(a) * 110, monster.tier); g.summoned = true; g.expiresAt = Date.now() + SUMMON_LIFETIME_MS; g.awake = true; g.target = targetPlayer; g.hx = monster.x; g.hy = monster.y; } }
+  }
+
+  function skill(player, skillNumber) {
+    const characterClass = CLASSES[player.cls], now = Date.now(); if (player.dead) return;
+    if (skillNumber === 1) {
+      const rank = player.sk.s1; if (rank < 1 || now < player.cd1) return;
+      const cost = Math.round(characterClass.s1c * (1 + 0.05 * (rank - 1))); if (player.mp < cost) return;
+      const maxTargets = characterClass.s1n + (player.cls === 'archer' ? (rank >= 3 ? 2 : 0) + (rank >= 5 ? 2 : 0) : 0), range = characterClass.s1r;
+      const targets = []; for (const monster of mobs.values()) if (!monster.dead && Math.abs(monster.x - player.x) < range + 60 && Math.abs(monster.y - player.y) < range + 60 && dist(player, monster) <= range + monster.r) targets.push(monster);
+      if (!targets.length) return; targets.sort((a, b) => dist(player, a) - dist(player, b)); targets.length = Math.min(targets.length, maxTargets);
+      player.mp -= cost; player.cd1 = now + 2000 - 100 * (rank - 1); ev('fx', player.x, player.y, characterClass.s1r, { s: player.cls, a: player.id });
+      targets.forEach(monster => hitMob(player, monster, playerDmg(player) * characterClass.s1m * (1 + 0.18 * (rank - 1))));
+    } else if (skillNumber === 2) {
+      const rank = player.sk.mend; if (rank < 1 || now < player.cd2 || player.mp < 20) return;
+      player.mp -= 20; player.cd2 = now + 8000 - 500 * rank; const healAmount = Math.floor(player.maxhp * (0.2 + 0.08 * rank));
+      player.hp = Math.min(player.maxhp, player.hp + healAmount); ev('heal', player.x, player.y, '+' + healAmount); ev('fx', player.x, player.y, 50, { s: 'heal', a: player.id });
+    } else if (skillNumber === 3) {
+      const rank = player.sk.frenzy; if (rank < 1 || now < player.cd3 || player.mp < 30) return;
+      player.mp -= 30; player.cd3 = now + 25000; player.buf.rage = now + (6 + 2 * rank) * 1000; ev('fx', player.x, player.y, 70, { s: 'rage', a: player.id });
+    }
+  }
+
+  return { hitMob, hurtPlayer, startCast, resolveCast, skill };
+}
+
+module.exports = { SUMMON_LIFETIME_MS, createCombat };

@@ -41,7 +41,7 @@ Skill ids on `player.sk`: actives `s1 mend frenzy` (max 5), passives `vit might 
 Change it from a plugin for events (e.g. double XP weekends): `api.rates.xpRate *= 2`.
 
 ## Monsters: alphas & bosses
-`api.spawn(type, x, y, { alpha: true })` spawns an Alpha version. Types with `boss: true` do the telegraphed ground slam automatically.
+`api.spawn(type, x, y, { alpha: true })` spawns an Alpha version. Use `api.spawn('wolf', x, y, { level: 5 })` to reuse a base monster at another level. HP, damage, XP and gold scale by the target level divided by the base level, raised to 1.9, 1.37, 2 and 1.5 respectively. Adding an existing type to a higher tier automatically scales it when its base level is below that tier's range. Types with `boss: true` do the telegraphed ground slam automatically.
 Give a boss a signature attack with `special` in its addMob definition: `'charge'`, `'breath'`, `'meteor'`, `'summon'` or `'slam'` (it alternates with the slam).
 `api.addToTier(i, id, true)` adds a boss to zone i (0-6, 6 = Death Zone, whose monsters are auto-scaled to level 50-60).
 

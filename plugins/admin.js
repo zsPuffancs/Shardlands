@@ -15,7 +15,18 @@ module.exports = { name: 'admin', version: '1.0', init(api) {
   api.command('heal', A, (p, a) => { const t = target(p, a[0]); if (!t) return 'No such player.'; api.heal(t); });
   api.command('tp', A, (p, a) => { if (isNaN(+a[0])) { const t = api.findPlayer(a[0]); if (!t) return 'No such player.'; api.teleport(p, t.x, t.y); return 'Teleported.'; } api.teleport(p, num(a[0], api.consts.CX), num(a[1], api.consts.CY)); return 'Teleported.'; });
   api.command('home', {}, p => { api.teleport(p, api.consts.CX, api.consts.CY); return 'Welcome home.'; });
-  api.command('spawn', A, (p, a) => { const k = a[0], n = Math.min(20, num(a[1], 1)); if (!api.MOBTYPES[k]) return 'Unknown mob. Ids: ' + Object.keys(api.MOBTYPES).join(', '); for (let i = 0; i < n; i++) api.spawn(k, p.x + 60 + Math.random() * 60, p.y + Math.random() * 80 - 40, { temp: true }); return 'Spawned ' + n + ' ' + k; });
+  api.command('spawn', A, (player, [type, countText = '1', levelText]) => {
+    if (!Object.hasOwn(api.MOBTYPES, type)) return 'Unknown mob. Ids: ' + Object.keys(api.MOBTYPES).join(', ');
+    const count = Number(countText), level = levelText === undefined ? undefined : Number(levelText);
+    if (!Number.isInteger(count) || count < 1 || count > 20 ||
+        (level !== undefined && (!Number.isInteger(level) || level < 1 || level > 200))) {
+      return 'Usage: /spawn <type> [count: 1-20] [level: 1-200]';
+    }
+    for (let i = 0; i < count; i++) {
+      api.spawn(type, player.x + 60 + Math.random() * 60, player.y + Math.random() * 80 - 40, { temp: true, level });
+    }
+    return 'Spawned ' + count + ' ' + type + (level === undefined ? '.' : ' at level ' + level + '.');
+  });
   api.command('announce', A, (p, a) => { api.broadcast('[Announcement] ' + a.join(' ')); });
   api.command('kick', A, (p, a) => { const t = api.findPlayer(a[0]); if (!t) return 'No such player.'; api.kick(t); return 'Kicked ' + t.name; });
   api.command('xprate', A, (p, a) => { api.rates.xpRate = num(a[0], 1.5); return 'XP rate x' + api.rates.xpRate + ' (until restart - edit rates.json to keep it)'; });
