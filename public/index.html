@@ -99,6 +99,10 @@ kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1
 .tabs{display:flex;gap:4px;margin-bottom:8px}.tabs button{flex:1;padding:5px;font-size:0.75rem}.tabs button.on{border-color:var(--gold);background:linear-gradient(#5e4620,#3a2b14);color:#ffe9a8}
 .kb{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;font-size:0.75rem}.kb button{min-width:64px;padding:3px 8px;font:0.75rem monospace;color:var(--gold)}.kb button.wait{border-color:#fff;color:#fff;animation:glow 1s infinite}
 .vrow{display:flex;align-items:center;gap:10px}.vrow input[type=range]{flex:1;margin:0}.vrow span{width:38px;text-align:right;font-size:0.75rem;color:var(--mut)}
+.text-scale-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px}
+.text-scale-row input[type=range]{grid-column:1/-1;min-width:0;margin:0;padding:0;accent-color:var(--gold)}
+#text-scale-value{white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums;color:var(--gold)}
+
 </style>
 <link rel="stylesheet" href="ui.css"></head><body>
 <canvas id="c"></canvas><div id="labels"></div><div id="floaters"></div><div id="hurtfx"></div><div id="zone"><b></b><span></span></div><div id="toasts"></div><div id="tip"></div><div id="perf"></div>
@@ -160,19 +164,23 @@ kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1
     <div class="row"><div class="t"><span data-text="settings.masterVolume">Master volume</span></div></div><div class="vrow"><input type="range" id="vol" min="0" max="100"><span id="volv"></span></div>
     <div class="row"><div class="t"><span data-text="settings.combatVolume">Combat sounds</span><small><span data-text="settings.combatHint">Hits, spells, monsters</span></small></div></div><div class="vrow"><input type="range" id="volc" min="0" max="100"><span id="volcv"></span></div>
     <div class="row"><div class="t"><span data-text="settings.interfaceVolume">Interface sounds</span><small><span data-text="settings.interfaceHint">Clicks, loot, coins, level-ups</span></small></div></div><div class="vrow"><input type="range" id="volu" min="0" max="100"><span id="voluv"></span></div>
-    <div class="row"><div class="t"><span data-text="settings.mute">Mute everything</span></div><input type="checkbox" id="mutechk" style="width:auto;margin:0"></div></div>
+    <label class="row"><span class="t" data-text="settings.mute">Mute everything</span><input type="checkbox" id="mutechk"></label></div>
   <div data-spage="gfx" style="display:none">
     <div class="row"><label class="t" data-text="settings.language">Language</label><select data-language aria-label="Language" data-label-text="settings.language"><option value="en">English</option><option value="hu">Magyar</option></select></div>
-    <div class="row"><label class="t" for="text-scale" data-text="settings.textScale">Text size</label><input type="range" id="text-scale" min="85" max="130" step="5"><span id="text-scale-value"></span></div>
+    <div class="row text-scale-row">
+      <label for="text-scale" data-text="settings.textScale">Text size</label>
+      <output id="text-scale-value" for="text-scale">100%</output>
+      <input type="range" id="text-scale" min="85" max="130" step="5">
+    </div>
     <div class="row"><div class="t"><span data-text="settings.quality">Quality</span><small><span data-text="settings.autoHint">Auto lowers resolution / shadows / view distance when the frame rate drops</span></small></div><select id="gfxsel"><option value="auto" data-text="quality.auto">Auto</option><option value="low" data-text="quality.low">Low</option><option value="medium" data-text="quality.medium">Medium</option><option value="high" data-text="quality.high">High</option></select></div>
-    <div class="row"><div class="t"><span data-text="settings.fps">Show FPS counter</span></div><input type="checkbox" id="fpschk" style="width:auto;margin:0"></div></div>
+    <label class="row"><span class="t" data-text="settings.fps">Show FPS counter</span><input type="checkbox" id="fpschk"></label></div>
   <div data-spage="log" style="display:none">
     <div class="mu" data-text="settings.logHint">Choose which messages appear in the chat log. Floating text and notifications stay visible.</div>
-    <label class="row"><span class="t" data-text="settings.logDamageDealt">Damage dealt</span><input type="checkbox" data-log-option="damageDealt" style="width:auto;margin:0"></label>
-    <label class="row"><span class="t" data-text="settings.logDamageTaken">Damage taken</span><input type="checkbox" data-log-option="damageTaken" style="width:auto;margin:0"></label>
-    <label class="row"><span class="t" data-text="settings.logHealing">Healing</span><input type="checkbox" data-log-option="healing" style="width:auto;margin:0"></label>
-    <label class="row"><span class="t" data-text="settings.logLoot">Loot messages</span><input type="checkbox" data-log-option="loot" style="width:auto;margin:0"></label>
-    <label class="row"><span class="t" data-text="settings.logSystem">System messages</span><input type="checkbox" data-log-option="system" style="width:auto;margin:0"></label>
+    <label class="row"><span class="t" data-text="settings.logDamageDealt">Damage dealt</span><input type="checkbox" data-log-option="damageDealt"></label>
+    <label class="row"><span class="t" data-text="settings.logDamageTaken">Damage taken</span><input type="checkbox" data-log-option="damageTaken"></label>
+    <label class="row"><span class="t" data-text="settings.logHealing">Healing</span><input type="checkbox" data-log-option="healing"></label>
+    <label class="row"><span class="t" data-text="settings.logLoot">Loot messages</span><input type="checkbox" data-log-option="loot"></label>
+    <label class="row"><span class="t" data-text="settings.logSystem">System messages</span><input type="checkbox" data-log-option="system"></label>
   </div>
   <div data-spage="keys" style="display:none"><div class="mu" style="font-size:0.75rem;margin-bottom:6px"><span data-text="settings.keysHint">Click a key, then press the new key (Esc cancels). WASD / arrows always move, Enter opens chat.</span></div><div class="kb" id="kbl"></div>
     <button id="kbreset" style="margin-top:8px;width:100%"><span data-text="settings.resetKeys">Reset to defaults</span></button></div></div></div>

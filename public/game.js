@@ -460,6 +460,16 @@ addEventListener('keydown', e => {
   if (!I) return; const ci = $('chatin');
   if (e.key === 'Enter' && e.target?.closest('#chat-tabs')) return;
   if (document.activeElement === ci) { if (e.key === 'Enter') { if (ci.value.trim()) send({ t: 'chat', m: ci.value }); ci.value = ''; ci.style.display = 'none'; ci.blur(); } else if (e.key === 'Escape') { ci.style.display = 'none'; ci.blur(); } return; }
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    if (e.repeat) return;
+    if (isOpen('setw')) closeWin('setw');
+    else {
+      closeAll();
+      openWin('setw');
+    }
+    return;
+  }
   if (e.target && e.target.tagName === 'INPUT' && e.target.type !== 'checkbox' && e.target.type !== 'range') return;
   const k = e.key.toLowerCase();
   if (k === 'enter') { ci.style.display = 'block'; ci.focus(); keys = {}; e.preventDefault(); return; }
@@ -472,7 +482,7 @@ addEventListener('keydown', e => {
   }
   if (act === 'skill1' || act === 'skill2' || act === 'skill3') send({ t: 'skill', n: +act.slice(5) });
   if (act === 'hp' || act === 'mp' || act === 'hp2' || act === 'ret') send({ t: 'use', i: act });
-  if (act === 'skills') togglePanel('skillp'); if (act === 'inv') togglePanel('invp'); if (act === 'settings') togglePanel('setw'); if (act === 'mute') toggleMute(); if (k === 'escape') closeAll();
+  if (act === 'skills') togglePanel('skillp'); if (act === 'inv') togglePanel('invp'); if (act === 'settings') togglePanel('setw'); if (act === 'mute') toggleMute();
   if (act === 'talk' && nearNpcK) openNpc(nearNpcK);
   if (act === 'gfx') { const n = GFX[(GFX.indexOf(GL.Q.mode) + 1) % GFX.length]; GL.setQuality(n); toast(text('settings.qualityChanged', 'Graphics: {quality}', { quality: qualityName(n) })); }
   if (act === 'fps') { const p = $('perf'); p.style.display = p.style.display === 'block' ? 'none' : 'block'; }
