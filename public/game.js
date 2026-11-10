@@ -439,6 +439,12 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (k === 'enter') { ci.style.display = 'block'; ci.focus(); keys = {}; e.preventDefault(); return; }
   const act = actionOf(k);
+  if (act === 'attack') {
+    if (e.target?.closest('button, select, input, textarea, [contenteditable]')) return;
+    e.preventDefault();
+    if (!e.repeat) attackNearby();
+    return;
+  }
   if (act === 'skill1' || act === 'skill2' || act === 'skill3') send({ t: 'skill', n: +act.slice(5) });
   if (act === 'hp' || act === 'mp' || act === 'hp2' || act === 'ret') send({ t: 'use', i: act });
   if (act === 'skills') togglePanel('skillp'); if (act === 'inv') togglePanel('invp'); if (act === 'settings') togglePanel('setw'); if (act === 'mute') toggleMute(); if (k === 'escape') closeAll();
@@ -458,12 +464,35 @@ addEventListener('mousemove', e => { if (rotating) { cam.yaw -= (e.clientX - lx)
 function groundHit(e) { const r = GL.ray(e.clientX, e.clientY); if (r.d[1] >= -0.001) return null; const t = -r.o[1] / r.d[1]; return { x: r.o[0] + r.d[0] * t, z: r.o[2] + r.d[2] * t }; }
 function raySphere(r, cx, cy, cz, rad) { const c = [cx - r.o[0], cy - r.o[1], cz - r.o[2]], tc = c[0] * r.d[0] + c[1] * r.d[1] + c[2] * r.d[2]; if (tc < 0) return -1; const d2 = c[0] * c[0] + c[1] * c[1] + c[2] * c[2] - tc * tc; return d2 < rad * rad ? tc : -1; }
 function moveTo(x, y) { send({ t: 'move', x, y }); intent = { x, y }; }
+function attackTarget(targetId) {
+  send({ t: 'target', id: targetId });
+  intent = null;
+  pendingNpc = null;
+  held = false;
+  sfx('click');
+}
+
+function attackNearby() {
+  if (!me || me.dead || me.tg) return;
+  let nearest = null, nearestDistance = Infinity;
+  for (const monster of mo) {
+    if (monster.hp <= 0) continue;
+    const radius = Math.round(I.types[monster.ty].r * (monster.al ? 1.3 : 1));
+    const distance = Math.hypot(monster.x - me.x, monster.y - me.y);
+    if (distance <= me.rng + radius && distance < nearestDistance) {
+      nearest = monster;
+      nearestDistance = distance;
+    }
+  }
+  if (nearest) attackTarget(nearest.id);
+}
+
 function click(e) {
   if (!I || !me || me.dead) return; const r = GL.ray(e.clientX, e.clientY); let best = null, bt = 1e9;
   for (const k in WORLD.npcs) { const n = WORLD.npcs[k], tc = raySphere(r, n.x, 32, n.y, 30); if (tc > 0 && tc < bt) { bt = tc; best = k; } }
   if (best) { held = false; if (npcDist(best) < WORLD.npcRange - 40) openNpc(best); else { const n = WORLD.npcs[best]; moveTo(n.x, n.y + 36); pendingNpc = best; } return; }
   for (const m of mo) { const E = ents.get(m.id); if (!E) continue; const t = I.types[m.ty], pr = t.r * (m.al ? 1.3 : 1) * 1.4 + 12, tc = raySphere(r, E.rx, pr * .9, E.ry, pr * 1.22); if (tc > 0 && tc < bt) { bt = tc; best = m; } }
-  if (best) { send({ t: 'target', id: best.id }); intent = null; pendingNpc = null; held = false; sfx('click'); return; }
+  if (best) { attackTarget(best.id); return; }
   for (const L of lo) { const tc = raySphere(r, L.x, 10, L.y, 26); if (tc > 0 && tc < bt) { bt = tc; best = L; } }
   if (best) { moveTo(best.x, best.y); pendingNpc = null; held = false; addRing(best.x, best.y, 4, 22, [1, .9, .4], 500, 2); return; }
   const g = groundHit(e); if (g) { moveTo(g.x, g.z); pendingNpc = null; addRing(g.x, g.z, 4, 16, [1, .85, .3], 600, 2); }

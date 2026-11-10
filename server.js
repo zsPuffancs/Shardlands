@@ -3,6 +3,7 @@ const http = require('http'), fs = require('fs'), path = require('path'), crypto
 let CONFIG = { serverName: 'Shardlands', motd: '', admins: [], disabledPlugins: [], port: 3000 };
 try { Object.assign(CONFIG, JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'))); } catch (e) {}
 const PORT = process.env.PORT || CONFIG.port || 3000;
+const { startServerConsole, RESTART_EXIT_CODE } = require('./server-console');
 const { openJsonStore } = require('./persistence');
 const { attachWebSockets } = require('./transport');
 const { indexLivingMobs, snapshotMobs, mobSnapshot } = require('./snapshots');
@@ -299,7 +300,7 @@ function hitMob(p, m, dmg) {
 function killMob(p, m) {
   const t = MOBTYPES[m.ty];
   m.dead = Date.now() + (t.stone ? 90000 : t.boss ? 180000 : m.alpha ? 90000 : rint(RATES.respawnSeconds * 750, RATES.respawnSeconds * 1350));
-  p.target = 0;
+  if (p.target === m.id) p.target = 0;
   const pen = t.stone ? 2 : t.boss || m.alpha ? 1 : Math.max(0.1, 1 - Math.max(0, p.lvl - m.lvl - 5) * 0.12);
   gainXp(p, Math.max(1, Math.round(m.xp * RATES.xpRate * pen)));
   dropLoot(p, m); ev('die', m.x, m.y, m.ty, { b: m.alpha ? 1 : 0 });
@@ -461,22 +462,37 @@ function saveAll() {
     return results.every(result => result.status === 'fulfilled');
   });
 }
-let pendingSave, stopping = false;
-const autosave = setInterval(() => {
+let pendingSave, stopping = false, serverConsole;
+const localLauncher = typeof process.send === 'function' && process.argv.includes('--local-console');
+
+function requestSave() {
   if (!pendingSave) pendingSave = saveAll().finally(() => { pendingSave = null; });
-}, 10000);
-async function shutdown() {
+  return pendingSave;
+}
+const autosave = setInterval(requestSave, 10000);
+
+async function shutdown({ restart = false } = {}) {
   if (stopping) return;
   stopping = true;
+  console.log(restart ? 'Saving server data before restart...' : 'Saving server data before shutdown...');
+  serverConsole?.close();
   clearInterval(autosave);
   clearInterval(simulationTimer);
   server.close();
   transport.close();
   await pendingSave;
-  process.exit((await saveAll()) ? 0 : 1);
+  if (!(await saveAll())) {
+    console.error('Server stopped after a save failure. Automatic restart was skipped.');
+    process.exit(1);
+  }
+  console.log(restart ? 'Save complete. Restarting the server.' : 'Save complete. Server stopped.');
+  process.exit(restart ? RESTART_EXIT_CODE : 0);
 }
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+process.on('SIGINT', () => { void shutdown(); });
+process.on('SIGTERM', () => { void shutdown(); });
+if (localLauncher) process.on('message', message => {
+  if (message === 'shutdown') void shutdown();
+});
 
 // ================= NETWORK =================
 function broadcast(o) { for (const p of players.values()) send(p.c, o); }
@@ -595,6 +611,12 @@ function onMsg(c, m) {
 
 // ================= PLUGIN SYSTEM =================
 // Drop .js files (or folders with index.js) into ./plugins. Names starting with "_" are ignored. See PLUGINS.md.
+function serverStats() {
+  const times = tickTimes.slice(0, Math.min(tickSample, tickTimes.length)).sort();
+  return { players: players.size, mobs: mobs.size, awake: [...mobs.values()].filter(m => m.awake || m.target).length,
+    loot: loot.size, tickMs: Math.round(tickMs * 100) / 100, tickP95: Math.round((times[Math.ceil(times.length * .95) - 1] || 0) * 100) / 100,
+    tickMax: Math.round((times[times.length - 1] || 0) * 100) / 100, ...transport.stats() };
+}
 function makeApi(pname) {
   return {
     name: pname, config: CONFIG, rates: RATES, log: (...a) => console.log('[' + pname + ']', ...a), consts: { W, H, CX, CY, VILLAGE, BAGMAX }, MOBTYPES, ITEMS, CLASSES, TIERS, RARITY, STATDEF, SLOTS, NPCS,
@@ -616,12 +638,7 @@ function makeApi(pname) {
     setLevel(p, l) { p.lvl = Math.max(1, Math.min(200, l | 0)); p.xp = 0; const spent = SKILLS.reduce((s, k) => s + p.sk[k], 0) - 1; p.sp = Math.max(0, p.lvl - spent); stats(p); p.hp = p.maxhp; p.mp = p.maxmp; sendInv(p); },
     effect(x, y, radius, style) { ev('fx', x, y, radius || 60, { s: style || 'buff' }); }, text(x, y, txt, kind) { ev(kind || 'xp', x, y, String(txt)); },
     isAdmin, kick(p) { try { p.c.sock.end(); } catch (e) {} }, data: () => (pdata[pname] = pdata[pname] || {}),
-    stats() {
-      const times = tickTimes.slice(0, Math.min(tickSample, tickTimes.length)).sort();
-      return { players: players.size, mobs: mobs.size, awake: [...mobs.values()].filter(m => m.awake || m.target).length,
-        loot: loot.size, tickMs: Math.round(tickMs * 100) / 100, tickP95: Math.round((times[Math.ceil(times.length * .95) - 1] || 0) * 100) / 100,
-        tickMax: Math.round((times[times.length - 1] || 0) * 100) / 100, ...transport.stats() };
-    },
+    stats: serverStats,
   };
 }
 const activePlugins = new Set(), knownPlugins = new Set();
@@ -691,4 +708,9 @@ const transport = attachWebSockets(server, onMsg, c => {
 });
 console.log('\n  ' + CONFIG.serverName.toUpperCase());
 loadPlugins(); populate();
-server.listen(PORT, () => console.log('\n  Server is running!  Open http://localhost:' + PORT + '\n  Friends on your network can join via http://<your-LAN-IP>:' + PORT + '\n  (' + mobs.size + ' monsters, map ' + W + 'x' + H + ', ' + TIERS.length + ' zones)  Edit rates.json any time to change XP / gold / drops.\n'));
+server.listen(PORT, () => {
+  console.log('\n  Server is running!  Open http://localhost:' + PORT + '\n  Friends on your network can join via http://<your-LAN-IP>:' + PORT + '\n  (' + mobs.size + ' monsters, map ' + W + 'x' + H + ', ' + TIERS.length + ' zones)  Edit rates.json any time to change XP / gold / drops.\n');
+  if (localLauncher || process.stdin.isTTY) {
+    serverConsole = startServerConsole({ getStatus: serverStats, save: requestSave, shutdown, canRestart: localLauncher });
+  }
+});

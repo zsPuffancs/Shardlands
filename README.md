@@ -6,6 +6,11 @@
 3. Open http://localhost:3000. Friends on your LAN join at http://YOUR-LAN-IP:3000 (over the internet: Tailscale or a cloudflared/ngrok tunnel).
 Set a hero password on the login screen so nobody can take your name.
 
+## Local server console
+Start the game with `start.bat` or `start.sh`. Type `help` for the command list or `help restart` for details. Use `status` to inspect the server, `save` to save immediately, `restart` to save and start a fresh server process, or `stop` to save and shut down. Restart disconnects players, who can refresh to reconnect.
+
+Console commands are defined in `server-console.js`. Give each `Command` a name, description and handler. The command registry handles parsing, usage and errors. For unattended hosting, use `node server.js` and manage restarts from your hosting platform.
+
 ## What's new in v0.5
 - Real 3D models: Quaternius CC0 characters (animated heroes, NPCs, bandits, goblins, orcs, void knights) and nature packs (forests, farms, rocks, flowers per zone).
 - Map is twice as wide (10600 x 10600). Every zone has more room, 10-16 Spirit Stones and 5-30 Alphas.
@@ -52,7 +57,7 @@ at your level ±20% (slot of the first item, best +forge kept). Auto-merge butto
 1 point per level. Active skills (keys 1-3) go to rank 5, passives to rank 10. Open with K and switch tabs.
 
 ## Controls (all rebindable in Settings → Key bindings, except movement)
-Click: move / attack / loot / talk · WASD walk · right-drag or ←→ camera · wheel zoom · 1-3 skills · Q/E/R/T potions & return scroll
+Click: move / attack / loot / talk · Space: attack the nearest monster in reach · WASD walk · right-drag or ←→ camera · wheel zoom · 1-3 skills · Q/E/R/T potions & return scroll
 F talk · I inventory · K skills · O settings · G graphics quality · P fps · M mute · Enter chat (/help) · Esc close windows.
 Windows can be dragged by their title bar.
 

@@ -199,11 +199,12 @@ function buildSkills() {
 }
 document.addEventListener('click', e => { const t = e.target.closest('[data-sktab]'); if (t) { skTab = t.dataset.sktab; buildSkills(); } });
 // ---------- settings & key bindings ----------
-const BIND_DEF = { skill1: '1', skill2: '2', skill3: '3', hp: 'q', mp: 'e', hp2: 'r', ret: 't', talk: 'f', inv: 'i', skills: 'k', settings: 'o', mute: 'm', gfx: 'g', fps: 'p' };
-const BIND_NAME = { skill1: 'Skill 1', skill2: 'Skill 2', skill3: 'Skill 3', hp: 'Health potion', mp: 'Mana potion', hp2: 'Greater health potion', ret: 'Return scroll', talk: 'Talk to NPC', inv: 'Inventory', skills: 'Skills window', settings: 'Settings', mute: 'Mute', gfx: 'Cycle graphics quality', fps: 'FPS counter' };
+const BIND_DEF = { skill1: '1', skill2: '2', skill3: '3', hp: 'q', mp: 'e', hp2: 'r', ret: 't', talk: 'f', inv: 'i', skills: 'k', settings: 'o', mute: 'm', gfx: 'g', fps: 'p', attack: ' ' };
+const BIND_NAME = { skill1: 'Skill 1', skill2: 'Skill 2', skill3: 'Skill 3', hp: 'Health potion', mp: 'Mana potion', hp2: 'Greater health potion', ret: 'Return scroll', talk: 'Talk to NPC', inv: 'Inventory', skills: 'Skills window', settings: 'Settings', mute: 'Mute', gfx: 'Cycle graphics quality', fps: 'FPS counter', attack: 'Attack nearest monster' };
 let BINDS = Object.assign({}, BIND_DEF); try { Object.assign(BINDS, JSON.parse(localStorage.getItem('sl_keys') || '{}')); } catch (e) {}
+if (Object.keys(BIND_DEF).some(action => action !== 'attack' && BINDS[action] === BINDS.attack)) BINDS.attack = '';
 let bindWait = null;
-const keyName = k => ({ ' ': 'SPACE', control: 'CTRL', shift: 'SHIFT', alt: 'ALT', tab: 'TAB' })[k] || k.toUpperCase();
+const keyName = k => ({ ' ': 'SPACE', control: 'CTRL', shift: 'SHIFT', alt: 'ALT', tab: 'TAB' })[k] || (k ? k.toUpperCase() : 'UNBOUND');
 function actionOf(k) { for (const a in BINDS) if (BINDS[a] === k) return a; return null; }
 function saveBinds() { try { localStorage.setItem('sl_keys', JSON.stringify(BINDS)); } catch (e) {} applyBindLabels(); }
 function applyBindLabels() { const map = { '1': 'skill1', '2': 'skill2', '3': 'skill3' }; document.querySelectorAll('#hotbar [data-sk]').forEach(el => el.querySelector('.key').textContent = keyName(BINDS['skill' + el.dataset.sk])); document.querySelectorAll('#hotbar [data-it]').forEach(el => el.querySelector('.key').textContent = keyName(BINDS[el.dataset.it])); }
