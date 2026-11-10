@@ -377,6 +377,8 @@ function onEvent(f) {
   if (f.k === 'gold') { burst(f.x, 20, f.y, 8, [1, .85, .2], 150, .7, 1.8, .9); sfx('coin', f.x, f.y); }
   if (f.k === 'loot') { burst(f.x, 20, f.y, 10 + (f.r || 0) * 5, RCV[f.r || 0], 160, .8, 1.7, .9); sfx('loot', f.x, f.y, f.r || 0); }
   if (f.k === 'heal' || f.k === 'mana') sfx('heal', f.x, f.y);
+  if (I && f.pickupBy === I.id) log('*', f.text || f.v, 'loot');
+  if (I && f.combatPlayerId === I.id) logCombatEvent(f);
   const style = f.k === 'dmg' && f.c ? 'critical' : FLOATER_STYLE[f.k];
   if (!style || floaters.length > 60) return;
   const isDamage = f.k === 'dmg' || f.k === 'hurt';
@@ -435,7 +437,7 @@ function onMsg(m) {
     hudInit(); log('*', m.resumed ? text("login.welcomeBack", "Welcome back, ") + m.name + '!' : text("login.welcome", "Welcome, ") + m.name + text("login.welcomeHint", "! Loot drops on the ground - walk over it. Talk to the Merchant and the Blacksmith in the village (click them or press F)."));
   } else if (m.t === 'inv') onInv(m);
   else if (m.t === 'toast') toast(m.text || m.m, m.c); else if (m.t === 'forge') onForge(m);
-  else if (m.t === 'chat') log(m.n, m.text || m.m); else if (m.t === 'msg') log('*', m.text || m.m);
+  else if (m.t === 'chat') log(m.n, m.text || m.m, m.channel); else if (m.t === 'msg') log('*', m.text || m.m);
   else if (m.t === 's') {
     if (!me) { S.rx = m.me.x; S.ry = m.me.y; cam.x = m.me.x; cam.z = m.me.y; } serverTm = m.tm; me = m.me; pl = m.pl; lo = m.lo;
     updateMobSnapshot(m);
@@ -455,6 +457,7 @@ function onMsg(m) {
 const GFX = ['auto', 'low', 'medium', 'high'];
 addEventListener('keydown', e => {
   if (!I) return; const ci = $('chatin');
+  if (e.key === 'Enter' && e.target?.closest('#chat-tabs')) return;
   if (document.activeElement === ci) { if (e.key === 'Enter') { if (ci.value.trim()) send({ t: 'chat', m: ci.value }); ci.value = ''; ci.style.display = 'none'; ci.blur(); } else if (e.key === 'Escape') { ci.style.display = 'none'; ci.blur(); } return; }
   if (e.target && e.target.tagName === 'INPUT' && e.target.type !== 'checkbox' && e.target.type !== 'range') return;
   const k = e.key.toLowerCase();

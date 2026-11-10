@@ -28,7 +28,7 @@ function createLoot({ loot, players, allocateId, rates, ev, say, toast, broadcas
       const ilvl = Math.max(1, monster.lvl + rint(-1, 2) + (boss ? 3 : 0) + (stone || alpha ? 1 : 0)), minR = stone || boss ? 2 : alpha ? 1 : 0;
       const item = genGear(pick(SLOTS), ilvl, rollRarity((boss ? 3 : stone ? 2.2 : alpha ? 1.2 : 0) + monster.tier * 0.15, minR), CLASSES[player.cls].fam);
       dropAt(monster.x + rnd(-50, 50), monster.y + rnd(-50, 50), { kind: 'gear', item: item, name: item.name, rar: item.rar }, player.id);
-      if (item.rar >= 3) broadcast({ t: 'chat', n: '*', m: messageText("server.playerLoot", "{player} found {rarity} {item}!", { player: player.name, rarity: messageText('rarity.' + item.rar, RARITY[item.rar].n), item: gearText(item.name) }) });
+      if (item.rar >= 3) broadcast({ t: 'chat', n: '*', channel: 'loot', m: messageText("server.playerLoot", "{player} found {rarity} {item}!", { player: player.name, rarity: messageText('rarity.' + item.rar, RARITY[item.rar].n), item: gearText(item.name) }) });
     }
   }
   function pickupTick(now) {
@@ -37,11 +37,11 @@ function createLoot({ loot, players, allocateId, rates, ev, say, toast, broadcas
       if (drop.owner && now < drop.free && !players.has(drop.owner)) drop.free = 0;
       for (const player of players.values()) {
         if (player.dead || (drop.owner && now < drop.free && drop.owner !== player.id) || Math.abs(player.x - drop.x) > 58 || Math.abs(player.y - drop.y) > 58 || Math.hypot(player.x - drop.x, player.y - drop.y) > 58) continue;
-        if (drop.kind === 'gold') { player.gold += drop.v; ev('gold', drop.x, drop.y, '+' + drop.v + 'g'); }
-        else if (drop.kind === 'item') { player.inv[drop.k] = (player.inv[drop.k] || 0) + drop.n; ev('loot', drop.x, drop.y, messageText('server.pickedUp', '+{item}', { item: messageText('item.' + drop.k + '.name', drop.name) }), { r: 0 }); }
+        if (drop.kind === 'gold') { player.gold += drop.v; ev('gold', drop.x, drop.y, messageText('server.pickedUpGold', '+{gold}g', { gold: drop.v }), { pickupBy: player.id }); }
+        else if (drop.kind === 'item') { player.inv[drop.k] = (player.inv[drop.k] || 0) + drop.n; ev('loot', drop.x, drop.y, messageText('server.pickedUp', '+{item}', { item: messageText('item.' + drop.k + '.name', drop.name) }), { r: 0, pickupBy: player.id }); }
         else if (drop.kind === 'gear') {
           if (!addGear(player, drop.item)) { if (now > (player.fullT || 0)) { player.fullT = now + 3000; say(player, messageText("server.lootBagFull", "Your bag is full! Merge, sell or equip something.")); toast(player, messageText("server.bagFullShort", "Bag full!"), '#ff8a6a'); } continue; }
-          ev('loot', drop.x, drop.y, messageText('server.pickedUp', '+{item}', { item: gearText(drop.name) }), { r: drop.rar }); if (drop.rar >= 3) toast(player, messageText("server.rareLoot", "{rarity}: {item}", { rarity: messageText('rarity.' + drop.rar, RARITY[drop.rar].n), item: gearText(drop.name) }), ['', '', '', '#b25cff', '#ff9d2e'][drop.rar]);
+          ev('loot', drop.x, drop.y, messageText('server.pickedUp', '+{item}', { item: gearText(drop.name) }), { r: drop.rar, pickupBy: player.id }); if (drop.rar >= 3) toast(player, messageText("server.rareLoot", "{rarity}: {item}", { rarity: messageText('rarity.' + drop.rar, RARITY[drop.rar].n), item: gearText(drop.name) }), ['', '', '', '#b25cff', '#ff9d2e'][drop.rar]);
         }
         loot.delete(drop.id); break;
       }

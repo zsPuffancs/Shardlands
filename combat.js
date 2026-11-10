@@ -18,7 +18,9 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     fire('damage', player, monster, hit);
     damage = Math.max(1, Math.round(hit.v));
     monster.hp -= damage;
-    ev('dmg', monster.x, monster.y, damage, { c: criticalHit ? 1 : 0 });
+    ev('dmg', monster.x, monster.y, damage, {
+      c: criticalHit ? 1 : 0, combatPlayerId: player.id, monsterType: monster.ty,
+    });
     if (player.sk.lifesteal && !player.dead) player.hp = Math.min(player.maxhp, player.hp + damage * 0.008 * player.sk.lifesteal);
     const template = MOBTYPES[monster.ty];
     monster.awake = true;
@@ -54,7 +56,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     fire('hurt', player, monster, hit);
     damage = Math.max(0, Math.round(hit.v));
     if (!damage) return;
-    player.hp -= damage; ev('hurt', player.x, player.y, damage, { a: monster.id });
+    player.hp -= damage; ev('hurt', player.x, player.y, damage, { a: monster.id, combatPlayerId: player.id, monsterType: monster.ty });
     if (player.hp <= 0) {
       player.hp = 0; player.dead = now + 5000; player.target = 0; player.chasingTarget = false; const loss = Math.floor(player.gold * rates.deathGoldLoss); player.gold -= loss;
       say(player, messageText("server.died", "You died. Lost {gold} gold. Respawning in the village...", { gold: loss })); fire('death', player, monster);
@@ -98,7 +100,10 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     } else if (skillNumber === 2) {
       const rank = player.sk.mend; if (rank < 1 || now < player.cd2 || player.mp < 20) return;
       player.mp -= 20; player.cd2 = now + 8000 - 500 * rank; const healAmount = Math.floor(player.maxhp * (0.2 + 0.08 * rank));
-      player.hp = Math.min(player.maxhp, player.hp + healAmount); ev('heal', player.x, player.y, '+' + healAmount); ev('fx', player.x, player.y, 50, { s: 'heal', a: player.id });
+      const previousHealth = player.hp;
+      player.hp = Math.min(player.maxhp, player.hp + healAmount);
+      ev('heal', player.x, player.y, '+' + healAmount, { combatPlayerId: player.id, restoredHealth: Math.round(player.hp - previousHealth) });
+      ev('fx', player.x, player.y, 50, { s: 'heal', a: player.id });
     } else if (skillNumber === 3) {
       const rank = player.sk.frenzy; if (rank < 1 || now < player.cd3 || player.mp < 30) return;
       player.mp -= 30; player.cd3 = now + 25000; player.buf.rage = now + (6 + 2 * rank) * 1000; ev('fx', player.x, player.y, 70, { s: 'rage', a: player.id });

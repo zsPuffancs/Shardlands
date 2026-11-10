@@ -50,6 +50,10 @@ button.pri{background:linear-gradient(#b07f22,#7a5414);border-color:var(--gold);
 .toast{padding:7px 16px;border-radius:20px;background:#120e0aee;border:1px solid var(--edge);font-weight:700;box-shadow:0 4px 18px #000a;animation:tin .25s ease-out;transition:opacity .5s}@keyframes tin{from{transform:translateY(-10px);opacity:0}}
 #chat{position:fixed;left:12px;bottom:12px;width:min(430px,40vw)}
 #log{height:160px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;text-shadow:0 1px 2px #000;font-size:0.8125rem;pointer-events:none;padding:6px 8px;border-radius:8px;background:linear-gradient(#0000,#0005)}#log div{padding:1px 0}
+#log.combat-log{display:block;overflow-y:auto;pointer-events:auto;overflow-wrap:anywhere}
+#chat-tabs{display:flex;flex-wrap:wrap;gap:4px;padding:0 4px 3px}
+#chat-tabs button{padding:3px 9px;font-size:.75rem;background:#120f0cdc;color:var(--mut);border-radius:6px}
+#chat-tabs button[aria-pressed="true"]{border-color:var(--gold2);color:var(--gold)}
 #chatin{display:none;margin:6px 0 0}
 #actionbar{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);padding:8px 10px 6px}
 #hotbar{display:flex;gap:6px;align-items:flex-end}
@@ -110,7 +114,17 @@ kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1
   <div class="panel" id="tgt"><span id="tgtn"></span><div class="bar"><i style="background:linear-gradient(#ff6a5a,#a81e16)"></i><span></span></div></div>
   <div class="panel" id="mapbox"><canvas id="mini" width="320" height="320"></canvas><div id="zname"></div><div id="zinfo"></div>
     <div id="mapbtns"><button data-open="invp" title="Inventory (I)" data-title-text="panel.inventoryShortcut">🎒</button><button data-open="skillp" title="Skills (K)" data-title-text="panel.skillsShortcut">📜</button><button data-open="setw" title="Settings (O)" data-title-text="panel.settingsShortcut">⚙️</button></div></div>
-  <div id="chat"><div id="log"></div><input id="chatin" maxlength="120" placeholder="Say something… (/help for commands)" data-placeholder-text="chat.placeholder"></div>
+  <div id="chat">
+    <div id="log"></div>
+    <div id="chat-tabs" role="group" aria-label="Chat filters" data-label-text="chat.filters">
+      <button type="button" data-chat-filter="all" data-text="chat.all" aria-controls="log" aria-pressed="true">All</button>
+      <button type="button" data-chat-filter="player" data-text="chat.player" aria-controls="log" aria-pressed="false">Chat</button>
+      <button type="button" data-chat-filter="loot" data-text="chat.loot" aria-controls="log" aria-pressed="false">Loot</button>
+      <button type="button" data-chat-filter="combat" data-text="chat.combat" aria-controls="log" aria-pressed="false">Combat</button>
+      <button type="button" data-chat-filter="system" data-text="chat.system" aria-controls="log" aria-pressed="false">System</button>
+    </div>
+    <input id="chatin" maxlength="120" placeholder="Say something… (/help for commands)" data-placeholder-text="chat.placeholder">
+  </div>
   <div class="panel" id="actionbar"><div id="hotbar">
     <div class="sk" data-sk="1"><span class="ic"></span><b class="key">1</b><i class="rk"></i><u></u><div class="nm"></div></div>
     <div class="sk" data-sk="2"><span class="ic">💚</span><b class="key">2</b><i class="rk"></i><u></u><div class="nm"></div></div>
@@ -138,7 +152,7 @@ kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1
   <div class="hd2" style="margin-top:2px"><span data-text="smith.pick">Pick an item</span></div><div id="smpick" style="display:grid;grid-template-columns:repeat(8,1fr);gap:5px"></div>
   <div id="smcard" style="margin-top:10px"></div><button id="smgo" class="pri" style="width:100%;margin-top:8px" disabled><span data-text="smith.upgrade">Upgrade</span></button><div id="smres"></div></div></div>
 <div class="win panel" id="setw" style="left:50%;top:80px;width:400px;margin-left:-200px"><div class="win-h"><b><span data-text="panel.settings">⚙ Settings</span></b><button class="x" data-close>✕</button></div><div class="win-b">
-  <div class="tabs"><button data-stab="snd" class="on"><span data-text="settings.sound">🔊 Sound</span></button><button data-stab="gfx"><span data-text="settings.graphics">🖥 Graphics</span></button><button data-stab="keys"><span data-text="settings.keys">⌨ Key bindings</span></button></div>
+  <div class="tabs"><button data-stab="snd" class="on"><span data-text="settings.sound">🔊 Sound</span></button><button data-stab="gfx"><span data-text="settings.graphics">🖥 Graphics</span></button><button data-stab="keys"><span data-text="settings.keys">⌨ Key bindings</span></button><button data-stab="log"><span data-text="settings.log">Chat log</span></button></div>
   <div data-spage="snd">
     <div class="row"><div class="t"><span data-text="settings.masterVolume">Master volume</span></div></div><div class="vrow"><input type="range" id="vol" min="0" max="100"><span id="volv"></span></div>
     <div class="row"><div class="t"><span data-text="settings.combatVolume">Combat sounds</span><small><span data-text="settings.combatHint">Hits, spells, monsters</span></small></div></div><div class="vrow"><input type="range" id="volc" min="0" max="100"><span id="volcv"></span></div>
@@ -149,6 +163,14 @@ kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1
     <div class="row"><label class="t" for="text-scale" data-text="settings.textScale">Text size</label><input type="range" id="text-scale" min="85" max="130" step="5"><span id="text-scale-value"></span></div>
     <div class="row"><div class="t"><span data-text="settings.quality">Quality</span><small><span data-text="settings.autoHint">Auto lowers resolution / shadows / view distance when the frame rate drops</span></small></div><select id="gfxsel"><option value="auto" data-text="quality.auto">Auto</option><option value="low" data-text="quality.low">Low</option><option value="medium" data-text="quality.medium">Medium</option><option value="high" data-text="quality.high">High</option></select></div>
     <div class="row"><div class="t"><span data-text="settings.fps">Show FPS counter</span></div><input type="checkbox" id="fpschk" style="width:auto;margin:0"></div></div>
+  <div data-spage="log" style="display:none">
+    <div class="mu" data-text="settings.logHint">Choose which messages appear in the chat log. Floating text and notifications stay visible.</div>
+    <label class="row"><span class="t" data-text="settings.logDamageDealt">Damage dealt</span><input type="checkbox" data-log-option="damageDealt" style="width:auto;margin:0"></label>
+    <label class="row"><span class="t" data-text="settings.logDamageTaken">Damage taken</span><input type="checkbox" data-log-option="damageTaken" style="width:auto;margin:0"></label>
+    <label class="row"><span class="t" data-text="settings.logHealing">Healing</span><input type="checkbox" data-log-option="healing" style="width:auto;margin:0"></label>
+    <label class="row"><span class="t" data-text="settings.logLoot">Loot messages</span><input type="checkbox" data-log-option="loot" style="width:auto;margin:0"></label>
+    <label class="row"><span class="t" data-text="settings.logSystem">System messages</span><input type="checkbox" data-log-option="system" style="width:auto;margin:0"></label>
+  </div>
   <div data-spage="keys" style="display:none"><div class="mu" style="font-size:0.75rem;margin-bottom:6px"><span data-text="settings.keysHint">Click a key, then press the new key (Esc cancels). WASD / arrows always move, Enter opens chat.</span></div><div class="kb" id="kbl"></div>
     <button id="kbreset" style="margin-top:8px;width:100%"><span data-text="settings.resetKeys">Reset to defaults</span></button></div></div></div>
 <div id="dead"><span data-text="hud.died">You died…</span><small id="deadsec"></small></div>

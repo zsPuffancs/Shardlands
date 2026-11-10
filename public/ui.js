@@ -60,21 +60,142 @@ function sfx(name, x, z, r) {
 function toggleMute() { muted = !muted; try { localStorage.setItem('sl_mute', muted ? '1' : '0'); } catch (e) {} toast(muted ? text("sound.off", "Sound off") : text("sound.on", "Sound on")); if (!muted) sfx('click'); if (isOpen('setw')) $('mutechk').checked = muted; }
 
 // ---------- chat / banner / toasts ----------
-function log(name, message) {
+const CHAT_HISTORY_LIMIT = 100;
+const CHAT_VISIBLE_LIMIT = 10;
+const COMBAT_HISTORY_LIMIT = 30;
+const COMBAT_HISTORY_TTL = 120000;
+const chatHistory = [];
+let combatHistory = [], combatExpiryTimer;
+const chatFilters = [...document.querySelectorAll('[data-chat-filter]')];
+const logOptions = { damageDealt: true, damageTaken: true, healing: true, loot: true, system: true };
+let chatFilter = 'all';
+try {
+  const savedOptions = JSON.parse(localStorage.getItem('sl_log_options') || '{}');
+  for (const option of Object.keys(logOptions)) logOptions[option] = savedOptions?.[option] !== false;
+} catch {}
+
+function matchesChatFilter(entry) {
+  return chatFilter === 'all' || entry.channel === chatFilter;
+}
+
+function createChatLine({ name, message, channel }) {
   const line = document.createElement('div');
-  if (name && name !== '*') {
+  if (channel === 'player') {
     const speaker = document.createElement('b');
     speaker.style.color = '#9fd0ff';
     speaker.textContent = name + ': ';
     line.appendChild(speaker);
   }
   const body = document.createElement('span');
-  GameText.present(body, { message, color: name === '*' ? '#e8bf55' : undefined });
+  GameText.present(body, { message, color: channel === 'loot' ? '#a9e39b' : channel === 'system' ? '#e8bf55' : undefined });
   line.appendChild(body);
-  const logBox = $('log');
-  logBox.appendChild(line);
-  while (logBox.children.length > 10) logBox.removeChild(logBox.firstChild);
+  return line;
 }
+
+function renderChatHistory(scrollToLatest = false) {
+  const logBox = $('log');
+  const isCombat = chatFilter === 'combat';
+  const wasAtBottom = logBox.scrollHeight - logBox.scrollTop - logBox.clientHeight < 4;
+  const scrollTop = logBox.scrollTop;
+  const visibleEntries = isCombat ? combatHistory : chatHistory.filter(matchesChatFilter).slice(-CHAT_VISIBLE_LIMIT);
+  logBox.classList.toggle('combat-log', isCombat);
+  logBox.replaceChildren(...visibleEntries.map(createChatLine));
+  if (isCombat) logBox.scrollTop = scrollToLatest || wasAtBottom ? logBox.scrollHeight : scrollTop;
+}
+
+function appendChatLine(entry) {
+  const logBox = $('log');
+  logBox.appendChild(createChatLine(entry));
+  if (logBox.children.length > CHAT_VISIBLE_LIMIT) logBox.removeChild(logBox.firstChild);
+}
+
+function log(name, message, channel) {
+  const category = channel === 'loot' ? 'loot' : !name || name === '*' ? 'system' : 'player';
+  if (logOptions[category] === false) return;
+  const entry = { name, message, channel: category };
+  chatHistory.push(entry);
+  const expiredEntry = chatHistory.length > CHAT_HISTORY_LIMIT ? chatHistory.shift() : null;
+  if (chatFilter === 'combat') return;
+  if (matchesChatFilter(entry)) appendChatLine(entry);
+  else if (expiredEntry && matchesChatFilter(expiredEntry)) renderChatHistory();
+}
+
+function scheduleCombatExpiry() {
+  clearTimeout(combatExpiryTimer);
+  if (!combatHistory.length) return;
+  combatExpiryTimer = setTimeout(() => {
+    const now = Date.now();
+    combatHistory = combatHistory.filter(entry => entry.expiresAt > now);
+    if (chatFilter === 'combat') renderChatHistory();
+    scheduleCombatExpiry();
+  }, Math.max(0, combatHistory[0].expiresAt - Date.now()));
+}
+
+function logCombatEvent(event) {
+  let category, message;
+  const monster = { key: 'monster.' + event.monsterType, fallback: I.types[event.monsterType]?.n || 'Monster' };
+  if (event.k === 'dmg') {
+    category = 'damageDealt';
+    message = {
+      key: event.c ? 'combat.criticalDamage' : 'combat.damageDealt',
+      fallback: event.c ? 'Critical: {damage} damage to {monster}' : '{damage} damage to {monster}',
+      values: { damage: event.v, monster },
+    };
+  } else if (event.k === 'hurt') {
+    category = 'damageTaken';
+    message = { key: 'combat.damageTaken', fallback: '{monster} hit you for {damage}', values: { damage: event.v, monster } };
+  } else if (event.k === 'heal' && event.restoredHealth > 0) {
+    category = 'healing';
+    message = { key: 'combat.healing', fallback: 'Restored {health} HP', values: { health: event.restoredHealth } };
+  }
+  if (!category || !logOptions[category]) return;
+
+  const now = Date.now();
+  const previousCount = combatHistory.length;
+  combatHistory = combatHistory.filter(entry => entry.expiresAt > now);
+  const expiredCount = previousCount - combatHistory.length;
+  const entry = { message, channel: 'combat', category, expiresAt: now + COMBAT_HISTORY_TTL };
+  combatHistory.push(entry);
+  const removedOldest = combatHistory.length > COMBAT_HISTORY_LIMIT;
+  if (removedOldest) combatHistory.shift();
+  if (chatFilter === 'combat') {
+    const logBox = $('log');
+    const wasAtBottom = logBox.scrollHeight - logBox.scrollTop - logBox.clientHeight < 4;
+    const removedCount = expiredCount + Number(removedOldest);
+    for (let index = 0; index < removedCount; index++) logBox.removeChild(logBox.firstChild);
+    logBox.appendChild(createChatLine(entry));
+    if (wasAtBottom) logBox.scrollTop = logBox.scrollHeight;
+  }
+  scheduleCombatExpiry();
+}
+
+for (const button of chatFilters) {
+  button.addEventListener('click', () => {
+    chatFilter = button.dataset.chatFilter;
+    for (const filter of chatFilters) {
+      filter.setAttribute('aria-pressed', String(filter === button));
+    }
+    renderChatHistory(true);
+  });
+}
+
+for (const checkbox of document.querySelectorAll('[data-log-option]')) {
+  const option = checkbox.dataset.logOption;
+  checkbox.checked = logOptions[option];
+  checkbox.addEventListener('change', () => {
+    logOptions[option] = checkbox.checked;
+    try { localStorage.setItem('sl_log_options', JSON.stringify(logOptions)); } catch {}
+    if (!checkbox.checked) {
+      for (let index = chatHistory.length - 1; index >= 0; index--) {
+        if (chatHistory[index].channel === option) chatHistory.splice(index, 1);
+      }
+      combatHistory = combatHistory.filter(entry => entry.category !== option);
+      scheduleCombatExpiry();
+      renderChatHistory();
+    }
+  });
+}
+
 let bannerT = 0;
 function banner(title, sub, danger) { const z = $('zone'); z.querySelector('b').textContent = title; z.querySelector('span').textContent = sub || ''; z.classList.toggle('danger', !!danger); z.style.opacity = 1; clearTimeout(bannerT); bannerT = setTimeout(() => z.style.opacity = 0, 3400); }
 function toast(m, c) { const t = document.createElement('div'); t.className = 'toast'; GameText.present(t, { message: m, color: c }); if (c) { t.style.color = c; t.style.borderColor = c; } const box = $('toasts'); box.appendChild(t); while (box.children.length > 4) box.removeChild(box.firstChild); setTimeout(() => t.style.opacity = 0, 3200); setTimeout(() => t.remove(), 3800); }

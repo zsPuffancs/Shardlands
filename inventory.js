@@ -24,7 +24,12 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear }) {
     if (itemKey === 'ret' && inVillage(player)) return say(player, messageText("server.inVillage", "You are already in the village."));
     if (itemKey === 'reset' && SKILLS.every(slot => player.sk[slot] === (slot === 's1' ? 1 : 0))) return say(player, messageText("server.nothingToReset", "Nothing to reset."));
     player.inv[itemKey]--; if (isPotion) player.potCd = now + 1000;
-    if (itemKey === 'hp' || itemKey === 'hp2') { const h = Math.floor(player.maxhp * (itemKey === 'hp' ? 0.4 : 1)); player.hp = Math.min(player.maxhp, player.hp + h); ev('heal', player.x, player.y, '+' + h); }
+    if (itemKey === 'hp' || itemKey === 'hp2') {
+      const healAmount = Math.floor(player.maxhp * (itemKey === 'hp' ? 0.4 : 1));
+      const previousHealth = player.hp;
+      player.hp = Math.min(player.maxhp, player.hp + healAmount);
+      ev('heal', player.x, player.y, '+' + healAmount, { combatPlayerId: player.id, restoredHealth: Math.round(player.hp - previousHealth) });
+    }
     else if (itemKey === 'mp') { const h = Math.floor(player.maxmp * 0.5); player.mp = Math.min(player.maxmp, player.mp + h); ev('mana', player.x, player.y, '+' + h); }
     else if (itemKey === 'atk' || itemKey === 'def' || itemKey === 'spd') { player.buf[itemKey] = now + 60000; ev('fx', player.x, player.y, 50, { s: 'buff', a: player.id }); }
     else if (itemKey === 'xp') { player.buf.xp = now + 300000; ev('fx', player.x, player.y, 50, { s: 'buff', a: player.id }); }
