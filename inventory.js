@@ -51,7 +51,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
   }
 
   function mergeItems(player, items) {
-    const rarity = items[0].rar, first = items[0], itemLevel = Math.max(1, Math.round(player.lvl * rnd(0.8, 1.2)));
+    const rarity = items[0].rar, first = items[0], itemLevel = Math.max(1, Math.round(items.reduce((sum, i) => sum + (i.ilvl || 1), 0) / items.length));
     const result = genGear(first.slot, itemLevel, Math.min(MYTHIC, rarity + 1), first.fam); result.plus = Math.max(...items.map(i => i.plus || 0));
     const firstItemIndex = player.bag.indexOf(first); player.bag = player.bag.filter(i => !items.includes(i)); player.bag.splice(Math.min(firstItemIndex, player.bag.length), 0, result);
     fire('merge', player, result, items); return result;
