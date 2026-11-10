@@ -7,7 +7,7 @@ const { CX, CY, rnd, worldInfo } = require('./game-world');
 const { MOBTYPES } = require('./monsters');
 const { CLASSES, ITEMS, MAXRANK, PMAX, newSk, stats } = require('./characters');
 const { SLOTS, STATDEF, UP_RATE, RARITY, sanitize } = require('./equipment');
-const { BAGMAX } = require('./inventory');
+const { BAGMAX, BAG_PAGE_SIZE } = require('./inventory');
 
 function createPlayerSessions({ config, players, mobs, saves, allocateId, refreshMobTypes, send, say, broadcast, fire, commands, skill, learnSkill, inventory, savePlayer }) {
   const isAdminName = name => config.admins.some(a => String(a).toLowerCase() === name.toLowerCase());
@@ -38,7 +38,7 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     stats(player); player.hp = player.maxhp; player.mp = player.maxmp; connection.p = player; connection.mobDeltas = message.mobDeltas === true; players.set(player.id, player);
     const { types: typeList } = refreshMobTypes();
     const types = {}; for (const k in MOBTYPES) types[k] = { n: MOBTYPES[k].name, r: MOBTYPES[k].r, c: MOBTYPES[k].color, st: !!MOBTYPES[k].stone, boss: !!MOBTYPES[k].boss, lvl: MOBTYPES[k].lvl, shape: MOBTYPES[k].shape };
-    send(connection, { t: 'init', id: player.id, name: player.name, cls: player.cls, world: worldInfo(), types, tl: typeList, classes: CLASSES, items: ITEMS, maxRank: MAXRANK, pMax: PMAX, bagMax: BAGMAX, slots: SLOTS, rarity: RARITY.map(r => r.n), upRate: UP_RATE, stat: Object.fromEntries(Object.entries(STATDEF).map(([k, v]) => [k, { n: v.n, pct: !!v.pct }])), resumed: !!savedPlayer, server: config.serverName, admin: isAdmin(player) });
+    send(connection, { t: 'init', id: player.id, name: player.name, cls: player.cls, world: worldInfo(), types, tl: typeList, classes: CLASSES, items: ITEMS, maxRank: MAXRANK, pMax: PMAX, bagMax: BAGMAX, bagPageSize: BAG_PAGE_SIZE, slots: SLOTS, rarity: RARITY.map(r => r.n), upRate: UP_RATE, stat: Object.fromEntries(Object.entries(STATDEF).map(([k, v]) => [k, { n: v.n, pct: !!v.pct }])), resumed: !!savedPlayer, server: config.serverName, admin: isAdmin(player) });
     inventory.sendInv(player);
     broadcast({ t: 'chat', n: '*', m: messageText("server.joined", "{player} entered {server}.", { player: player.name, server: config.serverName }) });
     if (config.motd) say(player, config.motd);

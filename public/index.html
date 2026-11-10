@@ -56,7 +56,7 @@ button.pri{background:linear-gradient(#b07f22,#7a5414);border-color:var(--gold);
 #chat-tabs button{padding:3px 9px;font-size:.75rem;background:#120f0cdc;color:var(--mut);border-radius:6px}
 #chat-tabs button[aria-pressed="true"]{border-color:var(--gold2);color:var(--gold)}
 #chatin{display:none;margin:6px 0 0}
-#actionbar{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);padding:8px 10px 6px}
+#actionbar{position:fixed;z-index:21;left:50%;bottom:10px;transform:translateX(-50%);padding:8px 10px 6px}
 #hotbar{display:flex;gap:6px;align-items:flex-end}
 .sk{width:54px;height:54px;border:1px solid #7a5e38;border-radius:9px;background:radial-gradient(#3a2d1e,#1a130c);position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.5rem;box-shadow:inset 0 0 10px #000}
 .sk:hover{border-color:var(--gold)}.sk .key{position:absolute;left:3px;top:1px;font-size:0.625rem;color:var(--gold);font-weight:800;text-shadow:0 0 2px #000}
@@ -68,6 +68,7 @@ button.pri{background:linear-gradient(#b07f22,#7a5414);border-color:var(--gold);
 #prompt{position:fixed;left:50%;bottom:118px;transform:translateX(-50%);padding:6px 14px;border-radius:18px;background:#120e0add;border:1px solid var(--gold2);display:none;font-weight:600}
 #prompt b{color:var(--gold);border:1px solid var(--gold2);border-radius:4px;padding:0 5px;margin-right:6px}
 /* ---------- windows ---------- */
+#game-windows{position:relative;z-index:20}
 .win{max-width:calc(100vw - 16px);position:fixed;display:none;flex-direction:column;max-height:calc(100vh - 40px);z-index:20}
 .win-h{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--edge2);cursor:move;background:linear-gradient(#3a2c1c,#2a2015);border-radius:10px 10px 0 0}
 .win-h b{font:700 0.9375rem Georgia,serif;letter-spacing:1px;color:var(--gold)}.win-h .x{background:none;border:none;font-size:1.125rem;padding:0 4px;color:var(--mut)}.win-h .x:hover{color:#fff}
@@ -81,6 +82,7 @@ button.pri{background:linear-gradient(#b07f22,#7a5414);border-color:var(--gold);
 .slot.empty{opacity:.32;cursor:default}.slot sup{position:absolute;right:3px;bottom:0;font-size:0.5625rem;color:#fff;text-shadow:0 0 2px #000}.slot:hover:not(.empty){filter:brightness(1.35)}
 .slot sub{position:absolute;left:3px;top:0;font-size:0.625rem;color:#ffe97a;font-weight:800;text-shadow:0 0 2px #000}.slot.sel{outline:3px solid #ffe97a;outline-offset:-1px;filter:brightness(1.35)}
 .slot.pick{outline:2px solid #fff;outline-offset:1px}
+#bag-pages:empty{display:none}
 #bag{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
 #gst{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px;font-size:0.75rem;margin-top:8px;color:var(--mut);background:#0004;padding:6px 8px;border-radius:7px}#gst b{color:var(--txt);float:right}
 #inl{display:flex;flex-wrap:wrap;gap:5px}.chip{display:flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid #6b5438;border-radius:14px;background:#2a2016;cursor:pointer;font-size:0.75rem}.chip:hover{filter:brightness(1.3)}.chip i{width:10px;height:10px;border-radius:50%;display:inline-block}
@@ -144,10 +146,12 @@ kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1
   <div id="prompt"></div>
 </div>
 
+<div id="game-windows">
 <div class="win panel" id="invp" style="left:12px;top:120px;width:372px"><div class="win-h"><b><span data-text="panel.inventory">Inventory</span></b><span><span id="gld" style="color:#ffd77a;font-size:0.75rem;margin-right:8px"></span><button class="x" data-close>✕</button></span></div><div class="win-b">
   <div class="hd2" style="margin-top:0"><span data-text="inventory.equipped">Equipped</span></div><div id="eqwrap"></div><div id="gst"></div>
   <div class="hd2"><span data-text="inventory.bag">Bag </span><span id="bagc" class="mu" style="text-transform:none"></span><span><button id="mergeBtn" title="Pick 3 bag items of the same colour (any slot, any level) and fuse them into 1 item of the next colour at your level ±20%" data-title-text="inventory.mergeHint"><span data-text="inventory.merge">⚗ Merge</span></button> <button id="autoMerge" title="Merge every set of 3 common / uncommon items" data-title-text="inventory.autoGreenHint"><span data-text="inventory.autoGreen">Auto ≤ green</span></button> <button id="autoMerge2" title="Merge every set of 3 common / uncommon / rare items" data-title-text="inventory.autoBlueHint"><span data-text="inventory.autoBlue">Auto ≤ blue</span></button> <button id="autoMerge3" title="Merge every set of 3 items up to epic - 3 epics become a legendary" data-title-text="inventory.autoPurpleHint"><span data-text="inventory.autoPurple">Auto ≤ purple</span></button></span></div>
-  <div id="mergebar"><span id="mergeinfo"></span><button id="mergeGo" class="pri" disabled><span data-text="inventory.mergeConfirm">Merge!</span></button></div><div id="bag"></div><div id="bagfull" style="font-size:0.6875rem;margin-top:4px"></div>
+  <div id="mergebar"><span id="mergeinfo"></span><button id="mergeGo" class="pri" disabled><span data-text="inventory.mergeConfirm">Merge!</span></button></div>
+  <div id="bag-pages" class="tabs" role="group" aria-label="Bag pages" data-label-text="inventory.bagPages"></div><div id="bag"></div><div id="bagfull" style="font-size:0.6875rem;margin-top:4px"></div>
   <div class="hd2"><span data-text="inventory.consumables">Consumables </span><span class="mu" style="text-transform:none"><span data-text="inventory.clickToUse">click to use</span></span></div><div id="inl"></div></div></div>
 <div class="win panel" id="skillp" style="left:400px;top:120px;width:340px"><div class="win-h"><b><span data-text="panel.skills">Skills</span></b><span><span id="spn" style="font-size:0.75rem;margin-right:8px"></span><button class="x" data-close>✕</button></span></div><div class="win-b" id="skl"></div></div>
 <div class="win panel" id="shopw" style="right:210px;top:120px;width:340px"><div class="win-h"><b><span data-text="npc.merchant">🏪 Merchant</span></b><button class="x" data-close>✕</button></div><div class="win-b">
@@ -184,6 +188,7 @@ kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1
   </div>
   <div data-spage="keys" style="display:none"><div class="mu" style="font-size:0.75rem;margin-bottom:6px"><span data-text="settings.keysHint">Click a key, then press the new key (Esc cancels). WASD / arrows always move, Enter opens chat.</span></div><div class="kb" id="kbl"></div>
     <button id="kbreset" style="margin-top:8px;width:100%"><span data-text="settings.resetKeys">Reset to defaults</span></button></div></div></div>
+</div>
 <div id="dead"><span data-text="hud.died">You died…</span><small id="deadsec"></small></div>
 <script src="text.js"></script><script src="locales/hu.js"></script><script src="engine.js"></script><script src="game.js"></script><script src="world.js"></script><script src="ui.js"></script>
 </body></html>

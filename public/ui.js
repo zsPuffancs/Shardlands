@@ -228,14 +228,54 @@ function slotHtml(it, attrs, extra) {
   return '<div class="slot r' + it.rar + (extra || '') + '" ' + attrs + '>' + iconOf(it) + '<sup>' + it.ilvl + '</sup>' + (it.plus ? '<sub>+' + it.plus + '</sub>' : '') + '</div>';
 }
 function onInv(m) { BAG = m.bag; EQ = m.eq; GS = m.gs; mergeSel = mergeSel.filter(u => BAG.some(i => i.uid === u)); if (isOpen('invp')) buildInv(); if (isOpen('smithw')) buildSmith(); }
+let bagPage = 0;
+
+function renderBagPage() {
+  const pageSize = I.bagPageSize || 30;
+  const pageCount = Math.ceil(I.bagMax / pageSize);
+  bagPage = Math.max(0, Math.min(bagPage, pageCount - 1));
+
+  const pageBar = $('bag-pages');
+  const tabCount = pageCount > 1 ? pageCount : 0;
+  if (pageBar.children.length !== tabCount) {
+    const tabs = Array.from({ length: tabCount }, (_, page) => {
+      const tab = document.createElement('button');
+      tab.type = 'button';
+      tab.dataset.bagPage = page;
+      tab.textContent = page + 1;
+      tab.setAttribute('aria-controls', 'bag');
+      return tab;
+    });
+    pageBar.replaceChildren(...tabs);
+  }
+  for (const tab of pageBar.children) {
+    const page = Number(tab.dataset.bagPage);
+    const isActive = page === bagPage;
+    tab.classList.toggle('on', isActive);
+    tab.setAttribute('aria-pressed', String(isActive));
+    tab.setAttribute('aria-label', text('inventory.bagPage', 'Bag page {page}', { page: page + 1 }));
+  }
+
+  const start = bagPage * pageSize;
+  const end = Math.min(start + pageSize, I.bagMax);
+  const cells = [];
+  for (let index = start; index < end; index++) {
+    const item = BAG[index];
+    cells.push(item
+      ? slotHtml(item, 'data-tip="bag:' + item.uid + '" data-bag="' + item.uid + '"', mergeSel.includes(item.uid) ? ' sel' : '')
+      : '<div class="slot empty"></div>');
+  }
+  $('bag').innerHTML = cells.join('');
+}
+
 function buildInv() {
   if (!I || !me) return;
   $('gld').textContent = '💰 ' + GameText.number(me.g);
   $('eqwrap').innerHTML = I.slots.map(s => EQ[s] ? slotHtml(EQ[s], 'data-tip="eq:' + s + '" data-eq="' + s + '"') : '<div class="slot empty" title="' + esc(text('slot.' + s, SLOTNAME[s])) + '">' + slotIcon(s) + '</div>').join('');
   const line = (n, v) => '<div>' + esc(text('inventory.metric.' + n, n)) + '<b>' + v + '</b></div>';
   $('gst').innerHTML = line('⚔ Damage', GS._dmg || 0) + line('🎯 Crit', (GS._crit || 12) + '%') + line('❤ Max HP', GS._hp || 0) + line('🛡 Reduction', (GS._dr || 0) + '%') + line('💧 Max MP', GS._mp || 0) + line('💨 Speed', '+' + Math.min(60, GS.spd || 0).toFixed(1) + '%') + line('📖 XP bonus', '+' + (GS.xpb || 0).toFixed(1) + '%') + line('💥 Crit damage', (GS._cdmg || 180) + '%') + line('🩸 Lifesteal', (GS._ls || 0) + '%') + line('⚡ Attack speed', '+' + (GS._haste || 0) + '%') + line('💰 Total gold find', '+' + (GS._gf || 0) + '%');
-  const cells = []; for (let i = 0; i < I.bagMax; i++) { const it = BAG[i]; cells.push(it ? slotHtml(it, 'data-tip="bag:' + it.uid + '" data-bag="' + it.uid + '"', mergeSel.includes(it.uid) ? ' sel' : '') : '<div class="slot empty"></div>'); }
-  $('bag').innerHTML = cells.join(''); $('bagc').textContent = BAG.length + ' / ' + I.bagMax; $('bagfull').textContent = BAG.length >= I.bagMax ? text("inventory.full", "Bag full - merge or sell items.") : '';
+  renderBagPage();
+  $('bagc').textContent = BAG.length + ' / ' + I.bagMax; $('bagfull').textContent = BAG.length >= I.bagMax ? text("inventory.full", "Bag full - merge or sell items.") : '';
   $('mergeBtn').classList.toggle('on', mergeMode); $('mergebar').style.display = mergeMode ? 'flex' : 'none';
   if (mergeMode) { const it = mergeSel.map(u => BAG.find(i => i.uid === u)).filter(Boolean), r = it.length ? it[0].rar : -1, lo = Math.max(1, Math.round(me.l * .8)), hi = Math.round(me.l * 1.2);
     $('mergeinfo').innerHTML = !it.length ? esc(text("inventory.mergePrompt", "Pick 3 bag items of the same colour (any slot, any level).")) : it.length + '/3 <b style="color:' + RC[r] + '">' + esc(text('rarity.' + (r), I.rarity[r])) + '</b> → <b style="color:' + RC[Math.min(4, r + 1)] + '">' + esc(text('rarity.' + (Math.min(4, r + 1)), I.rarity[Math.min(4, r + 1)])) + ' ' + esc(text('slot.' + it[0].slot, SLOTNAME[it[0].slot])) + '</b> · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + lo + '-' + hi;
@@ -269,6 +309,12 @@ document.addEventListener('click', e => {
   const t = e.target.closest('button,[data-bag],[data-eq],[data-use],[data-sm]'); if (!t) return; sfx('click');
   if (t.dataset.close !== undefined) { closeWin(t.closest('.win').id); return; }
   if (t.dataset.open) { togglePanel(t.dataset.open); return; }
+  if (t.dataset.bagPage !== undefined) {
+    bagPage = Number(t.dataset.bagPage);
+    tip.style.display = 'none';
+    renderBagPage();
+    return;
+  }
   if (t.dataset.sm) { smSel = t.dataset.sm; buildSmith(); return; }
   if (t.dataset.bag && mergeMode) { const id = t.dataset.bag, it = BAG.find(i => i.uid === id), k = mergeSel.indexOf(id); if (!it) return;
     if (k >= 0) mergeSel.splice(k, 1); else { const f = BAG.find(i => i.uid === mergeSel[0]); if (f && f.rar !== it.rar) mergeSel = []; if (mergeSel.length < 3) mergeSel.push(id); } buildInv(); return; }

@@ -6,7 +6,8 @@ const { NPCS, CX, CY, nearNpc, inVillage, rnd } = require('./game-world');
 const { BASES, SLOTS, RARITY, UP_RATE, upCostFor, sellValue } = require('./equipment');
 const { CLASSES, ITEMS, SKILLS, newSk, stats, defRed, critCh, critMul, goldFind, playerDmg } = require('./characters');
 
-const BAGMAX = 30;
+const BAG_PAGE_SIZE = 30;
+const BAGMAX = BAG_PAGE_SIZE * 3;
 
 function createInventory({ send, say, toast, broadcast, ev, fire, genGear }) {
   function sendInv(player) { send(player.c, { t: 'inv', bag: player.bag, eq: player.eq, gs: Object.assign({}, player.g, { _dmg: Math.round(playerDmg(player)), _dr: Math.round(defRed(player) * 100), _hp: player.maxhp, _mp: player.maxmp, _crit: Math.round(critCh(player) * 100), _cdmg: Math.round(critMul(player) * 100), _ls: Math.round(0.8 * player.sk.lifesteal * 10) / 10, _haste: Math.round(3.5 * player.sk.haste), _gf: Math.round(goldFind(player)) }) }); }
@@ -137,4 +138,4 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear }) {
   return { equipItem, unequipItem, sellItem, sellByRarity, buyItem, sendInv, afterGearChange, starterWeapon, addGear, useItem, doMerge, autoMerge, upgradeItem };
 }
 
-module.exports = { BAGMAX, createInventory };
+module.exports = { BAGMAX, BAG_PAGE_SIZE, createInventory };

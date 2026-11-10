@@ -135,6 +135,8 @@ GameText.addCatalog('hu', {
   "inventory.autoGreen": "Automatikus ≤ zöld",
   "inventory.autoGreenHint": "Egyesít minden gyakori vagy nem gyakori tárgyhármast.",
   "inventory.bag": "Táska ",
+  "inventory.bagPage": "Táska, {page}. oldal",
+  "inventory.bagPages": "Táska oldalai",
   "inventory.clickEquip": "Kattintás: felszerelés",
   "inventory.clickToUse": "kattints a használathoz",
   "inventory.clickUnequip": "Kattintás: levétel",
