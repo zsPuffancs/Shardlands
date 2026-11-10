@@ -1,0 +1,552 @@
+{
+ "panel": {
+  "w": 128,
+  "h": 128,
+  "slice": 40,
+  "note": "9-slice: border-image-slice 40 fill; border-width 40px"
+ },
+ "panel-plain": {
+  "w": 96,
+  "h": 96,
+  "slice": 24,
+  "note": "9-slice: border-image-slice 24 fill; border-width 24px"
+ },
+ "tooltip": {
+  "w": 96,
+  "h": 96,
+  "slice": 28,
+  "note": "9-slice: border-image-slice 28 fill; border-width 28px"
+ },
+ "panel-header": {
+  "w": 192,
+  "h": 40,
+  "slice": "0 30",
+  "note": "3-slice: border-image-slice 0 30 fill"
+ },
+ "button": {
+  "w": 96,
+  "h": 36,
+  "slice": 12,
+  "note": "9-slice: border-image-slice 12 fill"
+ },
+ "button-hover": {
+  "w": 96,
+  "h": 36,
+  "slice": 12,
+  "note": "9-slice: border-image-slice 12 fill"
+ },
+ "button-pressed": {
+  "w": 96,
+  "h": 36,
+  "slice": 12,
+  "note": "9-slice: border-image-slice 12 fill"
+ },
+ "button-disabled": {
+  "w": 96,
+  "h": 36,
+  "slice": 12,
+  "note": "9-slice: border-image-slice 12 fill"
+ },
+ "button-primary": {
+  "w": 96,
+  "h": 36,
+  "slice": 12,
+  "note": "9-slice: border-image-slice 12 fill"
+ },
+ "button-danger": {
+  "w": 96,
+  "h": 36,
+  "slice": 12,
+  "note": "9-slice: border-image-slice 12 fill"
+ },
+ "button-round": {
+  "w": 40,
+  "h": 40
+ },
+ "close": {
+  "w": 28,
+  "h": 28
+ },
+ "tab": {
+  "w": 96,
+  "h": 32,
+  "slice": "12 12 4 12",
+  "note": "9-slice: border-image-slice 12 12 4 12 fill"
+ },
+ "tab-active": {
+  "w": 96,
+  "h": 32,
+  "slice": "12 12 4 12",
+  "note": "9-slice: border-image-slice 12 12 4 12 fill"
+ },
+ "bar-frame": {
+  "w": 160,
+  "h": 22,
+  "slice": 8,
+  "note": "9-slice frame; put the fill image inside with 3px inset"
+ },
+ "bar-fill-hp": {
+  "w": 160,
+  "h": 16,
+  "note": "stretch horizontally (background-size:100% 100%)"
+ },
+ "bar-fill-mp": {
+  "w": 160,
+  "h": 16,
+  "note": "stretch horizontally (background-size:100% 100%)"
+ },
+ "bar-fill-xp": {
+  "w": 160,
+  "h": 16,
+  "note": "stretch horizontally (background-size:100% 100%)"
+ },
+ "bar-fill-stamina": {
+  "w": 160,
+  "h": 16,
+  "note": "stretch horizontally (background-size:100% 100%)"
+ },
+ "bar-fill-boss": {
+  "w": 160,
+  "h": 16,
+  "note": "stretch horizontally (background-size:100% 100%)"
+ },
+ "bar-fill-shield": {
+  "w": 160,
+  "h": 16,
+  "note": "stretch horizontally (background-size:100% 100%)"
+ },
+ "globe-hp": {
+  "w": 128,
+  "h": 128,
+  "note": "full globe; overlay globe-glass on top of a clipped liquid fill"
+ },
+ "globe-mp": {
+  "w": 128,
+  "h": 128,
+  "note": "full globe; overlay globe-glass on top of a clipped liquid fill"
+ },
+ "globe-frame": {
+  "w": 128,
+  "h": 128,
+  "note": "transparent centre: draw your own liquid below it"
+ },
+ "slot": {
+  "w": 64,
+  "h": 64
+ },
+ "slot-common": {
+  "w": 64,
+  "h": 64
+ },
+ "slot-uncommon": {
+  "w": 64,
+  "h": 64
+ },
+ "slot-rare": {
+  "w": 64,
+  "h": 64
+ },
+ "slot-epic": {
+  "w": 64,
+  "h": 64
+ },
+ "slot-legendary": {
+  "w": 64,
+  "h": 64
+ },
+ "slot-set": {
+  "w": 64,
+  "h": 64
+ },
+ "slot-unique": {
+  "w": 64,
+  "h": 64
+ },
+ "slot-hover": {
+  "w": 64,
+  "h": 64,
+  "note": "overlay"
+ },
+ "slot-cooldown": {
+  "w": 64,
+  "h": 64,
+  "note": "overlay; mask it with a conic-gradient for the sweep"
+ },
+ "hotbar": {
+  "w": 512,
+  "h": 80,
+  "slice": "24",
+  "note": "9-slice: border-image-slice 24 fill"
+ },
+ "keycap": {
+  "w": 22,
+  "h": 18,
+  "slice": 6,
+  "note": "key label background, 9-slice 6"
+ },
+ "minimap-frame": {
+  "w": 256,
+  "h": 256,
+  "note": "transparent centre (radius 112): draw the map underneath, clip to a circle"
+ },
+ "portrait-frame": {
+  "w": 112,
+  "h": 112,
+  "note": "transparent centre; level number goes in the badge at (90,92)"
+ },
+ "nameplate": {
+  "w": 160,
+  "h": 28,
+  "slice": "0 16",
+  "note": "3-slice: border-image-slice 0 16 fill"
+ },
+ "badge-level": {
+  "w": 40,
+  "h": 40
+ },
+ "badge-boss": {
+  "w": 40,
+  "h": 40
+ },
+ "divider": {
+  "w": 240,
+  "h": 14,
+  "note": "stretch the line or use as-is"
+ },
+ "checkbox": {
+  "w": 24,
+  "h": 24
+ },
+ "checkbox-on": {
+  "w": 24,
+  "h": 24
+ },
+ "slider-track": {
+  "w": 160,
+  "h": 12,
+  "slice": "0 6",
+  "note": "3-slice 0 6"
+ },
+ "slider-knob": {
+  "w": 22,
+  "h": 22
+ },
+ "scroll-track": {
+  "w": 12,
+  "h": 64,
+  "slice": "6 0",
+  "note": "3-slice vertical 6 0"
+ },
+ "scroll-thumb": {
+  "w": 12,
+  "h": 48,
+  "slice": "6 0",
+  "note": "3-slice vertical 6 0"
+ },
+ "input": {
+  "w": 96,
+  "h": 32,
+  "slice": 10,
+  "note": "9-slice 10 fill"
+ },
+ "cursor": {
+  "w": 32,
+  "h": 32,
+  "note": "CSS: cursor:url(cursor.png) 3 2, auto"
+ },
+ "cursor-attack": {
+  "w": 32,
+  "h": 32,
+  "note": "hotspot 3 3"
+ },
+ "cursor-talk": {
+  "w": 32,
+  "h": 32,
+  "note": "hotspot 3 2"
+ },
+ "cursor-loot": {
+  "w": 32,
+  "h": 32,
+  "note": "hotspot 16 16"
+ },
+ "icons/gear-sword-common": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-bow-common": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-staff-common": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-helm-common": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-armor-common": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-boots-common": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-ring-common": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-amulet-common": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-sword-uncommon": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-bow-uncommon": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-staff-uncommon": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-helm-uncommon": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-armor-uncommon": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-boots-uncommon": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-ring-uncommon": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-amulet-uncommon": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-sword-rare": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-bow-rare": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-staff-rare": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-helm-rare": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-armor-rare": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-boots-rare": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-ring-rare": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-amulet-rare": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-sword-epic": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-bow-epic": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-staff-epic": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-helm-epic": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-armor-epic": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-boots-epic": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-ring-epic": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-amulet-epic": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-sword-legendary": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-bow-legendary": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-staff-legendary": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-helm-legendary": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-armor-legendary": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-boots-legendary": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-ring-legendary": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/gear-amulet-legendary": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/item-hp": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/item-mp": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/item-hp2": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/item-atk": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/item-def": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/item-spd": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/item-xp": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/item-ret": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/item-reset": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/skill-blade": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/skill-archer": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/skill-mage": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/skill-mend": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/skill-frenzy": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/skill-vit": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/skill-might": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/skill-swift": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/skill-crit": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/skill-critdmg": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/skill-lifesteal": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/skill-guard": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/skill-haste": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/skill-focus": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/skill-fortune": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/slot-empty-weapon": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/slot-empty-helm": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/slot-empty-armor": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/slot-empty-boots": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/slot-empty-ring": {
+  "w": 64,
+  "h": 64
+ },
+ "icons/slot-empty-amulet": {
+  "w": 64,
+  "h": 64
+ }
+}

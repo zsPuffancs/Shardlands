@@ -129,6 +129,8 @@ GameText.addCatalog('hu', {
   "hud.respawn": "Újraéledés {seconds} mp múlva",
   "hud.skillPoints": "★ Van elkölthető képességpontod – nyomj K-t",
   "inventory.autoBlue": "Automatikus ≤ kék",
+  "inventory.autoPurple": "Automatikus ≤ lila",
+  "inventory.autoPurpleHint": "Egyesít minden tárgyhármast epikusig - 3 epikus tárgyból legendás lesz.",
   "inventory.autoBlueHint": "Egyesít minden gyakori, nem gyakori vagy ritka tárgyhármast.",
   "inventory.autoGreen": "Automatikus ≤ zöld",
   "inventory.autoGreenHint": "Egyesít minden gyakori vagy nem gyakori tárgyhármast.",

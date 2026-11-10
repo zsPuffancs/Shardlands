@@ -99,7 +99,8 @@ kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1
 .tabs{display:flex;gap:4px;margin-bottom:8px}.tabs button{flex:1;padding:5px;font-size:0.75rem}.tabs button.on{border-color:var(--gold);background:linear-gradient(#5e4620,#3a2b14);color:#ffe9a8}
 .kb{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;font-size:0.75rem}.kb button{min-width:64px;padding:3px 8px;font:0.75rem monospace;color:var(--gold)}.kb button.wait{border-color:#fff;color:#fff;animation:glow 1s infinite}
 .vrow{display:flex;align-items:center;gap:10px}.vrow input[type=range]{flex:1;margin:0}.vrow span{width:38px;text-align:right;font-size:0.75rem;color:var(--mut)}
-</style></head><body>
+</style>
+<link rel="stylesheet" href="ui.css"></head><body>
 <canvas id="c"></canvas><div id="labels"></div><div id="floaters"></div><div id="hurtfx"></div><div id="zone"><b></b><span></span></div><div id="toasts"></div><div id="tip"></div><div id="perf"></div>
 <div id="login"><div class="box"><h1>SHARDLANDS</h1><div class="sub" id="srv"><span data-text="login.connecting">Connecting…</span></div>
 <div id="online-count" aria-live="polite" hidden></div>
@@ -114,7 +115,7 @@ kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1
     <div id="who"></div><div class="bar" id="hp"><i></i><span></span></div><div class="bar" id="mp"><i></i><span></span></div>
     <div id="goldl"></div><div id="buffs"></div><div id="sppill"><span data-text="hud.skillPoints">★ Skill points available - press K</span></div></div>
   <div class="panel" id="tgt"><span id="tgtn"></span><div class="bar"><i style="background:linear-gradient(#ff6a5a,#a81e16)"></i><span></span></div></div>
-  <div class="panel" id="mapbox"><canvas id="mini" width="320" height="320"></canvas><div id="zname"></div><div id="zinfo"></div>
+  <div class="panel" id="mapbox"><div id="mapwrap"><canvas id="mini" width="320" height="320"></canvas></div><div id="zname"></div><div id="zinfo"></div>
     <div id="mapbtns"><button data-open="invp" title="Inventory (I)" data-title-text="panel.inventoryShortcut">🎒</button><button data-open="skillp" title="Skills (K)" data-title-text="panel.skillsShortcut">📜</button><button data-open="setw" title="Settings (O)" data-title-text="panel.settingsShortcut">⚙️</button></div></div>
   <div id="chat">
     <div id="log"></div>
@@ -129,19 +130,19 @@ kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1
   </div>
   <div class="panel" id="actionbar"><div id="hotbar">
     <div class="sk" data-sk="1"><span class="ic"></span><b class="key">1</b><i class="rk"></i><u></u><div class="nm"></div></div>
-    <div class="sk" data-sk="2"><span class="ic">💚</span><b class="key">2</b><i class="rk"></i><u></u><div class="nm"></div></div>
-    <div class="sk" data-sk="3"><span class="ic">🔥</span><b class="key">3</b><i class="rk"></i><u></u><div class="nm"></div></div><div class="gap"></div>
-    <div class="sk" data-it="hp"><span class="ic">❤️</span><b class="key">Q</b><em></em><div class="nm"><span data-text="hotbar.health">Health</span></div></div>
-    <div class="sk" data-it="mp"><span class="ic">💧</span><b class="key">E</b><em></em><div class="nm"><span data-text="hotbar.mana">Mana</span></div></div>
-    <div class="sk" data-it="hp2"><span class="ic">💖</span><b class="key">R</b><em></em><div class="nm"><span data-text="hotbar.greaterHealth">Greater HP</span></div></div>
-    <div class="sk" data-it="ret"><span class="ic">🏠</span><b class="key">T</b><em></em><div class="nm"><span data-text="hotbar.return">Return</span></div></div></div>
+    <div class="sk" data-sk="2"><span class="ic"></span><b class="key">2</b><i class="rk"></i><u></u><div class="nm"></div></div>
+    <div class="sk" data-sk="3"><span class="ic"></span><b class="key">3</b><i class="rk"></i><u></u><div class="nm"></div></div><div class="gap"></div>
+    <div class="sk" data-it="hp"><span class="ic"></span><b class="key">Q</b><em></em><div class="nm"><span data-text="hotbar.health">Health</span></div></div>
+    <div class="sk" data-it="mp"><span class="ic"></span><b class="key">E</b><em></em><div class="nm"><span data-text="hotbar.mana">Mana</span></div></div>
+    <div class="sk" data-it="hp2"><span class="ic"></span><b class="key">R</b><em></em><div class="nm"><span data-text="hotbar.greaterHealth">Greater HP</span></div></div>
+    <div class="sk" data-it="ret"><span class="ic"></span><b class="key">T</b><em></em><div class="nm"><span data-text="hotbar.return">Return</span></div></div></div>
     <div class="bar" id="xpbar"><i></i><span></span></div></div>
   <div id="prompt"></div>
 </div>
 
 <div class="win panel" id="invp" style="left:12px;top:120px;width:372px"><div class="win-h"><b><span data-text="panel.inventory">Inventory</span></b><span><span id="gld" style="color:#ffd77a;font-size:0.75rem;margin-right:8px"></span><button class="x" data-close>✕</button></span></div><div class="win-b">
   <div class="hd2" style="margin-top:0"><span data-text="inventory.equipped">Equipped</span></div><div id="eqwrap"></div><div id="gst"></div>
-  <div class="hd2"><span data-text="inventory.bag">Bag </span><span id="bagc" class="mu" style="text-transform:none"></span><span><button id="mergeBtn" title="Pick 3 bag items of the same colour (any slot, any level) and fuse them into 1 item of the next colour at your level ±20%" data-title-text="inventory.mergeHint"><span data-text="inventory.merge">⚗ Merge</span></button> <button id="autoMerge" title="Merge every set of 3 common / uncommon items" data-title-text="inventory.autoGreenHint"><span data-text="inventory.autoGreen">Auto ≤ green</span></button> <button id="autoMerge2" title="Merge every set of 3 common / uncommon / rare items" data-title-text="inventory.autoBlueHint"><span data-text="inventory.autoBlue">Auto ≤ blue</span></button></span></div>
+  <div class="hd2"><span data-text="inventory.bag">Bag </span><span id="bagc" class="mu" style="text-transform:none"></span><span><button id="mergeBtn" title="Pick 3 bag items of the same colour (any slot, any level) and fuse them into 1 item of the next colour at your level ±20%" data-title-text="inventory.mergeHint"><span data-text="inventory.merge">⚗ Merge</span></button> <button id="autoMerge" title="Merge every set of 3 common / uncommon items" data-title-text="inventory.autoGreenHint"><span data-text="inventory.autoGreen">Auto ≤ green</span></button> <button id="autoMerge2" title="Merge every set of 3 common / uncommon / rare items" data-title-text="inventory.autoBlueHint"><span data-text="inventory.autoBlue">Auto ≤ blue</span></button> <button id="autoMerge3" title="Merge every set of 3 items up to epic - 3 epics become a legendary" data-title-text="inventory.autoPurpleHint"><span data-text="inventory.autoPurple">Auto ≤ purple</span></button></span></div>
   <div id="mergebar"><span id="mergeinfo"></span><button id="mergeGo" class="pri" disabled><span data-text="inventory.mergeConfirm">Merge!</span></button></div><div id="bag"></div><div id="bagfull" style="font-size:0.6875rem;margin-top:4px"></div>
   <div class="hd2"><span data-text="inventory.consumables">Consumables </span><span class="mu" style="text-transform:none"><span data-text="inventory.clickToUse">click to use</span></span></div><div id="inl"></div></div></div>
 <div class="win panel" id="skillp" style="left:400px;top:120px;width:340px"><div class="win-h"><b><span data-text="panel.skills">Skills</span></b><span><span id="spn" style="font-size:0.75rem;margin-right:8px"></span><button class="x" data-close>✕</button></span></div><div class="win-b" id="skl"></div></div>

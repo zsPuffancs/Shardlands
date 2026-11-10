@@ -8,7 +8,12 @@ const BUFFN = { atk: '⚔ Fury', def: '🛡 Iron', spd: '💨 Swift', xp: '📖 
 const SK = ['s1', 'mend', 'frenzy', 'vit', 'might', 'swift'];
 const CLSICON = { blade: '⚔️', archer: '🏹', mage: '🔮' }, S1ICON = { blade: '🌀', archer: '🎯', mage: '✴️' };
 const ITEMICON = { hp: '❤️', hp2: '💖', mp: '💧', atk: '⚔️', def: '🛡️', spd: '💨', xp: '📖', ret: '🏠', reset: '♻️' };
-const iconOf = it => it.slot === 'weapon' ? SLOTICON[it.fam] || '⚔️' : SLOTICON[it.slot];
+const RNAME = ['common', 'uncommon', 'rare', 'epic', 'legendary'], CONS_ICON = { hp: 1, mp: 1, hp2: 1, atk: 1, def: 1, spd: 1, xp: 1, ret: 1, reset: 1 };
+const uiImg = (f, cls) => '<img class="ui-ico' + (cls ? ' ' + cls : '') + '" src="ui/icons/' + f + '.png" alt="" draggable="false">';
+const iconOf = it => uiImg('gear-' + (it.slot === 'weapon' ? ({ sword: 1, bow: 1, staff: 1 }[it.fam] ? it.fam : 'sword') : it.slot) + '-' + (RNAME[it.rar] || 'common'));
+const slotIcon = s => uiImg('slot-empty-' + s), consIcon = k => uiImg('item-' + (CONS_ICON[k] ? k : 'hp'));
+const clsKey = cls => ['blade', 'archer', 'mage'].includes(cls) ? cls : ({ sword: 'blade', bow: 'archer', staff: 'mage' }[I && I.classes[cls] && I.classes[cls].fam] || 'blade');
+const skillIcon = k => uiImg('skill-' + (k === 's1' ? clsKey(I.cls) : k));
 const sellValue = it => Math.round((3 * it.ilvl + 5) * (1 + (it.rar * it.rar) * 0.6) * (1 + (it.plus || 0) * 0.5));
 const upCost = it => Math.round(100 * (it.plus + 1) * (it.plus + 1) * (1 + it.ilvl / 12) * (it.slot === 'weapon' ? 1 : 0.8));
 const plusMul = (it, k) => 1 + (it.plus || 0) * (it.slot === 'weapon' && k === 'dmg' ? 0.15 : 0.1);
@@ -220,14 +225,13 @@ function openNpc(k) { closeWin(k === 'merchant' ? 'smithw' : 'shopw'); openWin(k
 
 // ---------- inventory ----------
 function slotHtml(it, attrs, extra) {
-  const c = RC[it.rar];
-  return '<div class="slot' + (extra || '') + '" style="border-color:' + c + ';box-shadow:inset 0 0 10px ' + c + '77" ' + attrs + '>' + iconOf(it) + '<sup>' + it.ilvl + '</sup>' + (it.plus ? '<sub>+' + it.plus + '</sub>' : '') + '</div>';
+  return '<div class="slot r' + it.rar + (extra || '') + '" ' + attrs + '>' + iconOf(it) + '<sup>' + it.ilvl + '</sup>' + (it.plus ? '<sub>+' + it.plus + '</sub>' : '') + '</div>';
 }
 function onInv(m) { BAG = m.bag; EQ = m.eq; GS = m.gs; mergeSel = mergeSel.filter(u => BAG.some(i => i.uid === u)); if (isOpen('invp')) buildInv(); if (isOpen('smithw')) buildSmith(); }
 function buildInv() {
   if (!I || !me) return;
   $('gld').textContent = '💰 ' + GameText.number(me.g);
-  $('eqwrap').innerHTML = I.slots.map(s => EQ[s] ? slotHtml(EQ[s], 'data-tip="eq:' + s + '" data-eq="' + s + '"') : '<div class="slot empty" title="' + esc(text('slot.' + s, SLOTNAME[s])) + '">' + SLOTICON[s] + '</div>').join('');
+  $('eqwrap').innerHTML = I.slots.map(s => EQ[s] ? slotHtml(EQ[s], 'data-tip="eq:' + s + '" data-eq="' + s + '"') : '<div class="slot empty" title="' + esc(text('slot.' + s, SLOTNAME[s])) + '">' + slotIcon(s) + '</div>').join('');
   const line = (n, v) => '<div>' + esc(text('inventory.metric.' + n, n)) + '<b>' + v + '</b></div>';
   $('gst').innerHTML = line('⚔ Damage', GS._dmg || 0) + line('🎯 Crit', (GS._crit || 12) + '%') + line('❤ Max HP', GS._hp || 0) + line('🛡 Reduction', (GS._dr || 0) + '%') + line('💧 Max MP', GS._mp || 0) + line('💨 Speed', '+' + Math.min(60, GS.spd || 0).toFixed(1) + '%') + line('📖 XP bonus', '+' + (GS.xpb || 0).toFixed(1) + '%') + line('💥 Crit damage', (GS._cdmg || 180) + '%') + line('🩸 Lifesteal', (GS._ls || 0) + '%') + line('⚡ Attack speed', '+' + (GS._haste || 0) + '%') + line('💰 Total gold find', '+' + (GS._gf || 0) + '%');
   const cells = []; for (let i = 0; i < I.bagMax; i++) { const it = BAG[i]; cells.push(it ? slotHtml(it, 'data-tip="bag:' + it.uid + '" data-bag="' + it.uid + '"', mergeSel.includes(it.uid) ? ' sel' : '') : '<div class="slot empty"></div>'); }
@@ -237,7 +241,7 @@ function buildInv() {
     $('mergeinfo').innerHTML = !it.length ? esc(text("inventory.mergePrompt", "Pick 3 bag items of the same colour (any slot, any level).")) : it.length + '/3 <b style="color:' + RC[r] + '">' + esc(text('rarity.' + (r), I.rarity[r])) + '</b> → <b style="color:' + RC[Math.min(4, r + 1)] + '">' + esc(text('rarity.' + (Math.min(4, r + 1)), I.rarity[Math.min(4, r + 1)])) + ' ' + esc(text('slot.' + it[0].slot, SLOTNAME[it[0].slot])) + '</b> · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + lo + '-' + hi;
     $('mergeGo').disabled = it.length !== 3; }
   const list = Object.keys(I.items).filter(k => me.inv[k] > 0);
-  $('inl').innerHTML = list.length ? list.map(k => '<div class="chip" data-use="' + k + '" data-tip="cons:' + k + '"><i style="background:' + (I.items[k].color || '#ccc') + '"></i>' + esc(itemName(k, I.items[k].n)) + ' ×' + me.inv[k] + '</div>').join('') : '<span class="mu" style="font-size:0.75rem">' + esc(text("inventory.noConsumables", "Nothing yet. Monsters drop potions and scrolls.")) + '</span>';
+  $('inl').innerHTML = list.length ? list.map(k => '<div class="chip" data-use="' + k + '" data-tip="cons:' + k + '">' + consIcon(k) + esc(itemName(k, I.items[k].n)) + ' ×' + me.inv[k] + '</div>').join('') : '<span class="mu" style="font-size:0.75rem">' + esc(text("inventory.noConsumables", "Nothing yet. Monsters drop potions and scrolls.")) + '</span>';
 }
 function tipItem(it, cmp, plusOverride) {
   const pl = plusOverride === undefined ? it.plus || 0 : plusOverride;
@@ -272,6 +276,7 @@ document.addEventListener('click', e => {
   if (t.id === 'mergeGo') { if (mergeSel.length === 3) { send({ t: 'merge', uids: mergeSel }); mergeSel = []; sfx('equip'); } return; }
   if (t.id === 'autoMerge') { send({ t: 'automerge', max: 1 }); return; }
   if (t.id === 'autoMerge2') { send({ t: 'automerge', max: 2 }); return; }
+  if (t.id === 'autoMerge3') { send({ t: 'automerge', max: 3 }); return; }
   if (t.id === 'junk') { send({ t: 'sellall', rar: 1 }); sfx('sell'); return; }
   if (t.id === 'junk2') { send({ t: 'sellall', rar: 2 }); sfx('sell'); return; }
   if (t.id === 'smgo') { if (smSel) { send({ t: 'upgrade', uid: smSel }); $('smres').textContent = '…'; $('smres').style.color = '#ccc'; sfx('click'); } return; }
@@ -286,7 +291,7 @@ document.querySelectorAll('#hotbar .sk').forEach(el => el.onclick = () => el.dat
 // ---------- merchant / blacksmith ----------
 function buildShop() {
   if (!I) return;
-  $('shl').innerHTML = Object.keys(I.items).map(k => { const it = I.items[k]; return '<div class="row"><div class="ico" style="border-color:' + (it.color || '#888') + '">' + (ITEMICON[k] || '🧪') + '</div><div class="t"><b style="color:' + (it.color || '#fff') + '">' + esc(itemName(k, it.n)) + '</b><small>' + esc(itemDescription(k, it.d)) + '</small></div><button data-buy="' + k + '" data-n="1">' + it.price + 'g</button><button data-buy="' + k + '" data-n="10">×10</button></div>'; }).join('');
+  $('shl').innerHTML = Object.keys(I.items).map(k => { const it = I.items[k]; return '<div class="row"><div class="ico">' + consIcon(k) + '</div><div class="t"><b style="color:' + (it.color || '#fff') + '">' + esc(itemName(k, it.n)) + '</b><small>' + esc(itemDescription(k, it.d)) + '</small></div><button data-buy="' + k + '" data-n="1">' + it.price + 'g</button><button data-buy="' + k + '" data-n="10">×10</button></div>'; }).join('');
 }
 function buildSmith() {
   if (!I || !me) return;
@@ -315,18 +320,18 @@ const PAS = { vit: ['Vitality', '❤️', 'max HP', 5, '%'], might: ['Might', '�
 function skillInfo(k) {
   const c = I.classes[I.cls], r = me.sk[k] || 0, n = r || 1;
   switch (k) {
-    case 's1': return [text('class.' + I.cls + '.s1', c.s1), '1', S1ICON[I.cls] || '🌀',
+    case 's1': return [text('class.' + I.cls + '.s1', c.s1), '1', skillIcon('s1'),
       text('skill.attackDescription', '×{damage} damage · {mana} MP · {targets}', {
         damage: (c.s1m * (1 + .18 * (n - 1))).toFixed(2), mana: Math.round(c.s1c * (1 + .05 * (n - 1))),
         targets: I.cls === 'archer' ? text('skill.hitTargets', 'hits {count} targets', { count: 3 + (n >= 3 ? 2 : 0) + (n >= 5 ? 2 : 0) }) :
           text('skill.areaAttack', 'area attack'),
       })];
-    case 'mend': return [text('class.' + I.cls + '.s2', c.s2), '2', '💚',
+    case 'mend': return [text('class.' + I.cls + '.s2', c.s2), '2', skillIcon('mend'),
       text('skill.healDescription', 'Heal {health}% HP · 20 MP · {seconds}s cooldown', { health: Math.round(20 + 8 * n), seconds: 8 - .5 * n })];
-    case 'frenzy': return [text('class.' + I.cls + '.s3', c.s3), '3', '🔥',
+    case 'frenzy': return [text('class.' + I.cls + '.s3', c.s3), '3', skillIcon('frenzy'),
       text('skill.rageDescription', '+{damage}% damage & faster attacks for {seconds}s · 30 MP', { damage: Math.round(20 + 5 * n), seconds: 6 + 2 * n })];
   }
-  const p = PAS[k]; return [text('passive.' + k, p[0]), '', p[1], (r ? '+' + Math.round(p[3] * r * 10) / 10 + '% ' + text('passive.' + k + '.effect', p[2]) + ' · ' : '') + text('skill.nextRank', 'next rank +{bonus}%', { bonus: p[3] })];
+  const p = PAS[k]; return [text('passive.' + k, p[0]), '', skillIcon(k), (r ? '+' + Math.round(p[3] * r * 10) / 10 + '% ' + text('passive.' + k + '.effect', p[2]) + ' · ' : '') + text('skill.nextRank', 'next rank +{bonus}%', { bonus: p[3] })];
 }
 function buildSkills() {
   if (!I || !me) return; $('spn').textContent = me.sp ? text("skill.points", "★ Points: {count}", { count: me.sp }) : text("skill.noPoints", "no points"); $('spn').style.color = me.sp ? '#ffe97a' : '';
@@ -392,8 +397,9 @@ function setH(id, v) { if (_hc[id] !== v) { _hc[id] = v; $(id).innerHTML = v; } 
 function setD(id, v) { const k = 'd:' + id; if (_hc[k] !== v) { _hc[k] = v; $(id).style.display = v; } }
 function setBar(id, v, mx, t) { const p = Math.round(Math.max(0, Math.min(100, v / mx * 100)) * 2) / 2, k = 'b:' + id; if (_hc[k] !== p) { _hc[k] = p; $(id).firstChild.style.width = p + '%'; } const k2 = 't:' + id; if (_hc[k2] !== t) { _hc[k2] = t; $(id).lastChild.textContent = t; } }
 function hudInit() {
-  const c = I.classes[I.cls]; $('who').innerHTML = esc(I.name) + ' <small>' + esc(className(I.cls, c.name)) + '</small>'; $('portrait').textContent = CLSICON[I.cls] || CLSICON[{ sword: 'blade', bow: 'archer', staff: 'mage' }[c.fam]] || '⚔️';
-  const sk = document.querySelectorAll('#hotbar [data-sk]'); sk[0].querySelector('.ic').textContent = S1ICON[I.cls] || S1ICON[{ sword: 'blade', bow: 'archer', staff: 'mage' }[c.fam]] || '🌀';
+  const c = I.classes[I.cls]; $('who').innerHTML = esc(I.name) + ' <small>' + esc(className(I.cls, c.name)) + '</small>'; $('portrait').innerHTML = uiImg('skill-' + clsKey(I.cls));
+  const sk = document.querySelectorAll('#hotbar [data-sk]'); ['s1', 'mend', 'frenzy'].forEach((k, i) => sk[i].querySelector('.ic').innerHTML = skillIcon(k));
+  document.querySelectorAll('#hotbar [data-it]').forEach(el => el.querySelector('.ic').innerHTML = consIcon(el.dataset.it));
   [text('class.' + I.cls + '.s1', c.s1), c.s2, c.s3].forEach((n, i) => sk[i].querySelector('.nm').textContent = text('class.' + I.cls + '.s' + (i + 1), n)); buildShop();
 }
 function hud() {

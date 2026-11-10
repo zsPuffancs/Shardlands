@@ -1,0 +1,84 @@
+/* Shardlands UI skin - uses the original CC0 UI pack in /ui (sources in /art/ui-pack).
+   Loaded after the inline styles in index.html, so everything here overrides the old flat look. */
+:root { --frame: url(ui/panel-plain.png); }
+html, body { cursor: url(ui/cursor.png) 3 2, auto; }
+button, .slot, .sk, .chip, [data-open], [data-use] { cursor: url(ui/cursor.png) 3 2, pointer; }
+#c.attack { cursor: url(ui/cursor-attack.png) 3 3, crosshair; }
+#c.talk { cursor: url(ui/cursor-talk.png) 3 2, pointer; }
+#c.loot { cursor: url(ui/cursor-loot.png) 16 16, pointer; }
+
+/* ---------- frames ---------- */
+.panel { background: none; border: 14px solid transparent; border-radius: 0; border-image: url(ui/panel-plain.png) 48 fill / 14px stretch; box-shadow: none; filter: drop-shadow(0 4px 12px #000a); }
+.win.panel, #login .box { border: 26px solid transparent; border-image: url(ui/panel.png) 80 fill / 26px stretch; background: none; border-radius: 0; box-shadow: none; filter: drop-shadow(0 8px 26px #000c); }
+#login .box { padding: 8px 10px; }
+.win-h { background: none; border: 0; border-radius: 0; margin: -10px -8px 0; padding: 0 0 4px; position: relative; }
+.win-h b { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; height: 40px; line-height: 1; padding-top: 1px; border-style: solid; border-width: 0 30px; border-image: url(ui/panel-header.png) 0 60 fill / 0 30px stretch;
+  font: 700 0.9375rem Georgia, serif; letter-spacing: 2px; color: #fff0b8; text-shadow: 0 1px 2px #000; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.win-h .x { width: 28px; height: 28px; flex: none; margin-left: 6px; padding: 0; border: 0; font-size: 0; background: url(ui/close.png) 0 0 / 100% 100%; border-image: none; }
+.win-h .x:hover { filter: brightness(1.25); }
+.win-b { padding: 6px 4px 2px; }
+#tip { background: none; border: 26px solid transparent; border-image: url(ui/tooltip.png) 56 fill / 26px stretch; border-radius: 0; padding: 0 2px; box-shadow: none; filter: drop-shadow(0 6px 18px #000d); }
+.toast, #prompt { background: none; border: 12px solid transparent; border-image: url(ui/panel-plain.png) 48 fill / 12px stretch; border-radius: 0; padding: 0 10px; box-shadow: none; }
+.itemcard, #gst { background: #0006; border: 1px solid #6b523388; }
+.hd2 { border-bottom: 0; padding-bottom: 8px; background: linear-gradient(90deg, transparent, #a37a2c 15%, #e8bf55 50%, #a37a2c 85%, transparent) bottom / 100% 1px no-repeat; }
+.row { border-bottom: 1px solid #e8bf5514; }
+.hd2 { flex-wrap: wrap; gap: 4px 8px; } .hd2 > span { white-space: nowrap; } .hd2 > span:last-child { display: flex; flex-wrap: wrap; gap: 4px; white-space: normal; }
+
+/* ---------- buttons & inputs ---------- */
+button, select { background: none; border: 1px solid transparent; border-radius: 0; border-image: url(ui/button.png) 24 fill / 9px stretch; color: #f1e7d4; text-shadow: 0 1px 1px #000; transition: none; }
+button:hover:not(:disabled) { filter: none; border-image-source: url(ui/button-hover.png); }
+button:active:not(:disabled) { border-image-source: url(ui/button-pressed.png); }
+button:disabled { opacity: 1; color: #7a7068; border-image-source: url(ui/button-disabled.png); }
+button.pri, #mergeBtn.on, .cls button.on, .tabs button.on { border-image-source: url(ui/button-primary.png); color: #2a1a06; text-shadow: 0 1px 0 #ffe9a8; background: none; box-shadow: none; font-weight: 700; }
+button.pri:hover:not(:disabled) { filter: brightness(1.12); border-image-source: url(ui/button-primary.png); }
+.cls button.on small { color: #4a3210; }
+#chat-tabs button { border-image: url(ui/tab.png) 24 24 8 24 fill / 9px 9px 3px 9px stretch; background: none; border-radius: 0; color: var(--mut); padding: 3px 10px 2px; }
+#chat-tabs button[aria-pressed="true"] { border-image-source: url(ui/tab-active.png); color: #fff0b8; }
+input:not([type=checkbox]):not([type=range]) { background: none; border: 1px solid transparent; border-radius: 0; border-image: url(ui/input.png) 20 fill / 9px stretch; }
+input[type=checkbox] { appearance: none; -webkit-appearance: none; width: 22px; height: 22px; margin: 0 6px 0 0; padding: 0; border: 0; vertical-align: middle; background: url(ui/checkbox.png) 0 0 / 100% 100%; }
+input[type=checkbox]:checked { background-image: url(ui/checkbox-on.png); }
+input[type=range] { -webkit-appearance: none; appearance: none; height: 12px; padding: 0; margin: 6px 0; border: 0; background: url(ui/slider-track.png) 0 0 / 100% 100%; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border: 0; background: url(ui/slider-knob.png) 0 0 / 100% 100%; }
+input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border: 0; background: url(ui/slider-knob.png) 0 0 / 100% 100%; }
+kbd { border: 4px solid transparent; border-image: url(ui/keycap.png) 12 fill / 4px stretch; background: none; border-radius: 0; padding: 0 3px; color: #fff0b8; }
+::-webkit-scrollbar { width: 12px; height: 12px; } ::-webkit-scrollbar-track { background: url(ui/scroll-track.png) 0 0 / 100% 100%; }
+::-webkit-scrollbar-thumb { border: 0 solid transparent; border-width: 6px 0; border-image: url(ui/scroll-thumb.png) 12 0 fill / 6px 0 stretch; }
+
+/* ---------- bars ---------- */
+.bar { background: none; border-radius: 0; box-shadow: none; overflow: visible; border: 1px solid transparent; border-image: url(ui/bar-frame.png) 16 fill / 7px stretch; height: 19px; }
+.bar i { border-radius: 3px; margin: 2px 3px; height: calc(100% - 4px); max-width: calc(100% - 6px); background: url(ui/bar-fill-hp.png) 0 0 / 100% 100% !important; box-shadow: inset 0 0 0 1px #0006; }
+.bar span { line-height: 17px; font-size: 0.6875rem; text-shadow: 0 1px 2px #000, 0 0 2px #000; }
+#mp i { background-image: url(ui/bar-fill-mp.png) !important; }
+#xpbar { height: 13px; border-image-width: 5px; } #xpbar i { background-image: url(ui/bar-fill-xp.png) !important; margin: 2px 3px; } #xpbar span { line-height: 11px; }
+#tgt .bar { height: 18px; } #tgt .bar i { background-image: url(ui/bar-fill-boss.png) !important; }
+
+/* ---------- slots & icons ---------- */
+.ui-ico { width: 78%; height: 78%; display: block; pointer-events: none; filter: drop-shadow(0 1px 1px #000a); }
+.slot { border: 0 !important; border-radius: 0; box-shadow: none !important; background: url(ui/slot.png) 0 0 / 100% 100%; }
+.slot.r0 { background-image: url(ui/slot-common.png); } .slot.r1 { background-image: url(ui/slot-uncommon.png); } .slot.r2 { background-image: url(ui/slot-rare.png); }
+.slot.r3 { background-image: url(ui/slot-epic.png); } .slot.r4 { background-image: url(ui/slot-legendary.png); }
+.slot.empty { opacity: 1; } .slot.empty .ui-ico { opacity: .9; width: 64%; height: 64%; }
+.slot:hover:not(.empty) { filter: none; } .slot:hover:not(.empty)::after, .sk:hover::after { content: ""; position: absolute; inset: 0; background: url(ui/slot-hover.png) 0 0 / 100% 100%; pointer-events: none; }
+.slot.sel { outline: 0; filter: brightness(1.2); } .slot.sel::before { content: ""; position: absolute; inset: -3px; border: 2px solid #ffe97a; border-radius: 9px; box-shadow: 0 0 10px #ffe97a; pointer-events: none; }
+.ico { background: url(ui/slot.png) 0 0 / 100% 100%; border: 0 !important; border-radius: 0; width: 38px; height: 38px; }
+.ico .ui-ico { width: 80%; height: 80%; }
+.chip .ui-ico { width: 18px; height: 18px; display: inline-block; vertical-align: middle; }
+
+/* ---------- HUD ---------- */
+#actionbar { border: 20px solid transparent; border-image: url(ui/hotbar.png) 48 fill / 20px stretch; padding: 0 2px 0; }
+.sk { border: 0; border-radius: 0; box-shadow: none; background: url(ui/slot.png) 0 0 / 100% 100%; }
+.sk .ic { width: 80%; height: 80%; display: flex; align-items: center; justify-content: center; } .sk .ic .ui-ico { width: 100%; height: 100%; }
+.sk .key { left: 2px; top: 2px; min-width: 14px; height: 13px; padding: 0 2px; border: 4px solid transparent; border-image: url(ui/keycap.png) 12 fill / 4px stretch; line-height: 5px; font-size: 0.5625rem; color: #fff0b8; text-align: center; }
+.sk u { border-radius: 6px; inset: 3px; }
+#portrait { border: 0; background: radial-gradient(#4a3a26, #1a130c 70%); box-shadow: none; overflow: visible; }
+#portrait .ui-ico { width: 86%; height: 86%; }
+#portrait::after { content: ""; position: absolute; left: -9px; top: -9px; width: 74px; height: 74px; background: url(ui/portrait-frame.png) 0 0 / 100% 100%; pointer-events: none; }
+#plvl { left: 44px; top: 47px; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 0; background: url(ui/badge-level.png) 0 0 / 100% 100%; color: #fff0b8; line-height: 24px; text-align: center; text-shadow: 0 1px 2px #000; z-index: 1; }
+#mapbox { padding: 6px 6px 8px; }
+#mapwrap { position: relative; width: 168px; height: 168px; margin: 4px auto 0; }
+#mapwrap #mini { width: 150px; height: 150px; margin: 9px; border: 0; box-shadow: none; }
+#mapwrap::after { content: ""; position: absolute; inset: -4px; background: url(ui/minimap-frame.png) 0 0 / 100% 100%; pointer-events: none; }
+#mapbtns button { width: 34px; height: 30px; padding: 0; font-size: 0.875rem; }
+#zname { font-family: Georgia, serif; letter-spacing: 1px; }
+.lb .hb { border-radius: 2px; box-shadow: 0 0 0 1px #000, 0 0 0 2px #a37a2c99; }
+#invp { width: 404px !important; } #skillp, #shopw, #smithw { width: 370px !important; }
