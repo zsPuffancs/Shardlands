@@ -104,7 +104,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear }) {
     const value = sellValue(player.bag[index]);
     player.gold += value;
     player.bag.splice(index, 1);
-    ev('gold', player.x, player.y, '+' + value + 'g');
+    ev('gold', player.x, player.y, messageText('server.pickedUpGold', 'You gained: {gold} gold', { gold: value }));
     sendInv(player);
   }
 
