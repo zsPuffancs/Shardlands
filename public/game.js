@@ -364,12 +364,17 @@ function burst(x, y, z, n, col, spd, life, size, emis, grav) {
 const FXC = { blade: [1, 1, 1], archer: [.5, 1, .5], mage: [.7, .5, 1], heal: [.4, 1, .6], lvl: [1, .9, .3], rage: [1, .3, .2], buff: [.5, .8, 1] };
 window.Shardlands.FXC = FXC;
 const FLOATER_STYLE = { dmg: 'damage', hurt: 'hurt', gold: 'gold', xp: 'xp', heal: 'heal', mana: 'mana', lvl: 'level', loot: 'loot', souls: 'loot' };
+function faceAttackTarget(entity, event, now) {
+  if (!Number.isFinite(event.tx) || !Number.isFinite(event.ty)) return;
+  entity.yaw = Math.atan2(event.tx - event.x, event.ty - event.y);
+  if (!isMelee(event.s)) entity.attackFacingUntil = now + 650;
+}
 function onEvent(f) {
   const now = performance.now(), E = f.a && (I && f.a === I.id ? S : ents.get(f.a));
   if (f.k === 'warn') { fxWarn(f); if (E) { E.atkT = now + 500; E.skill = true; } return; }
   if (f.k === 'slam') { fxSlam(f); return; }
-  if (f.k === 'fx') { if (E && I.classes[f.s]) { E.atkT = now; E.skill = true; } fxSkill(f, E); return; }
-  if (f.k === 'atk') { if (E) { E.atkT = now; E.skill = false; E.yaw = Math.atan2(f.tx - E.rx, f.ty - E.ry); } fxAttack(f, E); return; }
+  if (f.k === 'fx') { if (E && I.classes[f.s]) { E.atkT = now; E.skill = true; faceAttackTarget(E, f, now); } fxSkill(f, E); return; }
+  if (f.k === 'atk') { if (E) { E.atkT = now; E.skill = false; faceAttackTarget(E, f, now); } fxAttack(f, E); return; }
   if (f.k === 'die') { const t = I.types[f.v], c = hex(t ? t.c : '#cccccc'), big = t && (t.boss || f.b); burst(f.x, 18, f.y, big ? 70 : 22, c, 200, 1.1, 2.2, .25, 560); addRing(f.x, f.y, 4, big ? 80 : 40, big ? [1, .7, .3] : [.85, .85, .85], 500, 14, .2); sfx(big ? 'boss' : 'die', f.x, f.y); return; }
   if (f.k === 'hurt') {
     const A = f.a && ents.get(f.a); if (A) { A.atkT = now; A.skill = false; A.yaw = Math.atan2(f.x - A.rx, f.y - A.ry); fxClaw(f.x, f.y, A.yaw); }
@@ -594,7 +599,7 @@ function label(id, html, cls, x, y, z, hpv, wd, color) {
 // ---------- main loop ----------
 let last = performance.now(), lastZone = -9, zoneCheck = 0, miniT = 0, perfT = 0;
 const mini = $('mini').getContext('2d');
-function animate(e, mx, my, d) { const sp = Math.hypot(mx, my) / d; e.mv += (Math.min(1, sp / 120) - e.mv) * Math.min(1, d * 14); if (Math.hypot(mx, my) > .12) { const ty = Math.atan2(mx, my); let a = ty - e.yaw; a = Math.atan2(Math.sin(a), Math.cos(a)); e.yaw += a * Math.min(1, d * 12); } e.ph += sp * d * 0.1; }
+function animate(e, mx, my, d) { const sp = Math.hypot(mx, my) / d; e.mv += (Math.min(1, sp / 120) - e.mv) * Math.min(1, d * 14); if (Math.hypot(mx, my) > .12 && performance.now() >= (e.attackFacingUntil || 0)) { const ty = Math.atan2(mx, my); let a = ty - e.yaw; a = Math.atan2(Math.sin(a), Math.cos(a)); e.yaw += a * Math.min(1, d * 12); } e.ph += sp * d * 0.1; }
 function smoothEnt(e, d) { const dx = e.x - e.rx, dy = e.y - e.ry; if (Math.hypot(dx, dy) > 400) { e.rx = e.x; e.ry = e.y; return; } const k = 1 - Math.pow(0.0005, d), mx = dx * k, my = dy * k; e.rx += mx; e.ry += my; animate(e, mx, my, d); }
 function updateSelf(d) { // client-side prediction: our own hero reacts instantly, then eases toward the server position
   const ox = S.rx, oy = S.ry; let vx = 0, vz = 0;

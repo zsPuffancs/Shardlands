@@ -61,7 +61,7 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
         }
       }
       clampWorld(player);
-      if (target && !target.dead && now >= player.cd && dist(player, target) <= characterClass.range + target.r) {
+      if (!inVillage(player) && target && !target.dead && now >= player.cd && dist(player, target) <= characterClass.range + target.r) {
         player.cd = now + (now < player.buf.rage ? 600 : 800) * (1 - 0.035 * rank(player, 'haste')); ev('atk', player.x, player.y, 0, { tx: Math.round(target.x), ty: Math.round(target.y), s: player.cls, a: player.id });
         hitMob(player, target, playerDmg(player));
       }
