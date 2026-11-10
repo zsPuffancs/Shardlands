@@ -1,6 +1,8 @@
 // Shardlands 3D client core: world, models, camera, input, effects, networking.
 const $ = id => document.getElementById(id), D = GL.draw, M = GL.M;
-const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const esc = value => String(value).replace(/[&<>"']/g, character => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+})[character]);
 const hex = h => [parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255];
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 const RC_CSS = ['#d8d8d8', '#4ee26a', '#4da3ff', '#b25cff', '#ff9d2e'], RCV = RC_CSS.map(hex);
@@ -325,8 +327,8 @@ function drawWorld(now) {
     if (Math.hypot(cam.x - sN.x, cam.z - sN.y) < 700) burst(anvil.x, 14, anvil.z, 7, [1, .75, .3], 120, .5, 1.2, 1);
   }, 260); }
   if (!drawChar(sm, 'Monk', { h: 68, tint: [1, .92, .85] }, now)) human(sm, { sc: 1.08, kind: 'smith', body: hex('#7a5a3a'), leg: hex('#3a2e24'), skin: hex('#d9a27a'), arm: hex('#d9a27a'), wide: 11, pad: 0 });
-  if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc', NPCNAME.merchant + (nearNpcK === 'merchant' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', mN.x, 98, mN.y + 11, 0, 150);
-  if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc2', NPCNAME.smith + (nearNpcK === 'smith' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', sN.x, 98, sN.y, 0, 150);
+  if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc', esc(text('npc.merchant', NPCNAME.merchant)) + (nearNpcK === 'merchant' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', mN.x, 98, mN.y + 11, 0, 150);
+  if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc2', esc(text('npc.smith', NPCNAME.smith)) + (nearNpcK === 'smith' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', sN.x, 98, sN.y, 0, 150);
 }
 function drawLoot(L, now) {
   const b = Math.sin(now / 260 + L.id) * 2.5, rot = now / 700 + L.id, x = L.x, z = L.y;
@@ -358,7 +360,7 @@ function burst(x, y, z, n, col, spd, life, size, emis, grav) {
 }
 const FXC = { blade: [1, 1, 1], archer: [.5, 1, .5], mage: [.7, .5, 1], heal: [.4, 1, .6], lvl: [1, .9, .3], rage: [1, .3, .2], buff: [.5, .8, 1] };
 window.Shardlands.FXC = FXC;
-const FLOATCOL = { dmg: '#fff', hurt: '#ff5a4a', gold: '#e2b64a', xp: '#9fd0ff', heal: '#6fe39a', mana: '#6fb0ff', lvl: '#ffe97a', loot: '#d9a8ff' };
+const FLOATER_STYLE = { dmg: 'damage', hurt: 'hurt', gold: 'gold', xp: 'xp', heal: 'heal', mana: 'mana', lvl: 'level', loot: 'loot' };
 function onEvent(f) {
   const now = performance.now(), E = f.a && (I && f.a === I.id ? S : ents.get(f.a));
   if (f.k === 'warn') { fxWarn(f); if (E) { E.atkT = now + 500; E.skill = true; } return; }
@@ -375,16 +377,12 @@ function onEvent(f) {
   if (f.k === 'gold') { burst(f.x, 20, f.y, 8, [1, .85, .2], 150, .7, 1.8, .9); sfx('coin', f.x, f.y); }
   if (f.k === 'loot') { burst(f.x, 20, f.y, 10 + (f.r || 0) * 5, RCV[f.r || 0], 160, .8, 1.7, .9); sfx('loot', f.x, f.y, f.r || 0); }
   if (f.k === 'heal' || f.k === 'mana') sfx('heal', f.x, f.y);
-  const col = f.k === 'loot' ? RC_CSS[f.r || 0] : f.k === 'dmg' && f.c ? '#ffd23f' : FLOATCOL[f.k]; if (!col || floaters.length > 60) return;
+  const style = f.k === 'dmg' && f.c ? 'critical' : FLOATER_STYLE[f.k];
+  if (!style || floaters.length > 60) return;
   const isDamage = f.k === 'dmg' || f.k === 'hurt';
-  const isCritical = f.k === 'dmg' && f.c;
   const el = document.createElement('div');
   el.className = 'ft';
-  if (isDamage) el.classList.add('ft--damage');
-  if (isCritical) el.classList.add('ft--critical');
-  if (f.k === 'lvl') el.classList.add('ft--level');
-  el.textContent = f.v;
-  el.style.color = col;
+  GameText.present(el, { message: f.text || f.v, style, color: f.k === 'loot' ? RC_CSS[f.r || 0] : undefined });
   $('floaters').appendChild(el);
   floaters.push({
     el, isDamage, x: f.x + (isDamage ? (Math.random() - .5) * 24 : 0), z: f.y,
@@ -395,7 +393,7 @@ function onEvent(f) {
 // ---------- networking ----------
 function join() {
   if (ws && ws.readyState !== WebSocket.CLOSED) return;
-  audio(); sfx('click'); $('err').textContent = '';
+  audio(); sfx('click'); GameText.present($('err'), { message: '' });
   const socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
   ws = socket;
   const request = { t: 'join', name: $('name').value, cls: sel, pw: $('pw').value, mobDeltas: true };
@@ -409,8 +407,8 @@ function join() {
   socket.onclose = () => {
     if (ws !== socket) return;
     ws = null;
-    if (I) log('*', 'Disconnected from server. Refresh to reconnect.');
-    else if (!$('err').textContent) $('err').textContent = 'Could not connect.';
+    if (I) log('*', text("login.disconnected", "Disconnected from server. Refresh to reconnect."));
+    else if (!$('err').textContent) $('err').textContent = text("login.failed", "Could not connect.");
   };
 }
 const mobRows = new Map();
@@ -431,13 +429,13 @@ function updateMobSnapshot(message) {
   mo = mobIds.map(id => mobRows.get(id));
 }
 function onMsg(m) {
-  if (m.t === 'err') $('err').textContent = m.m;
+  if (m.t === 'err') GameText.present($('err'), { message: m.text || m.m });
   else if (m.t === 'init') {
     I = m; ZT = m.world.tiers; WORLD.npcs = m.world.npcs; WORLD.npcRange = m.world.npcRange; S.id = m.id; cam.dist = 440; cam.pitch = 0.82; cam.yaw = 0; $('login').style.display = 'none'; if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); $('hud').style.display = 'block';
-    hudInit(); log('*', m.resumed ? 'Welcome back, ' + m.name + '!' : 'Welcome, ' + m.name + '! Loot drops on the ground - walk over it. Talk to the Merchant and the Blacksmith in the village (click them or press F).');
+    hudInit(); log('*', m.resumed ? text("login.welcomeBack", "Welcome back, ") + m.name + '!' : text("login.welcome", "Welcome, ") + m.name + text("login.welcomeHint", "! Loot drops on the ground - walk over it. Talk to the Merchant and the Blacksmith in the village (click them or press F)."));
   } else if (m.t === 'inv') onInv(m);
-  else if (m.t === 'toast') toast(m.m, m.c); else if (m.t === 'forge') onForge(m);
-  else if (m.t === 'chat') log(m.n, m.m); else if (m.t === 'msg') log('*', m.m);
+  else if (m.t === 'toast') toast(m.text || m.m, m.c); else if (m.t === 'forge') onForge(m);
+  else if (m.t === 'chat') log(m.n, m.text || m.m); else if (m.t === 'msg') log('*', m.text || m.m);
   else if (m.t === 's') {
     if (!me) { S.rx = m.me.x; S.ry = m.me.y; cam.x = m.me.x; cam.z = m.me.y; } serverTm = m.tm; me = m.me; pl = m.pl; lo = m.lo;
     updateMobSnapshot(m);
@@ -472,7 +470,7 @@ addEventListener('keydown', e => {
   if (act === 'hp' || act === 'mp' || act === 'hp2' || act === 'ret') send({ t: 'use', i: act });
   if (act === 'skills') togglePanel('skillp'); if (act === 'inv') togglePanel('invp'); if (act === 'settings') togglePanel('setw'); if (act === 'mute') toggleMute(); if (k === 'escape') closeAll();
   if (act === 'talk' && nearNpcK) openNpc(nearNpcK);
-  if (act === 'gfx') { const n = GFX[(GFX.indexOf(GL.Q.mode) + 1) % GFX.length]; GL.setQuality(n); toast('Graphics: ' + n + (n === 'auto' ? ' (adapts to frame rate)' : '')); }
+  if (act === 'gfx') { const n = GFX[(GFX.indexOf(GL.Q.mode) + 1) % GFX.length]; GL.setQuality(n); toast(text('settings.qualityChanged', 'Graphics: {quality}', { quality: qualityName(n) })); }
   if (act === 'fps') { const p = $('perf'); p.style.display = p.style.display === 'block' ? 'none' : 'block'; }
   if ('wasd'.includes(k) && k.length === 1 || k.startsWith('arrow')) { keys[k] = 1; e.preventDefault(); }
 });
@@ -587,23 +585,27 @@ function frame(now) {
       const mc = MOBCHAR[m.ty]; if (t.st) stoneModel(e, t); else if (mc && CHARS[mc.m] && nChar < 26 && hd < 750) { nChar++; drawChar(e, mc.m, { h: 64 * mc.sc * (m.al ? 1.3 : 1), tint: mc.tint, emc: mc.emc }, now); } else if (i < full || hd < 420) { if (blob) D(M.disc, e.rx, 1, e.ry, t.r * 1.1, 1, t.r * 1.1, 0, 0, [0, 0, 0], 0, .3); o.fn(e, o); } else lod(e, t, o, m.al);
       if ((hd < 620 && nl < 45) || m.id === me.tg || ((t.boss || m.al || t.st) && hd < 1100)) {
         nl++; const dl = (m.l || 0) - me.l, lc = t.st ? t.c : t.boss ? '#ffd24a' : m.al ? '#ffb04a' : dl >= 5 ? '#ff6a6a' : dl >= 2 ? '#ffb04a' : dl > -5 ? '#ffffff' : '#9ab';
-        label('m' + m.id, '<span style="color:' + lc + '">' + (t.boss ? '★ ' : m.al ? 'Alpha ' : '') + esc(t.n) + '</span> <span style="color:#aaa;font-size:10px">Lv' + m.l + '</span>', t.boss ? 'mob boss' : m.al ? 'mob alpha' : 'mob', e.rx, Math.min(260, (o.top || 56) * (o.sc || 1)) + 16, e.ry, m.hp / m.mh, t.boss ? 150 : m.al ? 130 : 110);
+        label('m' + m.id, '<span style="color:' + lc + '">' + (t.boss ? '★ ' : m.al ? esc(text("mob.alpha", "Alpha ")) : '') + esc(mobName(m.ty, t.n)) + '</span> <span style="color:#aaa;font-size:0.625rem">' + esc(text("zone.levelShort", "Lv ")) + m.l + '</span>', t.boss ? 'mob boss' : m.al ? 'mob alpha' : 'mob', e.rx, Math.min(260, (o.top || 56) * (o.sc || 1)) + 16, e.ry, m.hp / m.mh, t.boss ? 150 : m.al ? 130 : 110);
       }
     }
-    for (const o of pl) { const e = ents.get(o.id); if (!onScreen(e.rx, e.ry, 160)) continue; drawPlayer(e, o.c, o.w, o.d, o.rg); label('p' + o.id, esc(o.n) + ' <span style="color:#aaa">Lv' + o.l + '</span>', 'pl', e.rx, 92, e.ry, o.hp / o.mh, 120); }
-    drawPlayer(S, I.cls, me.w, me.dead, me.buf.rage); label('me', esc(I.name) + ' <span style="color:#ccc">Lv' + me.l + '</span>', 'pl me', S.rx, 92, S.ry, me.hp / me.mh, 120);
+    for (const o of pl) { const e = ents.get(o.id); if (!onScreen(e.rx, e.ry, 160)) continue; drawPlayer(e, o.c, o.w, o.d, o.rg); label('p' + o.id, esc(o.n) + ' <span style="color:#aaa">' + esc(text("zone.levelShort", "Lv ")) + o.l + '</span>', 'pl', e.rx, 92, e.ry, o.hp / o.mh, 120); }
+    drawPlayer(S, I.cls, me.w, me.dead, me.buf.rage); label('me', esc(I.name) + ' <span style="color:#ccc">' + esc(text("zone.levelShort", "Lv ")) + me.l + '</span>', 'pl me', S.rx, 92, S.ry, me.hp / me.mh, 120);
     if (intent) D(M.ring, intent.x, 1.6, intent.y, 9, 1, 9, now / 300, 0, [1, .85, .3], 1, .5);
-    if (now - zoneCheck > 400) { zoneCheck = now; const z = zoneOf(S.rx, S.ry); if (z !== lastZone) { if (lastZone !== -9) banner(z < 0 ? 'Dawnhearth' : ZT[z].name, z < 0 ? 'Safe zone' : 'Levels ' + ZT[z].lv[0] + ' - ' + ZT[z].lv[1] + (ZT[z].outer ? ' · enter at your own risk' : ''), z >= 0 && ZT[z].outer); lastZone = z; } }
+    if (now - zoneCheck > 400) { zoneCheck = now; const z = zoneOf(S.rx, S.ry); if (z !== lastZone) { if (lastZone !== -9) banner(zoneName(z < 0 ? 'Dawnhearth' : ZT[z].name), z < 0 ? text("zone.safe", "Safe zone") : text("zone.levels", "Levels ") + ZT[z].lv[0] + ' - ' + ZT[z].lv[1] + (ZT[z].outer ? text("zone.danger", " · enter at your own risk") : ''), z >= 0 && ZT[z].outer); lastZone = z; } }
     nearNpcK = null; let nd = WORLD.npcRange - 30; for (const k in WORLD.npcs) { const d = npcDist(k); if (d < nd) { nd = d; nearNpcK = k; } }
     if (pendingNpc && npcDist(pendingNpc) < WORLD.npcRange - 40) { openNpc(pendingNpc); pendingNpc = null; }
     if (isOpen('shopw') && npcDist('merchant') > WORLD.npcRange + 60) closeWin('shopw'); if (isOpen('smithw') && npcDist('smith') > WORLD.npcRange + 60) closeWin('smithw');
-    const pr = nearNpcK && !isOpen(nearNpcK === 'merchant' ? 'shopw' : 'smithw') ? '<b>F</b>Talk to the ' + (nearNpcK === 'merchant' ? 'Merchant' : 'Blacksmith') : '';
+    const pr = nearNpcK && !isOpen(nearNpcK === 'merchant' ? 'shopw' : 'smithw') ? '<b>' + esc(keyName(BINDS.talk)) + '</b>' + esc(text(nearNpcK === 'merchant' ? 'prompt.merchant' : 'prompt.smith', nearNpcK === 'merchant' ? 'Talk to the Merchant' : 'Talk to the Blacksmith')) : '';
     if (pr !== _hc.prompt) { _hc.prompt = pr; $('prompt').innerHTML = pr; $('prompt').style.display = pr ? 'block' : 'none'; }
   }
   for (const [k, L] of labels) if (!L.used) { L.el.remove(); labels.delete(k); }
   drawFx(now); updateFloaters(now); GL.render();
   if (now - miniT > 180) { miniT = now; drawMini(); }
-  if (now - perfT > 500) { perfT = now; const p = $('perf'); if (p.style.display === 'block') p.textContent = GL.Q.fps + ' fps · ' + GL.Q.mode + ' · res ' + Math.round(GL.Q.scale * 100) + '% · shadows ' + (GL.shadowsOn() ? 'on' : 'off') + ' · ' + GL.Q.draws + ' draws / ' + GL.Q.inst + ' parts · ' + decorStats + ' plants'; }
+  if (now - perfT > 500) { perfT = now; const p = $('perf'); if (p.style.display === 'block') p.textContent = text('performance.summary', '{fps} FPS · {quality} · res {resolution}% · shadows {shadows} · {draws} draws / {parts} parts · {plants} plants', {
+    fps: GL.Q.fps, quality: qualityName(GL.Q.mode), resolution: Math.round(GL.Q.scale * 100),
+    shadows: GL.shadowsOn() ? text('common.on', 'on') : text('common.off', 'off'),
+    draws: GL.Q.draws, parts: GL.Q.inst, plants: decorStats,
+  }); }
 }
 function drawFx(now) {
   for (let i = fxs.length - 1; i >= 0; i--) {
@@ -638,19 +640,36 @@ function drawMini() {
   g.fillStyle = '#ffd24a'; for (const L of lo) if (L.k === 'gear' && L.r >= 2) g.fillRect(L.x * s - 1.5, L.y * s - 1.5, 3, 3);
   g.fillStyle = '#4af'; for (const o of pl) g.fillRect(o.x * s - 2.5, o.y * s - 2.5, 5, 5);
   g.save(); g.translate(S.rx * s, S.ry * s); g.rotate(-cam.yaw + 3.14159); g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(0, -8); g.lineTo(5.5, 6); g.lineTo(-5.5, 6); g.closePath(); g.fill(); g.stroke(); g.restore();
-  const z = zoneOf(S.rx, S.ry); setT('zname', z < 0 ? 'Dawnhearth' : ZT[z].name); setT('zinfo', (z < 0 ? 'Safe zone' : 'Lv ' + ZT[z].lv[0] + '-' + ZT[z].lv[1]) + ' · ' + Math.round(S.rx) + ', ' + Math.round(S.ry)); $('zname').style.color = z >= 0 && ZT[z].outer ? '#ff5a4a' : '';
+  const z = zoneOf(S.rx, S.ry); setT('zname', zoneName(z < 0 ? 'Dawnhearth' : ZT[z].name)); setT('zinfo', (z < 0 ? text("zone.safe", "Safe zone") : text("zone.levelShort", "Lv ") + ZT[z].lv[0] + '-' + ZT[z].lv[1]) + ' · ' + Math.round(S.rx) + ', ' + Math.round(S.ry)); $('zname').style.color = z >= 0 && ZT[z].outer ? '#ff5a4a' : '';
 }
 
 // ---------- boot ----------
 function loadScript(src) { return new Promise(r => { const s = document.createElement('script'); s.src = src; s.onload = s.onerror = () => r(); document.body.appendChild(s); }); }
+function renderLoginClasses(classes) {
+  $('cls').innerHTML = Object.keys(classes).map(id => {
+    const characterClass = classes[id];
+    return '<button data-c="' + esc(id) + '" class="' + (id === sel ? 'on' : '') + '"><i style="background:' +
+      (characterClass.color || '#ccc') + '"></i>' + esc(className(id, characterClass.name)) +
+      '<small>' + esc(text('class.' + id + '.description', characterClass.desc || '')) + '</small></button>';
+  }).join('');
+  document.querySelectorAll('#cls button').forEach(button => button.onclick = () => {
+    sel = button.dataset.c;
+    document.querySelectorAll('#cls button').forEach(option => option.classList.toggle('on', option === button));
+  });
+}
+
 async function boot() {
-  let info; try { info = await (await fetch('/api/info')).json(); } catch (e) { $('srv').textContent = 'Server not reachable.'; return; }
-  WORLD = info.world; ZT = WORLD.tiers; document.title = info.serverName + ' - Shardlands 3D'; $('srv').textContent = info.serverName + ' · private server';
-  const keysC = Object.keys(info.classes); sel = keysC[0];
-  $('cls').innerHTML = keysC.map((k, i) => '<button data-c="' + k + '" class="' + (i ? '' : 'on') + '"><i style="background:' + (info.classes[k].color || '#ccc') + '"></i>' + esc(info.classes[k].name) + '<small>' + esc(info.classes[k].desc || '') + '</small></button>').join('');
-  document.querySelectorAll('#cls button').forEach(b => b.onclick = () => { sel = b.dataset.c; document.querySelectorAll('#cls button').forEach(x => x.classList.toggle('on', x === b)); });
+  GameText.init();
+  let info; try { info = await (await fetch('/api/info')).json(); } catch (e) { $('srv').textContent = text("login.unreachable", "Server not reachable."); return; }
+  WORLD = info.world; ZT = WORLD.tiers; document.title = info.serverName + ' - Shardlands 3D'; $('srv').textContent = text('login.server', '{server} · private server', { server: info.serverName });
+  sel = Object.keys(info.classes)[0];
+  renderLoginClasses(info.classes);
+  document.addEventListener('game-language-change', () => {
+    renderLoginClasses(info.classes);
+    $('srv').textContent = text('login.server', '{server} · private server', { server: info.serverName });
+  });
   $('go').onclick = join; $('name').onkeydown = $('pw').onkeydown = e => { if (e.key === 'Enter') join(); };
-  $('srv').textContent = info.serverName + ' · loading world…'; await loadNature(); bakeWorld(); buildGround(); $('srv').textContent = info.serverName + ' · private server'; loadChars();
+  $('srv').textContent = text('login.loadingWorld', '{server} · loading world…', { server: info.serverName }); await loadNature(); bakeWorld(); buildGround(); $('srv').textContent = text('login.server', '{server} · private server', { server: info.serverName }); loadChars();
   for (const s of info.scripts) await loadScript('plugins/' + s);
   requestAnimationFrame(frame);
 }

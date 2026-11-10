@@ -41,7 +41,7 @@ Skill ids on `player.sk`: actives `s1 mend frenzy` (max 5), passives `vit might 
 Change it from a plugin for events (e.g. double XP weekends): `api.rates.xpRate *= 2`.
 
 ## Monsters: alphas & bosses
-`api.spawn(type, x, y, { alpha: true })` spawns an Alpha version. Use `api.spawn('wolf', x, y, { level: 5 })` to reuse a base monster at another level. HP, damage, XP and gold scale by the target level divided by the base level, raised to 1.9, 1.37, 2 and 1.5 respectively. Adding an existing type to a higher tier automatically scales it when its base level is below that tier's range. Types with `boss: true` do the telegraphed ground slam automatically.
+`api.spawn(type, x, y, { alpha: true })` spawns an Alpha version. Use `api.spawn('wolf', x, y, { level: 5 })` to reuse a base monster at another level. HP, damage, XP and gold scale by the target level divided by the base level, raised to 1.9, 1.37, 2 and 1.5 respectively. Stones use 1.4 for HP. Built-in stones use 4,000 base HP at level 5 as their reference point. Adding an existing type to a higher tier automatically scales it when its base level is below that tier's range. Types with `boss: true` do the telegraphed ground slam automatically.
 Give a boss a signature attack with `special` in its addMob definition: `'charge'`, `'breath'`, `'meteor'`, `'summon'` or `'slam'` (it alternates with the slam).
 `api.addToTier(i, id, true)` adds a boss to zone i (0-6, 6 = Death Zone, whose monsters are auto-scaled to level 50-60).
 
@@ -64,3 +64,12 @@ Use an animated character model for a humanoid monster instead: `Shardlands.char
 ## Built-in plugins
 `admin.js` (needs your hero name in `admins`): /give /gear /drop /gold /level /heal /tp /spawn /announce /kick /xprate /droprate /players.
 `welcome.js`, `frost_wolf.js` (new monster + item), `class_berserker.js` (new class): read them as examples.
+
+## Translating game text
+
+Register a locale in a script under `public/locales/` using `GameText.addCatalog('de', entries, 'Deutsch')`. Load the script in `public/index.html` after `text.js` and before `game.js`. The language selectors list registered catalogs automatically. Use `public/locales/hu.js` as a reference. Missing entries use the English fallback.
+
+- For HTML labels, use `data-text="myPlugin.label"`. Use `data-title-text` or `data-placeholder-text` for those attributes.
+- For dynamic client labels, call `text('myPlugin.label', 'Hello {player}', { player })`.
+- For a server message or a command reply, create it with `api.message('myPlugin.reward', 'Reward: {amount}', { amount })`. Pass the result to `api.say`, `api.toast`, `api.broadcast`, or return it from the command handler.
+- Use stable content IDs for names, for example `monster.frostwolf`, `item.frostpot.name`, and `class.berserker.name`. Keep parameter names such as `{amount}` identical in the translation. Character names and player chat are displayed as entered.

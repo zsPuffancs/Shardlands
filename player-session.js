@@ -1,5 +1,7 @@
 'use strict';
 
+const { localizedText: messageText, isLocalizedText } = require('./localized-text');
+
 const crypto = require('node:crypto');
 const { CX, CY, rnd, worldInfo } = require('./game-world');
 const { MOBTYPES } = require('./monsters');
@@ -15,15 +17,15 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
   function joinPlayer(connection, message) {
     if (connection.p) return;
     const name = String(message.name || '').replace(/[^\w \-]/g, '').trim().slice(0, 14);
-    if (name.length < 2) return send(connection, { t: 'err', m: 'Name must be 2-14 letters/digits.' });
-    for (const onlinePlayer of players.values()) if (onlinePlayer.name.toLowerCase() === name.toLowerCase()) return send(connection, { t: 'err', m: 'That hero is already online.' });
+    if (name.length < 2) return send(connection, { t: 'err', m: messageText("server.nameLength", "Name must be 2-14 letters/digits.") });
+    for (const onlinePlayer of players.values()) if (onlinePlayer.name.toLowerCase() === name.toLowerCase()) return send(connection, { t: 'err', m: messageText("server.alreadyOnline", "That hero is already online.") });
     const savedPlayer = saves[name.toLowerCase()];
     if (isAdminName(name) && !savedPlayer?.ph) {
-      return send(connection, { t: 'err', m: 'Admin hero must have a password set before granting admin access.' });
+      return send(connection, { t: 'err', m: messageText("server.adminPassword", "Admin hero must have a password set before granting admin access.") });
     }
     const password = String(message.pw || '').slice(0, 64);
     const passwordHash = password ? crypto.createHash('sha256').update(name.toLowerCase() + ':' + password).digest('hex') : '';
-    if (savedPlayer && savedPlayer.ph && savedPlayer.ph !== passwordHash) return send(connection, { t: 'err', m: 'Wrong password for this hero.' });
+    if (savedPlayer && savedPlayer.ph && savedPlayer.ph !== passwordHash) return send(connection, { t: 'err', m: messageText("server.badPassword", "Wrong password for this hero.") });
     const classId = savedPlayer ? savedPlayer.cls : (typeof message.cls === 'string' && Object.hasOwn(CLASSES, message.cls) ? message.cls : 'blade');
     const level = savedPlayer ? savedPlayer.lvl : 1;
     const startingInventory = Object.assign(Object.fromEntries(Object.keys(ITEMS).map(k => [k, 0])), savedPlayer ? (savedPlayer.inv || { hp: savedPlayer.pots || 0 }) : { hp: 3, mp: 1 });
@@ -38,10 +40,10 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     const types = {}; for (const k in MOBTYPES) types[k] = { n: MOBTYPES[k].name, r: MOBTYPES[k].r, c: MOBTYPES[k].color, st: !!MOBTYPES[k].stone, boss: !!MOBTYPES[k].boss, lvl: MOBTYPES[k].lvl, shape: MOBTYPES[k].shape };
     send(connection, { t: 'init', id: player.id, name: player.name, cls: player.cls, world: worldInfo(), types, tl: typeList, classes: CLASSES, items: ITEMS, maxRank: MAXRANK, pMax: PMAX, bagMax: BAGMAX, slots: SLOTS, rarity: RARITY.map(r => r.n), upRate: UP_RATE, stat: Object.fromEntries(Object.entries(STATDEF).map(([k, v]) => [k, { n: v.n, pct: !!v.pct }])), resumed: !!savedPlayer, server: config.serverName, admin: isAdmin(player) });
     inventory.sendInv(player);
-    broadcast({ t: 'chat', n: '*', m: player.name + ' entered ' + config.serverName + '.' });
+    broadcast({ t: 'chat', n: '*', m: messageText("server.joined", "{player} entered {server}.", { player: player.name, server: config.serverName }) });
     if (config.motd) say(player, config.motd);
     fire('join', player);
-    if (player.sp > 0) say(player, 'You have ' + player.sp + ' unspent skill point(s) - press K!');
+    if (player.sp > 0) say(player, messageText("server.unspent", "You have {count} unspent skill point(s) - press K!", { count: player.sp }));
   }
 
   function handleChat(player, rawMessage) {
@@ -56,16 +58,16 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     const commandName = name.toLowerCase();
     if (commandName === 'help') {
       const available = Object.keys(commands).filter(key => !commands[key].admin || isAdmin(player));
-      return say(player, 'Commands: ' + available.map(key => '/' + key).join(' '));
+      return say(player, messageText("server.commands", "Commands: {commands}", { commands: available.map(key => '/' + key).join(' ') }));
     }
     const command = commands[commandName];
-    if (!command) return say(player, 'Unknown command. Try /help');
-    if (command.admin && !isAdmin(player)) return say(player, 'That command is for admins only.');
+    if (!command) return say(player, messageText("server.unknownCommand", "Unknown command. Try /help"));
+    if (command.admin && !isAdmin(player)) return say(player, messageText("server.adminOnly", "That command is for admins only."));
     try {
       const reply = command.fn(player, args, text);
-      if (typeof reply === 'string') say(player, reply);
+      if (typeof reply === 'string' || isLocalizedText(reply)) say(player, reply);
     } catch (error) {
-      say(player, 'Command error: ' + error.message);
+      say(player, messageText("server.commandError", "Command error: {error}", { error: error.message }));
     }
   }
 
@@ -124,7 +126,7 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     for (const monster of mobs.values()) {
       if (monster.target === player.id) monster.target = 0;
     }
-    broadcast({ t: 'chat', n: '*', m: player.name + ' left.' });
+    broadcast({ t: 'chat', n: '*', m: messageText("server.left", "{player} left.", { player: player.name }) });
   }
 
   return { handleMessage, leavePlayer, isAdmin };

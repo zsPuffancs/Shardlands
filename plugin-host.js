@@ -2,6 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { localizedText, isLocalizedText, gearText } = require('./localized-text');
 const { W, H, CX, CY, VILLAGE, NPCS, tierOf, clampWorld } = require('./game-world');
 const { MOBTYPES, TIERS } = require('./monsters');
 const { SLOTS, STATDEF, RARITY } = require('./equipment');
@@ -38,13 +39,15 @@ function createPluginHost({ directory, config, rates, players, mobs, loot, plugi
       players: () => [...players.values()], mobs: () => [...mobs.values()],
       findPlayer: n => [...players.values()].find(p => p.name.toLowerCase() === String(n).toLowerCase()),
       spawn(type, x, y, options) { if (!MOBTYPES[type]) throw new Error('unknown mob ' + type); const m = spawnMob(type, x, y, tierOf(x, y), options); if (options && options.temp) { m.summoned = true; m.expiresAt = Date.now() + SUMMON_LIFETIME_MS; } m.awake = true; return m; },
-      say, toast, broadcast: msg => broadcast({ t: 'chat', n: '*', m: String(msg) }),
+      say, toast, message: localizedText, gearName: gearText,
+      zoneName: name => localizedText('zone.' + name.toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, ''), name),
+      broadcast: msg => broadcast({ t: 'chat', n: '*', m: isLocalizedText(msg) ? msg : String(msg) }),
       giveItem(p, k, n) { if (!ITEMS[k]) return false; p.inv[k] = (p.inv[k] || 0) + (n === undefined ? 1 : n); return true; },
       giveGold(p, n) { p.gold = Math.max(0, p.gold + n); }, giveXp: (p, n) => gainXp(p, n), refresh: p => afterGearChange(p),
       heal(p) { p.hp = p.maxhp; p.mp = p.maxmp; },
       teleport(p, x, y) { p.x = +x; p.y = +y; clampWorld(p); p.dest = null; p.target = 0; p.chasingTarget = false; },
       setLevel(p, l) { p.lvl = Math.max(1, Math.min(200, l | 0)); p.xp = 0; const spent = SKILLS.reduce((s, k) => s + p.sk[k], 0) - 1; p.sp = Math.max(0, p.lvl - spent); stats(p); p.hp = p.maxhp; p.mp = p.maxmp; sendInv(p); },
-      effect(x, y, radius, style) { ev('fx', x, y, radius || 60, { s: style || 'buff' }); }, text(x, y, txt, kind) { ev(kind || 'xp', x, y, String(txt)); },
+      effect(x, y, radius, style) { ev('fx', x, y, radius || 60, { s: style || 'buff' }); }, text(x, y, message, kind) { ev(kind || 'xp', x, y, isLocalizedText(message) ? message : String(message)); },
       isAdmin, kick(p) { try { p.c.sock.end(); } catch (e) {} }, data: () => (pluginData[pluginName] = pluginData[pluginName] || {}),
       stats: serverStats,
     };

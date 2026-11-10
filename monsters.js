@@ -1,5 +1,14 @@
 'use strict';
 
+const STONE_BASE_LEVEL = 5;
+const STONE_BASE_HEALTH = 4000;
+const STONE_HEALTH_EXPONENT = 1.4;
+
+function stoneTemplate(definition) {
+  const levelRatio = definition.lvl / STONE_BASE_LEVEL;
+  return { ...definition, hp: Math.round(STONE_BASE_HEALTH * levelRatio ** STONE_HEALTH_EXPONENT) };
+}
+
 const MOBTYPES = {
   // Whispering Meadows 1-6
   wolf:        { name: 'Wild Wolf',        lvl: 1,  hp: 40,     dmg: 4,   spd: 105, xp: 14,    gold: [3, 9],         r: 14, aggro: 85,  color: '#9aa0a6' },
@@ -42,13 +51,13 @@ const MOBTYPES = {
   // Death Zone 50-60
   deathlord:   { name: 'Lord of Death',    lvl: 60, hp: 300000, dmg: 450, spd: 105, xp: 120000, gold: [20000, 40000], r: 54, aggro: 360, color: '#1a1a1a', boss: true },
   // stones (one kind per zone)
-  stone:       { name: 'Spirit Stone',     lvl: 5,  hp: 4000,   dmg: 0, spd: 0, xp: 600,   gold: [400, 800],     r: 28, aggro: 0, color: '#5cc8ff', stone: true, shape: 'crystal' },
-  jadestone:   { name: 'Jade Stone',       lvl: 12, hp: 11000,  dmg: 0, spd: 0, xp: 1800,  gold: [900, 1800],    r: 28, aggro: 0, color: '#4ee08a', stone: true, shape: 'crystal' },
-  bonestone:   { name: 'Bone Obelisk',     lvl: 20, hp: 170000, dmg: 0, spd: 0, xp: 4500,  gold: [1800, 3600],   r: 30, aggro: 0, color: '#e8e0c0', stone: true, shape: 'obelisk' },
-  emberstone:  { name: 'Ember Stone',      lvl: 28, hp: 45000,  dmg: 0, spd: 0, xp: 9000,  gold: [3000, 6000],   r: 30, aggro: 0, color: '#ff7a2a', stone: true, shape: 'obelisk' },
-  froststone:  { name: 'Frost Stone',      lvl: 37, hp: 26000,  dmg: 0, spd: 0, xp: 16000, gold: [5000, 9000],   r: 30, aggro: 0, color: '#9fe8ff', stone: true, shape: 'crystal' },
-  voidstone:   { name: 'Void Stone',       lvl: 46, hp: 105000, dmg: 0, spd: 0, xp: 26000, gold: [7000, 13000],  r: 30, aggro: 0, color: '#b45cff', stone: true, shape: 'crystal' },
-  doomstone:   { name: 'Doom Stone',       lvl: 56, hp: 70000,  dmg: 0, spd: 0, xp: 45000, gold: [12000, 20000], r: 32, aggro: 0, color: '#ff2a3a', stone: true, shape: 'obelisk' },
+  stone:       stoneTemplate({ name: 'Spirit Stone',     lvl: 5, dmg: 0, spd: 0, xp: 600,   gold: [400, 800],     r: 28, aggro: 0, color: '#5cc8ff', stone: true, shape: 'crystal' }),
+  jadestone:   stoneTemplate({ name: 'Jade Stone',       lvl: 12, dmg: 0, spd: 0, xp: 1800,  gold: [900, 1800],    r: 28, aggro: 0, color: '#4ee08a', stone: true, shape: 'crystal' }),
+  bonestone:   stoneTemplate({ name: 'Bone Obelisk',     lvl: 20, dmg: 0, spd: 0, xp: 4500,  gold: [1800, 3600],   r: 30, aggro: 0, color: '#e8e0c0', stone: true, shape: 'obelisk' }),
+  emberstone:  stoneTemplate({ name: 'Ember Stone',      lvl: 28, dmg: 0, spd: 0, xp: 9000,  gold: [3000, 6000],   r: 30, aggro: 0, color: '#ff7a2a', stone: true, shape: 'obelisk' }),
+  froststone:  stoneTemplate({ name: 'Frost Stone',      lvl: 37, dmg: 0, spd: 0, xp: 16000, gold: [5000, 9000],   r: 30, aggro: 0, color: '#9fe8ff', stone: true, shape: 'crystal' }),
+  voidstone:   stoneTemplate({ name: 'Void Stone',       lvl: 46, dmg: 0, spd: 0, xp: 26000, gold: [7000, 13000],  r: 30, aggro: 0, color: '#b45cff', stone: true, shape: 'crystal' }),
+  doomstone:   stoneTemplate({ name: 'Doom Stone',       lvl: 56, dmg: 0, spd: 0, xp: 45000, gold: [12000, 20000], r: 32, aggro: 0, color: '#ff2a3a', stone: true, shape: 'obelisk' }),
 };
 const TIERS = [
   { name: 'Whispering Meadows', min: 400,  max: 1250, lv: [1, 6],   types: ['wolf', 'slime', 'boar', 'shroom'],        bosses: ['alphawolf', 'kingslime'],   bossCount: 2, count: 170, stones: 10, stone: 'stone',      alphas: 5 },
@@ -88,7 +97,8 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick 
     const levelRatio = spawnLevel / baseLevel;
     const isAlpha = Boolean(options.alpha);
     const levelDamageMultiplier = levelRatio ** 1.37;
-    const healthMultiplier = levelRatio ** 1.9 * (isAlpha ? 5 : 1);
+    const healthExponent = template.stone ? STONE_HEALTH_EXPONENT : 1.9;
+    const healthMultiplier = levelRatio ** healthExponent * (isAlpha ? 5 : 1);
     const damageMultiplier = levelDamageMultiplier * (isAlpha ? 1.6 : 1);
     const experienceMultiplier = levelRatio ** 2 * (isAlpha ? 6 : 1);
     const goldMultiplier = levelRatio ** 1.5 * (isAlpha ? 5 : 1);

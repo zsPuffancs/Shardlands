@@ -3,7 +3,13 @@ const GL = (() => {
   const cv = document.getElementById('c'), dprRaw = window.devicePixelRatio || 1;
   const gl = cv.getContext('webgl', { antialias: dprRaw < 1.5, alpha: false, powerPreference: 'high-performance' });
   const ext = gl && gl.getExtension('ANGLE_instanced_arrays');
-  if (!gl || !ext) { document.body.innerHTML = '<p style="padding:30px;color:#fff;font-family:sans-serif">Your browser does not support WebGL (with instancing). Try a current Chrome, Edge or Firefox.</p>'; throw new Error('no webgl'); }
+  if (!gl || !ext) {
+    const notice = document.createElement('p');
+    notice.style.cssText = 'padding:30px;color:#fff;font-family:sans-serif';
+    notice.textContent = text('graphics.webglRequired', 'Your browser does not support WebGL (with instancing). Try a current Chrome, Edge or Firefox.');
+    document.body.replaceChildren(notice);
+    throw new Error('no webgl');
+  }
   const SH = 2048, STRIDE = 17, CH = 625, SUN = (() => { const v = [0.45, 0.85, 0.3], l = Math.hypot(...v); return v.map(x => x / l); })();
   const PREC = '#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n';
   const VSX = 'attribute vec3 p;attribute vec3 n;attribute vec4 m0;attribute vec4 m1;attribute vec4 m2;attribute vec4 c;attribute float e;';

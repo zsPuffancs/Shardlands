@@ -56,6 +56,10 @@ at your level ±20% (slot of the first item, best +forge kept). Auto-merge butto
 ## Skills
 1 point per level. Active skills (keys 1-3) go to rank 5, passives to rank 10. Open with K and switch tabs.
 
+## Language and text size
+
+Choose English or Hungarian on the login screen or in Settings → Graphics. Text follows the game window size, and the text-size slider lets you adjust it further from 85% to 130%. Both settings are saved in the browser. See PLUGINS.md for adding a locale.
+
 ## Controls (all rebindable in Settings → Key bindings, except movement)
 Click: move / attack / loot / talk · Space: attack the selected monster in reach or pick the nearest one in reach · WASD walk · right-drag or ←→ camera · wheel zoom · 1-3 skills · Q/E/R/T potions & return scroll
 F talk · I inventory · K skills · O settings · G graphics quality · P fps · M mute · Enter chat (/help) · Esc close windows.

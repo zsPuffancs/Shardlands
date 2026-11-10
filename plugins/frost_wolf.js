@@ -5,6 +5,6 @@ module.exports = { name: 'frost_wolf', version: '1.0', init(api) {
   const { CX, CY } = api.consts;
   for (let k = 0; k < 3; k++) { const a = 0.9 + k * 2.1, x = CX + Math.cos(a) * 820, y = CY + Math.sin(a) * 820; for (let i = 0; i < 3; i++) api.spawn('frostwolf', x + (Math.random() - .5) * 140, y + (Math.random() - .5) * 140); }
   api.addItem('frostpot', { n: 'Frostbite Tonic', price: 90, d: 'Heals 30% HP and +35% speed for 60s', color: '#8fe0ff', w: 3,
-    use(p) { p.hp = Math.min(p.maxhp, p.hp + Math.floor(p.maxhp * 0.3)); p.buf.spd = Date.now() + 60000; api.effect(p.x, p.y, 60, 'buff'); return 'You feel the chill rush through you.'; } });
-  api.on('kill', (p, m) => { if (m.ty === 'frostwolf' && Math.random() < 0.3) { api.giveItem(p, 'frostpot', 1); api.text(p.x, p.y, '+Frostbite Tonic', 'loot'); } });
+    use(p) { p.hp = Math.min(p.maxhp, p.hp + Math.floor(p.maxhp * 0.3)); p.buf.spd = Date.now() + 60000; api.effect(p.x, p.y, 60, 'buff'); return api.message('plugin.frostWolf.drink', 'You feel the chill rush through you.'); } });
+  api.on('kill', (p, m) => { if (m.ty === 'frostwolf' && Math.random() < 0.3) { api.giveItem(p, 'frostpot', 1); api.text(p.x, p.y, api.message('server.pickedUp', '+{item}', { item: api.message('item.frostpot.name', 'Frostbite Tonic') }), 'loot'); } });
 } };

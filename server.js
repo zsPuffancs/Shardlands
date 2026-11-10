@@ -1,6 +1,7 @@
 'use strict';
 // Shardlands entry point. Compose game services and manage the server lifecycle.
 const path = require('node:path');
+const { withLocalizedText } = require('./localized-text');
 const { loadServerConfig } = require('./server-config');
 const { openJsonStore, createGameSaves } = require('./persistence');
 const { W, H, CX, CY, rnd, rint, pick } = require('./game-world');
@@ -28,7 +29,7 @@ const refreshMobTypes = createMobTypeIndex(MOBTYPES);
 let events = [];
 
 function emitGameEvent(kind, x, y, value, extra) {
-  events.push(Object.assign({ k: kind, x: Math.round(x), y: Math.round(y), v: value }, extra));
+  events.push(withLocalizedText(Object.assign({ k: kind, x: Math.round(x), y: Math.round(y), v: value }, extra), 'v'));
 }
 
 function drainEvents() {
@@ -40,7 +41,7 @@ function drainEvents() {
 function broadcast(message) {
   for (const player of players.values()) send(player.c, message);
 }
-const send = (connection, message) => transport.send(connection, message);
+const send = (connection, message) => transport.send(connection, withLocalizedText(message, 'm'));
 const say = (player, message) => send(player.c, { t: 'msg', m: message });
 const toast = (player, message, color) => send(player.c, { t: 'toast', m: message, c: color });
 const fire = (event, ...args) => pluginHost.fire(event, ...args);

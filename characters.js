@@ -1,5 +1,7 @@
 'use strict';
 
+const { localizedText: messageText } = require('./localized-text');
+
 const { SLOTS, NO_DMG, plusMul } = require('./equipment');
 
 const CLASSES = {
@@ -45,9 +47,9 @@ function createProgression({ fire, ev, say, toast, broadcast, sendInv }) {
     let leveledUp = false;
     while (player.xp >= xpNeed(player.lvl)) {
       player.xp -= xpNeed(player.lvl); player.lvl++; player.sp++; leveledUp = true; stats(player); player.hp = player.maxhp; player.mp = player.maxmp;
-      ev('lvl', player.x, player.y, 'LEVEL ' + player.lvl); ev('fx', player.x, player.y, 110, { s: 'lvl', a: player.id });
-      say(player, 'Level ' + player.lvl + '! You gained a skill point (press K).'); toast(player, 'Level ' + player.lvl + '!', '#ffe97a');
-      broadcast({ t: 'chat', n: '*', m: player.name + ' reached level ' + player.lvl + '!' }); fire('levelup', player);
+      ev('lvl', player.x, player.y, messageText("server.levelBanner", "LEVEL {level}", { level: player.lvl })); ev('fx', player.x, player.y, 110, { s: 'lvl', a: player.id });
+      say(player, messageText("server.levelPoint", "Level {level}! You gained a skill point (press K).", { level: player.lvl })); toast(player, messageText("server.level", "Level {level}!", { level: player.lvl }), '#ffe97a');
+      broadcast({ t: 'chat', n: '*', m: messageText("server.playerLevel", "{player} reached level {level}!", { player: player.name, level: player.lvl }) }); fire('levelup', player);
     }
     if (leveledUp) sendInv(player);
   }

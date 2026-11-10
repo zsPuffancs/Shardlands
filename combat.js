@@ -1,5 +1,7 @@
 'use strict';
 
+const { localizedText: messageText } = require('./localized-text');
+
 const { W, H, inVillage, dist, rnd, rint, pick } = require('./game-world');
 const { MOBTYPES, TIERS, SPECIAL } = require('./monsters');
 const { CLASSES, critCh, critMul, defRed, playerDmg } = require('./characters');
@@ -42,7 +44,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     const experienceMultiplier = template.stone ? 2 : template.boss || monster.alpha ? 1 : Math.max(0.1, 1 - Math.max(0, player.lvl - monster.lvl - 5) * 0.12);
     gainXp(player, Math.max(1, Math.round(monster.xp * rates.xpRate * experienceMultiplier)));
     dropLoot(player, monster); ev('die', monster.x, monster.y, monster.ty, { b: monster.alpha ? 1 : 0 });
-    if (template.boss) { broadcast({ t: 'chat', n: '*', m: player.name + ' has slain ' + template.name + '!' }); broadcast({ t: 'toast', m: player.name + ' has slain ' + template.name + '!', c: '#ffd24a' }); }
+    if (template.boss) { broadcast({ t: 'chat', n: '*', m: messageText("server.bossSlain", "{player} has slain {monster}!", { player: player.name, monster: messageText('monster.' + monster.ty, template.name) }) }); broadcast({ t: 'toast', m: messageText("server.bossSlain", "{player} has slain {monster}!", { player: player.name, monster: messageText('monster.' + monster.ty, template.name) }), c: '#ffd24a' }); }
     fire('kill', player, monster);
     if (monster.summoned) mobs.delete(monster.id);
   }
@@ -55,7 +57,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     player.hp -= damage; ev('hurt', player.x, player.y, damage, { a: monster.id });
     if (player.hp <= 0) {
       player.hp = 0; player.dead = now + 5000; player.target = 0; player.chasingTarget = false; const loss = Math.floor(player.gold * rates.deathGoldLoss); player.gold -= loss;
-      say(player, 'You died. Lost ' + loss + ' gold. Respawning in the village...'); fire('death', player, monster);
+      say(player, messageText("server.died", "You died. Lost {gold} gold. Respawning in the village...", { gold: loss })); fire('death', player, monster);
       for (const attacker of mobs.values()) if (attacker.target === player.id) attacker.target = 0;
     }
   }
