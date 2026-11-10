@@ -82,4 +82,47 @@ kbd { border: 4px solid transparent; border-image: url(ui/keycap.png) 12 fill / 
 #mapbtns button { width: 34px; height: 30px; padding: 0; font-size: 0.875rem; }
 #zname { font-family: Georgia, serif; letter-spacing: 1px; }
 .lb .hb { border-radius: 2px; box-shadow: 0 0 0 1px #000, 0 0 0 2px #a37a2c99; }
+
+/* Centered hero nameplate */
+.lb.pl.me .n {
+  position: relative;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: .45em;
+  font-size: calc(clamp(13px, 1.8vmin, 17px) * var(--ui-text-scale));
+  width: max-content;
+  transform: translateX(-50%);
+  padding: .12em .48em;
+  border-block: 1px solid #9b6a303b;
+  background: linear-gradient(90deg, transparent, #100906ee 20% 80%, transparent);
+}
+.hero-name {
+  color: #f6d77d;
+  font: 700 1em/1.1 Georgia, serif;
+  text-shadow: 0 -1px #fff2bc, 0 1px #8d5317, 0 2px #4d2d0a, 0 3px 4px #000;
+}
+.hero-level {
+  position: relative;
+  padding: .17em .25em;
+  border: solid transparent;
+  border-width: .35em .8em;
+  border-image: url(ui/nameplate.png) 12 30 fill / .35em .8em stretch;
+  color: #f9e5ac;
+  font: 700 .74em/1 Georgia, serif;
+  text-shadow: 0 1px 2px #000;
+}
+.hero-level::before, .hero-level::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: .38em;
+  height: .38em;
+  transform: translateY(-50%) rotate(45deg);
+  border: 1px solid #e0a246;
+  background: linear-gradient(#ff7c69, #751323 65%);
+  box-shadow: 0 1px 3px #000;
+}
+.hero-level::before { left: -.58em; }
+.hero-level::after { right: -.58em; }
 #invp { width: 404px !important; } #skillp, #shopw, #smithw { width: 370px !important; }

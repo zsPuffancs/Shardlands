@@ -8,8 +8,17 @@
 #labels,#floaters{position:fixed;inset:0;pointer-events:none;overflow:hidden}
 .lb{position:absolute;left:0;top:0;text-align:center;font-size:0.75rem;font-weight:600;text-shadow:0 1px 2px #000,0 0 3px #000;white-space:nowrap;will-change:transform}
 .lb .hb{width:50px;height:5px;background:#000b;margin:2px auto 0;border-radius:3px;overflow:hidden;box-shadow:0 0 0 1px #0009}.lb .hb i{display:block;height:100%;background:linear-gradient(#ff6a5a,#a81e16)}
-.lb.pl .hb i{background:linear-gradient(#7ee87e,#22912e)}.lb.me{color:var(--gold)}.lb.npc{color:#ffe08a;font-size:0.8125rem}.lb.npc .hb,.lb.loot .hb{display:none}
+.lb.pl .hb i{background:linear-gradient(#7ee87e,#22912e)}.lb.npc{color:#ffe08a;font-size:0.8125rem}.lb.npc .hb,.lb.loot .hb{display:none}
 .lb.boss .hb{width:84px;height:7px}.lb.boss{font-size:0.8125rem}.lb.alpha .hb{width:64px;height:6px}.lb.alpha .hb i{background:linear-gradient(#ffb04a,#b4560e)}.lb.loot{font-size:0.6875rem}
+/* Player nameplates */
+.lb.pl .n{color:#a9d9ff}
+.lb.pl.me{left:50%;margin-top:-.65rem}
+.mob-level{font-weight:700;white-space:nowrap}
+.lb .mob-level{font-size:0.6875rem}
+.mob-level--trivial{color:#a8a8a8}
+.mob-level--easy{color:#8de783}
+.mob-level--even{color:#ffe174}
+.mob-level--dangerous{color:#ff7979}
 .ft{position:absolute;left:0;top:0;font-weight:800;font-size:0.9375rem;text-shadow:0 0 3px #000,0 1px 2px #000;white-space:nowrap;will-change:transform}
 .ft--level{font-size:1.375rem}
 .ft--damage{font-size:calc(clamp(20px,2.8vmin,38px) * var(--ui-text-scale));text-shadow:0 0 4px #000,0 2px 3px #000}

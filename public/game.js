@@ -549,10 +549,27 @@ function wantDir() {
 function onScreen(x, z, m) { const p = GL.project(x, 30, z); return p && p.x > -m && p.x < innerWidth + m && p.y > -m && p.y < innerHeight + m; }
 
 // ---------- labels ----------
+function monsterLevelLabel(level, playerLevel) {
+  const difference = level - playerLevel;
+  let threat = 'even';
+  if (difference <= -5) threat = 'trivial';
+  else if (difference <= 0) threat = 'easy';
+  else if (difference >= 4) threat = 'dangerous';
+
+  const threatNames = { trivial: 'Much lower level', easy: 'Same or lower level', even: 'Slightly higher level', dangerous: 'Higher level' };
+  const title = text('mob.threat.' + threat, threatNames[threat]);
+  return '<span class="mob-level mob-level--' + threat + '" title="' + esc(title) + '">' +
+    esc(text('zone.levelShort', 'Lv ') + level) + '</span>';
+}
+
 function label(id, html, cls, x, y, z, hpv, wd, color) {
   let L = labels.get(id); if (!L) { const el = document.createElement('div'); el.className = 'lb ' + cls; el.innerHTML = '<div class="n"></div><div class="hb"><i></i></div>'; $('labels').appendChild(el); L = { el, n: el.firstChild, i: el.querySelector('i'), h: '', w: -1, wd: 0, vis: true }; labels.set(id, L); }
   L.used = true; const p = GL.project(x, y, z); if (!p || p.x < -100 || p.x > innerWidth + 100 || p.y < -40 || p.y > innerHeight + 40) { if (L.vis) { L.vis = false; L.el.style.display = 'none'; } return; }
-  const w = wd || 90; if (!L.vis) { L.vis = true; L.el.style.display = 'block'; } L.el.style.transform = 'translate(' + ((p.x - w / 2) | 0) + 'px,' + ((p.y - 14) | 0) + 'px)'; if (L.wd !== w) { L.wd = w; L.el.style.width = w + 'px'; }
+  const w = wd || 90;
+  if (!L.vis) { L.vis = true; L.el.style.display = 'block'; }
+  const horizontalOffset = id === 'me' ? '-50%' : ((p.x - w / 2) | 0) + 'px';
+  L.el.style.transform = 'translate(' + horizontalOffset + ',' + ((p.y - 14) | 0) + 'px)';
+  if (L.wd !== w) { L.wd = w; L.el.style.width = w + 'px'; }
   const hh = html + '|' + (color || ''); if (L.h !== hh) { L.h = hh; L.n.innerHTML = html; if (color) L.el.style.color = color; }
   const pc = Math.round(hpv * 100); if (pc !== L.w) { L.w = pc; L.i.style.width = pc + '%'; }
 }
@@ -598,12 +615,16 @@ function frame(now) {
       if (m.al) { const rr = t.r * 1.3 + 14 + Math.sin(now / 200 + m.id) * 3; D(M.ring, e.rx, 2, e.ry, rr, 1, rr, -now / 700, 0, [1, .55, .1], 1, .7); }
       const mc = MOBCHAR[m.ty]; if (t.st) stoneModel(e, t); else if (mc && CHARS[mc.m] && nChar < 26 && hd < 750) { nChar++; drawChar(e, mc.m, { h: 64 * mc.sc * (m.al ? 1.3 : 1), tint: mc.tint, emc: mc.emc }, now); } else if (i < full || hd < 420) { if (blob) D(M.disc, e.rx, 1, e.ry, t.r * 1.1, 1, t.r * 1.1, 0, 0, [0, 0, 0], 0, .3); o.fn(e, o); } else lod(e, t, o, m.al);
       if ((hd < 620 && nl < 45) || m.id === me.tg || ((t.boss || m.al || t.st) && hd < 1100)) {
-        nl++; const dl = (m.l || 0) - me.l, lc = t.st ? t.c : t.boss ? '#ffd24a' : m.al ? '#ffb04a' : dl >= 5 ? '#ff6a6a' : dl >= 2 ? '#ffb04a' : dl > -5 ? '#ffffff' : '#9ab';
-        label('m' + m.id, '<span style="color:' + lc + '">' + (t.boss ? '★ ' : m.al ? esc(text("mob.alpha", "Alpha ")) : '') + esc(mobName(m.ty, t.n)) + '</span> <span style="color:#aaa;font-size:0.625rem">' + esc(text("zone.levelShort", "Lv ")) + m.l + '</span>', t.boss ? 'mob boss' : m.al ? 'mob alpha' : 'mob', e.rx, Math.min(260, (o.top || 56) * (o.sc || 1)) + 16, e.ry, m.hp / m.mh, t.boss ? 150 : m.al ? 130 : 110);
+        nl++;
+        const nameColor = t.st ? t.c : t.boss ? '#ffd24a' : m.al ? '#ffb04a' : '#fff';
+        label('m' + m.id, '<span style="color:' + nameColor + '">' + (t.boss ? '★ ' : m.al ? esc(text("mob.alpha", "Alpha ")) : '') + esc(mobName(m.ty, t.n)) + '</span> ' + monsterLevelLabel(m.l, me.l), t.boss ? 'mob boss' : m.al ? 'mob alpha' : 'mob', e.rx, Math.min(260, (o.top || 56) * (o.sc || 1)) + 16, e.ry, m.hp / m.mh, t.boss ? 150 : m.al ? 130 : 110);
       }
     }
     for (const o of pl) { const e = ents.get(o.id); if (!onScreen(e.rx, e.ry, 160)) continue; drawPlayer(e, o.c, o.w, o.d, o.rg); label('p' + o.id, esc(o.n) + ' <span style="color:#aaa">' + esc(text("zone.levelShort", "Lv ")) + o.l + '</span>', 'pl', e.rx, 92, e.ry, o.hp / o.mh, 120); }
-    drawPlayer(S, I.cls, me.w, me.dead, me.buf.rage); label('me', esc(I.name) + ' <span style="color:#ccc">' + esc(text("zone.levelShort", "Lv ")) + me.l + '</span>', 'pl me', S.rx, 92, S.ry, me.hp / me.mh, 120);
+    drawPlayer(S, I.cls, me.w, me.dead, me.buf.rage);
+    const heroNameplate = '<span class="hero-name">' + esc(I.name) + '</span><span class="hero-level">' +
+      esc(text('zone.levelShort', 'Lv ') + me.l) + '</span>';
+    label('me', heroNameplate, 'pl me', S.rx, 92, S.ry, me.hp / me.mh, 120);
     if (intent) D(M.ring, intent.x, 1.6, intent.y, 9, 1, 9, now / 300, 0, [1, .85, .3], 1, .5);
     if (now - zoneCheck > 400) { zoneCheck = now; const z = zoneOf(S.rx, S.ry); if (z !== lastZone) { if (lastZone !== -9) banner(zoneName(z < 0 ? 'Dawnhearth' : ZT[z].name), z < 0 ? text("zone.safe", "Safe zone") : text("zone.levels", "Levels ") + ZT[z].lv[0] + ' - ' + ZT[z].lv[1] + (ZT[z].outer ? text("zone.danger", " · enter at your own risk") : ''), z >= 0 && ZT[z].outer); lastZone = z; } }
     nearNpcK = null; let nd = WORLD.npcRange - 30; for (const k in WORLD.npcs) { const d = npcDist(k); if (d < nd) { nd = d; nearNpcK = k; } }
