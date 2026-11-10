@@ -100,6 +100,12 @@ button.pri{background:linear-gradient(#b07f22,#7a5414);border-color:var(--gold);
 #bagfull{color:#ff8a6a}
 .itemcard{background:#0005;border:1px solid #5a4630;border-radius:8px;padding:10px;font-size:0.75rem}
 .itemcard .nm{font-size:0.875rem;font-weight:700}.ln{display:flex;justify-content:space-between;gap:10px}.up{color:#6fe39a}.dn{color:#ff7a6a}.mu{color:var(--mut)}
+#smith-auto-dialog{width:min(420px,calc(100vw - 32px));padding:18px;color:var(--txt)}
+#smith-auto-dialog::backdrop{background:#080503ad}
+#smith-auto-title{margin:0 0 8px;color:var(--gold);font:700 1.125rem Georgia,serif}
+#smith-auto-message{margin:0 0 14px;line-height:1.5}
+.smith-dialog-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+#smith-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}#smith-actions button{flex:1 1 125px}
 #smres{min-height:22px;text-align:center;font-weight:800;margin-top:8px;font-size:0.9375rem}
 #tip{position:fixed;z-index:100000;pointer-events:none;display:none;min-width:200px;max-width:270px;background:#100c09f4;border:1px solid #8a6d3a;border-radius:8px;padding:9px 11px;font-size:0.75rem;box-shadow:0 6px 22px #000d}
 #tip b.nm{font-size:0.875rem;display:block}
@@ -170,7 +176,11 @@ kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1
 <div class="win panel" id="smithw" style="right:210px;top:120px;width:380px"><div class="win-h"><b><span data-text="npc.smith">⚒ Blacksmith</span></b><button class="x" data-close>✕</button></div><div class="win-b">
   <div class="mu" style="font-size:0.75rem;margin-bottom:6px"><span data-text="smith.intro">"Bring me any piece of gear. Every + adds 10% to its stats (weapons +15% damage). From +5 a failure costs a level."</span></div>
   <div class="hd2" style="margin-top:2px"><span data-text="smith.pick">Pick an item</span></div><div id="smpick" style="display:grid;grid-template-columns:repeat(8,1fr);gap:5px"></div>
-  <div id="smcard" style="margin-top:10px"></div><button id="smgo" class="pri" style="width:100%;margin-top:8px" disabled><span data-text="smith.upgrade">Upgrade</span></button><div id="smres"></div></div></div>
+  <div id="smcard" style="margin-top:10px"></div>
+  <div id="smith-actions">
+    <button id="smgo" class="pri" disabled><span data-text="smith.upgrade">Upgrade</span></button>
+    <button id="smauto" disabled><span data-text="smith.autoUpgrade">Auto Upgrade</span></button>
+  </div><div id="smres" aria-live="polite"></div></div></div>
 <div class="win panel" id="mysticw" style="right:210px;top:120px;width:380px"><div class="win-h"><b><span data-text="npc.mystic">🔮 Soul Mystic</span></b><button class="x" data-close>✕</button></div><div class="win-b">
   <div class="mu" style="font-size:0.75rem;margin-bottom:6px"><span data-text="mystic.intro">"Bring me souls and I will reshape your gear. Every stat is rolled again - for better or worse."</span></div>
   <div class="hd2" style="margin-top:2px"><span data-text="mystic.pick">Pick an item</span><span id="mysouls" style="text-transform:none;color:#c9a0ff"></span></div><div id="mypick" style="display:grid;grid-template-columns:repeat(8,1fr);gap:5px;max-height:220px;overflow:auto"></div>
@@ -202,6 +212,16 @@ kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1
   <div data-spage="keys" style="display:none"><div class="mu" style="font-size:0.75rem;margin-bottom:6px"><span data-text="settings.keysHint">Click a key, then press the new key (Esc cancels). WASD / arrows always move, Enter opens chat.</span></div><div class="kb" id="kbl"></div>
     <button id="kbreset" style="margin-top:8px;width:100%"><span data-text="settings.resetKeys">Reset to defaults</span></button></div></div></div>
 </div>
+<dialog id="smith-auto-dialog" class="panel" aria-labelledby="smith-auto-title" aria-describedby="smith-auto-message">
+  <form method="dialog">
+    <h2 id="smith-auto-title" data-text="smith.autoUpgrade">Auto Upgrade</h2>
+    <p id="smith-auto-message"></p>
+    <div class="smith-dialog-actions">
+      <button value="cancel" autofocus data-text="smith.autoCancel">Cancel</button>
+      <button class="pri" value="confirm" data-text="smith.autoStart">Start upgrading</button>
+    </div>
+  </form>
+</dialog>
 <div id="dead"><span data-text="hud.died">You died…</span><small id="deadsec"></small></div>
 <script src="text.js"></script><script src="locales/hu.js"></script><script src="engine.js"></script><script src="game.js"></script><script src="world.js"></script><script src="ui.js"></script>
 </body></html>

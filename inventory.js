@@ -68,14 +68,50 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     ev('fx', player.x, player.y, 60, { s: 'lvl', a: player.id }); ev('loot', player.x, player.y, messageText("server.mergeCount", "Merges: {count}!", { count: n }), { r: best.rar });
     say(player, messageText("server.bestMerge", "Merged {used} items into {count}. Best result: {rarity} {item}.", { used, count: n, rarity: messageText('rarity.' + best.rar, RARITY[best.rar].n), item: gearText(best.name) })); toast(player, messageText("server.mergeDone", "Completed merges: {count}", { count: n }), '#ffe97a'); sendInv(player);
   }
-  function upgradeItem(player, uid) {
-    if (!nearNpc(player, 'smith')) return say(player, messageText("server.upgradeAtSmith", "Talk to the Blacksmith in the village to upgrade equipment."));
-    let item = null; for (const slot of SLOTS) if (player.eq[slot] && player.eq[slot].uid === uid) item = player.eq[slot];
-    if (!item) return say(player, messageText("server.upgradeWorn", "The Blacksmith only upgrades equipment you are wearing.")); if (item.plus >= 9) return say(player, messageText("server.upgradeMax", "{item} is already +9.", { item: gearText(item.name) }));
-    const cost = upCostFor(item); if (player.gold < cost) return say(player, messageText("server.upgradeCost", "The Blacksmith wants {gold} gold.", { gold: cost }));
-    player.gold -= cost; const smith = NPCS.smith;
-    if (Math.random() < UP_RATE[item.plus]) { item.plus++; send(player.c, { t: 'forge', ok: 1, uid, plus: item.plus }); ev('fx', smith.x, smith.y, 50, { s: 'lvl' }); if (item.plus >= 7) broadcast({ t: 'chat', n: '*', m: messageText("server.playerForged", "{player} forged a +{level} {item}!", { player: player.name, level: item.plus, item: gearText(item.name) }) }); }
-    else { const drop = item.plus >= 5; if (drop) item.plus--; send(player.c, { t: 'forge', ok: 0, uid, plus: item.plus, drop }); ev('fx', smith.x, smith.y, 40, { s: 'rage' }); }
+  function tryUpgrade(player, item, cost) {
+    player.gold -= cost;
+    const success = Math.random() < UP_RATE[item.plus];
+    const drop = !success && item.plus >= 5;
+    if (success) item.plus++;
+    else if (drop) item.plus--;
+    return { success, drop };
+  }
+
+  function announceUpgrade(player, item) {
+    if (item.plus < 7) return;
+    broadcast({ t: 'chat', n: '*', m: messageText('server.playerForged', '{player} forged a +{level} {item}!', {
+      player: player.name, level: item.plus, item: gearText(item.name),
+    }) });
+  }
+
+  function upgradeItem(player, uid, automatic = false) {
+    if (!nearNpc(player, 'smith')) return say(player, messageText('server.upgradeAtSmith', 'Talk to the Blacksmith in the village to upgrade equipment.'));
+    const item = SLOTS.map(slot => player.eq[slot]).find(gear => gear?.uid === uid);
+    if (!item) return say(player, messageText('server.upgradeWorn', 'The Blacksmith only upgrades equipment you are wearing.'));
+    if (item.plus >= 9) return say(player, messageText('server.upgradeMax', '{item} is already +9.', { item: gearText(item.name) }));
+    let cost = upCostFor(item);
+    if (player.gold < cost) return say(player, messageText('server.upgradeCost', 'The Blacksmith wants {gold} gold.', { gold: cost }));
+
+    const smith = NPCS.smith;
+    if (!automatic) {
+      const { success, drop } = tryUpgrade(player, item, cost);
+      send(player.c, { t: 'forge', ok: success ? 1 : 0, uid, plus: item.plus, ...(success ? {} : { drop }) });
+      ev('fx', smith.x, smith.y, success ? 50 : 40, { s: success ? 'lvl' : 'rage' });
+      if (success) announceUpgrade(player, item);
+    } else {
+      const initialLevel = item.plus;
+      let attempts = 0, spent = 0;
+      while (item.plus < 9 && cost > 0 && Number.isFinite(cost) && player.gold >= cost) {
+        tryUpgrade(player, item, cost);
+        attempts++;
+        spent += cost;
+        cost = upCostFor(item);
+      }
+      const improved = item.plus > initialLevel;
+      send(player.c, { t: 'forge', automatic: true, ok: improved ? 1 : 0, uid, plus: item.plus, attempts, spent });
+      ev('fx', smith.x, smith.y, improved ? 50 : 40, { s: improved ? 'lvl' : 'rage' });
+      if (improved) announceUpgrade(player, item);
+    }
     afterGearChange(player);
   }
 

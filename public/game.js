@@ -461,7 +461,7 @@ function onMsg(m) {
 // ---------- input ----------
 const GFX = ['auto', 'low', 'medium', 'high'];
 addEventListener('keydown', e => {
-  if (!I) return; const ci = $('chatin');
+  if (!I || $('smith-auto-dialog').open) return; const ci = $('chatin');
   if (e.key === 'Enter' && e.target?.closest('#chat-tabs')) return;
   if (document.activeElement === ci) { if (e.key === 'Enter') { if (ci.value.trim()) send({ t: 'chat', m: ci.value }); ci.value = ''; ci.style.display = 'none'; ci.blur(); } else if (e.key === 'Escape') { ci.style.display = 'none'; ci.blur(); } return; }
   if (e.key === 'Escape') {

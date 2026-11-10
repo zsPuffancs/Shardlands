@@ -331,7 +331,13 @@ document.addEventListener('click', e => {
   if (t.id === 'mygo') { if (mySel) { send({ t: 'reroll', uid: mySel }); $('myres').textContent = '…'; $('myres').style.color = '#ccc'; } return; }
   if (t.id === 'junk') { send({ t: 'sellall', rar: 1 }); sfx('sell'); return; }
   if (t.id === 'junk2') { send({ t: 'sellall', rar: 2 }); sfx('sell'); return; }
-  if (t.id === 'smgo') { if (smSel) { send({ t: 'upgrade', uid: smSel }); $('smres').textContent = '…'; $('smres').style.color = '#ccc'; sfx('click'); } return; }
+  if (t.id === 'smgo' || t.id === 'smauto') {
+    const item = smSel && I.slots.map(slot => EQ[slot]).find(gear => gear?.uid === smSel);
+    if (!item || t.disabled) return;
+    if (t.id === 'smauto') confirmAutoUpgrade(item);
+    else submitUpgrade(item.uid, false);
+    return;
+  }
   if (t.dataset.bag) { if (e.shiftKey && isOpen('shopw')) { send({ t: 'sell', uid: t.dataset.bag }); sfx('sell'); } else { send({ t: 'equip', uid: t.dataset.bag }); sfx('equip'); } tip.style.display = 'none'; return; }
   if (t.dataset.eq) { send({ t: 'unequip', slot: t.dataset.eq }); sfx('equip'); tip.style.display = 'none'; return; }
   if (t.dataset.use) { send({ t: 'use', i: t.dataset.use }); return; }
@@ -345,12 +351,38 @@ function buildShop() {
   if (!I) return;
   $('shl').innerHTML = Object.keys(I.items).map(k => { const it = I.items[k]; return '<div class="row"><div class="ico">' + consIcon(k) + '</div><div class="t"><b style="color:' + (it.color || '#fff') + '">' + esc(itemName(k, it.n)) + '</b><small>' + esc(itemDescription(k, it.d)) + '</small></div><button data-buy="' + k + '" data-n="1">' + it.price + 'g</button><button data-buy="' + k + '" data-n="10">×10</button></div>'; }).join('');
 }
+const smithAutoDialog = $('smith-auto-dialog');
+let pendingAutoUpgrade;
+
+function submitUpgrade(uid, automatic) {
+  send({ t: 'upgrade', uid, automatic });
+  $('smres').textContent = '…';
+  $('smres').style.color = '#ccc';
+}
+
+function confirmAutoUpgrade(item) {
+  if (smithAutoDialog.open) return;
+  pendingAutoUpgrade = item.uid;
+  smithAutoDialog.returnValue = '';
+  $('smith-auto-message').textContent = text('smith.autoConfirm',
+    'Automatically upgrade {item} to +9? This may spend all available gold ({gold}g). Failed attempts can lower the upgrade level.',
+    { item: gearName(item.name), gold: GameText.number(me.g) });
+  smithAutoDialog.showModal();
+}
+
+smithAutoDialog.addEventListener('close', () => {
+  const uid = pendingAutoUpgrade;
+  pendingAutoUpgrade = null;
+  if (smithAutoDialog.returnValue === 'confirm' && uid) submitUpgrade(uid, true);
+});
+
 function buildSmith() {
   if (!I || !me) return;
   const all = I.slots.map(s => EQ[s]).filter(Boolean);
   if (smSel && !findItem(smSel)) smSel = null; if (!smSel && EQ.weapon) smSel = EQ.weapon.uid;
   $('smpick').innerHTML = all.map((it, i) => slotHtml(it, 'data-sm="' + it.uid + '" data-tip="sm:' + it.uid + '"', (smSel === it.uid ? ' pick' : '')) + (i === I.slots.filter(s => EQ[s]).length - 1 && BAG.length ? '' : '')).join('');
-  const it = smSel && findItem(smSel);
+  const it = smSel && all.find(item => item.uid === smSel);
+  $('smauto').disabled = true;
   if (!it) { $('smcard').innerHTML = '<div class="mu">' + esc(text("smith.noEquipment", "No equipment.")) + '</div>'; $('smgo').disabled = true; return; }
   const worn = true;
   if (it.plus >= 9) { $('smcard').innerHTML = '<div class="itemcard">' + tipItem(it) + '<div class="up" style="margin-top:6px">' + esc(text("smith.maxUpgrade", "Maximum level reached (+9).")) + '</div></div>'; $('smgo').disabled = true; return; }
@@ -359,6 +391,7 @@ function buildSmith() {
   $('smcard').innerHTML = '<div class="itemcard"><b class="nm" style="color:' + RC[it.rar] + '">' + esc(gearName(it.name)) + ' +' + it.plus + ' → +' + (it.plus + 1) + '</b><div class="mu">' + (worn ? text("inventory.equipped", "Equipped") : text("inventory.inBag", "In bag")) + ' · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + it.ilvl + '</div><div style="margin:6px 0">' + rows + '</div>' +
     '<div class="ln"><span>' + esc(text("smith.cost", "Cost")) + '</span><b style="color:' + (me.g >= c ? '#ffd77a' : '#ff7a6a') + '">' + GameText.number(c) + 'g</b></div><div class="ln"><span>' + esc(text("smith.chance", "Success chance")) + '</span><b style="color:' + (ch >= 70 ? '#6fe39a' : ch >= 40 ? '#ffd24a' : '#ff7a6a') + '">' + ch + '%</b></div>' +
     (it.plus >= 5 ? '<div class="dn" style="margin-top:4px">' + esc(text('smith.failureLevel', '⚠ Failure drops the item to +{level}', { level: it.plus - 1 })) + '</div>' : '<div class="mu" style="margin-top:4px">' + esc(text("smith.goldOnly", "Failure only costs gold.")) + '</div>') + '</div>';
+  $('smauto').disabled = me.g < c;
   $('smgo').disabled = me.g < c; $('smgo').textContent = text("smith.upgradeFor", "Upgrade for {cost}g", { cost: GameText.number(c) });
 }
 function buildMystic() {
@@ -375,6 +408,15 @@ function buildMystic() {
 }
 function onReroll() { const r = $('myres'); r.textContent = text('mystic.done', '✦ The souls reshape the item.'); r.style.color = '#c9a0ff'; sfx('lvl'); }
 function onForge(m) {
+  if (m.automatic) {
+    const result = $('smres');
+    result.textContent = text('smith.autoResult', 'Final level: +{level} · Attempts: {attempts} · Gold spent: {gold}', {
+      level: m.plus, attempts: m.attempts, gold: GameText.number(m.spent),
+    });
+    result.style.color = m.plus === 9 ? '#6fe39a' : '#ffe0a0';
+    sfx(m.ok ? 'lvl' : 'fail');
+    return;
+  }
   const r = $('smres'); r.textContent = m.ok ? text("smith.success", "✔ Success! Now +{level}", { level: m.plus }) : (m.drop ? text("smith.dropped", "✖ Failed - dropped to +{level}", { level: m.plus }) : text("smith.failed", "✖ Failed")); r.style.color = m.ok ? '#6fe39a' : '#ff7a6a';
   sfx(m.ok ? 'lvl' : 'fail'); if (m.ok && m.plus >= 7) toast(text("smith.forged", "Forged +{level}!", { level: m.plus }), '#ffd24a');
 }
@@ -418,7 +460,7 @@ function saveBinds() { try { localStorage.setItem('sl_keys', JSON.stringify(BIND
 function applyBindLabels() { const map = { '1': 'skill1', '2': 'skill2', '3': 'skill3' }; document.querySelectorAll('#hotbar [data-sk]').forEach(el => el.querySelector('.key').textContent = keyName(BINDS['skill' + el.dataset.sk])); document.querySelectorAll('#hotbar [data-it]').forEach(el => el.querySelector('.key').textContent = keyName(BINDS[el.dataset.it])); }
 function buildKeys() { $('kbl').innerHTML = Object.keys(BIND_DEF).map(a => '<span>'  + esc(text('binding.' + a, BIND_NAME[a])) + '</span><button data-bind="' + a + '" class="' + (bindWait === a ? 'wait' : '') + '">' + (bindWait === a ? text("settings.pressKey", "press…") : keyName(BINDS[a])) + '</button>').join(''); }
 addEventListener('keydown', e => {
-  if (!bindWait) return; e.preventDefault(); e.stopImmediatePropagation(); const k = e.key.toLowerCase();
+  if (!bindWait || smithAutoDialog.open) return; e.preventDefault(); e.stopImmediatePropagation(); const k = e.key.toLowerCase();
   if (k !== 'escape') { if ('wasd'.includes(k) && k.length === 1 || k.startsWith('arrow') || k === 'enter') { toast(text("settings.reservedKey", "That key is reserved for movement / chat")); } else { const other = actionOf(k); if (other && other !== bindWait) BINDS[other] = BINDS[bindWait]; BINDS[bindWait] = k; saveBinds(); } }
   bindWait = null; buildKeys();
 }, true);

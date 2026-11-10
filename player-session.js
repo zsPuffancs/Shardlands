@@ -106,7 +106,7 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     sell: (player, message) => inventory.sellItem(player, message.uid),
     sellall: (player, message) => inventory.sellByRarity(player, message.rar),
     buy: (player, message) => inventory.buyItem(player, message.i, message.n),
-    upgrade: (player, message) => inventory.upgradeItem(player, String(message.uid || player.eq.weapon?.uid || '')),
+    upgrade: (player, message) => inventory.upgradeItem(player, String(message.uid || player.eq.weapon?.uid || ''), message.automatic === true),
     chat: (player, message) => handleChat(player, message.m),
   };
 
