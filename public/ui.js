@@ -296,7 +296,50 @@ function tipItem(it, cmp, plusOverride) {
   return h;
 }
 const tip = $('tip');
+const skillTooltipSelector = '#hotbar [data-sk], #skl [data-passive-skill]';
+let hoveredSkillElement = null;
+function updateSkillTooltip(shiftHeld) {
+  if (!hoveredSkillElement) return;
+  if (!shiftHeld || !I || !me || !hoveredSkillElement.isConnected) {
+    tip.style.display = 'none';
+    return;
+  }
+
+  const { sk, passiveSkill } = hoveredSkillElement.dataset;
+  const skill = passiveSkill || SK_ACT[Number(sk) - 1];
+  const [name, key, , description] = skillInfo(skill);
+  const rank = me.sk[skill] || 0;
+  const hasBonus = passiveSkill ? effectivePassiveRank(skill) > 0 : rank > 0;
+  const status = hasBonus
+    ? text('skill.tooltipRank', 'Rank {rank}/{max}', { rank, max: maxSkillRank(skill) })
+    : text('skill.tooltipUnlearned', 'Not learned · Rank 1 preview');
+  const effect = passiveSkill ? passiveTooltipDescription(skill) : description;
+  const shortcut = key ? ' · <kbd>' + esc(keyName(BINDS['skill' + key])) + '</kbd>' : '';
+  tip.innerHTML = '<b class="nm">' + esc(name) + '</b><div>' + esc(effect) +
+    '</div><div class="mu">' + esc(status) + shortcut + '</div>';
+  tip.style.display = 'block';
+
+  const bounds = hoveredSkillElement.getBoundingClientRect();
+  const above = bounds.top - tip.offsetHeight - 8;
+  const top = above >= 8 ? above : bounds.bottom + 8;
+  tip.style.left = Math.max(8, Math.min(bounds.left, innerWidth - tip.offsetWidth - 8)) + 'px';
+  tip.style.top = Math.max(8, Math.min(top, innerHeight - tip.offsetHeight - 8)) + 'px';
+}
+for (const event of ['keydown', 'keyup']) {
+  document.addEventListener(event, e => {
+    if (e.key === 'Shift' && !e.repeat) updateSkillTooltip(e.shiftKey);
+  });
+}
+addEventListener('blur', () => {
+  updateSkillTooltip(false);
+  hoveredSkillElement = null;
+});
 document.addEventListener('mouseover', e => {
+  hoveredSkillElement = e.target.closest?.(skillTooltipSelector) || null;
+  if (hoveredSkillElement) {
+    updateSkillTooltip(e.shiftKey);
+    return;
+  }
   const el = e.target.closest && e.target.closest('[data-tip]'); if (!el || !I || !me) { tip.style.display = 'none'; return; }
   const [kind, id] = el.dataset.tip.split(':'); let h = '';
   if (kind === 'bag') { const it = BAG.find(x => x.uid === id); if (it) h = tipItem(it, EQ[it.slot]) + '<div class="mu" style="margin-top:4px">' + (mergeMode ? text("inventory.selectForMerge", "Click: select for merging") : text("inventory.clickEquip", "Click: equip") + (isOpen('shopw') ? text("inventory.shiftSell", " · Shift/right-click: sell") : '')) + '</div>'; }
@@ -305,8 +348,16 @@ document.addEventListener('mouseover', e => {
   else if (kind === 'cons') { const it = I.items[id]; h = '<b class="nm" style="color:' + (it.color || '#fff') + '">' + esc(itemName(id, it.n)) + '</b><div>' + esc(itemDescription(id, it.d)) + '</div><div class="mu">' + esc(text('shop.buyPrice', 'Merchant price {gold}g', { gold: it.price })) + '</div>'; }
   if (!h) { tip.style.display = 'none'; return; } tip.innerHTML = h; tip.style.display = 'block';
 });
-document.addEventListener('mousemove', e => { if (tip.style.display === 'block') { const w = tip.offsetWidth, hh = tip.offsetHeight; tip.style.left = Math.min(innerWidth - w - 8, e.clientX + 16) + 'px'; tip.style.top = Math.min(innerHeight - hh - 8, e.clientY + 12) + 'px'; } });
-document.addEventListener('mouseout', e => { if (!e.relatedTarget || !e.relatedTarget.closest || !e.relatedTarget.closest('[data-tip]')) tip.style.display = 'none'; });
+document.addEventListener('mousemove', e => { if (!hoveredSkillElement && tip.style.display === 'block') { const w = tip.offsetWidth, hh = tip.offsetHeight; tip.style.left = Math.min(innerWidth - w - 8, e.clientX + 16) + 'px'; tip.style.top = Math.min(innerHeight - hh - 8, e.clientY + 12) + 'px'; } });
+document.addEventListener('mouseout', e => {
+  if (hoveredSkillElement) {
+    if (e.relatedTarget instanceof Node && hoveredSkillElement.contains(e.relatedTarget)) return;
+    hoveredSkillElement = null;
+    tip.style.display = 'none';
+    return;
+  }
+  if (!e.relatedTarget?.closest?.('[data-tip]')) tip.style.display = 'none';
+});
 const findItem = uid => BAG.find(i => i.uid === uid) || Object.values(EQ).find(i => i && i.uid === uid);
 document.addEventListener('click', e => {
   const t = e.target.closest('button,[data-bag],[data-eq],[data-use],[data-sm],[data-my]'); if (!t) return; sfx('click');
@@ -379,16 +430,15 @@ smithAutoDialog.addEventListener('close', () => {
 function buildSmith() {
   if (!I || !me) return;
   const all = I.slots.map(s => EQ[s]).filter(Boolean);
-  if (smSel && !findItem(smSel)) smSel = null; if (!smSel && EQ.weapon) smSel = EQ.weapon.uid;
-  $('smpick').innerHTML = all.map((it, i) => slotHtml(it, 'data-sm="' + it.uid + '" data-tip="sm:' + it.uid + '"', (smSel === it.uid ? ' pick' : '')) + (i === I.slots.filter(s => EQ[s]).length - 1 && BAG.length ? '' : '')).join('');
-  const it = smSel && all.find(item => item.uid === smSel);
+  const it = all.find(item => item.uid === smSel) || all[0];
+  smSel = it?.uid ?? null;
+  $('smpick').innerHTML = all.map(item => slotHtml(item, 'data-sm="' + item.uid + '" data-tip="sm:' + item.uid + '"', smSel === item.uid ? ' pick' : '')).join('');
   $('smauto').disabled = true;
   if (!it) { $('smcard').innerHTML = '<div class="mu">' + esc(text("smith.noEquipment", "No equipment.")) + '</div>'; $('smgo').disabled = true; return; }
-  const worn = true;
   if (it.plus >= 9) { $('smcard').innerHTML = '<div class="itemcard">' + tipItem(it) + '<div class="up" style="margin-top:6px">' + esc(text("smith.maxUpgrade", "Maximum level reached (+9).")) + '</div></div>'; $('smgo').disabled = true; return; }
   const c = upCost(it), ch = Math.round(I.upRate[it.plus] * 100);
   let rows = ''; for (const k of STATORDER) if (k in it.stats) rows += '<div class="ln"><span>' + esc(text('stat.' + k, I.stat[k].n)) + '</span><span>' + fmtS(k, eff(it, k)) + ' → <b class="up">' + fmtS(k, eff(it, k, it.plus + 1)) + '</b></span></div>';
-  $('smcard').innerHTML = '<div class="itemcard"><b class="nm" style="color:' + RC[it.rar] + '">' + esc(gearName(it.name)) + ' +' + it.plus + ' → +' + (it.plus + 1) + '</b><div class="mu">' + (worn ? text("inventory.equipped", "Equipped") : text("inventory.inBag", "In bag")) + ' · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + it.ilvl + '</div><div style="margin:6px 0">' + rows + '</div>' +
+  $('smcard').innerHTML = '<div class="itemcard"><b class="nm" style="color:' + RC[it.rar] + '">' + esc(gearName(it.name)) + ' +' + it.plus + ' → +' + (it.plus + 1) + '</b><div class="mu">' + text("inventory.equipped", "Equipped") + ' · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + it.ilvl + '</div><div style="margin:6px 0">' + rows + '</div>' +
     '<div class="ln"><span>' + esc(text("smith.cost", "Cost")) + '</span><b style="color:' + (me.g >= c ? '#ffd77a' : '#ff7a6a') + '">' + GameText.number(c) + 'g</b></div><div class="ln"><span>' + esc(text("smith.chance", "Success chance")) + '</span><b style="color:' + (ch >= 70 ? '#6fe39a' : ch >= 40 ? '#ffd24a' : '#ff7a6a') + '">' + ch + '%</b></div>' +
     (it.plus >= 5 ? '<div class="dn" style="margin-top:4px">' + esc(text('smith.failureLevel', '⚠ Failure drops the item to +{level}', { level: it.plus - 1 })) + '</div>' : '<div class="mu" style="margin-top:4px">' + esc(text("smith.goldOnly", "Failure only costs gold.")) + '</div>') + '</div>';
   $('smauto').disabled = me.g < c;
@@ -424,6 +474,29 @@ function onForge(m) {
 // ---------- skills ----------
 const SK_ACT = ['s1', 'mend', 'frenzy'], SK_PAS = ['vit', 'might', 'swift', 'crit', 'critdmg', 'lifesteal', 'guard', 'haste', 'focus', 'fortune']; let skTab = 'act';
 const PAS = { vit: ['Vitality', '❤️', 'max HP', 5, '%'], might: ['Might', '💪', 'damage', 5, '%'], swift: ['Swiftness', '💨', 'move speed', 4, '%'], crit: ['Precision', '🎯', 'critical hit chance', 1.5, '%'], critdmg: ['Brutality', '💥', 'critical hit damage', 12, '%'], lifesteal: ['Bloodthirst', '🩸', 'of damage dealt healed (lifesteal)', 0.8, '%'], guard: ['Iron Skin', '🛡️', 'less damage taken', 2.5, '%'], haste: ['Haste', '⚡', 'attack speed', 3.5, '%'], focus: ['Focus', '🔷', 'max MP and +10% MP regen per rank', 5, '%'], fortune: ['Fortune', '💰', 'gold find', 6, '%'] };
+const passiveTooltipDescriptions = {
+  vit: 'Increases base maximum health by {bonus}%.',
+  might: 'Increases damage dealt by {bonus}%.',
+  swift: 'Increases movement speed by {bonus}%.',
+  crit: 'Adds {bonus} percentage points to critical hit chance, up to the 80% total cap.',
+  critdmg: 'Adds {bonus} percentage points to the critical damage multiplier.',
+  lifesteal: 'Restores health equal to {bonus}% of the damage you deal to monsters.',
+  guard: 'Reduces incoming damage by {bonus}% after armor.',
+  haste: 'Shortens the interval between basic attacks by {bonus}%.',
+  focus: 'Increases maximum mana by {bonus}% and mana regeneration by {regen}%.',
+  fortune: 'Increases gold dropped by monsters by {bonus}%.',
+};
+const maxSkillRank = skill => SK_ACT.includes(skill) ? I.maxRank : (I.pMax || 10);
+const effectivePassiveRank = skill => Math.min(maxSkillRank(skill) + 5, (me.sk[skill] || 0) + (SKB[skill] || 0));
+
+function passiveTooltipDescription(skill) {
+  const rank = effectivePassiveRank(skill) || 1;
+  const bonus = Math.round(PAS[skill][3] * rank * 10) / 10;
+  return text('passive.' + skill + '.tooltip', passiveTooltipDescriptions[skill], {
+    bonus: GameText.number(bonus),
+    regen: GameText.number(10 * rank),
+  });
+}
 function skillInfo(k) {
   const c = I.classes[I.cls], r = me.sk[k] || 0, n = r || 1;
   switch (k) {
@@ -438,20 +511,32 @@ function skillInfo(k) {
     case 'frenzy': return [text('class.' + I.cls + '.s3', c.s3), '3', skillIcon('frenzy'),
       text('skill.rageDescription', '+{damage}% damage & faster attacks for {seconds}s · 30 MP', { damage: Math.round(20 + 5 * n), seconds: 6 + 2 * n })];
   }
-  const p = PAS[k], gb = SKB[k] || 0, re = Math.min((I.pMax || 10) + 5, r + gb); return [text('passive.' + k, p[0]) + (gb ? ' (+' + gb + ' ' + text('skill.fromGear', 'from gear') + ')' : ''), '', skillIcon(k), (re ? '+' + Math.round(p[3] * re * 10) / 10 + '% ' + text('passive.' + k + '.effect', p[2]) + ' · ' : '') + text('skill.nextRank', 'next rank +{bonus}%', { bonus: p[3] })];
+  const p = PAS[k], gb = SKB[k] || 0, re = effectivePassiveRank(k); return [text('passive.' + k, p[0]) + (gb ? ' (+' + gb + ' ' + text('skill.fromGear', 'from gear') + ')' : ''), '', skillIcon(k), (re ? '+' + Math.round(p[3] * re * 10) / 10 + '% ' + text('passive.' + k + '.effect', p[2]) + ' · ' : '') + text('skill.nextRank', 'next rank +{bonus}%', { bonus: p[3] })];
 }
 function buildSkills() {
   if (!I || !me) return; $('spn').textContent = me.sp ? text("skill.points", "★ Points: {count}", { count: me.sp }) : text("skill.noPoints", "no points"); $('spn').style.color = me.sp ? '#ffe97a' : '';
-  const list = skTab === 'act' ? SK_ACT : SK_PAS, mx = k => SK_ACT.includes(k) ? I.maxRank : (I.pMax || 10);
+  const passiveTab = skTab === 'pas';
+  const list = passiveTab ? SK_PAS : SK_ACT;
+  const hoveredPassive = hoveredSkillElement?.dataset.passiveSkill;
+  const restoreTooltip = hoveredPassive && tip.style.display === 'block';
   $('skl').innerHTML = '<div class="tabs"><button data-sktab="act" class="' + (skTab === 'act' ? 'on' : '') + '">' + esc(text("skills.active", "Active skills")) + '</button><button data-sktab="pas" class="' + (skTab === 'pas' ? 'on' : '') + '">' + esc(text("skills.passive", "Passive skills")) + '</button></div>' +
-    list.map(k => { const [n, key, ic, d] = skillInfo(k), r = me.sk[k] || 0, M_ = mx(k); return '<div class="row"><div class="ico">' + ic + '</div><div class="t"><b>' + esc(n) + '</b>' + (key ? ' <kbd>' + (BINDS['skill' + key] || key).toUpperCase() + '</kbd>' : '') + ' <span class="mu" style="font-size:0.6875rem">' + r + '/' + M_ + '</span><span class="pips">' + Array.from({ length: M_ }, (_, i) => '<i class="' + (i < r ? 'on' : '') + '"' + (M_ > 5 ? ' style="width:6px"' : '') + '></i>').join('') + '</span><small>' + esc(r || k === 's1' || !key ? d : text("skill.notLearned", "Not learned")) + '</small></div><button data-learn="' + k + '"' + (me.sp > 0 && r < M_ ? '' : ' disabled') + '>+</button></div>'; }).join('') +
+    (passiveTab ? '<div class="mu">' + esc(text('skill.passiveTooltipHint', 'Hover a passive skill and hold Shift for details.')) + '</div>' : '') +
+    list.map(k => { const [n, key, ic, d] = skillInfo(k), r = me.sk[k] || 0, M_ = maxSkillRank(k); return '<div class="row"' + (passiveTab ? ' data-passive-skill="' + k + '"' : '') + '><div class="ico">' + ic + '</div><div class="t"><b>' + esc(n) + '</b>' + (key ? ' <kbd>' + (BINDS['skill' + key] || key).toUpperCase() + '</kbd>' : '') + ' <span class="mu" style="font-size:0.6875rem">' + r + '/' + M_ + '</span><span class="pips">' + Array.from({ length: M_ }, (_, i) => '<i class="' + (i < r ? 'on' : '') + '"' + (M_ > 5 ? ' style="width:6px"' : '') + '></i>').join('') + '</span><small>' + esc(r || k === 's1' || !key ? d : text("skill.notLearned", "Not learned")) + '</small></div><button data-learn="' + k + '"' + (me.sp > 0 && r < M_ ? '' : ' disabled') + '>+</button></div>'; }).join('') +
     '<div class="mu" style="font-size:0.6875rem;margin-top:6px">' + esc(text('skill.summary', '1 point per level. Actives max {active}, passives max {passive}. A Skill Reset Scroll (Merchant) refunds everything.', { active: I.maxRank, passive: I.pMax || 10 })) + '</div>';
+  if (hoveredPassive) {
+    hoveredSkillElement = $('skl').querySelector('[data-passive-skill]:hover');
+    if (hoveredSkillElement) updateSkillTooltip(restoreTooltip);
+    else tip.style.display = 'none';
+  }
 }
 document.addEventListener('click', e => { const t = e.target.closest('[data-sktab]'); if (t) { skTab = t.dataset.sktab; buildSkills(); } });
 // ---------- settings & key bindings ----------
 const BIND_DEF = { skill1: '1', skill2: '2', skill3: '3', hp: 'q', mp: 'e', hp2: 'r', ret: 't', talk: 'f', inv: 'i', skills: 'k', settings: 'o', mute: 'm', gfx: 'g', fps: 'p', attack: ' ' };
 const BIND_NAME = { skill1: 'Skill 1', skill2: 'Skill 2', skill3: 'Skill 3', hp: 'Health potion', mp: 'Mana potion', hp2: 'Greater health potion', ret: 'Return scroll', talk: 'Talk to NPC', inv: 'Inventory', skills: 'Skills window', settings: 'Settings', mute: 'Mute', gfx: 'Cycle graphics quality', fps: 'FPS counter', attack: 'Attack nearest monster' };
 let BINDS = Object.assign({}, BIND_DEF); try { Object.assign(BINDS, JSON.parse(localStorage.getItem('sl_keys') || '{}')); } catch (e) {}
+for (const [action, defaultKey] of Object.entries(BIND_DEF)) {
+  if (BINDS[action] === 'shift') BINDS[action] = actionOf(defaultKey) ? '' : defaultKey;
+}
 if (Object.keys(BIND_DEF).some(action => action !== 'attack' && BINDS[action] === BINDS.attack)) BINDS.attack = '';
 let bindWait = null;
 const keyName = k => ({ ' ': 'SPACE', control: 'CTRL', shift: 'SHIFT', alt: 'ALT', tab: 'TAB' })[k] || (k ? k.toUpperCase() : text("settings.unbound", "UNBOUND"));
@@ -461,7 +546,16 @@ function applyBindLabels() { const map = { '1': 'skill1', '2': 'skill2', '3': 's
 function buildKeys() { $('kbl').innerHTML = Object.keys(BIND_DEF).map(a => '<span>'  + esc(text('binding.' + a, BIND_NAME[a])) + '</span><button data-bind="' + a + '" class="' + (bindWait === a ? 'wait' : '') + '">' + (bindWait === a ? text("settings.pressKey", "press…") : keyName(BINDS[a])) + '</button>').join(''); }
 addEventListener('keydown', e => {
   if (!bindWait || smithAutoDialog.open) return; e.preventDefault(); e.stopImmediatePropagation(); const k = e.key.toLowerCase();
-  if (k !== 'escape') { if ('wasd'.includes(k) && k.length === 1 || k.startsWith('arrow') || k === 'enter') { toast(text("settings.reservedKey", "That key is reserved for movement / chat")); } else { const other = actionOf(k); if (other && other !== bindWait) BINDS[other] = BINDS[bindWait]; BINDS[bindWait] = k; saveBinds(); } }
+  if (k === 'shift') {
+    toast(text('settings.shiftReserved', 'Shift is reserved for tooltips.'));
+  } else if ((k.length === 1 && 'wasd'.includes(k)) || k.startsWith('arrow') || k === 'enter') {
+    toast(text('settings.reservedKey', 'That key is reserved for movement / chat'));
+  } else if (k !== 'escape') {
+    const other = actionOf(k);
+    if (other && other !== bindWait) BINDS[other] = BINDS[bindWait];
+    BINDS[bindWait] = k;
+    saveBinds();
+  }
   bindWait = null; buildKeys();
 }, true);
 document.addEventListener('click', e => { const b = e.target.closest('[data-bind]'); if (b) { bindWait = b.dataset.bind; buildKeys(); return; } const t = e.target.closest('[data-stab]'); if (t) { document.querySelectorAll('[data-stab]').forEach(x => x.classList.toggle('on', x === t)); document.querySelectorAll('[data-spage]').forEach(p => p.style.display = p.dataset.spage === t.dataset.stab ? 'block' : 'none'); } });

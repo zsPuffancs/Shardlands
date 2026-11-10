@@ -444,7 +444,14 @@ function onMsg(m) {
   else if (m.t === 'toast') toast(m.text || m.m, m.c); else if (m.t === 'forge') onForge(m); else if (m.t === 'reroll') onReroll(m);
   else if (m.t === 'chat') log(m.n, m.text || m.m, m.channel); else if (m.t === 'msg') log('*', m.text || m.m);
   else if (m.t === 's') {
-    if (!me) { S.rx = m.me.x; S.ry = m.me.y; cam.x = m.me.x; cam.z = m.me.y; } serverTm = m.tm; me = m.me; pl = m.pl; lo = m.lo;
+    if (!me) { S.rx = m.me.x; S.ry = m.me.y; cam.x = m.me.x; cam.z = m.me.y; }
+    if (m.me.dead && !me?.dead) {
+      intent = null;
+      pendingNpc = null;
+      held = false;
+      lastDir = [0, 0];
+    }
+    serverTm = m.tm; me = m.me; pl = m.pl; lo = m.lo;
     updateMobSnapshot(m);
     const seen = new Set();
     for (const o of mo.concat(pl)) {
@@ -497,7 +504,7 @@ addEventListener('blur', () => { keys = {}; held = false; });
 const cv = $('c'); let rotating = false, lx = 0, ly = 0, lastDir = [0, 0], lastSend = 0;
 cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('wheel', e => { cam.dist = Math.max(160, Math.min(950, cam.dist * (e.deltaY > 0 ? 1.08 : 0.92))); e.preventDefault(); }, { passive: false });
-cv.addEventListener('mousedown', e => { if (e.button === 2 || e.button === 1) { rotating = true; lx = e.clientX; ly = e.clientY; } else { held = true; lastHold = e; click(e); } });
+cv.addEventListener('mousedown', e => { if (e.button === 2 || e.button === 1) { rotating = true; lx = e.clientX; ly = e.clientY; } else if (me && !me.dead) { held = true; lastHold = e; click(e); } });
 addEventListener('mouseup', () => { rotating = false; held = false; });
 addEventListener('mousemove', e => { if (rotating) { cam.yaw -= (e.clientX - lx) * 0.006; cam.pitch = Math.max(0.28, Math.min(1.38, cam.pitch + (e.clientY - ly) * 0.005)); lx = e.clientX; ly = e.clientY; } if (held) lastHold = e; });
 function groundHit(e) { const r = GL.ray(e.clientX, e.clientY); if (r.d[1] >= -0.001) return null; const t = -r.o[1] / r.d[1]; return { x: r.o[0] + r.d[0] * t, z: r.o[2] + r.d[2] * t }; }
@@ -545,8 +552,13 @@ function click(e) {
 }
 setInterval(() => { if (held && lastHold && me && !me.dead) { const g = groundHit(lastHold); if (g) moveTo(g.x, g.z); } }, 130);
 function wantDir() {
-  const f = (keys.w ? 1 : 0) - (keys.s ? 1 : 0), r = (keys.d ? 1 : 0) - (keys.a ? 1 : 0); if (!f && !r) return [0, 0];
-  const x = -Math.sin(cam.yaw) * f + Math.cos(cam.yaw) * r, z = -Math.cos(cam.yaw) * f - Math.sin(cam.yaw) * r, l = Math.hypot(x, z); return [x / l, z / l];
+  const forward = (keys.w || keys.arrowup ? 1 : 0) - (keys.s || keys.arrowdown ? 1 : 0);
+  const sideways = (keys.d ? 1 : 0) - (keys.a ? 1 : 0);
+  if (!forward && !sideways) return [0, 0];
+  const x = -Math.sin(cam.yaw) * forward + Math.cos(cam.yaw) * sideways;
+  const z = -Math.cos(cam.yaw) * forward - Math.sin(cam.yaw) * sideways;
+  const length = Math.hypot(x, z);
+  return [x / length, z / length];
 }
 
 // is a world point (roughly) on screen? used to skip drawing monsters the camera cannot see

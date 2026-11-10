@@ -12,7 +12,12 @@ const BAGMAX = BAG_PAGE_SIZE * 3;
 
 function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerollGear }) {
   function sendInv(player) { send(player.c, { t: 'inv', bag: player.bag, eq: player.eq, skb: player.skb || {}, souls: player.souls || 0, gs: Object.assign({}, player.g, { _dmg: Math.round(playerDmg(player)), _dr: Math.round(defRed(player) * 100), _hp: player.maxhp, _mp: player.maxmp, _crit: Math.round(critCh(player) * 100), _cdmg: Math.round(critMul(player) * 100), _ls: Math.round(0.8 * rank(player, 'lifesteal') * 10) / 10, _haste: Math.round(3.5 * rank(player, 'haste')), _gf: Math.round(goldFind(player)) }) }); }
-  function afterGearChange(player) { const previousMaxHealth = player.maxhp; stats(player); if (player.maxhp > previousMaxHealth) player.hp += player.maxhp - previousMaxHealth; player.hp = Math.min(player.hp, player.maxhp); player.mp = Math.min(player.mp, player.maxmp); sendInv(player); }
+  function afterGearChange(player) {
+    stats(player);
+    player.hp = Math.min(player.hp, player.maxhp);
+    player.mp = Math.min(player.mp, player.maxmp);
+    sendInv(player);
+  }
   function starterWeapon(player, plus) { const item = genGear('weapon', 1, 0, CLASSES[player.cls].fam); item.name = 'Worn ' + BASES.weapon[item.fam]; item.plus = plus || 0; return item; }
   function addGear(player, item) { if (player.bag.length >= BAGMAX) return false; player.bag.push(item); sendInv(player); return true; }
 
@@ -30,7 +35,8 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
       const healAmount = Math.floor(player.maxhp * (itemKey === 'hp' ? 0.4 : 1));
       const previousHealth = player.hp;
       player.hp = Math.min(player.maxhp, player.hp + healAmount);
-      ev('heal', player.x, player.y, '+' + healAmount, { combatPlayerId: player.id, restoredHealth: Math.round(player.hp - previousHealth) });
+      const restoredHealth = Math.round(player.hp - previousHealth);
+      ev('heal', player.x, player.y, '+' + restoredHealth, { combatPlayerId: player.id, restoredHealth });
     }
     else if (itemKey === 'mp') { const h = Math.floor(player.maxmp * 0.5); player.mp = Math.min(player.maxmp, player.mp + h); ev('mana', player.x, player.y, '+' + h); }
     else if (itemKey === 'atk' || itemKey === 'def' || itemKey === 'spd') { player.buf[itemKey] = now + 60000; ev('fx', player.x, player.y, 50, { s: 'buff', a: player.id }); }

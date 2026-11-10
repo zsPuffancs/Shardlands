@@ -102,7 +102,8 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
       player.mp -= 20; player.cd2 = now + 8000 - 500 * rank; const healAmount = Math.floor(player.maxhp * (0.2 + 0.08 * rank));
       const previousHealth = player.hp;
       player.hp = Math.min(player.maxhp, player.hp + healAmount);
-      ev('heal', player.x, player.y, '+' + healAmount, { combatPlayerId: player.id, restoredHealth: Math.round(player.hp - previousHealth) });
+      const restoredHealth = Math.round(player.hp - previousHealth);
+      if (restoredHealth > 0) ev('heal', player.x, player.y, '+' + restoredHealth, { combatPlayerId: player.id, restoredHealth });
       ev('fx', player.x, player.y, 50, { s: 'heal', a: player.id });
     } else if (skillNumber === 3) {
       const rank = player.sk.frenzy; if (rank < 1 || now < player.cd3 || player.mp < 30) return;

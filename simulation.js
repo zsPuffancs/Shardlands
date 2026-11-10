@@ -31,6 +31,8 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
           player.y = CY + rnd(30, 95);
           player.target = 0;
           player.chasingTarget = false;
+          player.dest = null;
+          player.dir = { x: 0, y: 0 };
         }
         continue;
       }
