@@ -53,7 +53,7 @@ Give a boss a signature attack with `special` in its addMob definition: `'charge
 `player.data` is a free JSON object saved with each hero: store per-hero plugin state there.
 
 ## Client plugins (looks)
-Files in `public/plugins/*.js` are loaded automatically by the browser. Give a new monster a model:
+Files in `public/plugins/*.js` are loaded automatically by the browser. A script that matches a server plugin by filename or declared name loads only if that plugin started successfully. Entries in `disabledPlugins` can also disable standalone client scripts by filename without the extension. Give a new monster a model:
 ```js
 Shardlands.addModel('frostwolf', { fn: beast, kind: 'wolf', sc: 1.15, body: hex('#c8ecff'), leg: hex('#6fa3c8'), top: 46 });
 ```

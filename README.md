@@ -56,7 +56,8 @@ Click: move / attack / loot / talk · WASD walk · right-drag or ←→ camera �
 F talk · I inventory · K skills · O settings · G graphics quality · P fps · M mute · Enter chat (/help) · Esc close windows.
 Windows can be dragged by their title bar.
 
-## Admin commands (put your hero name in config.json "admins")
+## Admin commands
+Create the hero with a password before adding its name to `admins` in `config.json`. For an existing passwordless hero, remove its name from `admins` while setting the password on a trusted local server, then restore the admin entry.
 /give /gear /drop /gold /level /heal /tp /zone <0-6> /spawn /god /stats /rate /xprate /droprate /announce /kick /players
 `/stats` shows monster count and server tick time - handy while stress testing the Death Zone. `/god` makes you immune.
 

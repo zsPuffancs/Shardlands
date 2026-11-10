@@ -371,11 +371,41 @@ function onEvent(f) {
 
 // ---------- networking ----------
 function join() {
+  if (ws && ws.readyState !== WebSocket.CLOSED) return;
   audio(); sfx('click'); $('err').textContent = '';
-  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
-  ws.onopen = () => ws.send(JSON.stringify({ t: 'join', name: $('name').value, cls: sel, pw: $('pw').value }));
-  ws.onmessage = e => onMsg(JSON.parse(e.data));
-  ws.onclose = () => { if (I) log('*', 'Disconnected from server. Refresh to reconnect.'); else $('err').textContent = 'Could not connect.'; };
+  const socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+  ws = socket;
+  const request = { t: 'join', name: $('name').value, cls: sel, pw: $('pw').value, mobDeltas: true };
+  socket.onopen = () => socket.send(JSON.stringify(request));
+  socket.onmessage = e => {
+    if (ws !== socket) return;
+    const message = JSON.parse(e.data);
+    onMsg(message);
+    if (message.t === 'err' && !I) socket.close();
+  };
+  socket.onclose = () => {
+    if (ws !== socket) return;
+    ws = null;
+    if (I) log('*', 'Disconnected from server. Refresh to reconnect.');
+    else if (!$('err').textContent) $('err').textContent = 'Could not connect.';
+  };
+}
+const mobRows = new Map();
+let mobIds = [];
+function updateMobSnapshot(message) {
+  if (!message.mo && !message.md && !message.mi) return;
+  const decode = a => ({ id: a[0], ty: I.tl[a[1]], x: a[2], y: a[3], hp: a[4], mh: a[5], l: a[6], al: a[7] });
+  if (message.mo) {
+    mobRows.clear();
+    mobIds = message.mo.map(row => row[0]);
+  }
+  for (const row of message.mo || message.md || []) mobRows.set(row[0], decode(row));
+  if (message.mi) {
+    mobIds = message.mi;
+    const visible = new Set(mobIds);
+    for (const id of mobRows.keys()) if (!visible.has(id)) mobRows.delete(id);
+  }
+  mo = mobIds.map(id => mobRows.get(id));
 }
 function onMsg(m) {
   if (m.t === 'err') $('err').textContent = m.m;
@@ -387,7 +417,7 @@ function onMsg(m) {
   else if (m.t === 'chat') log(m.n, m.m); else if (m.t === 'msg') log('*', m.m);
   else if (m.t === 's') {
     if (!me) { S.rx = m.me.x; S.ry = m.me.y; cam.x = m.me.x; cam.z = m.me.y; } serverTm = m.tm; me = m.me; pl = m.pl; lo = m.lo;
-    const tl = I.tl; mo = m.mo.map(a => ({ id: a[0], ty: tl[a[1]], x: a[2], y: a[3], hp: a[4], mh: a[5], l: a[6], al: a[7] }));
+    updateMobSnapshot(m);
     const seen = new Set();
     for (const o of mo.concat(pl)) {
       seen.add(o.id); let e = ents.get(o.id);

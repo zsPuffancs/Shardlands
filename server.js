@@ -3,6 +3,9 @@ const http = require('http'), fs = require('fs'), path = require('path'), crypto
 let CONFIG = { serverName: 'Shardlands', motd: '', admins: [], disabledPlugins: [], port: 3000 };
 try { Object.assign(CONFIG, JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'))); } catch (e) {}
 const PORT = process.env.PORT || CONFIG.port || 3000;
+const { openJsonStore } = require('./persistence');
+const { attachWebSockets } = require('./transport');
+const { indexLivingMobs, snapshotMobs, mobSnapshot } = require('./snapshots');
 
 // ================= RATES (rates.json, reloaded live while the server runs) =================
 const RATES_FILE = path.join(__dirname, 'rates.json');
@@ -28,9 +31,8 @@ loadRates(true); fs.watchFile(RATES_FILE, { interval: 1500 }, () => loadRates(fa
 const W = 10600, H = 10600, CX = 5300, CY = 5300, VILLAGE = 220, BAGMAX = 30;
 const NPCS = { merchant: { x: CX, y: CY - 33, name: 'Merchant' }, smith: { x: CX + 70, y: CY + 10, name: 'Blacksmith' } }, NPC_RANGE = 210;
 const SAVE = path.join(__dirname, 'saves.json'), PDATA = path.join(__dirname, 'plugin-data.json');
-let saves = {}, pdata = {};
-try { saves = JSON.parse(fs.readFileSync(SAVE, 'utf8')); } catch (e) {}
-try { pdata = JSON.parse(fs.readFileSync(PDATA, 'utf8')); } catch (e) {}
+const saveStore = openJsonStore(SAVE), pluginStore = openJsonStore(PDATA);
+const saves = saveStore.data, pdata = pluginStore.data;
 
 // ================= DATA =================
 const MOBTYPES = {
@@ -131,8 +133,9 @@ const xpNeed = l => Math.floor(55 * Math.pow(l, 1.85));
 const rnd = (a, b) => a + Math.random() * (b - a), rint = (a, b) => Math.floor(rnd(a, b + 1)), pick = a => a[Math.floor(Math.random() * a.length)];
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const newSk = () => ({ s1: 1, mend: 0, frenzy: 0, vit: 0, might: 0, swift: 0, crit: 0, critdmg: 0, lifesteal: 0, guard: 0, haste: 0, focus: 0, fortune: 0 });
-const isAdmin = p => CONFIG.admins.map(a => String(a).toLowerCase()).includes(p.name.toLowerCase());
-const hooks = {}, commands = {};
+const isAdminName = name => CONFIG.admins.some(a => String(a).toLowerCase() === name.toLowerCase());
+const isAdmin = p => Boolean(p.ph && isAdminName(p.name));
+const hooks = Object.create(null), commands = Object.create(null);
 function fire(ev, ...a) { let ok = true; for (const h of hooks[ev] || []) { try { if (h.fn(...a) === false) ok = false; } catch (e) { console.log('[plugin ' + h.plugin + '] error in "' + ev + '": ' + e.message); } } return ok; }
 
 // ---- gear generation ----
@@ -286,8 +289,8 @@ function hitMob(p, m, dmg) {
     const step = Math.ceil((m.hp / m.mh) * 5);
     while (m.stoneStep > step && m.hp > 0) {
       m.stoneStep--;
-      for (let i = 0; i < 3 + m.tier; i++) { const a = rnd(0, 6.283), r = rnd(60, 140); const g = spawnMob(pick(TIERS[m.tier].types), m.x + Math.cos(a) * r, m.y + Math.sin(a) * r, m.tier); g.target = p.id; g.hx = m.x; g.hy = m.y; g.summoned = true; g.awake = true; }
-      if (m.stoneStep === 3 || m.stoneStep === 1) { const g = spawnMob(pick(TIERS[m.tier].types), m.x + rnd(-60, 60), m.y + rnd(-60, 60), m.tier, { alpha: true }); g.target = p.id; g.hx = m.x; g.hy = m.y; g.summoned = true; g.awake = true; }
+      for (let i = 0; i < 3 + m.tier; i++) { const a = rnd(0, 6.283), r = rnd(60, 140); const g = spawnMob(pick(TIERS[m.tier].types), m.x + Math.cos(a) * r, m.y + Math.sin(a) * r, m.tier); g.target = p.id; g.hx = m.x; g.hy = m.y; g.summoned = true; g.expiresAt = Date.now() + SUMMON_LIFETIME_MS; g.awake = true; }
+      if (m.stoneStep === 3 || m.stoneStep === 1) { const g = spawnMob(pick(TIERS[m.tier].types), m.x + rnd(-60, 60), m.y + rnd(-60, 60), m.tier, { alpha: true }); g.target = p.id; g.hx = m.x; g.hy = m.y; g.summoned = true; g.expiresAt = Date.now() + SUMMON_LIFETIME_MS; g.awake = true; }
       ev('fx', m.x, m.y, 160, { s: 'summon' });
     }
   }
@@ -333,9 +336,10 @@ function resolveCast(m, plist, now) {
   else if (c.s === 'charge') { const x0 = m.x, y0 = m.y; m.x = Math.max(20, Math.min(W - 20, c.tx)); m.y = Math.max(20, Math.min(H - 20, c.ty)); if (inVillage(m)) { m.x = x0; m.y = y0; } ev('slam', m.x, m.y, 70, { s: 'charge', x0: Math.round(x0), y0: Math.round(y0) });
     for (const p of plist) { if (p.dead || inVillage(p)) continue; const vx = m.x - x0, vy = m.y - y0, L2 = vx * vx + vy * vy || 1, k = Math.max(0, Math.min(1, ((p.x - x0) * vx + (p.y - y0) * vy) / L2)), ex = x0 + vx * k - p.x, ey = y0 + vy * k - p.y; if (Math.hypot(ex, ey) < m.r + 45) hurtPlayer(p, m, D * 1.5, now); } }
   else if (c.s === 'meteor') { ev('slam', m.x, m.y, c.r, { s: 'meteor', pts: c.pts, ty: m.ty }); for (const p of plist) { if (p.dead || inVillage(p)) continue; for (const q of c.pts) if (Math.hypot(p.x - q[0], p.y - q[1]) <= c.r) { hurtPlayer(p, m, D * 1.4, now); break; } } }
-  else if (c.s === 'summon') { ev('slam', m.x, m.y, 140, { s: 'summon' }); const T = TIERS[m.tier] || TIERS[0]; const tp = m.target; for (let i = 0; i < 4; i++) { const a = rnd(0, 6.283); const g = spawnMob(pick(T.types), m.x + Math.cos(a) * 110, m.y + Math.sin(a) * 110, m.tier); g.summoned = true; g.awake = true; g.target = tp; g.hx = m.x; g.hy = m.y; } }
+  else if (c.s === 'summon') { ev('slam', m.x, m.y, 140, { s: 'summon' }); const T = TIERS[m.tier] || TIERS[0]; const tp = m.target; for (let i = 0; i < 4; i++) { const a = rnd(0, 6.283); const g = spawnMob(pick(T.types), m.x + Math.cos(a) * 110, m.y + Math.sin(a) * 110, m.tier); g.summoned = true; g.expiresAt = Date.now() + SUMMON_LIFETIME_MS; g.awake = true; g.target = tp; g.hx = m.x; g.hy = m.y; } }
 }
 function useItem(p, k) {
+  if (!Object.hasOwn(ITEMS, k)) return;
   const it = ITEMS[k], now = Date.now();
   if (!it || p.dead || !(p.inv[k] > 0)) return;
   const pot = k === 'hp' || k === 'hp2' || k === 'mp';
@@ -374,7 +378,9 @@ function skill(p, n) {
 
 // ================= TICK =================
 const DT = 0.05;
-let tickMs = 0;
+const SUMMON_LIFETIME_MS = 120000;
+let tickMs = 0, tickSample = 0;
+const tickTimes = new Float64Array(1200);
 function tick() {
   const now = Date.now(), t0 = process.hrtime.bigint(); if (hooks.tick) fire('tick', DT);
   const plist = [...players.values()];
@@ -382,7 +388,7 @@ function tick() {
     if (p.dead) { if (now > p.dead) { p.dead = 0; p.hp = p.maxhp; p.mp = p.maxmp; p.x = CX + rnd(-50, 50); p.y = CY + rnd(30, 95); p.target = 0; } continue; }
     const c = CLASSES[p.cls], spd = p.spdNow = 190 * (1 + 0.04 * p.sk.swift) * (now < p.buf.spd ? 1.35 : 1) * (1 + Math.min(60, p.g.spd || 0) / 100);
     const dl = Math.hypot(p.dir.x, p.dir.y), tgt = p.target ? mobs.get(p.target) : null;
-    if (tgt && tgt.dead) p.target = 0;
+    if (p.target && (!tgt || tgt.dead)) p.target = 0;
     if (dl > 0.01) { p.x += p.dir.x / dl * spd * DT; p.y += p.dir.y / dl * spd * DT; p.dest = null; }
     else if (tgt && !tgt.dead) { if (dist(p, tgt) > c.range + tgt.r - 6) moveToward(p, tgt.x, tgt.y, spd, DT); }
     else if (p.dest) { if (moveToward(p, p.dest.x, p.dest.y, spd, DT) < 6) p.dest = null; }
@@ -394,6 +400,7 @@ function tick() {
     p.hp = Math.min(p.maxhp, p.hp + p.maxhp * (inVillage(p) ? 0.05 : 0.006) * DT); p.mp = Math.min(p.maxmp, p.mp + (2 + p.lvl * 0.2) * (1 + 0.1 * p.sk.focus) * DT);
   }
   for (const m of mobs.values()) {
+    if (m.expiresAt && now >= m.expiresAt) { mobs.delete(m.id); continue; }
     const t = MOBTYPES[m.ty];
     if (m.dead) { if (now > m.dead) { m.dead = 0; m.mh = Math.round(m.hb * RATES.monsterHp); m.hp = m.mh; m.target = 0; m.stoneStep = 5; m.cast = null; m.x = m.hx = m.sx; m.y = m.hy = m.sy; } continue; }
     if (t.stone) {
@@ -424,53 +431,57 @@ function tick() {
   pickupTick(now);
   const snapEv = events; events = []; typeIndex();
   const buf = p => { const o = {}; for (const k in p.buf) if (p.buf[k] > now) o[k] = p.buf[k] - now; return o; };
+  const mobCells = plist.length > 1 ? indexLivingMobs(mobs) : null;
   for (const p of plist) {
+    if (!canSend(p.c)) continue;
     const near = (o, r) => Math.abs(o.x - p.x) < r && Math.abs(o.y - p.y) < r;
     // monsters as compact arrays: [id, typeIndex, x, y, hp, maxHp, level, flags(1=alpha)]
-    let mm = []; for (const m of mobs.values()) if (!m.dead && near(m, 1150)) mm.push(m);
-    if (mm.length > 420) { mm.sort((a, b) => (Math.abs(a.x - p.x) + Math.abs(a.y - p.y)) - (Math.abs(b.x - p.x) + Math.abs(b.y - p.y))); mm.length = 420; }
+    const mm = snapshotMobs(mobs, p, mobCells);
     send(p.c, {
       t: 's', tm: now,
       me: { x: p.x, y: p.y, hp: Math.round(p.hp), mh: p.maxhp, mp: Math.round(p.mp), mm: p.maxmp, l: p.lvl, xp: p.xp, xn: xpNeed(p.lvl), g: p.gold, w: p.w, inv: p.inv, sk: p.sk, sp: p.sp, buf: buf(p), c1: Math.max(0, p.cd1 - now), c2: Math.max(0, p.cd2 - now), c3: Math.max(0, p.cd3 - now), tg: p.target, dead: p.dead ? p.dead - now : 0, vil: inVillage(p) ? 1 : 0, bag: p.bag.length, spd: Math.round(p.spdNow || 190), rng: CLASSES[p.cls].range },
       pl: plist.filter(o => o !== p && near(o, 1500)).map(o => ({ id: o.id, n: o.name, x: Math.round(o.x), y: Math.round(o.y), hp: Math.round(o.hp), mh: o.maxhp, l: o.lvl, c: o.cls, w: o.w, d: o.dead ? 1 : 0, rg: now < o.buf.rage ? 1 : 0 })),
-      mo: mm.map(m => [m.id, TYPE_IDX[m.ty], Math.round(m.x), Math.round(m.y), Math.max(0, Math.round(m.hp)), m.mh, m.lvl, m.alpha]),
+      ...mobSnapshot(p.c, mm, TYPE_IDX),
       lo: [...loot.values()].filter(L => near(L, 1150) && (!L.owner || L.owner === p.id || now >= L.free)).map(L => ({ id: L.id, x: L.x, y: L.y, k: L.kind, n: L.name, r: L.rar || 0, i: L.k, s: L.item ? (L.item.slot === 'weapon' ? L.item.fam : L.item.slot) : undefined })),
       ev: snapEv.filter(o => near(o, 1300)),
     });
   }
-  tickMs = tickMs * 0.95 + Number(process.hrtime.bigint() - t0) / 1e6 * 0.05;
+  const elapsed = Number(process.hrtime.bigint() - t0) / 1e6;
+  tickTimes[tickSample++ % tickTimes.length] = elapsed;
+  tickMs = tickMs * 0.95 + elapsed * 0.05;
 }
-setInterval(tick, DT * 1000);
+const simulationTimer = setInterval(tick, DT * 1000);
 
 // ================= PERSISTENCE =================
 function savePlayer(p) { saves[p.name.toLowerCase()] = { ph: p.ph, data: p.data, name: p.name, cls: p.cls, lvl: p.lvl, xp: p.xp, gold: p.gold, inv: p.inv, bag: p.bag, eq: p.eq, sk: p.sk, sp: p.sp }; }
-function saveAll() { for (const p of players.values()) savePlayer(p); try { fs.writeFileSync(SAVE, JSON.stringify(saves)); fs.writeFileSync(PDATA, JSON.stringify(pdata)); } catch (e) {} }
-setInterval(saveAll, 10000);
-process.on('SIGINT', () => { saveAll(); process.exit(); }); process.on('SIGTERM', () => { saveAll(); process.exit(); });
+function saveAll() {
+  for (const p of players.values()) savePlayer(p);
+  return Promise.allSettled([saveStore.save(), pluginStore.save()]).then(results => {
+    for (const result of results) if (result.status === 'rejected') console.error(result.reason);
+    return results.every(result => result.status === 'fulfilled');
+  });
+}
+let pendingSave, stopping = false;
+const autosave = setInterval(() => {
+  if (!pendingSave) pendingSave = saveAll().finally(() => { pendingSave = null; });
+}, 10000);
+async function shutdown() {
+  if (stopping) return;
+  stopping = true;
+  clearInterval(autosave);
+  clearInterval(simulationTimer);
+  server.close();
+  transport.close();
+  await pendingSave;
+  process.exit((await saveAll()) ? 0 : 1);
+}
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
 
 // ================= NETWORK =================
 function broadcast(o) { for (const p of players.values()) send(p.c, o); }
-function send(c, obj) {
-  if (!c || c.closed) return;
-  const b = Buffer.from(JSON.stringify(obj)), n = b.length; let h;
-  if (n < 126) h = Buffer.from([0x81, n]); else if (n < 65536) { h = Buffer.alloc(4); h[0] = 0x81; h[1] = 126; h.writeUInt16BE(n, 2); } else { h = Buffer.alloc(10); h[0] = 0x81; h[1] = 127; h.writeBigUInt64BE(BigInt(n), 2); }
-  try { c.sock.write(Buffer.concat([h, b])); } catch (e) {}
-}
-function parseFrames(c) {
-  for (;;) {
-    const b = c.buf; if (b.length < 2) return;
-    const op = b[0] & 15; let len = b[1] & 127, off = 2;
-    if (len === 126) { if (b.length < 4) return; len = b.readUInt16BE(2); off = 4; } else if (len === 127) { if (b.length < 10) return; len = Number(b.readBigUInt64BE(2)); off = 10; }
-    if (len > 65536) return c.sock.destroy();
-    const masked = b[1] & 128; if (b.length < off + (masked ? 4 : 0) + len) return;
-    let payload;
-    if (masked) { const mk = b.subarray(off, off + 4); payload = Buffer.from(b.subarray(off + 4, off + 4 + len)); for (let i = 0; i < len; i++) payload[i] ^= mk[i & 3]; off += 4; } else payload = b.subarray(off, off + len);
-    c.buf = b.subarray(off + len);
-    if (op === 8) return c.sock.end();
-    if (op === 9) { try { c.sock.write(Buffer.concat([Buffer.from([0x8a, payload.length]), payload])); } catch (e) {} }
-    if (op === 1) { try { onMsg(c, JSON.parse(payload.toString())); } catch (e) {} }
-  }
-}
+const canSend = c => transport.canSend(c);
+const send = (c, obj) => transport.send(c, obj);
 const clamp1 = v => Math.max(-1, Math.min(1, +v || 0));
 const worldInfo = () => ({ W, H, CX, CY, V: VILLAGE, npcs: NPCS, npcRange: NPC_RANGE, tiers: TIERS.map(t => ({ name: t.name, min: t.min, max: t.max, lv: t.lv, outer: !!t.outer })) });
 
@@ -512,23 +523,27 @@ function upgradeItem(p, uid) {
 }
 
 function onMsg(c, m) {
+  if (!m || typeof m !== 'object' || Array.isArray(m)) return;
   if (m.t === 'join') {
     if (c.p) return;
     const name = String(m.name || '').replace(/[^\w \-]/g, '').trim().slice(0, 14);
     if (name.length < 2) return send(c, { t: 'err', m: 'Name must be 2-14 letters/digits.' });
     for (const o of players.values()) if (o.name.toLowerCase() === name.toLowerCase()) return send(c, { t: 'err', m: 'That hero is already online.' });
     const sv = saves[name.toLowerCase()];
+    if (isAdminName(name) && !sv?.ph) {
+      return send(c, { t: 'err', m: 'Admin hero must have a password set before granting admin access.' });
+    }
     const pw = String(m.pw || '').slice(0, 64), ph = pw ? crypto.createHash('sha256').update(name.toLowerCase() + ':' + pw).digest('hex') : '';
     if (sv && sv.ph && sv.ph !== ph) return send(c, { t: 'err', m: 'Wrong password for this hero.' });
-    const cls = sv ? sv.cls : (CLASSES[m.cls] ? m.cls : 'blade'), lvl = sv ? sv.lvl : 1;
+    const cls = sv ? sv.cls : (typeof m.cls === 'string' && Object.hasOwn(CLASSES, m.cls) ? m.cls : 'blade'), lvl = sv ? sv.lvl : 1;
     const inv = Object.assign(Object.fromEntries(Object.keys(ITEMS).map(k => [k, 0])), sv ? (sv.inv || { hp: sv.pots || 0 }) : { hp: 3, mp: 1 });
-    const p = { id: nextId++, c, name: sv ? sv.name : name, cls, lvl, xp: sv ? sv.xp : 0, gold: sv ? sv.gold : 100, w: 0, inv, bag: ((sv && sv.bag) || []).map(sanitize), eq: Object.assign({ weapon: null, helm: null, armor: null, boots: null, ring: null, amulet: null }, sv && sv.eq),
+    const p = { id: nextId++, c, name: sv ? sv.name : name, cls, lvl, xp: sv ? sv.xp : 0, gold: sv ? (Number.isFinite(sv.gold) ? sv.gold : 0) : 100, w: 0, inv, bag: (sv && Array.isArray(sv.bag) ? sv.bag.filter(it => it && typeof it === 'object').map(sanitize) : []), eq: Object.assign({ weapon: null, helm: null, armor: null, boots: null, ring: null, amulet: null }, sv && sv.eq),
       sk: Object.assign(newSk(), sv && sv.sk), sp: sv ? (sv.sp !== undefined ? sv.sp : lvl) : 1, buf: { atk: 0, def: 0, spd: 0, xp: 0, rage: 0 }, potCd: 0, g: {},
       ph: sv ? (sv.ph || ph) : ph, data: (sv && sv.data) || {},
       x: CX + rnd(-50, 50), y: CY + rnd(30, 95), dir: { x: 0, y: 0 }, dest: null, target: 0, cd: 0, cd1: 0, cd2: 0, cd3: 0, dead: 0 };
     for (const s of SLOTS) sanitize(p.eq[s]);
     if (!p.eq.weapon) p.eq.weapon = starterWeapon(p, sv && sv.w);
-    stats(p); p.hp = p.maxhp; p.mp = p.maxmp; c.p = p; players.set(p.id, p);
+    stats(p); p.hp = p.maxhp; p.mp = p.maxmp; c.p = p; c.mobDeltas = m.mobDeltas === true; players.set(p.id, p);
     typeIndex(); const types = {}; for (const k in MOBTYPES) types[k] = { n: MOBTYPES[k].name, r: MOBTYPES[k].r, c: MOBTYPES[k].color, st: !!MOBTYPES[k].stone, boss: !!MOBTYPES[k].boss, lvl: MOBTYPES[k].lvl, shape: MOBTYPES[k].shape };
     send(c, { t: 'init', id: p.id, name: p.name, cls: p.cls, world: worldInfo(), types, tl: TYPE_LIST, classes: CLASSES, items: ITEMS, maxRank: MAXRANK, pMax: PMAX, bagMax: BAGMAX, slots: SLOTS, rarity: RARITY.map(r => r.n), upRate: UP_RATE, stat: Object.fromEntries(Object.entries(STATDEF).map(([k, v]) => [k, { n: v.n, pct: !!v.pct }])), resumed: !!sv, server: CONFIG.serverName, admin: isAdmin(p) });
     sendInv(p);
@@ -541,23 +556,23 @@ function onMsg(c, m) {
   const p = c.p; if (!p) return;
   switch (m.t) {
     case 'dir': p.dir = { x: clamp1(m.x), y: clamp1(m.y) }; if (p.dir.x || p.dir.y) p.dest = null; break;
-    case 'move': if (!p.dead && isFinite(m.x) && isFinite(m.y)) { p.dest = { x: +m.x, y: +m.y }; p.target = 0; } break;
+    case 'move': if (!p.dead && Number.isFinite(m.x) && Number.isFinite(m.y)) { p.dest = { x: +m.x, y: +m.y }; p.target = 0; } break;
     case 'target': { const t = mobs.get(+m.id); if (t && !t.dead && !p.dead) { p.target = t.id; p.dest = null; } break; }
     case 'skill': skill(p, +m.n); break;
-    case 'use': useItem(p, String(m.i)); break;
+    case 'use': if (typeof m.i === 'string') useItem(p, m.i); break;
     case 'learn': { const k = String(m.k); if (SKILLS.includes(k) && p.sp > 0 && p.sk[k] < maxRank(k)) { const o = p.maxhp; p.sk[k]++; p.sp--; stats(p); p.hp = Math.min(p.maxhp, p.hp + Math.max(0, p.maxhp - o)); sendInv(p); } break; }
     case 'equip': {
       if (p.dead) break; const i = p.bag.findIndex(it => it.uid === m.uid); if (i < 0) break; const it = p.bag[i];
       if (p.lvl < it.req) { say(p, it.name + ' requires level ' + it.req + '.'); break; }
       const old = p.eq[it.slot]; p.eq[it.slot] = it; p.bag.splice(i, 1); if (old) p.bag.splice(i, 0, old); afterGearChange(p); break;
     }
-    case 'unequip': { const it = p.eq[m.slot]; if (!it || p.dead) break; if (p.bag.length >= BAGMAX) { say(p, 'Your bag is full.'); break; } p.eq[m.slot] = null; p.bag.push(it); afterGearChange(p); break; }
+    case 'unequip': { if (!SLOTS.includes(m.slot)) break; const it = p.eq[m.slot]; if (!it || p.dead) break; if (p.bag.length >= BAGMAX) { say(p, 'Your bag is full.'); break; } p.eq[m.slot] = null; p.bag.push(it); afterGearChange(p); break; }
     case 'merge': doMerge(p, m.uids); break;
     case 'automerge': autoMerge(p, m.max); break;
     case 'sell': { if (!nearNpc(p, 'merchant')) { say(p, 'Sell items to the Merchant in the village.'); break; } const i = p.bag.findIndex(it => it.uid === m.uid); if (i < 0) break; const v = sellValue(p.bag[i]); p.gold += v; p.bag.splice(i, 1); ev('gold', p.x, p.y, '+' + v + 'g'); sendInv(p); break; }
     case 'sellall': { if (!nearNpc(p, 'merchant')) { say(p, 'Sell items to the Merchant in the village.'); break; } const mx = Math.max(0, Math.min(4, m.rar | 0)); let tot = 0, n = 0; p.bag = p.bag.filter(it => { if (it.rar <= mx) { tot += sellValue(it); n++; return false; } return true; }); p.gold += tot; say(p, n ? 'Sold ' + n + ' item(s) for ' + tot + ' gold.' : 'Nothing to sell.'); sendInv(p); break; }
     case 'buy': {
-      const it = ITEMS[String(m.i)]; if (!it) break; if (!nearNpc(p, 'merchant')) return say(p, 'Visit the Merchant in the village to buy.');
+      if (typeof m.i !== 'string' || !Object.hasOwn(ITEMS, m.i)) break; const it = ITEMS[m.i]; if (!nearNpc(p, 'merchant')) return say(p, 'Visit the Merchant in the village to buy.');
       const n = Math.max(1, Math.min(50, m.n | 0)), cost = n * it.price; if (p.gold < cost) return say(p, 'Not enough gold.');
       p.gold -= cost; p.inv[m.i] = (p.inv[m.i] || 0) + n; say(p, 'Bought ' + n + ' x ' + it.n + '.'); break;
     }
@@ -592,7 +607,7 @@ function makeApi(pname) {
     genGear, giveGear: (p, it) => addGear(p, it), dropAt: (x, y, d, owner) => dropAt(x, y, d, owner),
     players: () => [...players.values()], mobs: () => [...mobs.values()],
     findPlayer: n => [...players.values()].find(p => p.name.toLowerCase() === String(n).toLowerCase()),
-    spawn(type, x, y, opts) { if (!MOBTYPES[type]) throw new Error('unknown mob ' + type); const m = spawnMob(type, x, y, tierOf(x, y), opts); if (opts && opts.temp) m.summoned = true; m.awake = true; return m; },
+    spawn(type, x, y, opts) { if (!MOBTYPES[type]) throw new Error('unknown mob ' + type); const m = spawnMob(type, x, y, tierOf(x, y), opts); if (opts && opts.temp) { m.summoned = true; m.expiresAt = Date.now() + SUMMON_LIFETIME_MS; } m.awake = true; return m; },
     say, toast, broadcast: msg => broadcast({ t: 'chat', n: '*', m: String(msg) }),
     giveItem(p, k, n) { if (!ITEMS[k]) return false; p.inv[k] = (p.inv[k] || 0) + (n === undefined ? 1 : n); return true; },
     giveGold(p, n) { p.gold = Math.max(0, p.gold + n); }, giveXp: (p, n) => gainXp(p, n), refresh: p => afterGearChange(p),
@@ -601,8 +616,18 @@ function makeApi(pname) {
     setLevel(p, l) { p.lvl = Math.max(1, Math.min(200, l | 0)); p.xp = 0; const spent = SKILLS.reduce((s, k) => s + p.sk[k], 0) - 1; p.sp = Math.max(0, p.lvl - spent); stats(p); p.hp = p.maxhp; p.mp = p.maxmp; sendInv(p); },
     effect(x, y, radius, style) { ev('fx', x, y, radius || 60, { s: style || 'buff' }); }, text(x, y, txt, kind) { ev(kind || 'xp', x, y, String(txt)); },
     isAdmin, kick(p) { try { p.c.sock.end(); } catch (e) {} }, data: () => (pdata[pname] = pdata[pname] || {}),
-    stats: () => ({ players: players.size, mobs: mobs.size, awake: [...mobs.values()].filter(m => m.awake || m.target).length, loot: loot.size, tickMs: Math.round(tickMs * 100) / 100 }),
+    stats() {
+      const times = tickTimes.slice(0, Math.min(tickSample, tickTimes.length)).sort();
+      return { players: players.size, mobs: mobs.size, awake: [...mobs.values()].filter(m => m.awake || m.target).length,
+        loot: loot.size, tickMs: Math.round(tickMs * 100) / 100, tickP95: Math.round((times[Math.ceil(times.length * .95) - 1] || 0) * 100) / 100,
+        tickMax: Math.round((times[times.length - 1] || 0) * 100) / 100, ...transport.stats() };
+    },
   };
+}
+const activePlugins = new Set(), knownPlugins = new Set();
+function restoreRegistry(registry, backup) {
+  for (const key of Object.keys(registry)) delete registry[key];
+  Object.assign(registry, backup);
 }
 function loadPlugins() {
   const dir = path.join(__dirname, 'plugins'); let list = []; try { list = fs.readdirSync(dir); } catch (e) { return; }
@@ -611,9 +636,31 @@ function loadPlugins() {
     if (f.startsWith('_') || f.startsWith('.')) continue;
     const full = path.join(dir, f), name = f.replace(/\.js$/, ''); let entry = null;
     try { const st = fs.statSync(full); if (st.isDirectory()) { if (fs.existsSync(path.join(full, 'index.js'))) entry = full; } else if (f.endsWith('.js')) entry = full; } catch (e) {}
-    if (!entry || CONFIG.disabledPlugins.includes(name)) continue;
-    try { const mod = require(entry), init = typeof mod === 'function' ? mod : mod.init, pn = (typeof mod === 'object' && mod.name) || name; init(makeApi(pn)); console.log('    + ' + pn + (mod.version ? ' v' + mod.version : '')); }
-    catch (e) { console.log('    ! FAILED ' + name + ': ' + e.message); }
+    if (!entry) continue;
+    knownPlugins.add(name);
+    if (CONFIG.disabledPlugins.includes(name)) continue;
+
+    const registries = [hooks, commands, MOBTYPES, ITEMS, CLASSES, pdata];
+    const backups = registries.map(registry => ({ ...registry }));
+    backups[0] = Object.fromEntries(Object.entries(hooks).map(([event, handlers]) => [event, handlers.slice()]));
+    const tiers = TIERS.map(t => ({ ...t, types: t.types.slice(), ...(t.bosses ? { bosses: t.bosses.slice() } : {}) }));
+    const initialId = nextId, initialEventCount = events.length;
+    try {
+      const mod = require(entry), init = typeof mod === 'function' ? mod : mod.init;
+      const pn = (typeof mod === 'object' && mod.name) || name;
+      knownPlugins.add(pn);
+      if (CONFIG.disabledPlugins.includes(pn)) continue;
+      init(makeApi(pn));
+      activePlugins.add(name);
+      activePlugins.add(pn);
+      console.log('    + ' + pn + (mod.version ? ' v' + mod.version : ''));
+    } catch (e) {
+      registries.forEach((registry, i) => restoreRegistry(registry, backups[i]));
+      TIERS.splice(0, TIERS.length, ...tiers);
+      for (const world of [mobs, loot]) for (const id of world.keys()) if (id >= initialId) world.delete(id);
+      events.length = initialEventCount;
+      console.log('    ! FAILED ' + name + ': ' + e.message);
+    }
   }
 }
 
@@ -621,7 +668,11 @@ function loadPlugins() {
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
 const server = http.createServer((req, res) => {
   if (req.url.split('?')[0] === '/api/info') {
-    let scripts = []; try { scripts = fs.readdirSync(path.join(__dirname, 'public', 'plugins')).filter(x => x.endsWith('.js') && !x.startsWith('_')).sort(); } catch (e) {}
+    let scripts = []; try { scripts = fs.readdirSync(path.join(__dirname, 'public', 'plugins')).filter(file => {
+      if (!file.endsWith('.js') || file.startsWith('_') || file.startsWith('.')) return false;
+      const name = file.slice(0, -3);
+      return !CONFIG.disabledPlugins.includes(name) && (!knownPlugins.has(name) || activePlugins.has(name));
+    }).sort(); } catch (e) {}
     const cl = {}; for (const k in CLASSES) cl[k] = { name: CLASSES[k].name, desc: CLASSES[k].desc || '', color: CLASSES[k].color || '' };
     res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ serverName: CONFIG.serverName, classes: cl, scripts, world: worldInfo(), online: players.size }));
   }
@@ -630,15 +681,13 @@ const server = http.createServer((req, res) => {
   if (!fp.startsWith(path.join(__dirname, 'public'))) { res.writeHead(403); return res.end(); }
   fs.readFile(fp, (e, d) => { if (e) { res.writeHead(404); return res.end('Not found'); } res.writeHead(200, { 'Content-Type': MIME[path.extname(fp)] || 'application/octet-stream', 'Cache-Control': 'no-cache' }); res.end(d); });
 });
-server.on('upgrade', (req, sock) => {
-  const key = req.headers['sec-websocket-key']; if (!key) return sock.destroy();
-  const acc = crypto.createHash('sha1').update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
-  sock.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + acc + '\r\n\r\n');
-  sock.setNoDelay(true);
-  const c = { sock, buf: Buffer.alloc(0), p: null, closed: false };
-  sock.on('data', d => { c.buf = Buffer.concat([c.buf, d]); parseFrames(c); });
-  const bye = () => { if (c.closed) return; c.closed = true; if (c.p) { fire('leave', c.p); savePlayer(c.p); players.delete(c.p.id); for (const m of mobs.values()) if (m.target === c.p.id) m.target = 0; broadcast({ t: 'chat', n: '*', m: c.p.name + ' left.' }); } };
-  sock.on('close', bye); sock.on('error', bye);
+const transport = attachWebSockets(server, onMsg, c => {
+  if (!c.p) return;
+  fire('leave', c.p);
+  savePlayer(c.p);
+  players.delete(c.p.id);
+  for (const m of mobs.values()) if (m.target === c.p.id) m.target = 0;
+  broadcast({ t: 'chat', n: '*', m: c.p.name + ' left.' });
 });
 console.log('\n  ' + CONFIG.serverName.toUpperCase());
 loadPlugins(); populate();

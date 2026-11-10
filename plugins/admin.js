@@ -21,7 +21,7 @@ module.exports = { name: 'admin', version: '1.0', init(api) {
   api.command('xprate', A, (p, a) => { api.rates.xpRate = num(a[0], 1.5); return 'XP rate x' + api.rates.xpRate + ' (until restart - edit rates.json to keep it)'; });
   api.command('droprate', A, (p, a) => { api.rates.gearDropRate = num(a[0], 1); return 'Gear drop rate x' + api.rates.gearDropRate + ' (until restart - edit rates.json to keep it)'; });
   api.command('rate', A, (p, a) => { if (!a[0] || !(a[0] in api.rates)) return 'Rates: ' + Object.entries(api.rates).map(([k, v]) => k + '=' + v).join(', '); api.rates[a[0]] = num(a[1], api.rates[a[0]]); return a[0] + ' = ' + api.rates[a[0]]; });
-  api.command('stats', A, () => { const s = api.stats(); return 'Players ' + s.players + ' · monsters ' + s.mobs + ' (' + s.awake + ' awake) · loot ' + s.loot + ' · server tick ' + s.tickMs + ' ms (budget 50)'; });
+  api.command('stats', A, () => { const s = api.stats(); return 'Players ' + s.players + ' · monsters ' + s.mobs + ' (' + s.awake + ' awake) · loot ' + s.loot + ' · server tick ' + s.tickMs + ' ms (p95 ' + s.tickP95 + ', max ' + s.tickMax + ', budget 50) · TX ' + s.bytesPerSecond + ' B/s · max/player ' + s.peakPlayerBytesPerSecond + ' B/s · slow disconnects ' + s.backpressureDisconnects; });
   api.command('zone', A, (p, a) => { const T = api.TIERS[num(a[0], 0)]; if (!T) return 'Zones 0-' + (api.TIERS.length - 1); const d = T.outer ? T.min + 250 : (T.min + T.max) / 2; api.teleport(p, api.consts.CX, api.consts.CY - d); return 'Teleported to ' + T.name; });
   api.command('god', A, p => { p.data.god = !p.data.god; return 'God mode ' + (p.data.god ? 'ON - monsters cannot hurt you' : 'OFF'); });
   api.on('hurt', (p, m, o) => { if (p.data.god) o.v = 0; });

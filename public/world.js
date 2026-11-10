@@ -13,7 +13,7 @@ async function loadNature() {
         for (let i = 0; i < p.count; i++) { const o = (p.start + i) * st; for (let c = 0; c < 3; c++) { a[i * 6 + c] = (dv.getInt16(o + c * 2, true) + 32767) * m.sc[c] + m.min[c]; a[i * 6 + 3 + c] = dv.getInt8(o + 6 + c) / 127; } }
         parts.push({ mesh: GL.meshFromArray(a), col: p.col });
       }
-      out[name] = { parts, h: m.max[1] - m.min[1], w: Math.max(m.max[0] - m.min[0], m.max[2] - m.min[2]), minY: m.min[1] };
+      out[name] = { parts, h: m.max[1] - m.min[1], w: Math.max(m.max[0] - m.min[0], m.max[2] - m.min[2]), minY: m.min[1], radius: Math.hypot(Math.max(Math.abs(m.min[0]), Math.abs(m.max[0])), Math.max(Math.abs(m.min[2]), Math.abs(m.max[2]))) };
     }
     NAT = out;
   } catch (e) { console.warn('nature pack not loaded - using simple trees', e); NAT = null; }
@@ -22,7 +22,14 @@ async function loadNature() {
 function natPlace(name, x, z, size, yaw, tint, cat, bySize) {
   const m = NAT && NAT[name]; if (!m) return false;
   const k = size / (bySize ? Math.max(m.h, m.w) : m.h), CH = GL.CH, kx = Math.floor(x / CH), kz = Math.floor(z / CH), key = kx + ',' + kz;
-  let cell = DECOR.get(key); if (!cell) { cell = { cx: (kx + .5) * CH, cz: (kz + .5) * CH, g: new Map() }; DECOR.set(key, cell); }
+  let cell = DECOR.get(key); if (!cell) { cell = { cx: (kx + .5) * CH, cz: (kz + .5) * CH, g: new Map(),
+    bounds: [Infinity, -2, Infinity, -Infinity, 0, -Infinity] }; DECOR.set(key, cell); }
+  const r = m.radius * k, bounds = cell.bounds;
+  bounds[0] = Math.min(bounds[0], x - r);
+  bounds[2] = Math.min(bounds[2], z - r);
+  bounds[3] = Math.max(bounds[3], x + r);
+  bounds[4] = Math.max(bounds[4], m.h * k);
+  bounds[5] = Math.max(bounds[5], z + r);
   for (const p of m.parts) {
     const gk = p.mesh; let g = cell.g.get(gk); if (!g) { g = [null, null, null]; cell.g.set(gk, g); }
     let q = g[cat]; if (!q) q = g[cat] = { arr: new Float32Array(GL.STRIDE * 16), n: 0, mesh: p.mesh };
@@ -73,15 +80,15 @@ let decorStats = 0;
 function drawDecor() {
   if (!DECOR.size) return; const q = GL.Q, lo = q.mode === 'low', md = q.mode === 'medium' || q.scale < .8;
   const R0 = lo ? 850 : md ? 1150 : 1450, R1 = lo ? 550 : md ? 800 : 1000, R2 = lo ? 0 : md ? 420 : 620, SHR = 900; GL.setDetail(R0);
-  const ex = cam.x, ez = cam.z, fx = GL.cam.fwd[0], fz = GL.cam.fwd[2]; let n = 0;
+  const ex = cam.x, ez = cam.z, shadows = GL.shadowsOn(); let n = 0;
   for (const c of DECOR.values()) {
     const dx = c.cx - ex, dz = c.cz - ez, d = Math.hypot(dx, dz); if (d > R0) continue;
-    if (d > 650 && (dx * fx + dz * fz) < -500) continue; // behind the camera
-    const sh = d < SHR;
+    const visible = GL.boundsVisible(c.bounds), sh = shadows && d < SHR;
+    if (!visible && !sh) continue;
     for (const g of c.g.values()) {
       if (g[0] && d < R0) { GL.pushInst(g[0].mesh, g[0].arr, g[0].n, !sh); n += g[0].n; }
-      if (g[1] && d < R1) { GL.pushInst(g[1].mesh, g[1].arr, g[1].n, !sh || d > 600); n += g[1].n; }
-      if (g[2] && d < R2) { GL.pushInst(g[2].mesh, g[2].arr, g[2].n, true); n += g[2].n; }
+      if (g[1] && d < R1 && (visible || (sh && d <= 600))) { GL.pushInst(g[1].mesh, g[1].arr, g[1].n, !sh || d > 600); n += g[1].n; }
+      if (g[2] && d < R2 && visible) { GL.pushInst(g[2].mesh, g[2].arr, g[2].n, true); n += g[2].n; }
     }
   }
   decorStats = n;

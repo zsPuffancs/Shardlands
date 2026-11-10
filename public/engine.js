@@ -121,7 +121,27 @@ float dist=length(vW-cam);float f=1.0-exp(-pow(dist*0.00052,1.7));gl_FragColor=v
   const persp = (fov, asp, n, f) => { const t = 1 / Math.tan(fov / 2); return new Float32Array([t / asp, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, 2 * f * n / (n - f), 0]); };
   function look(e, t) { let z = nrm(sub(e, t)), x = nrm(cross([0, 1, 0], z)), y = cross(z, x); return { m: new Float32Array([x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -dot(x, e), -dot(y, e), -dot(z, e), 1]), right: x, up: y, fwd: z.map(v => -v) }; }
   const cam = { eye: [0, 100, 100], tgt: [0, 0, 0], VP: new Float32Array(16), fov: 0.95, w: 1, h: 1, right: [1, 0, 0], up: [0, 1, 0], fwd: [0, 0, -1] };
-  function setCamera(eye, target) { const v = look(eye, target); cam.VP = mul(persp(cam.fov, cam.w / cam.h, 8, 9000), v.m); cam.eye = eye; cam.tgt = target; cam.right = v.right; cam.up = v.up; cam.fwd = v.fwd; }
+  const frustum = new Float32Array(24);
+  function setCamera(eye, target) {
+    const v = look(eye, target);
+    const m = cam.VP = mul(persp(cam.fov, cam.w / cam.h, 8, 9000), v.m);
+    cam.eye = eye; cam.tgt = target; cam.right = v.right; cam.up = v.up; cam.fwd = v.fwd;
+    // Clip planes are the fourth row plus or minus each of the first three rows.
+    for (let axis = 0; axis < 3; axis++) {
+      for (let col = 0; col < 4; col++) {
+        frustum[axis * 8 + col] = m[col * 4 + 3] + m[col * 4 + axis];
+        frustum[axis * 8 + 4 + col] = m[col * 4 + 3] - m[col * 4 + axis];
+      }
+    }
+  }
+  function boundsVisible(bounds) {
+    for (let i = 0; i < frustum.length; i += 4) {
+      const x = frustum[i], y = frustum[i + 1], z = frustum[i + 2];
+      if (x * bounds[x < 0 ? 0 : 3] + y * bounds[y < 0 ? 1 : 4] +
+          z * bounds[z < 0 ? 2 : 5] + frustum[i + 3] < 0) return false;
+    }
+    return true;
+  }
   function project(x, y, z) { const m = cam.VP, cx = m[0] * x + m[4] * y + m[8] * z + m[12], cy = m[1] * x + m[5] * y + m[9] * z + m[13], cw = m[3] * x + m[7] * y + m[11] * z + m[15]; if (cw <= 1) return null; return { x: (cx / cw + 1) / 2 * cam.w, y: (1 - cy / cw) / 2 * cam.h, d: cw }; }
   function ray(px, py) { const nx = px / cam.w * 2 - 1, ny = 1 - py / cam.h * 2, th = Math.tan(cam.fov / 2), asp = cam.w / cam.h; return { o: cam.eye, d: nrm([0, 1, 2].map(i => cam.fwd[i] + cam.right[i] * nx * th * asp + cam.up[i] * ny * th)) }; }
 
@@ -170,7 +190,22 @@ float dist=length(vW-cam);float f=1.0-exp(-pow(dist*0.00052,1.7));gl_FragColor=v
     }
     a.n = o;
   }
-  function bakeEnd() { for (const a of bk.values()) { const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, a.f.subarray(0, a.n), gl.STATIC_DRAW); chunks.push({ buf, count: a.n / 11, cx: (a.kx + .5) * CH, cz: (a.kz + .5) * CH, far: a.far }); } bk = null; }
+  function bakeEnd() {
+    for (const a of bk.values()) {
+      const buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, a.f.subarray(0, a.n), gl.STATIC_DRAW);
+      const bounds = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
+      for (let i = 0; i < a.n; i += 11) {
+        for (let axis = 0; axis < 3; axis++) {
+          bounds[axis] = Math.min(bounds[axis], a.f[i + axis]);
+          bounds[axis + 3] = Math.max(bounds[axis + 3], a.f[i + axis]);
+        }
+      }
+      chunks.push({ buf, count: a.n / 11, cx: (a.kx + .5) * CH, cz: (a.kz + .5) * CH, far: a.far, bounds });
+    }
+    bk = null;
+  }
 
   let gtex = null, gR = [0, 0, 1];
   function setGround(canvas, x0, z0, size) {
@@ -200,7 +235,7 @@ float dist=length(vW-cam);float f=1.0-exp(-pow(dist*0.00052,1.7));gl_FragColor=v
     constRows(I0, I1, I2); A(5); A(6);
     for (const c of chunks) {
       const dx = c.cx - cx, dz = c.cz - cz, d2 = dx * dx + dz * dz; if (d2 > (rad + 450) * (rad + 450)) continue; if (c.far && d2 < detailR * detailR) continue;
-      if (cull && (c.cx - cam.eye[0]) * cam.fwd[0] + (c.cz - cam.eye[2]) * cam.fwd[2] < -700) continue;
+      if (cull && !boundsVisible(c.bounds)) continue;
       gl.bindBuffer(gl.ARRAY_BUFFER, c.buf); A(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 44, 0); A(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 44, 12);
       gl.vertexAttribPointer(5, 4, gl.FLOAT, false, 44, 24); gl.vertexAttribPointer(6, 1, gl.FLOAT, false, 44, 40); gl.drawArrays(gl.TRIANGLES, 0, c.count); Q.draws++;
     }
@@ -314,5 +349,5 @@ float dist=length(vW-cam);float f=1.0-exp(-pow(dist*0.00052,1.7));gl_FragColor=v
     if (PK && skinQ.length) { gl.useProgram(PK); gl.uniformMatrix4fv(UK.LVP, false, LVP || cam.VP); gl.uniform1f(UK.shOn, sh ? 1 : 0); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, shTex); drawSkinQueue(false); for (let i = 2; i < 5; i++) X(i); gl.useProgram(P1); gl.activeTexture(gl.TEXTURE0); }
     gl.depthMask(false); drawInst('t'); gl.depthMask(true); skinQ.length = 0;
   }
-  return { gl, M, cam, Q, CH, skinOK: () => !!PK, loadGLB, pose, drawSkinned, meshFromArray, instWrite, pushInst, setDetail: r => { detailR = r; }, STRIDE, setSky, setCamera, project, ray, draw, begin, render, setGround, bakeBegin, bakeAdd, bakeEnd, setQuality, perf, shadowsOn, sky: () => sky_ };
+  return { gl, M, cam, Q, CH, skinOK: () => !!PK, loadGLB, pose, drawSkinned, meshFromArray, instWrite, pushInst, setDetail: r => { detailR = r; }, STRIDE, setSky, setCamera, project, boundsVisible, ray, draw, begin, render, setGround, bakeBegin, bakeAdd, bakeEnd, setQuality, perf, shadowsOn, sky: () => sky_ };
 })();

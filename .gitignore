@@ -1,0 +1,6 @@
+# Server-generated saves and local settings
+/saves.json
+/plugin-data.json
+/rates.json
+/saves.json.*.tmp
+/plugin-data.json.*.tmp
