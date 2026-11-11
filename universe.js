@@ -4,6 +4,8 @@
 // same seed + tier + history snapshot + generator version always gives the same region.
 const crypto = require('node:crypto');
 const { TIERS, MOBTYPES, SPECIAL } = require('./monsters');
+const { LEVEL_RANGE_VERSION, regionLevelRange } = require('./region-levels');
+const { createDangerSpec } = require('./danger-geography');
 
 const GENERATOR_VERSION = 2;
 const STATE_VERSION = 1;
@@ -102,6 +104,19 @@ function generateRegion(seed, tier, historySnapshot, generatorVersion = GENERATO
   };
 }
 
+// Shared by persistence and read-only previews. Never mutates its input state.
+function createRegionDescriptor(state, tier, snapshot) {
+  const region = generateRegion(state.seed, tier, snapshot, state.generatorVersion);
+  if (tier > FOUNDING_TIERS) {
+    region.levels = regionLevelRange(state.seed, tier, state.regions[tier - 1]?.levels?.[1]);
+    region.levelRangeVersion = state.levelRangeVersion || LEVEL_RANGE_VERSION;
+    if (state.generatorVersion === 2) region.dangerSpec = createDangerSpec({ seed: state.seed, tier, biome: region.biome, options: state.generationSettings?.danger });
+  }
+  return { ...region, snapshot: tier > FOUNDING_TIERS ? structuredClone(snapshot) : undefined };
+}
+// V2 needs only six element counters and scalars; do not copy an ever-growing boss ledger.
+const generationSnapshot = state => ({ elements: state.generatorVersion === 1 ? { ...state.stats.elements } : Object.fromEntries(Object.keys(BOSS_TITLES).map(element => [element, state.stats.elements[element] || 0])), ...(state.generatorVersion === 1 ? { bossKills: { ...state.stats.bossKills } } : {}), stones: state.stats.stones, deaths: state.stats.deaths, mythics: state.stats.mythics, events: state.history.length });
+
 // ---------- persistent universe ----------
 function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
   const state = store.data;
@@ -124,13 +139,21 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
   if (state.generatorVersion === 2 && !state.generationSettings) {
     const options = config.worldGeneration || {};
     const numeric = values => Object.fromEntries(Object.entries(values || {}).filter(([, value]) => Number.isFinite(value)));
-    state.generationSettings = { budgets: numeric(options.budgets), spacing: numeric(options.spacing) };
+    state.generationSettings = { budgets: numeric(options.budgets), spacing: numeric(options.spacing), danger: numeric(options.danger) };
   }
+  if (state.generatorVersion === 2 && state.generationSettings.danger === undefined) {
+    state.generationSettings.danger = Object.fromEntries(Object.entries(config.worldGeneration?.danger || {}).filter(([key, value]) => ['baseline', 'noise'].includes(key) && Number.isFinite(value)));
+  }
+  // Apply the new level-range policy only to descriptors created after this update.
+  if (state.levelRangeVersion === undefined) state.levelRangeVersion = LEVEL_RANGE_VERSION;
+  if (state.levelRangeVersion !== LEVEL_RANGE_VERSION) throw new RangeError('Unsupported level-range version: ' + state.levelRangeVersion);
   const persist = () => store.save().catch(error => console.error(error));
-  const historySnapshot = () => ({ elements: { ...state.stats.elements }, bossKills: { ...state.stats.bossKills }, stones: state.stats.stones, deaths: state.stats.deaths, mythics: state.stats.mythics, events: state.history.length });
+  const historySnapshot = () => generationSnapshot(state);
   // A region is generated once, when it becomes known, and stored with the snapshot it was generated from.
   function regionFor(tier) {
-    if (!state.regions[tier]) { const snapshot = historySnapshot(); state.regions[tier] = { ...generateRegion(state.seed, tier, snapshot, state.generatorVersion), snapshot: tier > FOUNDING_TIERS ? snapshot : undefined }; }
+    if (!state.regions[tier]) {
+      state.regions[tier] = createRegionDescriptor(state, tier, historySnapshot());
+    }
     const region = state.regions[tier];
     if (region.kind === 'frontier' && !region.worldBoss.archetype) { region.worldBoss.archetype = region.worldBoss.type; region.worldBoss.type = 'wb' + tier; }
     return region;
@@ -221,9 +244,9 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
     return [...byName.values()].sort((a, b) => b.renown - a.renown || a.name.localeCompare(b.name)).slice(0, 20);
   }
   // Short identity sent with the world description (login screen, client world baking).
-  const identity = () => ({ name: state.name, seed: state.seed, seedNumber: hashString(state.seed) % 2147483645 + 1, tier: state.worldTier, foundedAt: state.foundedAt });
+  const identity = () => ({ name: state.name, seedNumber: hashString(state.seed) % 2147483645 + 1, tier: state.worldTier, foundedAt: state.foundedAt });
   function summary() {
-    const view = region => { const { spawnPlan, spawnState, ...metadata } = region; return metadata; };
+    const view = region => { const { spawnPlan, spawnState, dangerSpec, snapshot, ...metadata } = region; return metadata; };
     const frontier = view(regionFor(state.worldTier));
     return {
       ...identity(), generatorVersion: state.generatorVersion, frontier,
@@ -235,4 +258,4 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
   return universe;
 }
 
-module.exports = { GENERATOR_VERSION, hashString, seededRandom, newSeed, universeName, generateRegion, createUniverse };
+module.exports = { GENERATOR_VERSION, hashString, seededRandom, newSeed, universeName, generateRegion, createRegionDescriptor, generationSnapshot, createUniverse };

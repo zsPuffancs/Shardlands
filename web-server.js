@@ -10,8 +10,9 @@ const { readInviteLink } = require('./tunnel');
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.ico': 'image/vnd.microsoft.icon' };
 
-function createWebServer({ publicDirectory, config, players, clientScripts, handleMessage, onLeave }) {
+function createWebServer({ publicDirectory, config, players, clientScripts, handleMessage, onLeave, atlas }) {
   const server = http.createServer((request, response) => {
+    if (atlas?.handle(request, response)) return;
     const pathname = request.url.split('?')[0];
     if (pathname === '/api/info') {
       const classes = Object.fromEntries(Object.entries(CLASSES).map(([id, characterClass]) => [

@@ -30,7 +30,7 @@ Console commands are defined in `server-console.js`. Give each `Command` a name,
 ## Universes
 Every server is its own universe. On the first start it gets a world seed and a name (for example "The Verdant Throne"). The seed decides where monster camps, stones, bosses, trees and rocks are, so no two servers have the same map.
 - **World Tier**: starts at 1. Each region has one World Boss (👑), picked by the seed. Defeating it in its own region raises the World Tier and reveals the next region. Tiers 1-7 are the seven zones. From tier 8 every new tier is a whole new map, generated from the seed and the server's history.
-- **World Portal**: when the 7th World Boss (the Lord of Death) falls, a portal opens in the centre of the village. Press F at it to see every map unlocked on the server and travel between them. Each generated map has its own village with the Merchant, Blacksmith, Soul Mystic and a portal, monsters 10 levels above the previous map, stones, Alphas and a named World Boss. Killing that boss unlocks the next map, without end.
+- **World Portal**: when the 7th World Boss (the Lord of Death) falls, a portal opens in the centre of the village. Press F at it to see every map unlocked on the server and travel between them. Each generated map has its own village with the Merchant, Blacksmith, Soul Mystic and a portal, a seeded random level span of 20-45 starting at the previous map's maximum level, stones, Alphas and a named World Boss. Killing that boss unlocks the next map, without end.
 - **Chronicle** (H or the 🏛 button): the permanent record of firsts - first hero, first to reach level 10-60, first kill of each boss, first stone shattered in each region, first Mythic, every World Boss victory - and the Legends ranking that follows from it.
 - The universe lives in `universe.json`. Back it up with `saves.json`. Set `worldSeed` in `config.json` before the first start to choose the seed.
 - **Seed randomizer**: type `reseed` in the server console. `reseed confirm` founds a new universe with a random seed, `reseed confirm MY-SEED` with a seed you choose. Heroes and items are kept; the map layout, World Tier, chronicle and generated maps start over. The old universe is saved as `universe-backup-<time>.json`.
@@ -55,7 +55,7 @@ Details and design notes: `docs/UNIVERSE.md`.
 | Frostfang Peaks | 30-40 | Frost Fang, Yeti, Ice Golem | Frost Wyrm (breath), Yeti King (charge) | Frost Stone |
 | Voidreach | 40-50 | Shade, Void Weaver, Void Knight | Void Lord (meteors), Abyssal Wyrm (breath) | Void Stone |
 | **Death Zone** (map border) | 50-60 | ~1800 of everything, scaled up | 4x Lord of Death + Void Lord, Abyssal Wyrm, Frost Wyrm, Yeti King | Doom Stone |
-- **Alpha** monsters (orange name + aura): 5x HP, harder hits, 3x XP, guaranteed loot, 90 s respawn. Like normal monsters they give less XP to heroes more than 5 levels above them.
+- **Alpha** monsters (orange name + aura): 5x HP, harder hits, 3x XP, guaranteed loot, 90 s respawn. Like normal monsters they give less XP to heroes more than 5 levels above them. All monsters, bosses and Spirit Stones give zero XP when the hero is at least 13 levels above them; gold and drops are unchanged.
 - **Bosses** (gold name): every attack is telegraphed in red on the ground - get out of it. 3 min respawn, best loot.
 - **World Bosses** (👑): the one boss per zone, chosen by the seed, that unlocks the next World Tier. 1.5x bigger and 3x HP.
 - **Stones**: 6,000 base HP for the Spirit Stone and up from there; 5 + zone guardians spawn at every 20% of HP lost (up to 12), with an Alpha guardian at 60%, 40% and 20%, the stone pulses a blue shockwave (red circle first), respawn after 90 s.
@@ -86,7 +86,7 @@ Hover an item and hold **Shift** to see the lowest and highest value each of its
 
 ## Teams and trading
 Press **Y** (or the 👥 button) to open the Team window. Invite a hero by name (or `/invite name`, `/accept`, `/leave`); up to 5 heroes, team chat with `/t message`.
-**Sharing**: team members within 1000 units of a kill (same map) split its XP - with +15% in total for every extra member - and its gold. The killer's gold drops on the ground as usual; the others get theirs straight away. Gear and other drops still go to the killer. The leader switches sharing on or off with `/share` or the button in the Team window (on by default).
+**Sharing**: team members within 1000 units of a kill (same map) split its XP among XP-eligible members - with +15% in total for every extra eligible member - and its gold among all sharing members. The killer's gold drops on the ground as usual; the others get theirs straight away. Gear and other drops still go to the killer. The leader switches sharing on or off with `/share` or the button in the Team window (on by default).
 **Tougher monsters**: a monster fought by a team gets x1.5 HP and damage for every extra member nearby (2 heroes x1.5, 3 x2.25, 4 x3.4, 5 x5.1). It keeps that strength until it walks home and heals, or respawns. This applies whether sharing is on or off.
 Only team members can trade. Press **Trade** next to a member (or `/trade name`). Both put bag items and gold on the table; when both press **Accept trade** the swap happens at once. Any change to an offer takes back both acceptances, so nobody can switch items after you accepted. Leaving the team or the game cancels the trade.
 
@@ -174,3 +174,11 @@ Shared server limits live in `safety-limits.js`. Combat stat formulas and equipm
 - All client particles share a 700-particle cap; all transient effects share a 256-effect cap. Cosmetic effects stop at 192, reserving space for danger telegraphs. If the warning budget itself fills, closer warnings take priority over more distant ones. Asset-model mesh arrays are not subject to the particle cap.
 
 Focused regression cases are prepared in `tests/safety-limits.test.js`. They were not executed during implementation because tests are run only on explicit user request. No automatic test hooks were added.
+
+New frontier descriptors use the independently versioned level-range policy in `region-levels.js`: the seeded span is 20-45 (maximum minus minimum), starting at the previous saved region's maximum. This applies to future regions in existing v1/v2 worlds without reseeding. Saved regions and spawn plans, including the seven founding zones, keep their levels. At the existing level cap of 10,000, the interval shifts down to preserve its width, so later capped regions overlap.
+
+## Dynamic danger geography and developer World Atlas
+
+New generator-v2 frontier regions now have deterministic biome-specific danger fields, protected entry areas, validated safe approaches and optional risky shortcuts. Encounter placement uses the same field without changing monster HP/damage formulas or increasing population budgets. Existing saved geography and v1 worlds are preserved.
+
+After starting `node server.js`, open **http://localhost:3000/dev/atlas** locally (adjust the port if configured). The Atlas provides persisted region selection, isolated seed/tier dry-run previews, zoom/pan, exact danger inspection, toggleable layers, diagnostics, PNG export and JSON validation reports. It never unlocks regions or writes previews to saves. Local-only access is enforced; normal players do not receive the raw seed or internal encounter/danger descriptors. See [docs/DANGER-ATLAS.md](docs/DANGER-ATLAS.md) for operation, algorithms, compatibility, tests and measured limits.

@@ -20,6 +20,7 @@ const { createPlayerSessions } = require('./player-session');
 const { createPluginHost } = require('./plugin-host');
 const { createSimulation } = require('./simulation');
 const { createWebServer } = require('./web-server');
+const { createAtlas } = require('./world-atlas');
 const { createMobTypeIndex, createSnapshotPublisher } = require('./snapshots');
 const { startServer } = require('./server-lifecycle');
 
@@ -104,6 +105,7 @@ const sessions = createPlayerSessions({
   refreshMobTypes, universe, regions, teams, commands: pluginHost.commands, skill: combat.skill, learnSkill, savePlayer,
 });
 const { server, transport } = createWebServer({
+  atlas: createAtlas({ universe }),
   publicDirectory: path.join(__dirname, 'public'), config, players, clientScripts: pluginHost.clientScripts,
   handleMessage: sessions.handleMessage,
   onLeave: sessions.leavePlayer,

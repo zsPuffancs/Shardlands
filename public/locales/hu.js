@@ -500,6 +500,8 @@ GameText.addCatalog('hu', {
   "binding.history": "Krónika",
   "panel.chronicle": "🏛 Krónika",
   "panel.chronicleShortcut": "Krónika (H)",
+  "universe.publicLine": "{universe} · {tier}. világszint",
+  "universe.publicIdentity": "Alapítva: {date}",
   "universe.loginLine": "{universe} · {tier}. világszint · mag: {seed}",
   "universe.identity": "Mag: {seed} · alapítva: {date}",
   "universe.worldTier": "Világszint",

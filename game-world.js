@@ -64,4 +64,4 @@ function worldInfo(map) {
   return { universe: universeIdentity(), map: map.index, maps: maps.length, W: map.w, H: map.h, CX: map.cx - map.x0, CY: map.cy - map.y0, V: VILLAGE, npcs, npcRange: NPC_RANGE, tiers: zones };
 }
 
-module.exports = { W, H, CX, CY, VILLAGE, NPCS, NPC_RANGE, REGION_SAFE_RADIUS, maps, addMap, mapAt, mapOf, portalOpen, npcPosition, placeInVillage, rnd, rint, pick, dist, nearNpc, inVillage, clampWorld, moveToward, tierOf, worldInfo, attachUniverse };
+module.exports = { W, H, CX, CY, VILLAGE, NPCS, NPC_RANGE, REGION_SIZE, REGION_SAFE_RADIUS, maps, addMap, mapAt, mapOf, portalOpen, npcPosition, placeInVillage, rnd, rint, pick, dist, nearNpc, inVillage, clampWorld, moveToward, tierOf, worldInfo, attachUniverse };

@@ -1,7 +1,7 @@
 'use strict';
 // Regions beyond the founding lands. Each one is a generated map with its own village,
 // monsters, stones and World Boss, reached through the World Portal.
-const { generateSpawnPlan, validateSpawnPlan } = require('./world-generation');
+const { buildRegionPlan, frontierZone } = require('./region-blueprint');
 const { createEncounterRuntime } = require('./encounter-runtime');
 const { MOBTYPES, TIERS, SPECIAL, WORLD_BOSS_SIZE } = require('./monsters');
 const { maps, addMap, mapOf, nearNpc, npcPosition, placeInVillage, worldInfo, REGION_SAFE_RADIUS } = require('./game-world');
@@ -9,10 +9,8 @@ const { localizedText: messageText } = require('./localized-text');
 const { mobTypesForClient } = require('./snapshots');
 
 const FOUNDING_TIERS = TIERS.length;
-const STONE_FOR = { fire: 'emberstone', frost: 'froststone', void: 'voidstone', beast: 'jadestone', war: 'bonestone', undead: 'bonestone' };
 // Which founding zone a biome borrows its scenery from on the client.
 const LOOK_FOR = { volcanic: 3, glacier: 4, voidscar: 5, wildwood: 1, warfields: 2, necropolis: 6 };
-const REGION_MONSTERS = 260, REGION_ALPHAS = 8;
 
 function createRegions({ universe, players, mobs, spawnMob, config = {}, populateZone, refreshMobTypes, send, say, ev }) {
   const version2 = universe.state.generatorVersion === 2;
@@ -21,12 +19,10 @@ function createRegions({ universe, players, mobs, spawnMob, config = {}, populat
     runtime.register({ id: tier, map, zoneIndex: tier - 1, min: zone.min, max: zone.max, outer: zone.outer,
       loadPlan() {
         if (!record.spawnPlan) {
-          const plan = generateSpawnPlan({ seed: universe.state.seed, tier, zone: { ...zone, worldBoss: record.worldBoss.type, levelRules: Object.fromEntries([...zone.types, ...(zone.bosses || []), zone.stone || 'stone'].filter(type => MOBTYPES[type]).map(type => [type, { level: MOBTYPES[type].lvl || zone.lv[0] }])) }, area: map, budgets: universe.state.generationSettings?.budgets, spacing: universe.state.generationSettings?.spacing });
-          const validation = validateSpawnPlan(plan);
-          if (!validation.valid) throw new Error('Invalid spawn plan: ' + validation.errors.slice(0, 5).join(', '));
-          record.spawnPlan = plan;
+          record.spawnPlan = buildRegionPlan(universe.state, record, zone, map);
         }
         if (record.spawnPlan.version !== 2) throw new Error('Unsupported persisted spawn-plan version; save preserved.');
+        if (record.spawnPlan.danger && record.spawnPlan.danger.version !== 1) throw new Error('Unsupported saved danger version; save preserved.');
         return record.spawnPlan;
       },
       storage: () => record.spawnState || (record.spawnState = {}),
@@ -44,13 +40,7 @@ function createRegions({ universe, players, mobs, spawnMob, config = {}, populat
     MOBTYPES[boss.type] = { ...MOBTYPES[archetype], r: Math.round(MOBTYPES[archetype].r * WORLD_BOSS_SIZE), name: boss.name, archetype, element: region.element, worldBoss: true };
     SPECIAL[boss.type] = SPECIAL[archetype] || boss.signature || 'charge';
     const map = addMap(index, { tier: zoneIndex, regionTier: tier, look: LOOK_FOR[region.biome] === undefined ? 6 : LOOK_FOR[region.biome] });
-    const families = region.families.filter(type => MOBTYPES[type]);
-    TIERS[zoneIndex] = {
-      name: region.name, min: REGION_SAFE_RADIUS, max: 99999, lv: region.levels.slice(),
-      types: families.length ? families : ['voidknight'], bosses: [boss.type], bossCount: 1,
-      count: REGION_MONSTERS, stones: region.stones, stone: STONE_FOR[region.element] || 'doomstone', alphas: REGION_ALPHAS,
-      scale: true, outer: true, generated: true, area: map,
-    };
+    TIERS[zoneIndex] = frontierZone(region, map);
     if (runtime) registerPlan(tier, TIERS[zoneIndex], map, region);
     else populateZone(zoneIndex, universe.layoutRandom('spawns:' + tier));
     region.playable = true;

@@ -7,6 +7,8 @@ const { clampWorld, mapOf, inVillage, dist, rnd, rint, pick } = require('./game-
 const { MOBTYPES, TIERS, SPECIAL } = require('./monsters');
 const { CLASSES, critCh, critMul, defRed, playerDmg, rank, passive, gearLifesteal } = require('./characters');
 
+const XP_LEVEL_GAP_LIMIT = 13;
+const canEarnMonsterXp = (hero, monster) => hero.lvl - monster.lvl < XP_LEVEL_GAP_LIMIT;
 const { SUMMON_LIFETIME_MS, createSummons } = require('./summons');
 
 function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLoot, broadcast, say, teams }) {
@@ -54,8 +56,9 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     const experienceMultiplier = hero => template.stone ? 2 : template.boss ? 1 : Math.max(0.1, 1 - Math.max(0, hero.lvl - monster.lvl - 5) * 0.12);
     // Team sharing: everyone nearby gets an equal part of the XP, +15% in total for every extra member.
     const sharers = teams.sharesLoot(player) ? teams.nearbyMembers(player, monster) : [player];
-    const teamBonus = 1 + teams.XP_BONUS_PER_MEMBER * (sharers.length - 1);
-    if (rates.xpRate > 0) for (const hero of sharers) gainXp(hero, Math.max(1, Math.round(monster.xp * rates.xpRate * experienceMultiplier(hero) * teamBonus / sharers.length)));
+    const xpSharers = sharers.filter(hero => canEarnMonsterXp(hero, monster));
+    const teamBonus = 1 + teams.XP_BONUS_PER_MEMBER * Math.max(0, xpSharers.length - 1);
+    if (rates.xpRate > 0) for (const hero of xpSharers) gainXp(hero, Math.max(1, Math.round(monster.xp * rates.xpRate * experienceMultiplier(hero) * teamBonus / xpSharers.length)));
     dropLoot(player, monster, sharers); ev('die', monster.x, monster.y, monster.ty, { b: monster.alpha ? 1 : 0 });
     if (template.boss) { broadcast({ t: 'chat', n: '*', m: messageText("server.bossSlain", "{player} has slain {monster}!", { player: player.name, monster: messageText('monster.' + monster.ty, template.name) }) }); broadcast({ t: 'toast', m: messageText("server.bossSlain", "{player} has slain {monster}!", { player: player.name, monster: messageText('monster.' + monster.ty, template.name) }), c: '#ffd24a' }); }
     fire('kill', player, monster);
@@ -143,4 +146,4 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
   return { hitMob, hurtPlayer, startCast, resolveCast, skill };
 }
 
-module.exports = { SUMMON_LIFETIME_MS, createCombat };
+module.exports = { XP_LEVEL_GAP_LIMIT, canEarnMonsterXp, SUMMON_LIFETIME_MS, createCombat };

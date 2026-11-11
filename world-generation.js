@@ -50,7 +50,7 @@ function boundaryFor(zone, area) {
   if (![boundary.width, boundary.height, boundary.cx, boundary.cy, boundary.min].every(Number.isFinite) || boundary.width <= 0 || boundary.height <= 0 || (boundary.shape === 'annulus' && (!Number.isFinite(boundary.max) || boundary.max <= boundary.min))) throw new RangeError('Invalid region boundary');
   return boundary;
 }
-function generateSpawnPlan({ seed, tier, generatorVersion = VERSION, zone, area, budgets: options, spacing: customSpacing = {}, protectedAreas = [] }) {
+function generateSpawnPlan({ seed, tier, generatorVersion = VERSION, zone, area, budgets: options, spacing: customSpacing = {}, protectedAreas = [], dangerSpec }) {
   if (generatorVersion !== VERSION) throw new RangeError('Spawn plans require generator v2');
   if (!Number.isSafeInteger(tier) || tier < 1) throw new RangeError('Invalid region tier');
   const boundary = boundaryFor(zone, area), families = [...new Set(zone.types)].sort();
@@ -63,6 +63,9 @@ function generateSpawnPlan({ seed, tier, generatorVersion = VERSION, zone, area,
   if (exclusions.some(point => ![point.x, point.y, point.radius].every(Number.isFinite) || point.radius < 0)) throw new RangeError('Invalid protected area');
   const roadLength = boundary.shape === 'annulus' ? Math.min(boundary.max, Math.min(boundary.width, boundary.height) / 2 - 40) : Math.min(boundary.width, boundary.height) / 2 - 40;
   const roads = Array.from({ length: 4 }, (_, i) => { const angle = i * Math.PI / 2; return { from: { x: boundary.cx, y: boundary.cy }, to: { x: boundary.cx + Math.cos(angle) * roadLength, y: boundary.cy + Math.sin(angle) * roadLength }, width: 24 }; });
+  const geography = dangerSpec ? require('./danger-geography') : null;
+  const danger = geography ? geography.materializeDanger(dangerSpec, boundary, exclusions) : null;
+  let safeRoutes = [];
   const index = new SpatialIndex(600), encounters = [], spawns = [], failures = [], metrics = { attempts: 0, memberFailures: 0 };
   function permitted(point, radius) { return inBounds(point, boundary, radius) && exclusions.every(exclusion => Math.hypot(point.x - exclusion.x, point.y - exclusion.y) >= exclusion.radius + radius); }
   const coverage = stream(seed, tier, VERSION, 'coverage'), anglePhase = coverage() * Math.PI * 2;
@@ -90,6 +93,8 @@ function generateSpawnPlan({ seed, tier, generatorVersion = VERSION, zone, area,
       metrics.attempts++;
       const point = candidate(random, kind === 'boss' ? undefined : number, attempt), encounter = { id, kind, ...point, radius: RADII[kind], affixes: [], spawnIds: [] };
       if (!permitted(point, encounter.radius)) continue;
+      if (danger && !geography.placementAllowed(danger, kind, point)) continue;
+      if (safeRoutes.some(route => route.to !== id && route.points.some((end, i) => i && segmentDistance(point, route.points[i - 1], end) < route.width + encounter.radius))) continue;
       if (roads.some(road => segmentDistance(point, road.from, road.to) < road.width + encounter.radius)) continue;
       if (index.query(point, maxSpacing).some(other => Math.hypot(point.x - other.x, point.y - other.y) < separation(encounter, other, spacing))) continue;
       encounters.push(encounter); index.update(encounter);
@@ -123,6 +128,8 @@ function generateSpawnPlan({ seed, tier, generatorVersion = VERSION, zone, area,
   const bossTypes = [...new Set(zone.bosses || [])].sort();
   const bosses = (zone.worldBoss ? [zone.worldBoss, ...bossTypes.filter(type => type !== zone.worldBoss)] : bossTypes).slice(0, budgets.bosses);
   for (let i = 0; i < bosses.length; i++) if (!place('boss', i, 1, bosses[i])) throw new Error('Required boss arena cannot be placed: ' + bosses[i]);
+  const routePlan = danger ? { danger, boundary, encounters, portal: zone.portal, settlement: { id: 'settlement', x: boundary.cx, y: boundary.cy }, paths: [] } : null;
+  if (routePlan) { geography.buildRoutes(routePlan); safeRoutes = routePlan.paths.filter(path => path.kind === 'safe'); }
   for (let remaining = budgets.monsters, i = 0; remaining > 0; i++) {
     const count = Math.min(remaining, stream(seed, tier, VERSION, 'camp-size', i).int(4, 6));
     place('camp', i, count); remaining -= count;
@@ -132,7 +139,7 @@ function generateSpawnPlan({ seed, tier, generatorVersion = VERSION, zone, area,
   for (let i = 0; i < budgets.resources; i++) place('resource', i, 0);
   const settlement = { id: 'settlement', x: boundary.cx, y: boundary.cy };
   const paths = encounters.filter(encounter => encounter.kind === 'boss').map(encounter => ({ from: settlement.id, to: encounter.id, points: [{ x: settlement.x, y: settlement.y }, { x: encounter.x, y: encounter.y }] }));
-  return { version: VERSION, tier, boundary, budgets, spacing, protectedAreas: exclusions, settlement, roads, paths, requiredLocations: bosses.map((type, i) => ({ id: 'boss:' + i, type })), encounters, spawns, failures, metrics, difficulty: { worldAffixes: [], encounterAffixes: [], combatAffixes: [], anomalies: { enabled: false, budget: 1 } } };
+  return { version: VERSION, tier, boundary, budgets, spacing, protectedAreas: exclusions, settlement, roads, paths: routePlan ? routePlan.paths : paths, ...(danger ? { danger, portal: routePlan.portal, routeRepairs: routePlan.routeRepairs } : {}), requiredLocations: bosses.map((type, i) => ({ id: 'boss:' + i, type })), encounters, spawns, failures, metrics, difficulty: { worldAffixes: [], encounterAffixes: [], combatAffixes: [], anomalies: { enabled: false, budget: 1 } } };
 }
 function validateSpawnPlan(plan) {
   const errors = [], seen = new Set(), index = new SpatialIndex(600), maxSpacing = Math.max(...Object.values(plan.spacing), 1000);
@@ -154,6 +161,14 @@ function validateSpawnPlan(plan) {
   for (const boss of plan.encounters.filter(encounter => encounter.kind === 'boss')) {
     const path = plan.paths.find(path => path.from === 'settlement' && path.to === boss.id);
     if (!path || path.points.length < 2 || Math.hypot(path.points[0].x - plan.settlement.x, path.points[0].y - plan.settlement.y) > 1e-7 || path.points.some(point => !Number.isFinite(point.x) || !Number.isFinite(point.y) || point.x < 0 || point.y < 0 || point.x > plan.boundary.width || point.y > plan.boundary.height) || Math.hypot(path.points.at(-1).x - boss.x, path.points.at(-1).y - boss.y) > 1e-7) errors.push('unreachable:' + boss.id);
+  }
+  if (plan.danger) {
+    const geography = require('./danger-geography');
+    errors.push(...geography.validateRoutes(plan).errors);
+    for (const encounter of plan.encounters) {
+      // Bosses add their own threat after placement; their approach remains deliberately HIGH.
+      if (encounter.kind !== 'boss' && !geography.placementAllowed(plan.danger, encounter.kind, encounter)) errors.push('danger-placement:' + encounter.id);
+    }
   }
   return { valid: errors.length === 0, errors, counts };
 }

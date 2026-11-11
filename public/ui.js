@@ -594,7 +594,7 @@ const bossName = boss => boss.type && I && I.types[boss.type] && !/ /.test(boss.
 const dateText = at => new Date(at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 function showUniverseLine() {
   const u = WORLD && WORLD.universe, el = $('uni'); if (!el || !u) return;
-  el.textContent = text('universe.loginLine', '{universe} · World Tier {tier} · seed {seed}', { universe: u.name, tier: u.tier, seed: u.seed });
+  el.textContent = text('universe.publicLine', '{universe} · World Tier {tier}', { universe: u.name, tier: u.tier });
 }
 function onUniverse(u) { UNI = u; if (WORLD && WORLD.universe) { WORLD.universe.tier = u.tier; } if (isOpen('chronw')) buildChronicle(); }
 function buildChronicle() {
@@ -604,7 +604,7 @@ function buildChronicle() {
     return text('chronicle.' + e.type, CHRONICLE_TEXT[e.type] || e.type, Object.assign({ universe: u.name, player: e.players[0] || '' }, d)); };
   const others = e => e.players.length > 1 ? '<small>' + esc(text('chronicle.with', 'Fought alongside: {players}', { players: e.players.slice(1).join(', ') })) + '</small>' : '';
   $('chronb').innerHTML =
-    '<div class="uni-head"><b>' + esc(u.name) + '</b><span>' + esc(text('universe.identity', 'Seed {seed} · founded {date}', { seed: u.seed, date: dateText(u.foundedAt) })) + '</span></div>' +
+    '<div class="uni-head"><b>' + esc(u.name) + '</b><span>' + esc(text('universe.publicIdentity', 'Founded {date}', { date: dateText(u.foundedAt) })) + '</span></div>' +
     '<div class="uni-tier"><div><span class="mu">' + esc(text('universe.worldTier', 'World Tier')) + '</span><b>' + u.tier + '</b></div><div><span class="mu">' + esc(text('universe.frontier', 'Frontier region')) + '</span><b>' + esc(regionName(f)) + '</b><small>' + esc(text('universe.levels', 'Levels {min}-{max}', { min: f.levels[0], max: f.levels[1] })) + '</small></div><div><span class="mu">' + esc(text('universe.worldBoss', 'World Boss')) + '</span><b style="color:#ffd24a">' + esc(bossName(wb)) + '</b></div></div>' +
     '<div class="mu" style="font-size:0.75rem;margin:6px 0">' + esc(f.playable ? text('universe.frontierHint', 'Defeat the World Boss in its own region to advance this universe to the next World Tier.') : text('universe.frontierLocked', 'This region has been charted from the history of this universe, but it cannot be entered yet.')) + '</div>' +
     '<details class="howto"><summary>' + esc(text('chronicle.howTitle', 'How does the World Tier grow?')) + '</summary><p>' + esc(text('chronicle.how', 'Every zone has one World Boss (👑), chosen by the server\'s seed. Defeat it in its own zone and the World Tier rises by one, revealing the next region. After the seventh, a World Portal opens in the village centre and leads to new maps. Every first victory is written into this chronicle.')) + '</p></details>' + '<div class="hd2">' + esc(text('universe.chronicle', 'Chronicle')) + '</div><div class="uni-list">' + u.history.slice().reverse().map(e => '<div class="uni-row"><span class="mu">' + esc(dateText(e.at)) + '</span><div>' + esc(entryText(e)) + others(e) + '</div></div>').join('') + '</div>' +

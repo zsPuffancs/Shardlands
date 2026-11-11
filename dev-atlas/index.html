@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Shardlands — World Atlas</title><link rel="stylesheet" href="/dev/atlas/atlas.css"><script src="/dev/atlas/atlas.js" defer></script></head>
+<body>
+<header><div><small>SHARDLANDS · LOCAL DEVELOPER TOOL</small><h1>World Atlas <span>& Danger Explorer</span></h1></div><div class="seal">READ ONLY<br><small>WORLD DATA PRESERVED</small></div></header>
+<main>
+<aside>
+<section><h2>Region chronicle</h2><label for="regions">Persisted & unlocked regions</label><select id="regions" aria-label="Persisted region"></select><label for="tier">World Tier</label><div class="row"><input id="tier" type="number" min="1" max="65542" value="8"><button id="inspect">Inspect</button></div><label class="check"><input id="preview" type="checkbox"> Hypothetical dry-run preview</label><label for="seed">Preview seed</label><input id="seed" maxlength="40" disabled><p id="status" role="status">Connecting to the local universe…</p></section>
+<section><h2>Map layers</h2><div id="layers"></div><div class="legend"><span class="safe">SAFE 0–.20</span><span class="low">LOW .20–.40</span><span class="normal">NORMAL .40–.65</span><span class="high">HIGH .65–.85</span><span class="extreme">EXTREME .85–1</span></div></section>
+<section><h2>Region identity</h2><dl id="metadata"></dl></section>
+<section><h2>Validation</h2><p id="validation"></p><ul id="issues"></ul><button id="report" disabled>Export validation JSON</button></section>
+</aside>
+<div class="workspace"><div class="toolbar"><div><b id="name">The unexplored frontier</b><span id="badge">LOCAL ACCESS</span></div><div><button id="fit">Fit region</button><button id="image" disabled>Export map PNG</button></div></div><div id="viewport"><canvas id="map" aria-label="Interactive authoritative region map"></canvas><div id="hint">Scroll to zoom · drag to pan · click a marker to inspect</div><div id="tooltip" hidden></div></div><div id="selection"><b>Position & encounter inspector</b><p>Hover over the map for exact server-evaluated danger. Click to pin a location.</p></div><footer id="notes">Atlas uses the gameplay geometry and generator. No monsters are spawned by this tool.</footer></div>
+</main>
+</body></html>
