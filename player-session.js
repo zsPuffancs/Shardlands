@@ -53,7 +53,7 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
           // Saved positions are local to their map. A map that no longer exists sends the hero home.
           const map = maps[savedPlayer.map || 0];
           if (map) { player.x = map.x0 + savedPlayer.x; player.y = map.y0 + savedPlayer.y; }
-          clampWorld(player);
+          clampWorld(player, map);
         }
         if (Number.isFinite(savedPlayer.hp)) player.hp = Math.max(0, Math.min(player.maxhp, savedPlayer.hp));
         if (Number.isFinite(savedPlayer.mp)) player.mp = Math.max(0, Math.min(player.maxmp, savedPlayer.mp));
@@ -115,6 +115,7 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
       if (player.dead || !Number.isFinite(message.x) || !Number.isFinite(message.y)) return;
       const map = mapOf(player);
       player.dest = { x: map.x0 + message.x, y: map.y0 + message.y };
+      clampWorld(player.dest, map);
       player.chasingTarget = false;
     },
     target(player, message) {

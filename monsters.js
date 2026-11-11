@@ -135,7 +135,7 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick,
     const damageMultiplier = levelDamageMultiplier * (isAlpha ? 1.6 : 1);
     const experienceMultiplier = levelRatio ** 2 * (isAlpha ? 3 : 1);
     const goldMultiplier = levelRatio ** 1.5 * (isAlpha ? 5 : 1);
-    if (clampWorld) { const point = { x, y }; clampWorld(point); x = point.x; y = point.y; }
+    if (clampWorld) { const point = { x, y }; clampWorld(point, zone.area); x = point.x; y = point.y; }
     else { x = Math.max(20, Math.min(width - 20, x)); y = Math.max(20, Math.min(height - 20, y)); }
     const monster = {
       id: allocateId(), ty: type, x, y, hx: x, hy: y, sx: x, sy: y, tier, lvl: spawnLevel,

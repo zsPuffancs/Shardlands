@@ -568,7 +568,7 @@ addEventListener('mouseup', () => { rotating = false; held = false; });
 addEventListener('mousemove', e => { if (rotating) { cam.yaw -= (e.clientX - lx) * 0.006; cam.pitch = Math.max(0.28, Math.min(1.38, cam.pitch + (e.clientY - ly) * 0.005)); lx = e.clientX; ly = e.clientY; } if (held) lastHold = e; });
 function groundHit(e) { const r = GL.ray(e.clientX, e.clientY); if (r.d[1] >= -0.001) return null; const t = -r.o[1] / r.d[1]; return { x: r.o[0] + r.d[0] * t, z: r.o[2] + r.d[2] * t }; }
 function raySphere(r, cx, cy, cz, rad) { const c = [cx - r.o[0], cy - r.o[1], cz - r.o[2]], tc = c[0] * r.d[0] + c[1] * r.d[1] + c[2] * r.d[2]; if (tc < 0) return -1; const d2 = c[0] * c[0] + c[1] * c[1] + c[2] * c[2] - tc * tc; return d2 < rad * rad ? tc : -1; }
-function moveTo(x, y) { send({ t: 'move', x, y }); intent = { x, y }; }
+function moveTo(x, y) { x = Math.max(20, Math.min(WORLD.W - 20, x)); y = Math.max(20, Math.min(WORLD.H - 20, y)); send({ t: 'move', x, y }); intent = { x, y }; }
 function attackTarget(targetId, chase = true) {
   send({ t: 'target', id: targetId, chase });
   if (chase) {

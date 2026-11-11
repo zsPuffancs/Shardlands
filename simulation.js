@@ -1,8 +1,8 @@
 'use strict';
 
 const { nearby } = require('./spatial-index');
-const { CX, CY, rnd, dist, clampWorld, moveToward, inVillage, placeInVillage } = require('./game-world');
-const { CLASSES, playerDmg, rank, passive, gearAttackSpeed } = require('./characters');
+const { CX, CY, rnd, dist, clampWorld, moveToward, inVillage, placeInVillage, mapOf } = require('./game-world');
+const { CLASSES, playerDmg, rank, passive, gearAttackSpeed, playerMoveSpeed } = require('./characters');
 const { MOBTYPES, STONE_DMG } = require('./monsters');
 
 function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, hurtPlayer, startCast, resolveCast, pickupTick, ev, fire, publishSnapshots, getTransportStats, updateEncounters = () => {} }) {
@@ -48,8 +48,8 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
       }
 
       const characterClass = CLASSES[player.cls];
-      const speed = 190 * (1 + passive(player, 'swift')) * (now < player.buf.spd ? 1.35 : 1) *
-        (1 + Math.min(60, player.g.spd || 0) / 100);
+      const movementMap = mapOf(player);
+      const speed = playerMoveSpeed(player, now);
       player.spdNow = speed;
       const directionLength = Math.hypot(player.dir.x, player.dir.y);
       const target = player.target ? mobs.get(player.target) : null;
@@ -70,7 +70,7 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
           moveToward(player, target.x, target.y, speed, tickSeconds);
         }
       }
-      clampWorld(player);
+      clampWorld(player, movementMap);
       if (!inVillage(player) && target && !target.dead && now >= player.cd && dist(player, target) <= characterClass.range + target.r) {
         player.cd = now + (now < player.buf.rage ? 600 : 800) * (1 - passive(player, 'haste')) * (1 - gearAttackSpeed(player)); ev('atk', player.x, player.y, 0, { tx: Math.round(target.x), ty: Math.round(target.y), s: player.cls, a: player.id });
         hitMob(player, target, playerDmg(player));
@@ -120,7 +120,7 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
           const d = moveToward(monster, monster.hx, monster.hy, template.spd * 0.5, tickSeconds);
           if (d < 5 && Math.random() < 0.02) {
             const home = { x: monster.sx + rnd(-70, 70), y: monster.sy + rnd(-70, 70) };
-            clampWorld(home);
+            clampWorld(home, mapOf(monster));
             monster.hx = home.x;
             monster.hy = home.y;
           }

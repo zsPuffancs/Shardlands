@@ -48,7 +48,7 @@ function createPluginHost({ directory, config, generatorVersion = 1, rates, play
       // Positions given to teleport are local to the map the player is on. toVillage returns them to that map's village.
       toVillage(p) { placeInVillage(p); p.dest = null; p.target = 0; p.chasingTarget = false; },
       teleportTo(p, target) { p.x = target.x; p.y = target.y; clampWorld(p); p.dest = null; p.target = 0; p.chasingTarget = false; },
-      teleport(p, x, y) { const map = mapOf(p); p.x = map.x0 + +x; p.y = map.y0 + +y; clampWorld(p); p.dest = null; p.target = 0; p.chasingTarget = false; },
+      teleport(p, x, y) { const map = mapOf(p); p.x = map.x0 + +x; p.y = map.y0 + +y; clampWorld(p, map); p.dest = null; p.target = 0; p.chasingTarget = false; },
       setLevel(p, l) { p.lvl = Math.max(1, Math.min(MAX_LEVEL, l | 0)); p.xp = 0; const spent = SKILLS.reduce((s, k) => s + p.sk[k], 0) - 1; p.sp = Math.max(0, p.lvl - spent); stats(p); p.hp = p.maxhp; p.mp = p.maxmp; sendInv(p); },
       effect(x, y, radius, style) { ev('fx', x, y, radius || 60, { s: style || 'buff' }); }, text(x, y, message, kind) { ev(kind || 'xp', x, y, isLocalizedText(message) ? message : String(message)); },
       isAdmin, kick(p) { try { p.c.sock.end(); } catch (e) {} }, data: () => (pluginData[pluginName] = pluginData[pluginName] || {}),

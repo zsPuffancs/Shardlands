@@ -42,7 +42,7 @@ function nearNpc(p, k) {
   return Math.hypot(p.x - npc.x, p.y - npc.y) <= NPC_RANGE;
 }
 const inVillage = entity => { const map = mapOf(entity); return Math.hypot(entity.x - map.cx, entity.y - map.cy) < VILLAGE; };
-const clampWorld = entity => { const map = mapOf(entity); entity.x = Math.max(map.x0 + 20, Math.min(map.x0 + map.w - 20, entity.x)); entity.y = Math.max(map.y0 + 20, Math.min(map.y0 + map.h - 20, entity.y)); };
+const clampWorld = (entity, map = mapOf(entity)) => { entity.x = Math.max(map.x0 + 20, Math.min(map.x0 + map.w - 20, entity.x)); entity.y = Math.max(map.y0 + 20, Math.min(map.y0 + map.h - 20, entity.y)); };
 // Put an entity on the arrival spot of a village (its own map's village unless another map is given).
 function placeInVillage(entity, map) { map = map || mapOf(entity); entity.x = map.cx + rnd(-50, 50); entity.y = map.cy + rnd(30, 95); }
 function moveToward(entity, targetX, targetY, speed, deltaTime) { const offsetX = targetX - entity.x, offsetY = targetY - entity.y, distance = Math.hypot(offsetX, offsetY); if (distance < 1) return 0; const s = Math.min(distance, speed * deltaTime); entity.x += offsetX / distance * s; entity.y += offsetY / distance * s; return distance; }

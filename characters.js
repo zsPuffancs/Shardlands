@@ -57,6 +57,13 @@ function stats(player) {
   player.maxmp = Math.floor(((40 + player.lvl * 8) * characterClass.mp + (player.g.mp || 0)) * (1 + passive(player, 'focus')));
   player.w = player.eq.weapon ? player.eq.weapon.plus : 0;
 }
+const BASE_PLAYER_MOVE_SPEED = 190;
+const MAX_PLAYER_MOVE_SPEED = 400;
+function playerMoveSpeed(player, now) {
+  const speed = BASE_PLAYER_MOVE_SPEED * (1 + passive(player, 'swift')) * (now < player.buf.spd ? 1.35 : 1) *
+    (1 + Math.min(60, player.g.spd || 0) / 100);
+  return Math.min(MAX_PLAYER_MOVE_SPEED, Math.max(0, speed));
+}
 const defRed = player => { const defense = player.g.def || 0; return 1 - (1 - defense / (defense + 100 + 8 * player.lvl)) * (1 - passive(player, 'guard')); };
 const critCh = player => Math.min(0.8, 0.12 + (player.g.crit || 0) / 100 + passive(player, 'crit')), critMul = player => 1.8 + passive(player, 'critdmg') + (player.g.cdmg || 0) / 100, goldFind = player => (player.g.gf || 0) + passive(player, 'fortune');
 const dmgMul = (player, now) => (1 + passive(player, 'might')) * (now < player.buf.atk ? 1.3 : 1) * (now < player.buf.rage ? 1.2 + 0.05 * player.sk.frenzy : 1);
@@ -91,4 +98,4 @@ function createProgression({ fire, ev, say, toast, broadcast, sendInv }) {
   return { gainXp, learnSkill };
 }
 
-module.exports = { rank, passive, passiveValue, PASSIVE_EFFECT, gearLifesteal, gearAttackSpeed, CLASSES, ITEMS, SKILLS, MAXRANK, PMAX, maxRank, xpNeed, newSk, stats, defRed, critCh, critMul, goldFind, playerDmg, createProgression };
+module.exports = { BASE_PLAYER_MOVE_SPEED, MAX_PLAYER_MOVE_SPEED, playerMoveSpeed, rank, passive, passiveValue, PASSIVE_EFFECT, gearLifesteal, gearAttackSpeed, CLASSES, ITEMS, SKILLS, MAXRANK, PMAX, maxRank, xpNeed, newSk, stats, defRed, critCh, critMul, goldFind, playerDmg, createProgression };

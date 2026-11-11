@@ -3,7 +3,7 @@
 const { nearby } = require('./spatial-index');
 const { localizedText: messageText } = require('./localized-text');
 
-const { clampWorld, inVillage, dist, rnd, rint, pick } = require('./game-world');
+const { clampWorld, mapOf, inVillage, dist, rnd, rint, pick } = require('./game-world');
 const { MOBTYPES, TIERS, SPECIAL } = require('./monsters');
 const { CLASSES, critCh, critMul, defRed, playerDmg, rank, passive, gearLifesteal } = require('./characters');
 
@@ -87,7 +87,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     if (attack === 'charge') {
       const length = Math.min(480, Math.max(260, distance + 120));
       const end = { x: monster.x + Math.sin(cast.ang) * length, y: monster.y + Math.cos(cast.ang) * length };
-      clampWorld(end);
+      clampWorld(end, mapOf(monster));
       const destination = inVillage(end) ? monster : end;
       cast.tx = destination.x;
       cast.ty = destination.y;
