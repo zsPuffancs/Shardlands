@@ -1,7 +1,7 @@
 'use strict';
 
 const STONE_BASE_LEVEL = 5;
-const STONE_BASE_HEALTH = 4000;
+const STONE_BASE_HEALTH = 6000;
 const STONE_HEALTH_EXPONENT = 1.4;
 
 function stoneTemplate(definition) {
@@ -71,8 +71,39 @@ const TIERS = [
 ];
 // boss signature attacks (they alternate with a ground slam)
 const SPECIAL = { alphawolf: 'charge', kingslime: 'summon', warlord: 'charge', broodmother: 'summon', boneking: 'summon', ogrechief: 'slam', elderdrake: 'breath', infernal: 'meteor', yetiking: 'charge', frostwyrm: 'breath', voidlord: 'meteor', abyssalwyrm: 'breath', deathlord: 'meteor' };
+// On generated maps every monster is scaled from the same reference instead of from its own base level.
+// Scaling a level-1 Wild Wolf to level 225 made it ten times stronger than anything else there.
+// Each monster keeps a little of its own character: how tough it is next to the others of its founding zone.
+const GENERATED_REFERENCE = {
+  monster: { lvl: 47, hp: 5200, dmg: 180, xp: 2100, gold: [700, 1400] },    // a Voidreach monster
+  boss: { lvl: 60, hp: 300000, dmg: 450, xp: 120000, gold: [20000, 40000] }, // the Lord of Death
+  stone: { lvl: 56, hp: null, xp: 45000, gold: [12000, 20000] },              // the Doom Stone
+};
+const characterCache = new Map();
+function character(type, key) {
+  const id = type + ':' + key; if (characterCache.has(id)) return characterCache.get(id);
+  const zone = TIERS.find(t => !t.generated && (t.types.includes(type) || (t.bosses || []).includes(type)));
+  const template = MOBTYPES[type]; let factor = 1;
+  if (zone && template) {
+    const peers = (template.boss ? [...new Set(zone.bosses)] : zone.types).map(t => MOBTYPES[t]).filter(Boolean);
+    const mean = peers.reduce((sum, peer) => sum + peer[key], 0) / peers.length;
+    if (mean > 0) factor = Math.max(0.75, Math.min(1.35, template[key] / mean));
+  }
+  characterCache.set(id, factor); return factor;
+}
+function generatedTemplate(template, zone) {
+  if (!template || !zone || !zone.generated) return template;
+  const type = Object.keys(MOBTYPES).find(key => MOBTYPES[key] === template) || '';
+  const base = template.archetype ? MOBTYPES[template.archetype] : template, baseType = template.archetype || type;
+  if (template.stone) { const ref = GENERATED_REFERENCE.stone, doom = MOBTYPES.doomstone; return { ...template, lvl: ref.lvl, hp: doom ? doom.hp : template.hp, xp: ref.xp, gold: ref.gold }; }
+  const ref = template.boss ? GENERATED_REFERENCE.boss : GENERATED_REFERENCE.monster;
+  return { ...template, lvl: ref.lvl, hp: Math.round(ref.hp * character(baseType, 'hp')), dmg: Math.round(ref.dmg * character(baseType, 'dmg')), xp: ref.xp, gold: ref.gold, r: template.r };
+}
 // Generated regions go up 10 levels per World Tier with no end, so levels are only limited to keep numbers sane.
 const MAX_LEVEL = 10000;
+// World Bosses (the one boss per World Tier that unlocks the next) are bigger and tougher than other bosses.
+const WORLD_BOSS_HEALTH = 3, WORLD_BOSS_SIZE = 1.5;
+function markWorldBoss(type) { const template = MOBTYPES[type]; if (!template || template.worldBoss) return; template.worldBoss = true; template.r = Math.round(template.r * WORLD_BOSS_SIZE); }
 const STONE_DMG = [30, 70, 120, 180, 250, 330, 430];
 
 function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick, clampWorld }) {
@@ -81,7 +112,7 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick,
 
   function spawnMob(type, x, y, tier, options) {
     options = options || {};
-    const template = MOBTYPES[type];
+    const template = generatedTemplate(MOBTYPES[type], TIERS[tier]);
     const zone = TIERS[tier] || TIERS[0];
     const [minZoneLevel, maxZoneLevel] = zone.lv;
     const baseLevel = template.lvl || Math.round((minZoneLevel + maxZoneLevel) / 2);
@@ -100,16 +131,16 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick,
     const isAlpha = Boolean(options.alpha);
     const levelDamageMultiplier = levelRatio ** 1.37;
     const healthExponent = template.stone ? STONE_HEALTH_EXPONENT : 1.9;
-    const healthMultiplier = levelRatio ** healthExponent * (isAlpha ? 5 : 1);
+    const healthMultiplier = levelRatio ** healthExponent * (isAlpha ? 5 : 1) * (template.worldBoss ? WORLD_BOSS_HEALTH : 1);
     const damageMultiplier = levelDamageMultiplier * (isAlpha ? 1.6 : 1);
-    const experienceMultiplier = levelRatio ** 2 * (isAlpha ? 6 : 1);
+    const experienceMultiplier = levelRatio ** 2 * (isAlpha ? 3 : 1);
     const goldMultiplier = levelRatio ** 1.5 * (isAlpha ? 5 : 1);
     if (clampWorld) { const point = { x, y }; clampWorld(point); x = point.x; y = point.y; }
     else { x = Math.max(20, Math.min(width - 20, x)); y = Math.max(20, Math.min(height - 20, y)); }
     const monster = {
       id: allocateId(), ty: type, x, y, hx: x, hy: y, sx: x, sy: y, tier, lvl: spawnLevel,
       hb: template.hp * healthMultiplier, dmg: template.dmg * damageMultiplier,
-      xp: template.xp * experienceMultiplier, gm: goldMultiplier,
+      xp: template.xp * experienceMultiplier, gm: goldMultiplier, gb: template.gold,
       r: Math.round(template.r * (isAlpha ? 1.3 : 1)), alpha: isAlpha ? 1 : 0,
       boss: Boolean(template.boss), cd: 0, target: 0, dead: 0, stoneStep: 5, slamT: 0,
       slamAt: 0, awake: false, wake: 0,
@@ -189,4 +220,4 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick,
   return { spawnMob, populateMonsters, populateZone, respawnMonster };
 }
 
-module.exports = { MAX_LEVEL, MOBTYPES, TIERS, SPECIAL, STONE_DMG, createMonsterSpawner };
+module.exports = { MAX_LEVEL, WORLD_BOSS_HEALTH, WORLD_BOSS_SIZE, markWorldBoss, MOBTYPES, TIERS, SPECIAL, STONE_DMG, createMonsterSpawner };

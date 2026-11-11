@@ -33,8 +33,8 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
       const step = Math.ceil((monster.hp / monster.mh) * 5);
       while (monster.stoneStep > step && monster.hp > 0) {
         monster.stoneStep--;
-        for (let i = 0; i < Math.min(9, 3 + monster.tier); i++) { const a = rnd(0, 6.283), r = rnd(60, 140); const g = spawnMob(pick(TIERS[monster.tier].types), monster.x + Math.cos(a) * r, monster.y + Math.sin(a) * r, monster.tier); g.target = player.id; g.hx = monster.x; g.hy = monster.y; g.summoned = true; g.expiresAt = Date.now() + SUMMON_LIFETIME_MS; g.awake = true; }
-        if (monster.stoneStep === 3 || monster.stoneStep === 1) { const g = spawnMob(pick(TIERS[monster.tier].types), monster.x + rnd(-60, 60), monster.y + rnd(-60, 60), monster.tier, { alpha: true }); g.target = player.id; g.hx = monster.x; g.hy = monster.y; g.summoned = true; g.expiresAt = Date.now() + SUMMON_LIFETIME_MS; g.awake = true; }
+        for (let i = 0; i < Math.min(12, 5 + monster.tier); i++) { const a = rnd(0, 6.283), r = rnd(60, 140); const g = spawnMob(pick(TIERS[monster.tier].types), monster.x + Math.cos(a) * r, monster.y + Math.sin(a) * r, monster.tier); g.target = player.id; g.hx = monster.x; g.hy = monster.y; g.summoned = true; g.expiresAt = Date.now() + SUMMON_LIFETIME_MS; g.awake = true; }
+        if (monster.stoneStep <= 3) { const g = spawnMob(pick(TIERS[monster.tier].types), monster.x + rnd(-60, 60), monster.y + rnd(-60, 60), monster.tier, { alpha: true }); g.target = player.id; g.hx = monster.x; g.hy = monster.y; g.summoned = true; g.expiresAt = Date.now() + SUMMON_LIFETIME_MS; g.awake = true; }
         ev('fx', monster.x, monster.y, 160, { s: 'summon' });
       }
     }
@@ -47,7 +47,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
       player.target = 0;
       player.chasingTarget = false;
     }
-    const experienceMultiplier = hero => template.stone ? 2 : template.boss || monster.alpha ? 1 : Math.max(0.1, 1 - Math.max(0, hero.lvl - monster.lvl - 5) * 0.12);
+    const experienceMultiplier = hero => template.stone ? 2 : template.boss ? 1 : Math.max(0.1, 1 - Math.max(0, hero.lvl - monster.lvl - 5) * 0.12);
     // Team sharing: everyone nearby gets an equal part of the XP, +15% in total for every extra member.
     const sharers = teams.sharesLoot(player) ? teams.nearbyMembers(player, monster) : [player];
     const teamBonus = 1 + teams.XP_BONUS_PER_MEMBER * (sharers.length - 1);

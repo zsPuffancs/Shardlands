@@ -16,7 +16,7 @@ function createLoot({ loot, players, allocateId, rates, ev, say, toast, broadcas
   function dropLoot(player, monster, sharers) {
     sharers = sharers && sharers.length ? sharers : [player];
     const template = MOBTYPES[monster.ty], boss = !!template.boss, stone = !!template.stone, alpha = !!monster.alpha;
-    const baseGold = rint(template.gold[0], template.gold[1]) * monster.gm * rates.goldRate * (stone ? 1.5 : 1) / sharers.length;
+    const baseGold = rint((monster.gb || template.gold)[0], (monster.gb || template.gold)[1]) * monster.gm * rates.goldRate * (stone ? 1.5 : 1) / sharers.length;
     for (const hero of sharers) {
       const gold = Math.round(baseGold * (1 + goldFind(hero) / 100));
       if (gold <= 0) continue;

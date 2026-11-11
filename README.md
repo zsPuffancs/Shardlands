@@ -55,9 +55,10 @@ Details and design notes: `docs/UNIVERSE.md`.
 | Frostfang Peaks | 30-40 | Frost Fang, Yeti, Ice Golem | Frost Wyrm (breath), Yeti King (charge) | Frost Stone |
 | Voidreach | 40-50 | Shade, Void Weaver, Void Knight | Void Lord (meteors), Abyssal Wyrm (breath) | Void Stone |
 | **Death Zone** (map border) | 50-60 | ~1800 of everything, scaled up | 4x Lord of Death + Void Lord, Abyssal Wyrm, Frost Wyrm, Yeti King | Doom Stone |
-- **Alpha** monsters (orange name + aura): 5x HP, harder hits, guaranteed loot, 90 s respawn.
+- **Alpha** monsters (orange name + aura): 5x HP, harder hits, 3x XP, guaranteed loot, 90 s respawn. Like normal monsters they give less XP to heroes more than 5 levels above them.
 - **Bosses** (gold name): every attack is telegraphed in red on the ground - get out of it. 3 min respawn, best loot.
-- **Stones**: guardians spawn at every 20% of HP lost, the stone pulses a blue shockwave (red circle first), respawn after 90 s.
+- **World Bosses** (👑): the one boss per zone, chosen by the seed, that unlocks the next World Tier. 1.5x bigger and 3x HP.
+- **Stones**: 6,000 base HP for the Spirit Stone and up from there; 5 + zone guardians spawn at every 20% of HP lost (up to 12), with an Alpha guardian at 60%, 40% and 20%, the stone pulses a blue shockwave (red circle first), respawn after 90 s.
 
 ## Village NPCs (click them or press F when close)
 - **Merchant** - potions, elixirs, scrolls (incl. Skill Reset). Buys your gear (Shift/right-click a bag item, or "Sell junk").

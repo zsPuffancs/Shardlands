@@ -8,7 +8,7 @@ const { W, H, CX, CY, rnd, rint, pick, attachUniverse, clampWorld, maps } = requ
 const { createUniverse, newSeed } = require('./universe');
 const { createRegions } = require('./regions');
 const { createTeams } = require('./teams');
-const { TIERS, MOBTYPES, createMonsterSpawner } = require('./monsters');
+const { TIERS, MOBTYPES, createMonsterSpawner, markWorldBoss } = require('./monsters');
 const { createEquipment } = require('./equipment');
 const { createInventory } = require('./inventory');
 const { createProgression } = require('./characters');
@@ -60,6 +60,8 @@ const universe = createUniverse({
   store: universeStore, config, broadcast, messageText: localizedText, isAdmin: player => sessions.isAdmin(player),
 });
 attachUniverse(universe.identity);
+// The World Boss of each founding zone is chosen by the seed; make those bosses bigger and tougher.
+for (let tier = 1; tier <= TIERS.length; tier++) markWorldBoss(universe.regionFor(tier).worldBoss.type);
 const { savePlayer, saveAll } = createGameSaves({ players, saveStore, pluginStore, extraStores: [universeStore] });
 const { spawnMob, populateMonsters, populateZone, respawnMonster } = createMonsterSpawner({
   mobs, rates, world: { width: W, height: H, centerX: CX, centerY: CY }, allocateId, rnd, rint, pick, clampWorld,

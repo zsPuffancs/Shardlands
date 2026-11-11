@@ -1,7 +1,7 @@
 'use strict';
 // Regions beyond the founding lands. Each one is a generated map with its own village,
 // monsters, stones and World Boss, reached through the World Portal.
-const { MOBTYPES, TIERS, SPECIAL } = require('./monsters');
+const { MOBTYPES, TIERS, SPECIAL, WORLD_BOSS_SIZE } = require('./monsters');
 const { maps, addMap, mapOf, nearNpc, npcPosition, placeInVillage, worldInfo, REGION_SAFE_RADIUS } = require('./game-world');
 const { localizedText: messageText } = require('./localized-text');
 const { mobTypesForClient } = require('./snapshots');
@@ -20,7 +20,7 @@ function createRegions({ universe, players, populateZone, refreshMobTypes, send,
     if (maps[index]) return maps[index];
     const region = universe.regionFor(tier), boss = region.worldBoss;
     const archetype = MOBTYPES[boss.archetype] ? boss.archetype : 'deathlord';
-    MOBTYPES[boss.type] = { ...MOBTYPES[archetype], name: boss.name, archetype, element: region.element, worldBoss: true };
+    MOBTYPES[boss.type] = { ...MOBTYPES[archetype], r: Math.round(MOBTYPES[archetype].r * WORLD_BOSS_SIZE), name: boss.name, archetype, element: region.element, worldBoss: true };
     SPECIAL[boss.type] = SPECIAL[archetype] || boss.signature || 'charge';
     const map = addMap(index, { tier: zoneIndex, regionTier: tier, look: LOOK_FOR[region.biome] === undefined ? 6 : LOOK_FOR[region.biome] });
     const families = region.families.filter(type => MOBTYPES[type]);
