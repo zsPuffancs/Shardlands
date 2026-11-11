@@ -23,10 +23,10 @@ const lookZoneOf = (x, z) => lookIndex(zoneOf(x, z));
 let snapNext = false;
 // Switch to (or refresh) the map this client is on. Positions are always local to the current map.
 function setWorld(world, arrived) {
-  const changed = !WORLD || world.map !== WORLD.map, shape = s => s && JSON.stringify([s.kind, s.style, s.built]), rebuilt = !changed && shape(world.settlement) !== shape(WORLD.settlement);
+  const changed = !WORLD || world.map !== WORLD.map, shape = s => s && JSON.stringify([s.kind, s.style, s.layout, s.built]), rebuilt = !changed && shape(world.settlement) !== shape(WORLD.settlement);
   const fundsChanged = !changed && !rebuilt && JSON.stringify(world.settlement && world.settlement.funds) !== JSON.stringify(WORLD.settlement && WORLD.settlement.funds);
   const st = world.settlement || { kind: 'village', style: 'timber', built: {} };
-  world.layout = Settlement.layout(st.kind, st.style, st.built);
+  world.layout = Settlement.layout(st.kind, st.style, st.built, st.layout);
   WORLD = world; ZT = world.tiers;
   // A stall was built on this map: redraw the settlement, keep everything else.
   if (rebuilt) { bakeWorld(); buildGround(); if (isOpen('campw')) buildCamp(); }
@@ -43,85 +43,15 @@ function setWorld(world, arrived) {
   for (const f of floaters) f.el.remove(); floaters.length = 0; snapNext = true; lastZone = -9;
   if (arrived) { banner(world.map ? zoneName(ZT[0].name) : text('portal.founding', 'The Founding Lands'), world.map ? text('portal.arrivedTier', 'World Tier {tier}', { tier: world.map + 7 }) : text('zone.safe', 'Safe zone')); sfx('lvl'); }
 }
+// The anvil on the Blacksmith's cart (village) or forge stall (encampment), behind the smith.
 function smithAnvilPosition() {
-  const smith = WORLD.npcs.smith || { x: WORLD.CX + 104, y: WORLD.CY + 58 };
-  return { x: smith.x - 19, z: smith.y - 14 };
+  const anvil = typeof cartPoint === 'function' && cartPoint('smith', -10, 0);
+  if (anvil) return anvil;
+  const smith = WORLD.npcs.smith || { x: WORLD.CX, y: WORLD.CY };
+  return { x: smith.x, z: smith.y };
 }
 
-// ---- settlement: village, encampment or portal site, styled after the map (see settlement.js) ----
-const SETTLEMENT_STYLE = {
-  timber: { wall: [.88, .8, .64], base: [.55, .55, .57], trim: [.38, .25, .14], roofs: [[.68, .22, .16], [.24, .38, .58], [.5, .36, .16]], fence: 'palisade', ground: '#648a44' },
-  snow: { wall: [.84, .8, .74], base: [.5, .52, .56], trim: [.32, .22, .14], roofs: [[.46, .2, .16], [.22, .3, .45], [.36, .28, .2]], snow: [.95, .97, 1], fence: 'palisade', ground: '#d7dfe6' },
-  sandstone: { wall: [.95, .76, .48], base: [.82, .64, .4], trim: [.5, .34, .2], flat: true, roofs: [[.9, .72, .46], [.86, .66, .42], [.94, .78, .52]], fence: 'stone', stone: [.9, .72, .46], ground: '#b89d72' },
-  dark: { wall: [.36, .34, .38], base: [.22, .21, .24], trim: [.18, .16, .18], roofs: [[.2, .22, .28], [.26, .2, .28], [.18, .21, .23]], fence: 'stone', stone: [.3, .29, .32], ground: '#3a3438' },
-  ember: { cloth: [[.55, .16, .1], [.45, .3, .2], [.6, .4, .18]], ground: '#3b2a22' },
-  void: { cloth: [[.3, .2, .45], [.22, .16, .3], [.42, .3, .58]], ground: '#2a2138' },
-};
-// The login screen bakes the world from /api/info before setWorld runs, so the layout is made on demand.
-function settlementLayout() {
-  if (!WORLD.layout) { const s = WORLD.settlement || { kind: 'village', style: 'timber', built: {} }; WORLD.layout = Settlement.layout(s.kind, s.style, s.built); }
-  return WORLD.layout;
-}
-function bakeSettlement(B, R) {
-  const { CX, CY } = WORLD, lay = settlementLayout(), st = SETTLEMENT_STYLE[lay.style] || SETTLEMENT_STYLE.timber, wood = st.trim || [.38, .25, .14];
-  const P = (x, y) => [CX + x, CY + y], turn = (x, z, yaw) => { const c = Math.cos(yaw), s = Math.sin(yaw); return (lx, lz) => [x + c * lx + s * lz, z - s * lx + c * lz]; };
-  if (lay.kind === 'village') {
-    lay.houses.forEach((h, i) => {
-      const [x, z] = P(h.x, h.y), yaw = h.yaw, at = turn(x, z, yaw), hw = h.w, hd = h.d, roof = st.roofs[i % st.roofs.length];
-      B(M.box, x, 3, z, hw + 4, 6, hd + 4, yaw, 0, st.base); B(M.box, x, 17, z, hw, 24, hd, yaw, 0, st.wall);
-      if (st.flat) { // flat roof with a parapet and roof beams, like adobe houses
-        B(M.box, x, 30, z, hw + 2, 2.4, hd + 2, yaw, 0, roof); for (const [lx, lz, w2, d2] of [[0, hd / 2, hw + 2, 3], [0, -hd / 2, hw + 2, 3], [hw / 2, 0, 3, hd + 2], [-hw / 2, 0, 3, hd + 2]]) { const q = at(lx, lz); B(M.box, q[0], 33, q[1], w2, 4, d2, yaw, 0, st.base); }
-        for (let k = -2; k <= 2; k++) { const q = at(k * hw / 5.5, hd / 2 + 2); B(M.cyl, q[0], 25, q[1], 1.3, 1.3, 4, yaw, 1.5708, wood); }
-        if (i % 3 === 0) { const q = at(hw / 4, -hd / 5); B(M.box, q[0], 38, q[1], 12, 10, 12, yaw, 0, st.wall); B(M.box, q[0], 43.5, q[1], 13, 1.4, 13, yaw, 0, roof); }
-      } else {
-        B(M.box, x, 29, z, hw + 2, 2.4, hd + 2, yaw, 0, wood); B(M.gable, x, 29, z, hw + 8, 22, hd + 6, yaw, 0, roof);
-        if (st.snow) { B(M.gable, x, 35.5, z, hw + 9, 15.5, hd + 7, yaw, 0, st.snow); for (let k = -2; k <= 2; k++) { const q = at(k * hw / 5, hd / 2 + 3.4); B(M.cone, q[0], 27.5, q[1], .9, 3.5, .9, 0, Math.PI, [.85, .93, 1], .4); } }
-        const q = at(hw / 4, -hd / 6); B(M.box, q[0], 46, q[1], 7, 14, 7, yaw, 0, st.base);
-      }
-      for (const [lx, lz] of [[-hw / 2, hd / 2], [hw / 2, hd / 2], [-hw / 2, -hd / 2], [hw / 2, -hd / 2]]) { const q = at(lx, lz); B(M.box, q[0], 17, q[1], 2.6, 24, 2.6, yaw, 0, wood); }
-      let q = at(0, hd / 2 + .6); B(M.box, q[0], 13, q[1], 10, 18, 1.4, yaw, 0, [.3, .19, .1]); q = at(3.4, hd / 2 + 1.4); B(M.octa, q[0], 13, q[1], .9, .9, .9, 0, 0, [.9, .75, .3]);
-      for (const lx of [-hw / 3.2, hw / 3.2]) { q = at(lx, hd / 2 + .6); B(M.box, q[0], 18, q[1], 7, 7, 1.2, yaw, 0, [1, .85, .45], .8); q = at(lx, hd / 2 + 1); B(M.box, q[0], 18, q[1], 8.4, 1, 1.4, yaw, 0, wood); B(M.box, q[0], 18, q[1], 1, 8.4, 1.4, yaw, 0, wood); }
-      if (st.snow) { q = at(-hw / 2 - 6, hd / 3); B(M.ball, q[0], 2, q[1], 7, 3.5, 6, 0, 0, st.snow); }
-    });
-    // the wall: a palisade of stakes, or a stone wall with towers; gates on the four roads
-    const W8 = lay.wall, gateA = W8.gateHalfWidth / W8.r, inGate = a => [0, 1, 2, 3].some(k => { const d = Math.abs(((a - k * 1.5708) % 6.2832 + 9.4248) % 6.2832 - 3.1416); return d < gateA; });
-    if (st.fence === 'palisade') {
-      for (let a = 0; a < 6.2832; a += 7.6 / W8.r) { if (inGate(a)) continue; const x = CX + Math.cos(a) * W8.r, z = CY + Math.sin(a) * W8.r, h = 25 + R() * 6; B(M.trunk, x, 0, z, 3.6, h, 3.6, a, 0, mix(wood, [.5, .4, .3], R() * .3)); B(M.cone, x, h, z, 3.6, 5, 3.6, 0, 0, wood); if (st.snow && R() < .7) B(M.ball, x, h + 1, z, 3, 1.6, 3, 0, 0, st.snow); }
-      for (const ry of [9, 19]) for (let a = 0; a < 6.2832; a += 16 / W8.r) { if (inGate(a) || inGate(a + 16 / W8.r)) continue; const x = CX + Math.cos(a + 8 / W8.r) * (W8.r - 3), z = CY + Math.sin(a + 8 / W8.r) * (W8.r - 3); B(M.box, x, ry, z, 17, 2.2, 1.6, Math.PI / 2 - (a + 8 / W8.r), 0, wood); }
-    } else {
-      for (let a = 0; a < 6.2832; a += 15 / W8.r) { if (inGate(a) || inGate(a + 15 / W8.r)) continue; const m = a + 7.5 / W8.r, x = CX + Math.cos(m) * W8.r, z = CY + Math.sin(m) * W8.r, yaw = Math.PI / 2 - m; B(M.box, x, 11, z, 16, 22, W8.thickness, yaw, 0, mix(st.stone, [0, 0, 0], R() * .12)); if (Math.round(a * W8.r / 15) % 2) B(M.box, x, 24, z, 7, 5, W8.thickness + 1, yaw, 0, st.stone); }
-      for (let k = 0; k < 4; k++) for (const sgn of [-1, 1]) { const a = k * 1.5708 + sgn * (gateA + 9 / W8.r), x = CX + Math.cos(a) * W8.r, z = CY + Math.sin(a) * W8.r; B(M.box, x, 19, z, 17, 38, 17, Math.PI / 2 - a, 0, st.stone); B(M.box, x, 39.5, z, 20, 3, 20, Math.PI / 2 - a, 0, st.base); }
-    }
-    for (let k = 0; k < 4; k++) { const a = k * 1.5708, px = Math.cos(a), pz = Math.sin(a); for (const sgn of [-1, 1]) { const x = CX + px * (W8.r + 8) - pz * sgn * (W8.gateHalfWidth - 4), z = CY + pz * (W8.r + 8) + px * sgn * (W8.gateHalfWidth - 4); B(M.trunk, x, 0, z, 2.4, 62, 2.4, 0, 0, wood); B(M.box, x, 46, z, 1.2, 26, 13, -a, 0, k % 2 ? [.75, .15, .15] : [.85, .68, .2], .1); B(M.octa, x, 65, z, 2.6, 4, 2.6, 0, 0, [.9, .75, .3]); } }
-    for (let i = 0; i < 12; i++) { const a = i / 12 * 6.2832 + .26, r = i % 3 === 0 ? 95 : W8.r - 16, x = CX + Math.cos(a) * r, z = CY + Math.sin(a) * r; if (Settlement.collide({ x, y: z }, lay, CX, CY, 4)) continue; lamps.push({ x, z }); B(M.trunk, x, 0, z, 2, 30, 2, 0, 0, [.2, .2, .22]); B(M.box, x, 32, z, 6, 1, 6, 0, 0, [.2, .2, .22]); B(M.cone6, x, 38, z, 5, 4, 5, 0, 0, [.2, .2, .22]); }
-    // well, market stall and the smithy, as before but in the village's own materials
-    const roof0 = st.roofs[0], [wx, wz] = P(-72, 68); B(M.cyl, wx, 0, wz, 16, 12, 16, 0, 0, st.base); B(M.disc, wx, 10.4, wz, 13, 1, 13, 0, 0, [.2, .45, .8], .3); for (const sgn of [-1, 1]) B(M.box, wx + sgn * 14, 20, wz, 2.4, 40, 2.4, 0, 0, wood); B(M.gable, wx, 38, wz, 38, 10, 26, 0, 0, roof0); if (st.snow) B(M.gable, wx, 41, wz, 39, 7, 27, 0, 0, st.snow); B(M.box, wx, 34, wz, 28, 1.6, 1.6, 0, 0, wood);
-    const [sx, sz] = P(0, -16); B(M.box, sx, 9, sz, 52, 18, 15, 0, 0, [.5, .33, .18]); B(M.box, sx, 18.6, sz, 55, 1.6, 18, 0, 0, [.62, .44, .25]); for (const a of [-1, 1]) for (const t of [-1, 1]) B(M.box, sx + a * 25, 24, sz + t * 10 - 4, 2.2, 48, 2.2, 0, 0, wood);
-    for (let i = 0; i < 6; i++) B(M.box, sx - 25 + i * 10, 49 - .1, sz - 4, 10.2, 1.6, 30, 0, .22, i % 2 ? [.86, .2, .16] : (st.snow ? st.snow : [.95, .92, .85]));
-    for (const [dx, c] of [[-18, [.9, .3, .25]], [-8, [.3, .6, .9]], [4, [.5, .85, .4]], [15, [.95, .8, .3]]]) { B(M.cyl, sx + dx, 19.4, sz + 2, 2, 5, 2, 0, 0, c, .25); B(M.octa, sx + dx, 26, sz + 2, 1.4, 1.8, 1.4, 0, 0, [.9, .9, .9]); }
-    for (const [dx, dz, q] of [[-40, -8, 12], [-42, 8, 9], [-34, 3, 7]]) B(M.box, sx + dx, q / 2, sz + dz, q, q, q, dx * .1, 0, [.56, .4, .22]);
-    const [fx, fz] = P(lay.forge.x, lay.forge.y); B(M.box, fx, 9, fz, 30, 18, 24, 0, 0, st.flat ? st.wall : [.36, .34, .36]); B(M.box, fx + 6, 34, fz - 5, 10, 32, 10, 0, 0, st.flat ? st.base : [.3, .28, .3]); B(M.box, fx - 8, 6, fz + 12.5, 10, 7, 1, 0, 0, [1, .45, .1], .9);
-    for (const a of [-1, 1]) for (const t of [-1, 1]) B(M.box, fx - 36 + a * 18, 21, fz + 6 + t * 16, 2.2, 42, 2.2, 0, 0, wood); B(M.box, fx - 36, 43, fz + 6, 42, 2, 38, 0, -.12, st.flat ? st.roofs[1] : [.4, .3, .22]); if (st.snow) B(M.box, fx - 36, 44.6, fz + 6, 43, 1.4, 39, 0, -.12, st.snow);
-    for (let i = 0; i < 4; i++) B(M.box, CX + 118 + i * 6, 16, CY + 92, 1.4, 30, 1.4, 0, .15, [.7, .72, .78]); B(M.box, CX + 127, 24, CY + 92, 30, 2, 3, 0, 0, wood);
-  } else if (lay.kind === 'camp') {
-    lay.tents.forEach((t, i) => { const [x, z] = P(t.x, t.y), c = st.cloth[i % st.cloth.length]; B(M.cone6, x, 0, z, 26 * t.s, 36 * t.s, 26 * t.s, i, 0, c); B(M.trunk, x, 0, z, 1.4, 44 * t.s, 1.4, 0, 0, [.25, .18, .12]); B(M.box, x, 46 * t.s, z, 6, 4, .4, i, 0, st.cloth[(i + 1) % 3]); });
-    const [fx, fz] = P(0, -8); B(M.ring, fx, .6, fz, 13, 1, 13, 0, 0, [.25, .23, .22]); for (let i = 0; i < 5; i++) B(M.box, fx, 2.5, fz, 18, 2.6, 2.6, i * .63, 0, [.3, .2, .12]); B(M.cone, fx, 2, fz, 6, 12, 6, 0, 0, [1, .55, .15], 1); B(M.cone, fx, 2, fz, 3.4, 17, 3.4, .5, 0, [1, .85, .35], 1); lamps.push({ x: fx, z: fz });
-    for (let a = 0; a < 6.2832; a += .17) { if ([0, 1, 2, 3].some(k => Math.abs(((a - k * 1.5708) % 6.2832 + 9.4248) % 6.2832 - 3.1416) < .3)) continue; const x = CX + Math.cos(a) * 182, z = CY + Math.sin(a) * 182; B(M.trunk, x, 0, z, 2.6, 18, 2.6, 0, .5 * Math.cos(a * 3), [.3, .22, .14]); B(M.cone, x + Math.cos(a) * 6, 15, z + Math.sin(a) * 6, 2.4, 8, 2.4, a, 1.2, [.45, .35, .22]); }
-    for (const s of lay.stalls) {
-      const [x, z] = P(s.x, s.y), at = turn(x, z, s.yaw);
-      if (s.site) { for (const [lx, lz] of [[-22, -11], [22, -11], [22, 11], [-22, 11]]) { const q = at(lx, lz); B(M.trunk, q[0], 0, q[1], 1.6, 14, 1.6, 0, 0, [.45, .35, .22]); } for (const [lx, lz, w2, d2] of [[0, -11, 44, .6], [0, 11, 44, .6], [-22, 0, .6, 22], [22, 0, .6, 22]]) { const q = at(lx, lz); B(M.box, q[0], 11, q[1], w2, .6, d2, s.yaw, 0, [.85, .75, .5]); } const q = at(0, 16); B(M.box, q[0], 8, q[1], 1.6, 16, 1.6, 0, 0, wood); B(M.box, q[0], 15, q[1], 14, 8, 1.2, s.yaw, 0, [.55, .42, .26]); continue; }
-      B(M.box, x, 7, z, 44, 3, 20, s.yaw, 0, [.45, .3, .18]); for (const [lx, lz] of [[-20, -9], [20, -9], [20, 9], [-20, 9]]) { const q = at(lx, lz); B(M.box, q[0], 15, q[1], 2.2, 30, 2.2, 0, 0, [.3, .22, .14]); }
-      B(M.gable, x, 30, z, 50, 10, 26, s.yaw, 0, s.key === 'merchant' ? [.85, .7, .2] : s.key === 'smith' ? [.4, .4, .42] : [.5, .3, .8]);
-      if (s.key === 'merchant') for (const [lx, lz, k] of [[-12, 0, 8], [0, 2, 6], [12, -2, 7]]) { const q = at(lx, lz); B(M.box, q[0], 8.5 + k / 2, q[1], k, k, k, s.yaw + lx, 0, [.56, .4, .22]); }
-      if (s.key === 'smith') { let q = at(-8, 0); B(M.box, q[0], 13, q[1], 12, 8, 8, s.yaw, 0, [.28, .28, .3]); q = at(12, 0); B(M.box, q[0], 9, q[1], 10, 6, 10, s.yaw, 0, [.35, .3, .3]); B(M.box, q[0], 12.5, q[1], 6, 1, 6, 0, 0, [1, .5, .1], .9); }
-      if (s.key === 'mystic') { const q = at(0, -2); B(M.ball, q[0], 13, q[1], 5, 5, 5, 0, 0, [.7, .55, 1], .8); for (const lx of [-14, 14]) { const c2 = at(lx, 0); B(M.cyl, c2[0], 8.5, c2[1], 1, 4, 1, 0, 0, [.95, .9, .8]); B(M.octa, c2[0], 13.5, c2[1], .8, 1.4, .8, 0, 0, [1, .8, .4], 1); } }
-    }
-    const [bx, bz] = P(lay.board.x, lay.board.y); B(M.trunk, bx - 10, 0, bz, 2, 34, 2, 0, 0, wood); B(M.trunk, bx + 10, 0, bz, 2, 34, 2, 0, 0, wood); B(M.box, bx, 24, bz, 26, 16, 1.6, 0, 0, [.5, .38, .22]); B(M.gable, bx, 33, bz, 30, 5, 6, 0, 0, st.cloth[0]); for (const [dx, dy] of [[-6, 3], [5, -2], [-2, -4]]) B(M.box, bx + dx, 24 + dy, bz + 1, 6, 4.5, .4, 0, 0, [.92, .88, .75]);
-  } else {
-    for (const s of lay.stones) { const [x, z] = P(s.x, s.y); B(M.box, x, s.h / 2, z, 9, s.h, 7, s.x * .03, 0, [.42, .42, .46]); B(M.box, x, s.h - 1, z, 10, 3, 8, s.x * .03, .1, [.35, .36, .4]); }
-    const [px, pz] = P(0, 62); B(M.ring, px, .7, pz, 60, 1, 60, 0, 0, [.35, .33, .36], .1);
-  }
-}
+// ---- settlement: drawn by village.js (bakeSettlement, settlementLayout, paintSettlementGround) ----
 function bakeWorld() {
   seed = ((WORLD.universe && WORLD.universe.seedNumber) || 1337) + (WORLD.map || 0) * 7919; const zoneOf = lookZoneOf; const { W, H, CX, CY, V } = WORLD, B = GL.bakeAdd; lamps = []; lava = []; GL.bakeBegin();
   const NZ = ZT.length, roadEnd = ZT[Math.max(0, NZ - 2)].max, area = W * H / 25e6;
@@ -189,10 +119,11 @@ function buildGround() {
   const disc = (r, c) => { g.fillStyle = c; g.beginPath(); g.arc(t(WORLD.CX), t(WORLD.CY), r * sc, 0, 7); g.fill(); };
   const last = ZT[ZT.length - 1].outer ? ZT.length - 2 : ZT.length - 1;
   for (let i = last; i >= 0; i--) disc(ZT[i].max, ZCOL[lookIndex(i)] || '#444');
-  { const lay = settlementLayout(), sty = SETTLEMENT_STYLE[lay.style] || SETTLEMENT_STYLE.timber; disc(WORLD.map ? (lay.kind === 'village' ? 250 : lay.kind === 'camp' ? 205 : 130) : ZT[0].min, lay.kind === 'none' ? '#5b554c' : sty.ground); }
+  if (!WORLD.map) disc(ZT[0].min, settlementPalette(settlementLayout()).ground);
+  paintSettlementGround(g, t, sc);
   g.strokeStyle = 'rgba(150,128,88,.6)'; g.lineWidth = 38 * sc; g.lineCap = 'round'; const re = ZT[last].max;
   for (let k = 0; k < 4; k++) { const a = k * 1.5708; g.beginPath(); g.moveTo(t(WORLD.CX), t(WORLD.CY)); g.lineTo(t(WORLD.CX + Math.cos(a) * re), t(WORLD.CY + Math.sin(a) * re)); g.stroke(); }
-  try { g.filter = 'blur(2px)'; } catch (e) {} g.fillStyle = '#9a8a66'; g.beginPath(); g.arc(t(WORLD.CX), t(WORLD.CY), WORLD.V * sc, 0, 7); g.fill(); g.fillStyle = '#b3a37c'; g.beginPath(); g.arc(t(WORLD.CX), t(WORLD.CY), 60 * sc, 0, 7); g.fill();
+  try { g.filter = 'blur(2px)'; } catch (e) {} paintSettlementGround(g, t, sc);
   try { g.filter = 'none'; } catch (e) {} g.strokeStyle = 'rgba(200,40,40,.8)'; g.lineWidth = 6; g.strokeRect(t(0), t(0), WORLD.W * sc, WORLD.H * sc);
   GL.setGround(cv, X0, X0, SZ);
 }
@@ -391,7 +322,10 @@ function drawWorld(now) {
   for (const l of lamps) { if (Math.abs(l.x - cam.x) > 1500 || Math.abs(l.z - cam.z) > 1500) continue; const f = Math.sin(now / 90 + l.x) * .6; D(M.ball, l.x, 35 + f * .4, l.z, 3 + f * .3, 3.6 + f * .4, 3 + f * .3, 0, 0, [1, .68, .22], 1); if (nt > .3) D(M.disc, l.x, 1.5, l.z, 70, 1, 70, 0, 0, [1, .6, .2], 1, .07 * nt); }
   if (Math.random() < .3) for (const l of lava) if (Math.abs(l.x - cam.x) < 700 && Math.abs(l.z - cam.z) < 700 && Math.random() < .12) { const a = Math.random() * 6.28, d = Math.random() * l.r * .8; burst(l.x + Math.cos(a) * d, 2, l.z + Math.sin(a) * d, 1, [1, .5, .1], 30, 1.6, 2, 1, -40); }
   if (Math.abs(CX - cam.x) > 1800 || Math.abs(CY - cam.z) > 1800) return;
-  const fx = CX + 92, fz = CY - 22, f = Math.sin(now / 70); D(M.ball, fx - 8, 20 + f, fz + 4, 6 + f * .5, 7 + f, 6 + f * .5, 0, 0, [1, .5, .1], 1); if (Math.random() < .25) burst(fx - 8, 24, fz + 4, 1, [1, .6, .15], 26, 1.3, 1.3, 1, -70); if (Math.random() < .2) burst(fx + 4, 52, fz - 4, 1, [.35, .33, .33], 18, 2.4, 3, 0, -50);
+  // the coals on the Blacksmith's cart glow and smoke (only where the smith is)
+  const coals = WORLD.npcs.smith && cartPoint('smith', 10, 0); if (coals) { const f = Math.sin(now / 70); D(M.ball, coals.x, 21 + f * .5, coals.z, 4 + f * .3, 4 + f * .5, 4 + f * .3, 0, 0, [1, .5, .1], 1); if (Math.random() < .25) burst(coals.x, 24, coals.z, 1, [1, .6, .15], 26, 1.3, 1.3, 1, -70); if (Math.random() < .15) burst(coals.x, 30, coals.z, 1, [.35, .33, .33], 18, 2.4, 3, 0, -50); }
+  // every NPC faces the portal (the yaw comes from the shared layout via the server)
+  for (const key of ['merchant', 'smith', 'mystic']) if (WORLD.npcs[key] && Number.isFinite(WORLD.npcs[key].yaw)) NPCE[key].yaw = WORLD.npcs[key].yaw;
   const mN = WORLD.npcs.merchant, sN = WORLD.npcs.smith, me_ = NPCE.merchant, sm = NPCE.smith;
   if (mN) { me_.rx = mN.x; me_.ry = mN.y; me_.mv = 0; } if (mN && !drawChar(me_, 'Cleric', { h: 66 }, now)) human(me_, { sc: 1, kind: 'npc', body: hex('#6a4a8a'), leg: hex('#3a2a4a'), skin: SKIN, hair: [.35, .2, .1] });
   if (sN) { sm.rx = sN.x; sm.ry = sN.y; sm.mv = 0; } if (sN && now - sm.atkT > 1700) { sm.atkT = now; sm.skill = false; setTimeout(() => {

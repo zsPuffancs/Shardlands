@@ -3,16 +3,15 @@
 const { TIERS } = require('./monsters');
 const Settlement = require('./public/settlement');
 
-const W = 10600, H = 10600, CX = 5300, CY = 5300, VILLAGE = 220;
-// Keep the NPCs in the open plaza, clear of the stall and smithy roofs.
-const NPCS = {
-  merchant: { x: CX - 12, y: CY - 65, name: 'Merchant' },
-  smith: { x: CX + 104, y: CY + 58, name: 'Blacksmith' },
-  mystic: { x: CX - 58, y: CY + 122, name: 'Soul Mystic' },
-};
+const W = 10600, H = 10600, CX = 5300, CY = 5300, VILLAGE = Settlement.SAFE_RADIUS.village;
+// The founding village (map 0) uses the Grand Circle layout. Other maps place their NPCs by their own layout.
+const FOUNDING_LAYOUT = 'grand';
+const NPC_NAMES = { merchant: 'Merchant', smith: 'Blacksmith', mystic: 'Soul Mystic', portal: 'World Portal' };
+const foundingSpots = Settlement.layout('village', 'timber', {}, FOUNDING_LAYOUT).npcSpots;
+const NPCS = Object.fromEntries(Settlement.VENDORS.map(key => [key, { x: CX + foundingSpots[key].x, y: CY + foundingSpots[key].y, name: NPC_NAMES[key] }]));
 const NPC_RANGE = 210;
-// The World Portal stands in the centre of every village once a region beyond the founding lands is open.
-const PORTAL = { x: CX, y: CY + 62, name: 'World Portal' };
+// The World Portal stands at the exact centre of every settlement once a region beyond the founding lands is open.
+const PORTAL = { x: CX + Settlement.PORTAL.x, y: CY + Settlement.PORTAL.y, name: NPC_NAMES.portal };
 
 // ---------- maps ----------
 // Every map lives in its own square of one shared coordinate plane, far away from the others,
@@ -30,17 +29,20 @@ function mapAt(x, y) {
 }
 const mapOf = entity => mapAt(entity.x, entity.y);
 const portalOpen = () => maps.length > 1;
+// Where an NPC stands on a map (world coordinates), and which way it faces (towards the portal).
+// Anything without a settlement (e.g. a region geometry used for planning) falls back to the founding positions.
 function npcPosition(map, key) {
-  const npc = key === 'portal' ? PORTAL : NPCS[key];
-  return { x: map.cx + npc.x - CX, y: map.cy + npc.y - CY, name: npc.name };
+  if (key === 'portal') return { x: map.cx + Settlement.PORTAL.x, y: map.cy + Settlement.PORTAL.y, name: NPC_NAMES.portal, yaw: 0 };
+  const spot = (map.layout || map.settlement ? layoutOf(map).npcSpots[key] : null) || foundingSpots[key];
+  return { x: map.cx + spot.x, y: map.cy + spot.y, name: NPC_NAMES[key], yaw: spot.yaw };
 }
 
 const rnd = (a, b) => a + Math.random() * (b - a), rint = (a, b) => Math.floor(rnd(a, b + 1)), pick = a => a[Math.floor(Math.random() * a.length)];
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 // What stands at a map's centre: a village, an encampment players build, or only the portal.
 function setSettlement(map, record) {
-  map.settlement = record || { kind: 'village', style: 'timber', built: {} };
-  map.layout = Settlement.layout(map.settlement.kind, map.settlement.style, map.settlement.built);
+  map.settlement = record || { kind: 'village', style: 'timber', built: {}, layout: FOUNDING_LAYOUT };
+  map.layout = Settlement.layout(map.settlement.kind, map.settlement.style, map.settlement.built, map.settlement.layout);
 }
 const layoutOf = map => map.layout || (setSettlement(map), map.layout);
 // Is this NPC on the map? The portal is everywhere once open; an encampment only has the stalls players built.
@@ -61,7 +63,8 @@ const inVillage = entity => { const map = mapOf(entity); return Math.hypot(entit
 const collideSettlement = (entity, prev, radius) => { const map = mapOf(entity); return Settlement.collide(entity, layoutOf(map), map.cx, map.cy, radius, prev); };
 const clampWorld = (entity, map = mapOf(entity)) => { entity.x = Math.max(map.x0 + 20, Math.min(map.x0 + map.w - 20, entity.x)); entity.y = Math.max(map.y0 + 20, Math.min(map.y0 + map.h - 20, entity.y)); };
 // Put an entity on the arrival spot of a village (its own map's village unless another map is given).
-function placeInVillage(entity, map) { map = map || mapOf(entity); entity.x = map.cx + rnd(-50, 50); entity.y = map.cy + rnd(30, 95); }
+// Arrival spots are on the portal plaza, just south of the portal and clear of everything (settlement.js arrivalPoint).
+function placeInVillage(entity, map) { map = map || mapOf(entity); const spot = Settlement.arrivalPoint(layoutOf(map)); entity.x = map.cx + spot.x; entity.y = map.cy + spot.y; }
 function moveToward(entity, targetX, targetY, speed, deltaTime) { const offsetX = targetX - entity.x, offsetY = targetY - entity.y, distance = Math.hypot(offsetX, offsetY); if (distance < 1) return 0; const s = Math.min(distance, speed * deltaTime); entity.x += offsetX / distance * s; entity.y += offsetY / distance * s; return distance; }
 const tierOf = (x, y) => {
   const map = mapAt(x, y); if (map.index > 0) return map.tier;
@@ -74,14 +77,14 @@ const attachUniverse = provider => { universeIdentity = provider; };
 // The world as one client sees it: always in coordinates local to that map.
 function worldInfo(map) {
   map = map || maps[0];
-  const local = key => { const npc = npcPosition(map, key); return { x: npc.x - map.x0, y: npc.y - map.y0, name: npc.name }; };
+  const local = key => { const npc = npcPosition(map, key); return { x: npc.x - map.x0, y: npc.y - map.y0, name: npc.name, yaw: npc.yaw }; };
   const npcs = {}; for (const key in NPCS) if (npcAvailable(map, key)) npcs[key] = local(key); if (portalOpen()) npcs.portal = local('portal');
   if (npcAvailable(map, 'camp')) npcs.camp = { x: map.cx - map.x0 + Settlement.CAMP_BOARD.x, y: map.cy - map.y0 + Settlement.CAMP_BOARD.y, name: 'Encampment board' };
-  const settlement = { kind: layoutOf(map).kind, style: layoutOf(map).style, built: (map.settlement && map.settlement.built) || {}, cost: Settlement.STALL_COST,
+  const settlement = { kind: layoutOf(map).kind, style: layoutOf(map).style, layout: layoutOf(map).layout, built: (map.settlement && map.settlement.built) || {}, cost: Settlement.STALL_COST,
     funds: Object.fromEntries(Object.entries((map.settlement && map.settlement.funds) || {}).map(([key, fund]) => [key, fund.donors])) };
   const zones = map.index === 0 ? TIERS.filter(t => !t.generated).map(t => ({ name: t.name, min: t.min, max: t.max, lv: t.lv, outer: !!t.outer }))
     : [{ name: TIERS[map.tier].name, min: REGION_SAFE_RADIUS, max: 99999, lv: TIERS[map.tier].lv, outer: false, look: map.look, generated: true }];
   return { universe: universeIdentity(), map: map.index, maps: maps.length, W: map.w, H: map.h, CX: map.cx - map.x0, CY: map.cy - map.y0, V: layoutOf(map).safe, settlement, npcs, npcRange: NPC_RANGE, tiers: zones };
 }
 
-module.exports = { setSettlement, layoutOf, npcAvailable, collideSettlement, W, H, CX, CY, VILLAGE, NPCS, NPC_RANGE, REGION_SIZE, REGION_SAFE_RADIUS, maps, addMap, mapAt, mapOf, portalOpen, npcPosition, placeInVillage, rnd, rint, pick, dist, nearNpc, inVillage, clampWorld, moveToward, tierOf, worldInfo, attachUniverse };
+module.exports = { FOUNDING_LAYOUT, setSettlement, layoutOf, npcAvailable, collideSettlement, W, H, CX, CY, VILLAGE, NPCS, NPC_RANGE, REGION_SIZE, REGION_SAFE_RADIUS, maps, addMap, mapAt, mapOf, portalOpen, npcPosition, placeInVillage, rnd, rint, pick, dist, nearNpc, inVillage, clampWorld, moveToward, tierOf, worldInfo, attachUniverse };

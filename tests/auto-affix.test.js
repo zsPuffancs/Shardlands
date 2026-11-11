@@ -6,12 +6,12 @@ const { createAutoAffixJobs } = require('../auto-affix-jobs');
 const { AUTO_AFFIX_LIMITS } = require('../safety-limits');
 const { createInventory } = require('../inventory');
 const { newSk, stats } = require('../characters');
-const { NPCS, maps, addMap } = require('../game-world');
+const { NPCS, CX, CY, maps, addMap } = require('../game-world');
 const { createGameSaves } = require('../persistence');
 const { createTeams } = require('../teams');
 const { createPlayerSessions } = require('../player-session');
 const noop = () => {};
-function hero(id = 1) { const p = { id, name: 'Hero' + id, c: {}, cls: 'archer', lvl: 100, xp: 100, sp: 20, gold: 10000, souls: 1000000, bag: [], eq: {}, inv: {}, sk: newSk(), buf: {}, x: NPCS.mystic.x, y: NPCS.mystic.y }; stats(p); p.hp = p.maxhp; p.mp = p.maxmp; p.c.p = p; return p; }
+function hero(id = 1) { const p = { id, name: 'Hero' + id, c: {}, cls: 'archer', lvl: 100, xp: 100, sp: 20, gold: 10000, souls: 1000000, bag: [], eq: {}, inv: {}, sk: newSk(), buf: {}, x: CX, y: CY /* the plaza centre: in reach of every NPC */ }; stats(p); p.hp = p.maxhp; p.mp = p.maxmp; p.c.p = p; return p; }
 function item(uid = 'target', extra = {}) { return { uid, name: 'Iron Sword', slot: 'weapon', fam: 'sword', ilvl: 100, rar: 3, plus: 7, req: 1, stats: { dmg: 123, crit: 5 }, psk: { might: 2 }, lk: 1, ...extra }; }
 function productionRoll(units = [0]) { const real = createEquipment({ rates: { rarityBoost: 0 } }).applyAffix; let index = 0; return (item, key) => { const original = Math.random; Math.random = () => units[Math.min(index++, units.length - 1)]; try { return real(item, key); } finally { Math.random = original; } }; }
 function setup({ roll = productionRoll(), reserved = () => false } = {}) {

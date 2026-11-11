@@ -185,7 +185,13 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
       else { const region = regionFor(tier); state.settlements[key] = { ...Settlement.choose(region.biome, tier, seededRandom(state.seed, 'settlement', tier)), built: {} }; }
       persist();
     }
-    return state.settlements[key];
+    // Villages keep the layout they were given (older saves get one now, from a stream of their own).
+    const record = state.settlements[key];
+    if (record.kind === 'village' && !Settlement.LAYOUT_IDS.includes(record.layout)) {
+      record.layout = tier <= FOUNDING_TIERS ? 'grand' : Settlement.chooseLayout(record.style, seededRandom(state.seed, 'settlement-layout', tier));
+      persist();
+    }
+    return record;
   }
   function record(type, players, data) {
     const entry = { id: state.nextEventId++, at: Date.now(), type, tier: state.worldTier, players: players || [], data: data || {} };
