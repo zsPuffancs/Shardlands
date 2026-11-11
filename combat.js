@@ -7,44 +7,50 @@ const { clampWorld, mapOf, inVillage, dist, rnd, rint, pick } = require('./game-
 const { MOBTYPES, TIERS, SPECIAL } = require('./monsters');
 const { CLASSES, critCh, critMul, defRed, playerDmg, rank, passive, gearLifesteal } = require('./characters');
 
-const XP_LEVEL_GAP_LIMIT = 13;
-const canEarnMonsterXp = (hero, monster) => hero.lvl - monster.lvl < XP_LEVEL_GAP_LIMIT;
+const { XP_BALANCE, levelGapScale, encounterCategory, encounterShare } = require('./xp-economy');
+const { createEncounterParticipation } = require('./encounter-participation');
+const XP_LEVEL_GAP_LIMIT = XP_BALANCE.overlevelCutoff;
+const canEarnMonsterXp = (hero, monster) => levelGapScale(hero.lvl, monster.lvl) > 0;
 const { SUMMON_LIFETIME_MS, createSummons } = require('./summons');
 
 function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLoot, broadcast, say, teams }) {
   const summons = createSummons({ mobs, spawnMob });
+  const participation = createEncounterParticipation({ players, teams }), processingHits = new WeakSet();
   function hitMob(player, monster, damage) {
-    if (player.dead || inVillage(player) || monster.dead) return;
-    const criticalHit = Math.random() < critCh(player);
-    if (criticalHit) damage *= critMul(player);
-    damage = Math.max(1, Math.round(damage * rnd(0.9, 1.1)));
-    const hit = { v: damage, crit: criticalHit };
-    // A team fighting together makes the monster tougher. It keeps the highest strength until it rests or respawns.
-    const scale = teams.monsterScale(player, monster);
-    if (scale > (monster.ps || 1)) { const ratio = scale / (monster.ps || 1); monster.mh = Math.round(monster.mh * ratio); monster.hp *= ratio; monster.ps = scale; }
-    fire('damage', player, monster, hit);
-    damage = Math.max(1, Math.round(hit.v));
-    monster.hp -= damage;
-    ev('dmg', monster.x, monster.y, damage, {
-      c: criticalHit ? 1 : 0, combatPlayerId: player.id, monsterType: monster.ty,
-    });
-    const lifesteal = passive(player, 'lifesteal') + gearLifesteal(player);
-    if (lifesteal > 0 && !player.dead) player.hp = Math.min(player.maxhp, player.hp + damage * lifesteal);
-    const template = MOBTYPES[monster.ty];
-    monster.awake = true;
-    if (!template.stone && !monster.target) monster.target = player.id;
-    if (template.stone) {
-      const step = Math.ceil((monster.hp / monster.mh) * 5);
-      while (monster.stoneStep > step && monster.hp > 0) {
-        monster.stoneStep--;
-        const requests = [];
-        for (let i = 0; i < Math.min(12, 5 + monster.tier); i++) { const angle = rnd(0, Math.PI * 2), radius = rnd(60, 140); requests.push({ type: pick(TIERS[monster.tier].types), x: monster.x + Math.cos(angle) * radius, y: monster.y + Math.sin(angle) * radius }); }
-        if (monster.stoneStep <= 3) requests.push({ type: pick(TIERS[monster.tier].types), x: monster.x + rnd(-60, 60), y: monster.y + rnd(-60, 60), options: { alpha: true } });
-        for (const guardian of summons.spawnBatch(monster, requests)) guardian.target = player.id;
-        ev('fx', monster.x, monster.y, 160, { s: 'summon' });
+    if (player.dead || inVillage(player) || monster.dead || monster.hp <= 0 || !Number.isFinite(damage) || damage <= 0 || processingHits.has(monster)) return;
+    processingHits.add(monster);
+    try {
+      const criticalHit = Math.random() < critCh(player);
+      if (criticalHit) damage *= critMul(player);
+      damage = Math.max(1, Math.round(damage * rnd(0.9, 1.1)));
+      const hit = { v: damage, crit: criticalHit };
+      fire('damage', player, monster, hit);
+      if (!Number.isFinite(hit.v) || hit.v <= 0) return;
+      damage = Math.min(Number.MAX_SAFE_INTEGER, Math.max(1, Math.round(hit.v)));
+      participation.begin(player, monster);
+      participation.record(player, monster, Math.min(monster.hp, damage), Date.now());
+      monster.hp -= damage;
+      ev('dmg', monster.x, monster.y, damage, {
+        c: criticalHit ? 1 : 0, combatPlayerId: player.id, monsterType: monster.ty,
+      });
+      const lifesteal = passive(player, 'lifesteal') + gearLifesteal(player);
+      if (lifesteal > 0 && !player.dead) player.hp = Math.min(player.maxhp, player.hp + damage * lifesteal);
+      const template = MOBTYPES[monster.ty];
+      monster.awake = true;
+      if (!template.stone && !monster.target) monster.target = player.id;
+      if (template.stone) {
+        const step = Math.ceil((monster.hp / monster.mh) * 5);
+        while (monster.stoneStep > step && monster.hp > 0) {
+          monster.stoneStep--;
+          const requests = [];
+          for (let i = 0; i < Math.min(12, 5 + monster.tier); i++) { const angle = rnd(0, Math.PI * 2), radius = rnd(60, 140); requests.push({ type: pick(TIERS[monster.tier].types), x: monster.x + Math.cos(angle) * radius, y: monster.y + Math.sin(angle) * radius }); }
+          if (monster.stoneStep <= 3) requests.push({ type: pick(TIERS[monster.tier].types), x: monster.x + rnd(-60, 60), y: monster.y + rnd(-60, 60), options: { alpha: true } });
+          for (const guardian of summons.spawnBatch(monster, requests)) guardian.target = player.id;
+          ev('fx', monster.x, monster.y, 160, { s: 'summon' });
+        }
       }
-    }
-    if (monster.hp <= 0) killMob(player, monster);
+      if (monster.hp <= 0) killMob(player, monster);
+    } finally { processingHits.delete(monster); }
   }
   function killMob(player, monster) {
     const template = MOBTYPES[monster.ty];
@@ -53,12 +59,14 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
       player.target = 0;
       player.chasingTarget = false;
     }
-    const experienceMultiplier = hero => template.stone ? 2 : template.boss ? 1 : Math.max(0.1, 1 - Math.max(0, hero.lvl - monster.lvl - 5) * 0.12);
-    // Team sharing: everyone nearby gets an equal part of the XP, +15% in total for every extra member.
-    const sharers = teams.sharesLoot(player) ? teams.nearbyMembers(player, monster) : [player];
-    const xpSharers = sharers.filter(hero => canEarnMonsterXp(hero, monster));
-    const teamBonus = 1 + teams.XP_BONUS_PER_MEMBER * Math.max(0, xpSharers.length - 1);
-    if (rates.xpRate > 0) for (const hero of xpSharers) gainXp(hero, Math.max(1, Math.round(monster.xp * rates.xpRate * experienceMultiplier(hero) * teamBonus / xpSharers.length)));
+    // Gold/loot retain their current sharing policy. XP uses the encounter's fixed roster and participation.
+    const sharers = teams?.sharesLoot?.(player) ? teams.nearbyMembers(player, monster) : [player];
+    const xpSharers = participation.recipients(monster, Date.now()).filter(hero => canEarnMonsterXp(hero, monster));
+    const category = encounterCategory(monster, template);
+    if (rates.xpRate > 0) for (const hero of xpSharers) {
+      const amount = encounterShare({ playerLevel: hero.lvl, monsterLevel: monster.lvl, category, members: xpSharers.length, healthScale: monster.ps || 1 });
+      if (amount > 0) gainXp(hero, amount, { source: 'combat', serverRate: rates.xpRate, members: xpSharers.length, healthScale: monster.ps || 1 });
+    }
     dropLoot(player, monster, sharers); ev('die', monster.x, monster.y, monster.ty, { b: monster.alpha ? 1 : 0 });
     if (template.boss) { broadcast({ t: 'chat', n: '*', m: messageText("server.bossSlain", "{player} has slain {monster}!", { player: player.name, monster: messageText('monster.' + monster.ty, template.name) }) }); broadcast({ t: 'toast', m: messageText("server.bossSlain", "{player} has slain {monster}!", { player: player.name, monster: messageText('monster.' + monster.ty, template.name) }), c: '#ffd24a' }); }
     fire('kill', player, monster);
@@ -104,7 +112,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     ev('warn', monster.x, monster.y, cast.r, { a: monster.id, s: attack, ang: Math.round(cast.ang * 100) / 100, tx: cast.tx && Math.round(cast.tx), ty: cast.ty && Math.round(cast.ty), pts: cast.pts, half: cast.half });
   }
   function resolveCast(monster, activePlayers, now) {
-    const cast = monster.cast; monster.cast = null; const baseDamage = monster.dmg * (monster.ps || 1) * rates.monsterDamage;
+    const cast = monster.cast; monster.cast = null; const baseDamage = monster.dmg * (monster.partyDamageScale || 1) * rates.monsterDamage;
     if (cast.s === 'slam') { ev('slam', monster.x, monster.y, cast.r, { s: 'slam' }); for (const player of activePlayers) if (!player.dead && !inVillage(player) && dist(player, monster) <= cast.r) hurtPlayer(player, monster, baseDamage * 1.8, now); }
     else if (cast.s === 'breath') { ev('slam', monster.x, monster.y, cast.r, { s: 'breath', ang: cast.ang, half: cast.half, ty: monster.ty }); for (const player of activePlayers) { if (player.dead || inVillage(player)) continue; const dd = dist(player, monster); if (dd > cast.r) continue; let da = Math.atan2(player.x - monster.x, player.y - monster.y) - cast.ang; da = Math.atan2(Math.sin(da), Math.cos(da)); if (Math.abs(da) <= cast.half) hurtPlayer(player, monster, baseDamage * 1.7, now); } }
     else if (cast.s === 'charge') { const x0 = monster.x, y0 = monster.y; monster.x = cast.tx; monster.y = cast.ty; ev('slam', monster.x, monster.y, 70, { s: 'charge', x0: Math.round(x0), y0: Math.round(y0) });
@@ -143,7 +151,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     }
   }
 
-  return { hitMob, hurtPlayer, startCast, resolveCast, skill };
+  return { hitMob, hurtPlayer, startCast, resolveCast, skill, resetEncounter: participation.reset };
 }
 
 module.exports = { XP_LEVEL_GAP_LIMIT, canEarnMonsterXp, SUMMON_LIFETIME_MS, createCombat };

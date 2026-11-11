@@ -1,6 +1,7 @@
 'use strict';
 const { SpatialIndex } = require('./spatial-index');
 const { mapOf } = require('./game-world');
+const { partyDamageScale } = require('./xp-economy');
 
 // Definitions remain in universe storage; live entities are a bounded, player-driven working set.
 function createEncounterRuntime({ players, mobs, spawnMob, maxActive = 2048, maxPerMap = 512, activationRadius = 1700, unloadAfterMs = 30000, onError = error => console.error('[generation]', error) }) {
@@ -15,7 +16,7 @@ function createEncounterRuntime({ players, mobs, spawnMob, maxActive = 2048, max
     let group = regionsByMap.get(map.index); if (!group) regionsByMap.set(map.index, group = new Set()); group.add(region);
   }
   function save(region, id, monster) {
-    region.storage()[id] = { health: monster.mh > 0 ? monster.hp / monster.mh : 1, deadUntil: monster.dead || 0, stoneStep: monster.stoneStep, ps: monster.ps || 1, slamT: monster.slamT || 0 };
+    region.storage()[id] = { health: monster.mh > 0 ? monster.hp / monster.mh : 1, deadUntil: monster.dead || 0, stoneStep: monster.stoneStep, ps: monster.ps || 1, partyDamageScale: monster.partyDamageScale || 1, slamT: monster.slamT || 0 };
   }
   function checkpoint() { for (const region of liveRegions) for (const [id, monster] of region.live) if (mobs.get(monster.id) === monster) save(region, id, monster); }
   function tick(now = Date.now()) {
@@ -61,6 +62,7 @@ function createEncounterRuntime({ players, mobs, spawnMob, maxActive = 2048, max
         monster.spawnId = id;
         if (state && (!state.deadUntil || state.deadUntil > now)) {
           monster.ps = Number.isFinite(state.ps) ? Math.max(1, Math.min(16, state.ps)) : 1;
+          monster.partyDamageScale = Number.isFinite(state.partyDamageScale) ? Math.max(1, Math.min(partyDamageScale(5), state.partyDamageScale)) : 1;
           monster.mh = Math.round(monster.mh * monster.ps);
           monster.hp = Math.max(0, Math.min(1, Number.isFinite(state.health) ? state.health : 1)) * monster.mh;
           monster.dead = state.deadUntil || 0; monster.stoneStep = state.stoneStep ?? 5; monster.slamT = state.slamT || 0;

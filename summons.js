@@ -12,7 +12,7 @@ function createSummons({ mobs, spawnMob }) {
     const spawned = [];
     for (const request of requests.slice(0, available)) {
       const monster = spawnMob(request.type, request.x, request.y, source.tier, request.options);
-      monster.summoned = true; monster.summonSourceId = source.id; monster.expiresAt = Date.now() + SUMMON_LIFETIME_MS;
+      monster.summoned = true; monster.xp = 0; monster.summonSourceId = source.id; monster.expiresAt = Date.now() + SUMMON_LIFETIME_MS;
       monster.awake = true; monster.target = source.target || 0; monster.hx = source.x; monster.hy = source.y; spawned.push(monster);
     }
     return spawned;

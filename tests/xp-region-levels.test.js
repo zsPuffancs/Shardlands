@@ -2,14 +2,16 @@
 const test = require('node:test'), assert = require('node:assert/strict');
 const { createCombat, XP_LEVEL_GAP_LIMIT } = require('../combat');
 const { createProgression, newSk, stats } = require('../characters');
+const { calculateEncounterXp } = require('../xp-economy');
 const { regionLevelRange, resolveRegionLevels } = require('../region-levels');
 const { createUniverse, generateRegion } = require('../universe');
 const noop = () => {};
 function hero(id, level) { const p = { id, name: 'Hero' + id, cls: 'archer', lvl: level, xp: 0, gold: 0, eq: {}, bag: [], inv: {}, sk: newSk(), buf: {}, x: 6000, y: 6000, sp: 0, target: 1 }; stats(p); p.hp = p.maxhp; p.mp = p.maxmp; return p; }
 function kill(type, killer, members = [killer], rate = 1) {
   const awards = [], drops = [], progression = createProgression({ fire: noop, ev: noop, say: noop, toast: noop, broadcast: noop, sendInv: noop });
-  const monster = { id: 1, ty: type, lvl: 100, hp: 1, mh: 1, xp: 100, r: 14, x: 6020, y: 6000, tier: 0, stoneStep: 5 };
-  const combat = createCombat({ mobs: new Map([[1, monster]]), players: new Map(members.map(p => [p.id, p])), rates: { xpRate: rate, respawnSeconds: 10 }, spawnMob: noop, ev: noop, fire: noop, gainXp: (p, xp) => { awards.push([p.id, xp]); progression.gainXp(p, xp); }, dropLoot: (p, mob, sharers) => drops.push({ p, mob, sharers }), broadcast: noop, say: noop, teams: { monsterScale: () => 1, sharesLoot: () => members.length > 1, nearbyMembers: () => members, XP_BONUS_PER_MEMBER: .15 } });
+  const monster = { id: 1, ty: type, lvl: 100, hp: 1000, mh: 1000, xp: 100, r: 14, x: 6020, y: 6000, tier: 0, stoneStep: 5 };
+  const combat = createCombat({ mobs: new Map([[1, monster]]), players: new Map(members.map(p => [p.id, p])), rates: { xpRate: rate, respawnSeconds: 10 }, spawnMob: noop, ev: noop, fire: noop, gainXp: (p, xp, context) => { const awarded = progression.gainXp(p, xp, context); if (awarded) awards.push([p.id, awarded]); }, dropLoot: (p, mob, sharers) => drops.push({ p, mob, sharers }), broadcast: noop, say: noop, teams: { monsterScale: () => 1, sharesLoot: () => members.length > 1, nearbyMembers: () => members, XP_BONUS_PER_MEMBER: .15 } });
+  for (const member of members) if (member !== killer) combat.hitMob(member, monster, 100);
   combat.hitMob(killer, monster, 1000000); return { awards, drops, monster };
 }
 test('a level gap of exactly 13 or more awards zero XP for ordinary mobs, bosses and stones, keeping drops', () => {
@@ -27,8 +29,11 @@ test('a gap of 12, equal levels and stronger monsters still award XP', () => {
 });
 test('team XP eligibility is individual while gold/drop sharers remain unchanged', () => {
   const high = hero(1, 113), low = hero(2, 100), mixed = kill('wolf', high, [high, low]);
-  assert.deepEqual(mixed.awards, [[2, 100]]); assert.equal(high.xp, 0); assert.equal(low.xp, 100); assert.deepEqual(mixed.drops[0].sharers, [high, low]);
-  const a = hero(1, 100), b = hero(2, 100), both = kill('wolf', a, [a, b]); assert.deepEqual(both.awards, [[1, Math.round(100 * 1.15 / 2)], [2, Math.round(100 * 1.15 / 2)]]);
+  const soloXp = calculateEncounterXp({ playerLevel: 100, monsterLevel: 100 });
+  assert.deepEqual(mixed.awards, [[2, soloXp]]); assert.equal(high.xp, 0); assert.equal(low.xp, soloXp); assert.deepEqual(mixed.drops[0].sharers, [high, low]);
+  const a = hero(1, 100), b = hero(2, 100), both = kill('wolf', a, [a, b]);
+  const partyXp = calculateEncounterXp({ playerLevel: 100, monsterLevel: 100, members: 2 });
+  assert.deepEqual(both.awards.sort((a, b) => a[0] - b[0]), [[1, partyXp], [2, partyXp]]);
   const oldA = hero(1, 113), oldB = hero(2, 114); assert.deepEqual(kill('stone', oldA, [oldA, oldB]).awards, []);
 });
 function world(data = {}, config = {}) { return createUniverse({ store: { data, save: async () => {} }, config, isAdmin: () => false, messageText: () => '', broadcast: noop }); }

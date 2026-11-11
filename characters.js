@@ -4,6 +4,7 @@ const { MAX_SAFE_AMOUNT, LEVEL_UPS_PER_TICK, validAmount, credit } = require('./
 const { localizedText: messageText } = require('./localized-text');
 
 const { SLOTS, NO_DMG, PASSIVES, plusMul } = require('./equipment');
+const { MAX_PLAYER_LEVEL, validLevel, xpNeed, applyXpBonuses, finalizeXpAward, encounterLimit } = require('./xp-economy');
 
 const CLASSES = {
   blade:  { name: 'Blade',  desc: 'Melee tank with a sweeping whirlwind.', color: '#b9bccb', fam: 'sword', range: 40,  hp: 1.25, mp: 0.8, atk: 1.0,  s1: 'Whirlwind', s1r: 100, s1m: 1.8, s1c: 15, s1n: 99, s2: 'Second Wind',  s3: 'Battle Rage' },
@@ -24,7 +25,6 @@ const ITEMS = { // stackable consumables. w = random drop weight (0 = shop only)
 
 const SKILLS = ['s1', 'mend', 'frenzy', 'vit', 'might', 'swift', 'crit', 'critdmg', 'lifesteal', 'guard', 'haste', 'focus', 'fortune'], ACTIVE = { s1: 1, mend: 1, frenzy: 1 }, MAXRANK = 5, PMAX = 99;
 const maxRank = k => ACTIVE[k] ? MAXRANK : PMAX;
-const xpNeed = l => Math.floor(55 * Math.pow(l, 1.85));
 const newSk = () => ({ s1: 1, mend: 0, frenzy: 0, vit: 0, might: 0, swift: 0, crit: 0, critdmg: 0, lifesteal: 0, guard: 0, haste: 0, focus: 0, fortune: 0 });
 
 function gearSum(player) {
@@ -72,21 +72,28 @@ const playerDmg = player => ((6 + player.lvl * 2.6) * CLASSES[player.cls].atk + 
 
 function createProgression({ fire, ev, say, toast, broadcast, sendInv }) {
   const pendingLevels = new Map();
-  function gainXp(player, xp) {
-    { const award = { v: xp }; fire('xp', player, award); if (!Number.isFinite(award.v)) return; xp = Math.round(award.v); }
-    xp = Math.max(1, Math.round(xp * (1 + (player.g.xpb || 0) / 100)));
-    if (Date.now() < player.buf.xp) xp = Math.round(xp * 1.5);
-    xp = Math.min(MAX_SAFE_AMOUNT, xp);
+  const processingAwards = new WeakSet();
+  function gainXp(player, xp, context = {}) {
+    if (!validLevel(player.lvl) || player.lvl >= MAX_PLAYER_LEVEL || processingAwards.has(player)) return 0;
+    const combat = context.source === 'combat', limit = combat ? encounterLimit(player.lvl, context) : MAX_SAFE_AMOUNT;
+    const boosted = applyXpBonuses(xp, { gearBonus: player.g?.xpb, wisdom: Date.now() < player.buf?.xp, serverRate: combat ? context.serverRate : 1, limit });
+    if (!boosted) return 0;
+    const award = { v: boosted, source: combat ? 'combat' : 'direct' };
+    processingAwards.add(player);
+    try { fire('xp', player, award); } finally { processingAwards.delete(player); }
+    xp = finalizeXpAward(boosted, award.v, { combat, limit });
+    if (!xp) return 0;
     const awarded = credit(player, 'xp', xp, MAX_SAFE_AMOUNT); if (awarded) ev('xp', player.x, player.y, '+' + awarded + ' xp');
-    pendingLevels.set(player.id, player);
+    if (awarded) pendingLevels.set(player.id, player);
+    return awarded;
   }
   function processLevels(activePlayers) {
     const online = new Set(activePlayers); let budget = LEVEL_UPS_PER_TICK;
-    for (const player of activePlayers) if (validAmount(player.xp) && player.xp >= xpNeed(player.lvl)) pendingLevels.set(player.id, player);
+    for (const player of activePlayers) if (validLevel(player.lvl) && player.lvl < MAX_PLAYER_LEVEL && validAmount(player.xp) && player.xp >= xpNeed(player.lvl)) pendingLevels.set(player.id, player);
     for (const [id, player] of [...pendingLevels]) {
-      pendingLevels.delete(id); if (!online.has(player) || !validAmount(player.xp)) continue;
+      pendingLevels.delete(id); if (!online.has(player) || !validAmount(player.xp) || !validLevel(player.lvl) || player.lvl >= MAX_PLAYER_LEVEL) continue;
       let leveledUp = false, count = 0;
-      while (budget > 0 && count < 5 && Number.isSafeInteger(player.lvl) && player.lvl > 0 && player.xp >= xpNeed(player.lvl)) {
+      while (budget > 0 && count < 5 && validLevel(player.lvl) && player.lvl < MAX_PLAYER_LEVEL && player.xp >= xpNeed(player.lvl)) {
         budget--; count++;
         player.xp -= xpNeed(player.lvl); player.lvl++; player.sp++; leveledUp = true; stats(player); player.hp = player.maxhp; player.mp = player.maxmp;
         ev('lvl', player.x, player.y, messageText("server.levelBanner", "LEVEL {level}", { level: player.lvl })); ev('fx', player.x, player.y, 110, { s: 'lvl', a: player.id });
@@ -94,7 +101,7 @@ function createProgression({ fire, ev, say, toast, broadcast, sendInv }) {
         broadcast({ t: 'chat', n: '*', m: messageText("server.playerLevel", "{player} reached level {level}!", { player: player.name, level: player.lvl }) }); fire('levelup', player);
       }
       if (leveledUp) sendInv(player);
-      if (player.xp >= xpNeed(player.lvl)) pendingLevels.set(id, player);
+      if (player.lvl < MAX_PLAYER_LEVEL && player.xp >= xpNeed(player.lvl)) pendingLevels.set(id, player);
       if (budget <= 0) break;
     }
   }

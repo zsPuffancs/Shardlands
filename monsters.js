@@ -1,4 +1,5 @@
 'use strict';
+const { MAX_PLAYER_LEVEL, encounterBaseXp, encounterCategory } = require('./xp-economy');
 
 const STONE_BASE_LEVEL = 5;
 const STONE_BASE_HEALTH = 6000;
@@ -99,8 +100,8 @@ function generatedTemplate(template, zone) {
   const ref = template.boss ? GENERATED_REFERENCE.boss : GENERATED_REFERENCE.monster;
   return { ...template, lvl: ref.lvl, hp: Math.round(ref.hp * character(baseType, 'hp')), dmg: Math.round(ref.dmg * character(baseType, 'dmg')), xp: ref.xp, gold: ref.gold, r: template.r };
 }
-// Generated regions go up 10 levels per World Tier with no end, so levels are only limited to keep numbers sane.
-const MAX_LEVEL = 10000;
+// Character and monster levels share the same finite ceiling; World Tier is independent.
+const MAX_LEVEL = MAX_PLAYER_LEVEL;
 // World Bosses (the one boss per World Tier that unlocks the next) are bigger and tougher than other bosses.
 const WORLD_BOSS_HEALTH = 3, WORLD_BOSS_SIZE = 1.5;
 function markWorldBoss(type) { const template = MOBTYPES[type]; if (!template || template.worldBoss) return; template.worldBoss = true; template.r = Math.round(template.r * WORLD_BOSS_SIZE); }
@@ -133,14 +134,13 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick,
     const healthExponent = template.stone ? STONE_HEALTH_EXPONENT : 1.9;
     const healthMultiplier = levelRatio ** healthExponent * (isAlpha ? 5 : 1) * (template.worldBoss ? WORLD_BOSS_HEALTH : 1);
     const damageMultiplier = levelDamageMultiplier * (isAlpha ? 1.6 : 1);
-    const experienceMultiplier = levelRatio ** 2 * (isAlpha ? 3 : 1);
     const goldMultiplier = levelRatio ** 1.5 * (isAlpha ? 5 : 1);
     if (clampWorld) { const point = { x, y }; clampWorld(point, zone.area); x = point.x; y = point.y; }
     else { x = Math.max(20, Math.min(width - 20, x)); y = Math.max(20, Math.min(height - 20, y)); }
     const monster = {
       id: allocateId(), ty: type, x, y, hx: x, hy: y, sx: x, sy: y, tier, lvl: spawnLevel,
       hb: template.hp * healthMultiplier, dmg: template.dmg * damageMultiplier,
-      xp: template.xp * experienceMultiplier, gm: goldMultiplier, gb: template.gold,
+      xp: encounterBaseXp(spawnLevel, encounterCategory({ alpha: isAlpha }, template)), gm: goldMultiplier, gb: template.gold,
       r: Math.round(template.r * (isAlpha ? 1.3 : 1)), alpha: isAlpha ? 1 : 0,
       boss: Boolean(template.boss), cd: 0, target: 0, dead: 0, stoneStep: 5, slamT: 0,
       slamAt: 0, awake: false, wake: 0,
@@ -206,6 +206,7 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick,
   }
 
   function respawnMonster(monster) {
+    monster.combatEpoch = (monster.combatEpoch || 0) + 1; monster.combatActive = false; monster.partyDamageScale = 1;
     monster.dead = 0;
     monster.ps = 1;
     monster.mh = maxHealth(monster);

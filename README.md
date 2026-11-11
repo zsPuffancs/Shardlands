@@ -19,7 +19,7 @@ Console commands are defined in `server-console.js`. Give each `Command` a name,
 - Real 3D models: Quaternius CC0 characters (animated heroes, NPCs, bandits, goblins, orcs, void knights) and nature packs (forests, farms, rocks, flowers per zone).
 - Map is twice as wide (10600 x 10600). Every zone has more room, 10-30 Spirit Stones (more in the harder zones) and 5-30 Alphas.
 - Harder and slower: monsters have more HP and hit harder, the XP curve is steeper.
-- Spirit Stones are a real fight: waves of guardians (plus Alpha guardians) as they crack, a shockwave you have to dodge, 4-7 rare+ items, potions, 2x XP and extra gold.
+- Spirit Stones are a real fight: waves of guardians (plus Alpha guardians) as they crack, a shockwave you have to dodge, 4-7 rare+ items, potions, category-budgeted XP and extra gold. Summoned guardians grant no XP.
 - Bosses have signature attacks with their own telegraphs: charge (red lane), fire/frost/void breath (red cone), meteor rain (red circles), summon portal, ground slam.
 - New hero attack effects: sword slashes, arrows with trails, magic bolts, whirlwind, arrow fan, arcane nova.
 - 10 passive skills (up to 10 ranks each): Vitality, Might, Swiftness, Precision (crit chance), Brutality (crit damage), Bloodthirst (lifesteal), Iron Skin (defence), Haste (attack speed), Focus (mana), Fortune (gold find).
@@ -55,7 +55,7 @@ Details and design notes: `docs/UNIVERSE.md`.
 | Frostfang Peaks | 30-40 | Frost Fang, Yeti, Ice Golem | Frost Wyrm (breath), Yeti King (charge) | Frost Stone |
 | Voidreach | 40-50 | Shade, Void Weaver, Void Knight | Void Lord (meteors), Abyssal Wyrm (breath) | Void Stone |
 | **Death Zone** (map border) | 50-60 | ~1800 of everything, scaled up | 4x Lord of Death + Void Lord, Abyssal Wyrm, Frost Wyrm, Yeti King | Doom Stone |
-- **Alpha** monsters (orange name + aura): 5x HP, harder hits, 3x XP, guaranteed loot, 90 s respawn. Like normal monsters they give less XP to heroes more than 5 levels above them. All monsters, bosses and Spirit Stones give zero XP when the hero is at least 13 levels above them; gold and drops are unchanged.
+- **Alpha** monsters (orange name + aura): 5x HP, harder hits, a larger XP budget, guaranteed loot, 90 s respawn. All enemy categories give less XP to heroes more than 5 levels above them and zero XP at a gap of 13 or more. Extreme underlevel rewards are also reduced; gold and drops are unchanged.
 - **Bosses** (gold name): every attack is telegraphed in red on the ground - get out of it. 3 min respawn, best loot.
 - **World Bosses** (👑): the one boss per zone, chosen by the seed, that unlocks the next World Tier. 1.5x bigger and 3x HP.
 - **Stones**: 6,000 base HP for the Spirit Stone and up from there; 5 + zone guardians spawn at every 20% of HP lost (up to 12), with an Alpha guardian at 60%, 40% and 20%, the stone pulses a blue shockwave (red circle first), respawn after 90 s.
@@ -86,7 +86,7 @@ Hover an item and hold **Shift** to see the lowest and highest value each of its
 
 ## Teams and trading
 Press **Y** (or the 👥 button) to open the Team window. Invite a hero by name (or `/invite name`, `/accept`, `/leave`); up to 5 heroes, team chat with `/t message`.
-**Sharing**: team members within 1000 units of a kill (same map) split its XP among XP-eligible members - with +15% in total for every extra eligible member - and its gold among all sharing members. The killer's gold drops on the ground as usual; the others get theirs straight away. Gear and other drops still go to the killer. The leader switches sharing on or off with `/share` or the button in the Team window (on by default).
+**Sharing**: XP captures a roster of up to five nearby members when an encounter starts. Members need at least 1% effective damage, a hit within 45 seconds, and must still be alive, online and within 1000 units on the same map. Eligible contributors share a pool matched to the encounter's paid HP scaling, targeting +5% per additional contributor in per-player XP/hour for equal-DPS groups. HP scales linearly by +45% per initial member and enemy damage separately by +8%; membership changes never heal or repeatedly resize a fight. Gold sharing still uses the current team at the kill: the killer's part drops on the ground, while the others receive theirs directly. Gear and other drops still go to the killer. `/share` controls new encounter XP rosters and current gold sharing. See [XP Economy 2.0](docs/XP-ECONOMY.md) for exact rules and limits.
 **Tougher monsters**: a monster fought by a team gets x1.5 HP and damage for every extra member nearby (2 heroes x1.5, 3 x2.25, 4 x3.4, 5 x5.1). It keeps that strength until it walks home and heals, or respawns. This applies whether sharing is on or off.
 Only team members can trade. Press **Trade** next to a member (or `/trade name`). Both put bag items and gold on the table; when both press **Accept trade** the swap happens at once. Any change to an offer takes back both acceptances, so nobody can switch items after you accepted. Leaving the team or the game cancels the trade.
 

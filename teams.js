@@ -5,11 +5,12 @@ const { localizedText: messageText, gearText } = require('./localized-text');
 const { room, canSpend } = require('./safety-limits');
 const { mapOf } = require('./game-world');
 const { itemView } = require('./equipment');
+const { XP_BALANCE, partyHpScale } = require('./xp-economy');
 const { BAGMAX } = require('./inventory');
 
 const TEAM_SIZE = 5, INVITE_MS = 60000, TRADE_ITEMS = 12;
 // Team members this close to a kill (on the same map) share its XP and gold, and make the monster stronger.
-const SHARE_RANGE = 1000, XP_BONUS_PER_MEMBER = 0.15, MONSTER_SCALE_PER_MEMBER = 1.5;
+const SHARE_RANGE = XP_BALANCE.sharingRadius, XP_BONUS_PER_MEMBER = XP_BALANCE.partyEfficiencyPerMember, MONSTER_SCALE_PER_MEMBER = 1 + XP_BALANCE.partyHpPerMember;
 const MAX_GOLD = 1e12;
 
 function createTeams({ players, send, say, toast, fire, afterGearChange }) {
@@ -24,7 +25,7 @@ function createTeams({ players, send, say, toast, fire, afterGearChange }) {
 
   function sendTeam(team) {
     const members = team ? team.members.map(id => players.get(id)).filter(Boolean) : [];
-    const view = team ? { id: team.id, leader: team.leader, share: team.share !== false, near: SHARE_RANGE, xpBonus: XP_BONUS_PER_MEMBER, scale: MONSTER_SCALE_PER_MEMBER, members: members.map(p => ({ id: p.id, n: p.name, l: p.lvl, c: p.cls, hp: Math.round(p.hp), mh: p.maxhp, map: mapOf(p).index })) } : null;
+    const view = team ? { id: team.id, leader: team.leader, share: team.share !== false, near: SHARE_RANGE, xpBonus: XP_BONUS_PER_MEMBER, scale: MONSTER_SCALE_PER_MEMBER, scalingModel: 'linear-v2', hpPerMember: XP_BALANCE.partyHpPerMember, damagePerMember: XP_BALANCE.partyDamagePerMember, members: members.map(p => ({ id: p.id, n: p.name, l: p.lvl, c: p.cls, hp: Math.round(p.hp), mh: p.maxhp, map: mapOf(p).index })) } : null;
     for (const member of members) send(member.c, { t: 'team', team: view });
   }
   function teamChat(team, message) { for (const id of team.members) { const p = players.get(id); if (p) send(p.c, { t: 'chat', n: '*', channel: 'team', m: message }); } }
@@ -87,8 +88,8 @@ function createTeams({ players, send, say, toast, fire, afterGearChange }) {
     return [player, ...near];
   }
   const sharesLoot = player => { const team = teamOf(player); return !!team && team.share !== false; };
-  // Monster HP and damage multiplier for a team fighting together: x1.5 for every extra member nearby.
-  const monsterScale = (player, monster) => MONSTER_SCALE_PER_MEMBER ** (nearbyMembers(player, monster).length - 1);
+  // Compatibility accessor for HP only. Combat freezes the initial roster and scales once.
+  const monsterScale = (player, monster) => partyHpScale(sharesLoot(player) ? nearbyMembers(player, monster).length : 1);
   function toggleShare(player) {
     const team = teamOf(player); if (!team) return messageText('team.notInTeam', 'You are not in a team.');
     if (team.leader !== player.id) return messageText('team.leaderShare', 'Only the team leader can change sharing.');
