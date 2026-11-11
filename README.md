@@ -80,7 +80,7 @@ Spirit Stones, Alphas and bosses drop 1-5 souls each (purple orb). Souls show ne
 
 ## Skills
 1 point per level. Active skills (keys 1-3) go to rank 5, passives to rank **99**. Open with K and switch tabs.
-Passives give their full bonus per rank up to rank 10. After that each rank adds a little less, and the bonus levels off towards a cap (about 95% of it at rank 99): Vitality / Might / Focus +300%, Swiftness +80%, Precision +30% crit chance, Brutality +400% crit damage, Bloodthirst 15% lifesteal, Iron Skin 60% less damage, Haste 60% faster attacks. Fortune is linear instead: 2% gold find at rank 1, +1% per rank, 100% at rank 99 (the cap).
+Passives give their full bonus per rank up to rank 10. After that each rank adds a little less, and the bonus levels off towards a cap (about 95% of it at rank 99): Vitality / Might / Focus +300%, Swiftness +80%, Precision +30% crit chance, Brutality +400% crit damage, Bloodthirst 15% lifesteal, Iron Skin 60% less damage, Haste 60% faster attacks. Fortune is linear instead: 2% gold find at rank 1, +1% per rank, 100% at rank 99 (the cap). Bloodthirst and the Vampiric affix heal that share of your **Damage stat** on every hit (not of the damage the hit deals, so crits and skill multipliers do not raise the heal).
 
 ## Items
 Hover an item and hold **Shift** to see the lowest and highest value each of its stats could have rolled at that item level and rarity.

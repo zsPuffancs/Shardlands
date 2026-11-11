@@ -33,8 +33,10 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
       ev('dmg', monster.x, monster.y, damage, {
         c: criticalHit ? 1 : 0, combatPlayerId: player.id, monsterType: monster.ty,
       });
+      // Lifesteal heals a share of the character's Damage stat on every hit, not of the damage dealt
+      // (crits, skill multipliers and the hit's random spread do not change the heal).
       const lifesteal = passive(player, 'lifesteal') + gearLifesteal(player);
-      if (lifesteal > 0 && !player.dead) player.hp = Math.min(player.maxhp, player.hp + damage * lifesteal);
+      if (lifesteal > 0 && !player.dead) player.hp = Math.min(player.maxhp, player.hp + playerDmg(player) * lifesteal);
       const template = MOBTYPES[monster.ty];
       monster.awake = true;
       if (!template.stone && !monster.target) monster.target = player.id;

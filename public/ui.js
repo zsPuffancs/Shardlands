@@ -655,7 +655,7 @@ const passiveTooltipDescriptions = {
   swift: 'Increases movement speed by {bonus}%.',
   crit: 'Adds {bonus} percentage points to critical hit chance, up to the 80% total cap.',
   critdmg: 'Adds {bonus} percentage points to the critical damage multiplier.',
-  lifesteal: 'Restores health equal to {bonus}% of the damage you deal to monsters.',
+  lifesteal: 'Each hit restores health equal to {bonus}% of your Damage stat.',
   guard: 'Reduces incoming damage by {bonus}% after armor.',
   haste: 'Shortens the interval between basic attacks by {bonus}%.',
   focus: 'Increases maximum mana by {bonus}% and mana regeneration by {regen}%.',
