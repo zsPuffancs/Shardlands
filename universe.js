@@ -107,10 +107,11 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
     founded = true;
     Object.assign(state, {
       version: STATE_VERSION, generatorVersion: GENERATOR_VERSION,
-      seed: String(config.worldSeed || newSeed()).trim().slice(0, 40), foundedAt: Date.now(), worldTier: 1,
+      seed: String(state.requestedSeed || config.worldSeed || newSeed()).trim().slice(0, 40), foundedAt: Date.now(), worldTier: 1,
       nextEventId: 1, history: [], firsts: {}, regions: {},
       stats: { bossKills: {}, elements: {}, stones: 0, deaths: 0, mythics: 0 },
     });
+    delete state.requestedSeed;
     state.name = universeName(state.seed);
   }
   const persist = () => store.save().catch(error => console.error(error));

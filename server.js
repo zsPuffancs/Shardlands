@@ -5,7 +5,7 @@ const { withLocalizedText, localizedText } = require('./localized-text');
 const { loadServerConfig } = require('./server-config');
 const { openJsonStore, createGameSaves } = require('./persistence');
 const { W, H, CX, CY, rnd, rint, pick, attachUniverse, clampWorld, maps } = require('./game-world');
-const { createUniverse } = require('./universe');
+const { createUniverse, newSeed } = require('./universe');
 const { createRegions } = require('./regions');
 const { TIERS, MOBTYPES, createMonsterSpawner } = require('./monsters');
 const { createEquipment } = require('./equipment');
@@ -105,7 +105,18 @@ populateMonsters(universe.layoutRandom('spawns'));
 regions.openUnlockedRegions();
 if (maps.length > 1) console.log('  World Portal open: ' + (maps.length - 1) + ' region(s) beyond the founding lands');
 if (universe.founded) universeStore.save().catch(error => console.error(error));
+// Seed randomizer: back up the current universe, then leave only the seed for the next start to found from.
+async function reseedUniverse(requestedSeed) {
+  const backup = 'universe-backup-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
+  require('node:fs').writeFileSync(path.join(__dirname, backup), JSON.stringify(universeStore.data));
+  const seed = String(requestedSeed || newSeed()).trim().slice(0, 40);
+  for (const key of Object.keys(universeStore.data)) delete universeStore.data[key];
+  universeStore.data.requestedSeed = seed;
+  for (const hook of Object.keys(universe.hooks)) universe.hooks[hook] = () => {};
+  await universeStore.save();
+  return { seed, backup };
+}
 startServer({
-  server, transport, port, saveAll, tick: simulation.tick, tickIntervalMs: simulation.tickIntervalMs,
+  server, transport, port, saveAll, reseed: reseedUniverse, tick: simulation.tick, tickIntervalMs: simulation.tickIntervalMs,
   getStatus: simulation.serverStats, monsterCount: () => mobs.size, width: W, height: H, zoneCount: TIERS.length,
 });

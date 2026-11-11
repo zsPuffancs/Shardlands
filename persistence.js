@@ -17,7 +17,7 @@ function openJsonStore(file) {
     }
   }
 
-  async function save() {
+  async function writeNow() {
     const temporaryFile = file + '.' + process.pid + '.tmp';
     try {
       await fs.promises.writeFile(temporaryFile, JSON.stringify(data), { mode: 0o600 });
@@ -26,6 +26,13 @@ function openJsonStore(file) {
       await fs.promises.unlink(temporaryFile).catch(() => {});
       throw new Error('Could not save ' + basename(file), { cause: error });
     }
+  }
+  // Saves of one store run one after another: two at once would fight over the same temporary file.
+  let lastSave = Promise.resolve();
+  function save() {
+    const next = lastSave.catch(() => {}).then(writeNow);
+    lastSave = next;
+    return next;
   }
   return { data, save };
 }

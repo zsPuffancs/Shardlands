@@ -46,7 +46,7 @@ class CommandRegistry {
   }
 }
 
-function startServerConsole({ getStatus, save, shutdown, canRestart }) {
+function startServerConsole({ getStatus, save, shutdown, canRestart, reseed }) {
   const registry = new CommandRegistry([
     new Command({
       name: 'help',
@@ -72,6 +72,25 @@ function startServerConsole({ getStatus, save, shutdown, canRestart }) {
       name: 'restart',
       description: 'Save and restart the local server.',
       run: () => canRestart ? shutdown({ restart: true }) : 'Restart requires the local launcher. Use start.bat or start.sh.',
+    }),
+    new Command({
+      name: 'reseed',
+      usage: 'reseed confirm [seed]',
+      maxArguments: 2,
+      description: 'Found a new universe with a random (or chosen) world seed. Heroes and items are kept.',
+      async run([confirmation, seed]) {
+        if (!reseed) return 'This server cannot reseed its universe.';
+        if (confirmation !== 'confirm') {
+          return 'This founds a NEW universe: new seed, new map layout, World Tier 1, empty chronicle, generated maps gone.\n'
+            + 'Heroes, levels, items, gold and souls are kept. The old universe is saved as a backup file.\n'
+            + 'Type "reseed confirm" for a random seed, or "reseed confirm MY-SEED" to choose one.';
+        }
+        const result = await reseed(seed);
+        console.log('New world seed: ' + result.seed + '. The old universe was saved as ' + result.backup + '.');
+        if (canRestart) return shutdown({ restart: true });
+        console.log('Start the server again to enter the new universe.');
+        return shutdown();
+      },
     }),
     new Command({
       name: 'stop',

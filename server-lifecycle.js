@@ -2,7 +2,7 @@
 
 const { startServerConsole, RESTART_EXIT_CODE } = require('./server-console');
 
-function startServer({ server, transport, port, saveAll, tick, tickIntervalMs, getStatus, monsterCount, width, height, zoneCount }) {
+function startServer({ server, transport, port, saveAll, reseed, tick, tickIntervalMs, getStatus, monsterCount, width, height, zoneCount }) {
   let pendingSave, stopping = false, serverConsole;
   const localLauncher = typeof process.send === 'function' && process.argv.includes('--local-console');
   function requestSave() {
@@ -49,7 +49,7 @@ function startServer({ server, transport, port, saveAll, tick, tickIntervalMs, g
     server.off('error', onStartupError);
     console.log('\n  Server is running!  Open http://localhost:' + port + '\n  Friends on your network can join via http://<your-LAN-IP>:' + port + '\n  (' + monsterCount() + ' monsters, map ' + width + 'x' + height + ', ' + zoneCount + ' zones)  Edit rates.json any time to change XP / gold / drops.\n');
     if (localLauncher || process.stdin.isTTY) {
-      serverConsole = startServerConsole({ getStatus: getStatus, save: requestSave, shutdown, canRestart: localLauncher });
+      serverConsole = startServerConsole({ getStatus: getStatus, save: requestSave, shutdown, canRestart: localLauncher, reseed });
     }
   });
 }

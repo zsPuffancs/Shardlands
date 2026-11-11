@@ -531,5 +531,9 @@ GameText.addCatalog('hu', {
   "biome.wildwood": "Vadon",
   "biome.warfields": "Csatamezők",
   "biome.necropolis": "Nekropolisz",
-  "server.travelAtPortal": "Az utazáshoz állj egy falu világkapujához."
+  "server.travelAtPortal": "Az utazáshoz állj egy falu világkapujához.",
+  "login.invite": "Hívd meg a barátaidat:",
+  "login.copy": "Link másolása",
+  "login.copied": "Kimásolva!",
+  "login.copyFailed": "Jelöld ki a linket, és másold ki"
 }, 'Magyar');

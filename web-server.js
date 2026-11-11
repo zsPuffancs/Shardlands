@@ -6,6 +6,7 @@ const http = require('node:http');
 const { attachWebSockets } = require('./transport');
 const { worldInfo } = require('./game-world');
 const { CLASSES } = require('./characters');
+const { readInviteLink } = require('./tunnel');
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
 
@@ -16,7 +17,7 @@ function createWebServer({ publicDirectory, config, players, clientScripts, hand
       const classes = Object.fromEntries(Object.entries(CLASSES).map(([id, characterClass]) => [
         id, { name: characterClass.name, desc: characterClass.desc || '', color: characterClass.color || '' },
       ]));
-      const info = { serverName: config.serverName, classes, scripts: clientScripts(publicDirectory), world: worldInfo(), online: players.size };
+      const info = { serverName: config.serverName, classes, scripts: clientScripts(publicDirectory), world: worldInfo(), online: players.size, invite: readInviteLink() };
       response.writeHead(200, { 'Content-Type': 'application/json' });
       return response.end(JSON.stringify(info));
     }

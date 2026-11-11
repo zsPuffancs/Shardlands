@@ -3,7 +3,11 @@
 ## Run
 1. Install Node.js 18+ (https://nodejs.org). Nothing else. No internet needed to play.
 2. Windows: double-click `start.bat`.  Mac/Linux: `./start.sh`
-3. Open http://localhost:3000. Friends on your LAN join at http://YOUR-LAN-IP:3000 (over the internet: Tailscale or a cloudflared/ngrok tunnel).
+3. Open http://localhost:3000. Friends on your LAN join at http://YOUR-LAN-IP:3000.
+
+### Invite link for friends over the internet
+Put Cloudflare's `cloudflared` program in a `tools` folder next to `start.bat` (on Windows the file is `cloudflared-windows-amd64.exe`, from https://github.com/cloudflare/cloudflared/releases). `start.bat` / `start.sh` then start a tunnel with the game, print the public `https://....trycloudflare.com` link in the server window and show it on the login page with a **Copy link** button. The link changes every time you start the game and stays the same across the console's `restart`. Set `"tunnel": false` in `config.json` to switch it off, or `"tunnelPath"` to point at cloudflared somewhere else.
+
 Set a password when creating a hero to protect it. Passwordless heroes are shared guests and cannot be assigned a password through login.
 
 ## Local server console
@@ -28,7 +32,8 @@ Every server is its own universe. On the first start it gets a world seed and a 
 - **World Tier**: starts at 1. Each region has one World Boss (👑), picked by the seed. Defeating it in its own region raises the World Tier and reveals the next region. Tiers 1-7 are the seven zones. From tier 8 every new tier is a whole new map, generated from the seed and the server's history.
 - **World Portal**: when the 7th World Boss (the Lord of Death) falls, a portal opens in the centre of the village. Press F at it to see every map unlocked on the server and travel between them. Each generated map has its own village with the Merchant, Blacksmith, Soul Mystic and a portal, monsters 10 levels above the previous map, stones, Alphas and a named World Boss. Killing that boss unlocks the next map, without end.
 - **Chronicle** (H or the 🏛 button): the permanent record of firsts - first hero, first to reach level 10-60, first kill of each boss, first stone shattered in each region, first Mythic, every World Boss victory - and the Legends ranking that follows from it.
-- The universe lives in `universe.json`. Back it up with `saves.json`. Delete it to found a new universe. Set `worldSeed` in `config.json` before the first start to choose the seed.
+- The universe lives in `universe.json`. Back it up with `saves.json`. Set `worldSeed` in `config.json` before the first start to choose the seed.
+- **Seed randomizer**: type `reseed` in the server console. `reseed confirm` founds a new universe with a random seed, `reseed confirm MY-SEED` with a seed you choose. Heroes and items are kept; the map layout, World Tier, chronicle and generated maps start over. The old universe is saved as `universe-backup-<time>.json`.
 - Admin heroes are left out of the chronicle unless `recordAdminHistory` is `true` in `config.json`.
 
 Details and design notes: `docs/UNIVERSE.md`.

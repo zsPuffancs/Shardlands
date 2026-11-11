@@ -30,6 +30,7 @@
 #zone.danger b{color:#ff4a3a}
 /* ---------- login ---------- */
 #login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#0000 30%,#000a 100%)}
+#invite{margin:-8px 0 14px;font-size:.75rem;color:var(--mut);display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap}#invite[hidden]{display:none}#invite code{color:var(--gold);user-select:all;word-break:break-all}#invite button{padding:3px 10px;font-size:.75rem}
 #online-count{margin:-10px 0 12px;color:var(--gold);font-size:.8125rem}
 #login .box{max-width:calc(100vw - 24px);background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:30px;width:min(460px,92vw);box-shadow:0 10px 60px #000c,inset 0 1px 0 #ffffff14}
 h1{margin:0 0 2px;font:700 2.5rem Georgia,serif;letter-spacing:6px;color:var(--gold);text-shadow:0 2px 12px #000}.sub{color:var(--mut);margin-bottom:16px;font-size:0.8125rem}
@@ -124,6 +125,7 @@ kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1
 <link rel="stylesheet" href="ui.css"></head><body>
 <canvas id="c"></canvas><div id="labels"></div><div id="floaters"></div><div id="hurtfx"></div><div id="zone"><b></b><span></span></div><div id="toasts"></div><div id="tip"></div><div id="perf"></div>
 <div id="login"><div class="box"><h1>SHARDLANDS</h1><div class="sub" id="srv"><span data-text="login.connecting">Connecting…</span></div><div class="sub" id="uni" style="color:#ffd24a;font-size:0.75rem"></div>
+<div id="invite" hidden><span data-text="login.invite">Invite friends:</span> <code id="invite-link"></code> <button id="invite-copy" type="button"><span data-text="login.copy">Copy link</span></button> <span id="invite-status" aria-live="polite" style="color:#8fd18f"></span></div>
 <div id="online-count" aria-live="polite" hidden></div>
 <input id="name" maxlength="14" placeholder="Hero name" data-placeholder-text="login.name" autofocus autocomplete="off">
 <input id="pw" type="password" maxlength="32" placeholder="Password (optional - protects your hero)" data-placeholder-text="login.password" autocomplete="off">

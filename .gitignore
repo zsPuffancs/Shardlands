@@ -6,3 +6,8 @@
 /plugin-data.json.*.tmp
 /universe.json
 /universe.json.*.tmp
+/universe-backup-*.json
+/tunnel.json
+# cloudflared for the invite link (large binary, download separately)
+/tools/
+/cloudflared*

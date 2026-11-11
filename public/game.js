@@ -744,12 +744,30 @@ function showOnlineCount(count) {
   GameText.present(counter, { message: { key: 'login.onlineCount', fallback: 'Online players: {count}', values: { count } } });
 }
 
+// Public link from the host's Cloudflare tunnel, with one-click copy.
+let inviteLink = '';
+function showInvite(link) {
+  inviteLink = typeof link === 'string' ? link : '';
+  $('invite').hidden = !inviteLink; $('invite-link').textContent = inviteLink;
+}
+async function copyInvite() {
+  if (!inviteLink) return;
+  let copied = false;
+  try { await navigator.clipboard.writeText(inviteLink); copied = true; } catch {
+    const field = document.createElement('textarea'); field.value = inviteLink; field.style.position = 'fixed'; field.style.opacity = '0'; document.body.appendChild(field); field.select();
+    try { copied = document.execCommand('copy'); } catch {} field.remove();
+  }
+  const status = $('invite-status');
+  status.textContent = copied ? text('login.copied', 'Copied!') : text('login.copyFailed', 'Select the link and copy it');
+  clearTimeout(copyInvite.timer); copyInvite.timer = setTimeout(() => { status.textContent = ''; }, 2500);
+}
+$('invite-copy').addEventListener('click', copyInvite);
 async function refreshOnlineCount() {
   if (I) return;
   try {
     const response = await fetch('/api/info', { cache: 'no-store' });
     const info = response.ok ? await response.json() : {};
-    if (!I) showOnlineCount(info.online);
+    if (!I) { showOnlineCount(info.online); showInvite(info.invite); }
   } catch {
     if (!I) showOnlineCount();
   }
@@ -760,7 +778,7 @@ async function boot() {
   GameText.init();
   let info; try { info = await (await fetch('/api/info')).json(); } catch (e) { $('srv').textContent = text("login.unreachable", "Server not reachable."); return; }
   WORLD = info.world; ZT = WORLD.tiers; showUniverseLine(); document.title = info.serverName + ' - Shardlands 3D'; $('srv').textContent = text('login.server', '{server} · private server', { server: info.serverName });
-  showOnlineCount(info.online);
+  showOnlineCount(info.online); showInvite(info.invite);
   onlineCountTimer = setTimeout(refreshOnlineCount, ONLINE_COUNT_REFRESH_MS);
   sel = Object.keys(info.classes)[0];
   renderLoginClasses(info.classes);
