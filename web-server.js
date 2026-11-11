@@ -8,7 +8,7 @@ const { worldInfo } = require('./game-world');
 const { CLASSES } = require('./characters');
 const { readInviteLink } = require('./tunnel');
 
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.ico': 'image/vnd.microsoft.icon' };
 
 function createWebServer({ publicDirectory, config, players, clientScripts, handleMessage, onLeave }) {
   const server = http.createServer((request, response) => {
