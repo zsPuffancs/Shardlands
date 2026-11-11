@@ -6,7 +6,7 @@ const { IndexedEntities } = require('./spatial-index');
 const { withLocalizedText, localizedText } = require('./localized-text');
 const { loadServerConfig } = require('./server-config');
 const { openJsonStore, createGameSaves } = require('./persistence');
-const { W, H, CX, CY, rnd, rint, pick, attachUniverse, clampWorld, maps } = require('./game-world');
+const { W, H, CX, CY, rnd, rint, pick, attachUniverse, clampWorld, maps, setSettlement } = require('./game-world');
 const { createUniverse, newSeed } = require('./universe');
 const { createRegions } = require('./regions');
 const { createTeams } = require('./teams');
@@ -63,6 +63,7 @@ const universe = createUniverse({
   store: universeStore, config, broadcast, messageText: localizedText, isAdmin: player => sessions.isAdmin(player),
 });
 attachUniverse(universe.identity);
+setSettlement(maps[0], universe.settlement(1));
 // The World Boss of each founding zone is chosen by the seed; make those bosses bigger and tougher.
 for (let tier = 1; tier <= TIERS.length; tier++) markWorldBoss(universe.regionFor(tier).worldBoss.type);
 const { savePlayer, saveAll: saveGameState } = createGameSaves({ players, saveStore, pluginStore, extraStores: [universeStore] });

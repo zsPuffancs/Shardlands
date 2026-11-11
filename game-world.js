@@ -1,6 +1,7 @@
 'use strict';
 
 const { TIERS } = require('./monsters');
+const Settlement = require('./public/settlement');
 
 const W = 10600, H = 10600, CX = 5300, CY = 5300, VILLAGE = 220;
 // Keep the NPCs in the open plaza, clear of the stall and smithy roofs.
@@ -36,12 +37,28 @@ function npcPosition(map, key) {
 
 const rnd = (a, b) => a + Math.random() * (b - a), rint = (a, b) => Math.floor(rnd(a, b + 1)), pick = a => a[Math.floor(Math.random() * a.length)];
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+// What stands at a map's centre: a village, an encampment players build, or only the portal.
+function setSettlement(map, record) {
+  map.settlement = record || { kind: 'village', style: 'timber', built: {} };
+  map.layout = Settlement.layout(map.settlement.kind, map.settlement.style, map.settlement.built);
+}
+const layoutOf = map => map.layout || (setSettlement(map), map.layout);
+// Is this NPC on the map? The portal is everywhere once open; an encampment only has the stalls players built.
+function npcAvailable(map, k) {
+  if (k === 'portal') return portalOpen();
+  const lay = layoutOf(map);
+  if (k === 'camp') return lay.kind === 'camp';
+  return !!lay.npcs[k];
+}
 function nearNpc(p, k) {
-  if (k === 'portal' && !portalOpen()) return false;
-  const npc = npcPosition(mapOf(p), k);
+  const map = mapOf(p);
+  if (!npcAvailable(map, k)) return false;
+  const npc = k === 'camp' ? { x: map.cx + Settlement.CAMP_BOARD.x, y: map.cy + Settlement.CAMP_BOARD.y } : npcPosition(map, k);
   return Math.hypot(p.x - npc.x, p.y - npc.y) <= NPC_RANGE;
 }
-const inVillage = entity => { const map = mapOf(entity); return Math.hypot(entity.x - map.cx, entity.y - map.cy) < VILLAGE; };
+const inVillage = entity => { const map = mapOf(entity); return Math.hypot(entity.x - map.cx, entity.y - map.cy) < layoutOf(map).safe; };
+// Keep players and monsters out of houses, stalls and the village wall. prev is where the entity was before moving.
+const collideSettlement = (entity, prev, radius) => { const map = mapOf(entity); return Settlement.collide(entity, layoutOf(map), map.cx, map.cy, radius, prev); };
 const clampWorld = (entity, map = mapOf(entity)) => { entity.x = Math.max(map.x0 + 20, Math.min(map.x0 + map.w - 20, entity.x)); entity.y = Math.max(map.y0 + 20, Math.min(map.y0 + map.h - 20, entity.y)); };
 // Put an entity on the arrival spot of a village (its own map's village unless another map is given).
 function placeInVillage(entity, map) { map = map || mapOf(entity); entity.x = map.cx + rnd(-50, 50); entity.y = map.cy + rnd(30, 95); }
@@ -58,10 +75,12 @@ const attachUniverse = provider => { universeIdentity = provider; };
 function worldInfo(map) {
   map = map || maps[0];
   const local = key => { const npc = npcPosition(map, key); return { x: npc.x - map.x0, y: npc.y - map.y0, name: npc.name }; };
-  const npcs = {}; for (const key in NPCS) npcs[key] = local(key); if (portalOpen()) npcs.portal = local('portal');
+  const npcs = {}; for (const key in NPCS) if (npcAvailable(map, key)) npcs[key] = local(key); if (portalOpen()) npcs.portal = local('portal');
+  if (npcAvailable(map, 'camp')) npcs.camp = { x: map.cx - map.x0 + Settlement.CAMP_BOARD.x, y: map.cy - map.y0 + Settlement.CAMP_BOARD.y, name: 'Encampment board' };
+  const settlement = { kind: layoutOf(map).kind, style: layoutOf(map).style, built: (map.settlement && map.settlement.built) || {}, cost: Settlement.STALL_COST };
   const zones = map.index === 0 ? TIERS.filter(t => !t.generated).map(t => ({ name: t.name, min: t.min, max: t.max, lv: t.lv, outer: !!t.outer }))
     : [{ name: TIERS[map.tier].name, min: REGION_SAFE_RADIUS, max: 99999, lv: TIERS[map.tier].lv, outer: false, look: map.look, generated: true }];
-  return { universe: universeIdentity(), map: map.index, maps: maps.length, W: map.w, H: map.h, CX: map.cx - map.x0, CY: map.cy - map.y0, V: VILLAGE, npcs, npcRange: NPC_RANGE, tiers: zones };
+  return { universe: universeIdentity(), map: map.index, maps: maps.length, W: map.w, H: map.h, CX: map.cx - map.x0, CY: map.cy - map.y0, V: layoutOf(map).safe, settlement, npcs, npcRange: NPC_RANGE, tiers: zones };
 }
 
-module.exports = { W, H, CX, CY, VILLAGE, NPCS, NPC_RANGE, REGION_SIZE, REGION_SAFE_RADIUS, maps, addMap, mapAt, mapOf, portalOpen, npcPosition, placeInVillage, rnd, rint, pick, dist, nearNpc, inVillage, clampWorld, moveToward, tierOf, worldInfo, attachUniverse };
+module.exports = { setSettlement, layoutOf, npcAvailable, collideSettlement, W, H, CX, CY, VILLAGE, NPCS, NPC_RANGE, REGION_SIZE, REGION_SAFE_RADIUS, maps, addMap, mapAt, mapOf, portalOpen, npcPosition, placeInVillage, rnd, rint, pick, dist, nearNpc, inVillage, clampWorld, moveToward, tierOf, worldInfo, attachUniverse };

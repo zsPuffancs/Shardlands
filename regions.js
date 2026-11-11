@@ -4,7 +4,8 @@
 const { buildRegionPlan, frontierZone } = require('./region-blueprint');
 const { createEncounterRuntime } = require('./encounter-runtime');
 const { MOBTYPES, TIERS, SPECIAL, WORLD_BOSS_SIZE } = require('./monsters');
-const { maps, addMap, mapOf, nearNpc, npcPosition, placeInVillage, worldInfo, REGION_SAFE_RADIUS } = require('./game-world');
+const { maps, addMap, mapOf, nearNpc, npcPosition, placeInVillage, worldInfo, REGION_SAFE_RADIUS, setSettlement } = require('./game-world');
+const Settlement = require('./public/settlement');
 const { localizedText: messageText } = require('./localized-text');
 const { mobTypesForClient } = require('./snapshots');
 
@@ -40,6 +41,7 @@ function createRegions({ universe, players, mobs, spawnMob, config = {}, populat
     MOBTYPES[boss.type] = { ...MOBTYPES[archetype], r: Math.round(MOBTYPES[archetype].r * WORLD_BOSS_SIZE), name: boss.name, archetype, element: region.element, worldBoss: true };
     SPECIAL[boss.type] = SPECIAL[archetype] || boss.signature || 'charge';
     const map = addMap(index, { tier: zoneIndex, regionTier: tier, look: LOOK_FOR[region.biome] === undefined ? 6 : LOOK_FOR[region.biome] });
+    setSettlement(map, universe.settlement(tier));
     TIERS[zoneIndex] = frontierZone(region, map);
     if (runtime) registerPlan(tier, TIERS[zoneIndex], map, region);
     else populateZone(zoneIndex, universe.layoutRandom('spawns:' + tier));
@@ -83,7 +85,25 @@ function createRegions({ universe, players, mobs, spawnMob, config = {}, populat
     player.dest = null; player.dir = { x: 0, y: 0 }; player.target = 0; player.chasingTarget = false;
     const portal = npcPosition(destination, 'portal'); ev('fx', portal.x, portal.y, 70, { s: 'summon' });
   }
-  return { openRegion, openUnlockedRegions, unlock, portalList, travel, tick: runtime ? runtime.tick : () => {}, checkpoint: runtime ? runtime.checkpoint : () => {} };
+  // Encampments: on fire and void maps players pay for each stall; the first one founds the camp.
+  function buildStall(player, key) {
+    const map = mapOf(player), record = map.settlement;
+    if (player.dead || !record || record.kind !== 'camp' || !Object.hasOwn(Settlement.STALL_COST, key)) return;
+    if (!nearNpc(player, 'camp')) return say(player, messageText('server.campBoardFar', 'Walk up to the encampment board to build.'));
+    if (record.built[key]) return say(player, messageText('server.stallBuilt', 'That stall is already built.'));
+    const cost = Settlement.STALL_COST[key];
+    if (player.gold < cost) return say(player, messageText('server.stallGold', 'Building it costs {gold} gold.', { gold: cost }));
+    player.gold -= cost;
+    const first = !Object.keys(record.built).length, region = universe.regionFor(map.regionTier);
+    record.built[key] = { by: player.name, at: Date.now() };
+    setSettlement(map, record);
+    if (first) universe.recordOnce('camp:' + map.regionTier, 'campFounded', [player.name], { region: region.name });
+    universe.recordOnce('stall:' + map.regionTier + ':' + key, 'stallBuilt', [player.name], { stall: Settlement.STALL_NAMES[key], stallKey: key, region: region.name, gold: cost });
+    const board = { x: map.cx + Settlement.CAMP_BOARD.x, y: map.cy + Settlement.CAMP_BOARD.y }; ev('fx', board.x, board.y, 70, { s: 'lvl' });
+    // Everyone on this map sees the new stall and its NPC at once.
+    for (const other of players.values()) if (mapOf(other) === map) send(other.c, { t: 'map', world: worldInfo(map) });
+  }
+  return { buildStall, openRegion, openUnlockedRegions, unlock, portalList, travel, tick: runtime ? runtime.tick : () => {}, checkpoint: runtime ? runtime.checkpoint : () => {} };
 }
 
 module.exports = { createRegions, FOUNDING_TIERS };

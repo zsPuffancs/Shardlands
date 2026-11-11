@@ -75,6 +75,21 @@ From World Tier 8, every tier is its own generated map (`regions.js`).
 - **Scenery** reuses the look of the founding zone that fits the biome (for example glacier uses
   the Frostfang look).
 
+## Settlements
+
+`public/settlement.js` is shared by the server and the client. It turns a settlement record
+(`kind`, `style`, `built`) into one layout: houses, wall and gates, tents, stalls and obstacles.
+The server uses it for collision (players cannot walk through houses or the wall) and to decide which
+NPCs exist; the client draws exactly the same layout and applies the same collision to its own
+movement prediction.
+
+- The record of each map is in `universe.json` under `settlements`, made once from its own seeded
+  stream (`seededRandom(seed, 'settlement', tier)`), so region descriptors and their hashes are unchanged.
+- Fire (`volcanic`) and void (`voidscar`) regions are always encampments; other regions after the first
+  are settlement-free 30% of the time; the rest are villages styled by biome.
+- Building a stall is one atomic server step: check, pay, record, chronicle (`campFounded`,
+  `stallBuilt`), then every player on that map gets the new world description.
+
 ## Not implemented yet
 
 - **Region modifiers have no gameplay effect.** They are generated and stored only.

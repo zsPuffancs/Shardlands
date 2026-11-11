@@ -73,7 +73,7 @@ function bakeDecor(onRoad, zoneOf, R) {
   const pass = (n, cat, minD, skipRoadW) => { for (let i = 0; i < n; i++) { const x = R() * W, z = R() * H, d = Math.hypot(x - CX, z - CY); if (d < minD || onRoad(x, z, skipRoadW)) { R(); R(); R(); R(); continue; } const zn = zoneOf(x, z); if (zn < 0) { R(); R(); R(); R(); continue; } if (zn === 3 && R() < .5) { R(); R(); R(); continue; } if (zn === 6 && R() < .35) { R(); R(); R(); continue; } put(cat, x, z, zn); } };
   pass(Math.round(3000 * area), 0, V + 110, 52); pass(Math.round(2600 * area), 1, V + 70, 40); pass(Math.round(9000 * area), 2, V + 30, 26);
   // farmland just outside the village fence
-  for (let i = 0; i < 520; i++) { const a = (i % 2 ? .45 : 3.6) + R() * 1.1, d = V + 40 + R() * 130, x = CX + Math.cos(a) * d, z = CY + Math.sin(a) * d; if (onRoad(x, z, 50)) continue; natPlace(R() < .6 ? 'Wheat' : (R() < .5 ? 'Corn_1' : 'Corn_2'), x, z, 22 + R() * 10, R() * 6.28, null, 1); }
+  if (!WORLD.settlement || WORLD.settlement.kind === 'village') for (let i = 0; i < 520; i++) { const a = (i % 2 ? .45 : 3.6) + R() * 1.1, d = V + 40 + R() * 130, x = CX + Math.cos(a) * d, z = CY + Math.sin(a) * d; if (onRoad(x, z, 50)) continue; natPlace(R() < .6 ? 'Wheat' : (R() < .5 ? 'Corn_1' : 'Corn_2'), x, z, 22 + R() * 10, R() * 6.28, null, 1); }
   return true;
 }
 let decorStats = 0;

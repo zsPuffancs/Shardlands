@@ -36,6 +36,8 @@ Every server is its own universe. On the first start it gets a world seed and a 
 - **Seed randomizer**: type `reseed` in the server console. `reseed confirm` founds a new universe with a random seed, `reseed confirm MY-SEED` with a seed you choose. Heroes and items are kept; the map layout, World Tier, chronicle and generated maps start over. The old universe is saved as `universe-backup-<time>.json`.
 - Admin heroes are left out of the chronicle unless `recordAdminHistory` is `true` in `config.json`.
 
+- **Settlements**: every map has something at its centre, chosen by the seed. The founding lands and most regions have a walled **village** with houses you cannot walk through and gates on the four roads, built from the land's materials: timber in green lands, snow-covered roofs on glacier maps, sandstone with flat roofs in the warfields, dark stone in the necropolis. **Fire and void** regions are too harsh for a village: they have an **encampment board** where heroes pay to build the Merchant's stall (250,000 gold), the Blacksmith's forge (400,000) and the Soul Mystic's tent (400,000); each one brings its NPC for everyone, and founding the camp and every stall go into the Chronicle. About a third of the other regions (never the first) have **no settlement**, only the World Portal in a ring of standing stones.
+
 Details and design notes: `docs/UNIVERSE.md`.
 
 ## The two settings files
