@@ -1,4 +1,5 @@
 'use strict';
+const { consume } = require('./safety-limits');
 const { createHash } = require('node:crypto');
 
 const MAX_PENDING_BYTES = 256 * 1024;
@@ -71,6 +72,9 @@ function attachWebSockets(server, onMessage, onLeave) {
       for (let i = 0; i < payloadLength; i++) payload[i] ^= mask[i & 3];
       client.buf = buffer.subarray(offset + 4 + payloadLength);
 
+      const now = Date.now();
+      if (!client.receiveBudget) client.receiveBudget = { frames: {}, bytes: {} };
+      if (!consume(client.receiveBudget.frames, 200, 300, now) || !consume(client.receiveBudget.bytes, 128 * 1024, 256 * 1024, now, payload.length)) { client.sock.destroy(); return; }
       if (opcode === 8) {
         dispose(client);
         return client.sock.end(encodeFrame(8, payload));

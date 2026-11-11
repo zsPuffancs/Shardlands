@@ -1,5 +1,6 @@
 'use strict';
 
+const { MAX_ITEM_STACK, FORGE_ATTEMPTS_PER_TICK, FORGE_ATTEMPTS_PER_JOB, validAmount, room, credit, canSpend } = require('./safety-limits');
 const { localizedText: messageText, gearText, isLocalizedText } = require('./localized-text');
 
 const { NPCS, CX, CY, nearNpc, inVillage, rnd, placeInVillage, npcPosition, mapOf } = require('./game-world');
@@ -28,7 +29,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
   function useItem(player, itemKey) {
     if (!Object.hasOwn(ITEMS, itemKey)) return;
     const item = ITEMS[itemKey], now = Date.now();
-    if (!item || player.dead || !(player.inv[itemKey] > 0)) return;
+    if (!item || player.dead || !canSpend(player.inv[itemKey], 1)) return;
     const isPotion = itemKey === 'hp' || itemKey === 'hp2' || itemKey === 'mp';
     if (typeof item.use === 'function') { let r; try { r = item.use(player); } catch (e) { return say(player, messageText("server.itemError", "Item error: {error}", { error: e.message })); } if (r === false) return; player.inv[itemKey]--; if (typeof r === 'string' || isLocalizedText(r)) say(player, r); return; }
     if (isPotion) { if (now < player.potCd) return; if (itemKey === 'mp' ? player.mp >= player.maxmp : player.hp >= player.maxhp) return; }
@@ -100,13 +101,14 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
   }
 
   function upgradeItem(player, uid, automatic = false) {
-    const rejectUpgrade = message => send(player.c, { t: 'forge', uid, m: message });
+    const rejectUpgrade = message => send(player.c, { t: 'forge', uid, m: message, pending: forgeJobs.has(player.id) });
     if (!nearNpc(player, 'smith')) return rejectUpgrade(messageText('server.upgradeAtSmith', 'Talk to the Blacksmith in the village to upgrade equipment.'));
+    if (forgeJobs.has(player.id)) return rejectUpgrade(messageText('server.forgeBusy', 'Your automatic upgrade is still running.'));
     const item = SLOTS.map(slot => player.eq[slot]).find(gear => gear?.uid === uid);
     if (!item) return rejectUpgrade(messageText('server.upgradeWorn', 'The Blacksmith only upgrades equipment you are wearing.'));
     if (item.plus >= 9) return rejectUpgrade(messageText('server.upgradeMax', '{item} is already +9.', { item: gearText(item.name) }));
     let cost = upCostFor(item);
-    if (player.gold < cost) return rejectUpgrade(messageText('server.upgradeCost', 'The Blacksmith wants {gold} gold.', { gold: cost }));
+    if (!canSpend(player.gold, cost)) return rejectUpgrade(messageText('server.upgradeCost', 'The Blacksmith wants {gold} gold.', { gold: cost }));
 
     const smith = npcPosition(mapOf(player), 'smith');
     if (!automatic) {
@@ -115,20 +117,40 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
       ev('fx', smith.x, smith.y, success ? 50 : 40, { s: success ? 'lvl' : 'rage' });
       if (success) announceUpgrade(player, item);
     } else {
-      const initialLevel = item.plus;
-      let attempts = 0, spent = 0;
-      while (item.plus < 9 && cost > 0 && Number.isFinite(cost) && player.gold >= cost) {
-        tryUpgrade(player, item, cost);
-        attempts++;
-        spent += cost;
-        cost = upCostFor(item);
-      }
-      const improved = item.plus > initialLevel;
-      send(player.c, { t: 'forge', automatic: true, ok: improved ? 1 : 0, uid, plus: item.plus, attempts, spent });
-      ev('fx', smith.x, smith.y, improved ? 50 : 40, { s: improved ? 'lvl' : 'rage' });
-      if (improved) announceUpgrade(player, item);
+      forgeJobs.set(player.id, { player, item, uid, initialLevel: item.plus, attempts: 0, spent: 0 });
+      send(player.c, { t: 'forge', automatic: true, pending: true, uid, plus: item.plus, attempts: 0, spent: 0 });
+      return;
     }
     afterGearChange(player);
+  }
+
+  const forgeJobs = new Map();
+  function processJobs() {
+    let budget = FORGE_ATTEMPTS_PER_TICK;
+    for (const [id, job] of [...forgeJobs]) {
+      const { player, item, uid } = job;
+      const disconnected = player.c.closed || player.c.p === null;
+      const valid = !disconnected && !player.dead && nearNpc(player, 'smith') && SLOTS.some(slot => player.eq[slot] === item);
+      let cost = upCostFor(item), count = 0;
+      while (valid && budget > 0 && count < FORGE_ATTEMPTS_PER_JOB && item.plus < 9 && cost > 0 && canSpend(player.gold, cost)) {
+        tryUpgrade(player, item, cost); job.attempts++; credit(job, 'spent', cost); budget--; count++;
+        cost = upCostFor(item);
+      }
+      const done = !valid || item.plus >= 9 || cost <= 0 || !canSpend(player.gold, cost);
+      if (done) forgeJobs.delete(id);
+      if (!disconnected && (count || done)) {
+        const improved = item.plus > job.initialLevel;
+        send(player.c, { t: 'forge', automatic: true, pending: !done, cancelled: !valid, ok: improved ? 1 : 0, uid, plus: item.plus, attempts: job.attempts, spent: job.spent });
+        afterGearChange(player);
+        if (done && valid) {
+          const smith = npcPosition(mapOf(player), 'smith'); ev('fx', smith.x, smith.y, improved ? 50 : 40, { s: improved ? 'lvl' : 'rage' });
+          if (improved) announceUpgrade(player, item);
+        }
+      }
+      // Rotate unfinished jobs so one rich player cannot monopolize the next tick.
+      if (!done) { forgeJobs.delete(id); forgeJobs.set(id, job); }
+      if (budget <= 0) break;
+    }
   }
 
   function rerollItem(player, uid) {
@@ -136,7 +158,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     let item = player.bag.find(i => i.uid === uid) || null; for (const slot of SLOTS) if (!item && player.eq[slot] && player.eq[slot].uid === uid) item = player.eq[slot];
     if (!item) return;
     const cost = REROLL_COST[item.rar] || 1;
-    if ((player.souls || 0) < cost) return say(player, messageText("server.rerollCost", "The Soul Mystic wants {souls} souls.", { souls: cost }));
+    if (!canSpend(player.souls || 0, cost)) return say(player, messageText("server.rerollCost", "The Soul Mystic wants {souls} souls.", { souls: cost }));
     player.souls -= cost; rerollGear(item); fire('reroll', player, item);
     const mystic = npcPosition(mapOf(player), 'mystic'); ev('fx', mystic.x, mystic.y, 55, { s: 'summon' }); send(player.c, { t: 'reroll', uid: item.uid });
     if (item.rar >= 4) broadcast({ t: 'chat', n: '*', channel: 'loot', m: messageText("server.playerRerolled", "{player} rerolled {rarity} {item}.", { player: player.name, rarity: messageText('rarity.' + item.rar, RARITY[item.rar].n), item: gearText(item.name) }) });
@@ -159,7 +181,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     const items = uids.map(uid => player.bag.find(item => item.uid === uid));
     if (items.some(item => item && item.lk)) return reply(messageText('server.itemLocked', 'Locked items are protected. Unlock them first (Ctrl+click).'));
     if (items.some(item => !item || item.rar !== MYTHIC)) return reply(messageText('server.mythicMergeOnly', 'Pick {count} Mythic items from your bag.', { count: MYTHIC_MERGE_COUNT }));
-    if (player.gold < MYTHIC_MERGE_GOLD) return reply(messageText('server.mythicMergeGold', 'Fusing Mythics costs {gold} gold.', { gold: MYTHIC_MERGE_GOLD }));
+    if (!canSpend(player.gold, MYTHIC_MERGE_GOLD)) return reply(messageText('server.mythicMergeGold', 'Fusing Mythics costs {gold} gold.', { gold: MYTHIC_MERGE_GOLD }));
     player.gold -= MYTHIC_MERGE_GOLD;
     const itemLevel = Math.max(1, Math.round(items.reduce((sum, item) => sum + (item.ilvl || 1), 0) / items.length));
     const slot = SLOTS[Math.floor(Math.random() * SLOTS.length)];
@@ -180,7 +202,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     if (!item || !Object.hasOwn(AFFIXES, key)) return;
     if (!AFFIX_SLOTS[item.slot]) return reply(messageText('server.affixSlots', 'Affixes go on weapons, rings and amulets.'));
     const cost = AFFIX_COST[item.rar] || 2;
-    if ((player.souls || 0) < cost) return reply(messageText('server.rerollCost', 'The Soul Mystic wants {souls} souls.', { souls: cost }));
+    if (!canSpend(player.souls || 0, cost)) return reply(messageText('server.rerollCost', 'The Soul Mystic wants {souls} souls.', { souls: cost }));
     player.souls -= cost; applyAffix(item, key); fire('affix', player, item);
     const mystic = npcPosition(mapOf(player), 'mystic'); ev('fx', mystic.x, mystic.y, 55, { s: 'summon' });
     reply(messageText('server.affixDone', '{item} now carries {affix}.', { item: gearText(item.name), affix: messageText('affix.' + key, AFFIXES[key].n) }), { ok: 1, uid: item.uid });
@@ -216,7 +238,8 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     if (index < 0) return;
     if (player.bag[index].lk) return say(player, messageText('server.itemLocked', 'Locked items are protected. Unlock them first (Ctrl+click).'));
     const value = sellValue(player.bag[index]);
-    player.gold += value;
+    if (!validAmount(value) || value > room(player.gold)) return say(player, messageText('server.storageFull', 'Your currency or consumable storage limit has been reached.'));
+    credit(player, 'gold', value);
     player.bag.splice(index, 1);
     ev('gold', player.x, player.y, messageText('server.pickedUpGold', 'You gained: {gold} gold', { gold: value }));
     sendInv(player);
@@ -226,13 +249,14 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     if (!nearNpc(player, 'merchant')) return say(player, messageText("server.sellAtMerchant", "Sell items to the Merchant in the village."));
     const maxRarity = Math.max(0, Math.min(4, rarity | 0));
     let total = 0, soldCount = 0;
-    player.bag = player.bag.filter(item => {
-      if (!(item.rar <= maxRarity) || item.lk) return true;
-      total += sellValue(item);
-      soldCount++;
-      return false;
-    });
-    player.gold += total;
+    const selected = player.bag.filter(item => item.rar <= maxRarity && !item.lk);
+    for (const item of selected) {
+      const value = sellValue(item);
+      if (!validAmount(value) || value > room(player.gold) - total) return say(player, messageText('server.storageFull', 'Your currency or consumable storage limit has been reached.'));
+      total += value; soldCount++;
+    }
+    const sold = new Set(selected); player.bag = player.bag.filter(item => !sold.has(item));
+    credit(player, 'gold', total);
     say(player, soldCount ? messageText("server.sold", "Sold {count} item(s) for {gold} gold.", { count: soldCount, gold: total }) : messageText("server.nothingToSell", "Nothing to sell."));
     sendInv(player);
   }
@@ -240,15 +264,16 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
   function buyItem(player, itemKey, quantity) {
     if (typeof itemKey !== 'string' || !Object.hasOwn(ITEMS, itemKey)) return;
     if (!nearNpc(player, 'merchant')) return say(player, messageText("server.buyAtMerchant", "Visit the Merchant in the village to buy."));
-    const item = ITEMS[itemKey], count = Math.max(1, Math.min(50, quantity | 0));
+    const item = ITEMS[itemKey], count = Number.isFinite(quantity) ? Math.max(1, Math.min(50, Math.floor(quantity))) : 1;
+    if (count > room(player.inv[itemKey] ?? 0, MAX_ITEM_STACK)) return say(player, messageText('server.storageFull', 'Your currency or consumable storage limit has been reached.'));
     const cost = count * item.price;
-    if (player.gold < cost) return say(player, messageText("server.notEnoughGold", "Not enough gold."));
+    if (!canSpend(player.gold, cost)) return say(player, messageText("server.notEnoughGold", "Not enough gold."));
     player.gold -= cost;
-    player.inv[itemKey] = (player.inv[itemKey] || 0) + count;
+    credit(player.inv, itemKey, count, MAX_ITEM_STACK);
     say(player, messageText("server.bought", "Bought {count} x {item}.", { count, item: messageText('item.' + itemKey + '.name', item.n) }));
   }
 
-  return { lockItem, mergeMythics, affixItem, rerollItem, equipItem, unequipItem, sellItem, sellByRarity, buyItem, sendInv, afterGearChange, starterWeapon, addGear, useItem, doMerge, autoMerge, upgradeItem };
+  return { processJobs, lockItem, mergeMythics, affixItem, rerollItem, equipItem, unequipItem, sellItem, sellByRarity, buyItem, sendInv, afterGearChange, starterWeapon, addGear, useItem, doMerge, autoMerge, upgradeItem };
 }
 
 module.exports = { BAGMAX, BAG_PAGE_SIZE, createInventory };

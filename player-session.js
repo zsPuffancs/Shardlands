@@ -3,6 +3,7 @@
 const { localizedText: messageText, isLocalizedText } = require('./localized-text');
 
 const crypto = require('node:crypto');
+const { commandAllowed } = require('./safety-limits');
 const { CX, CY, rnd, worldInfo, clampWorld, maps, mapOf } = require('./game-world');
 const { MOBTYPES } = require('./monsters');
 const { mobTypesForClient } = require('./snapshots');
@@ -160,6 +161,9 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
 
   function handleMessage(connection, message) {
     if (connection.closed || !message || typeof message !== 'object' || Array.isArray(message) || typeof message.t !== 'string') return;
+    // Releasing movement must remain possible even after a movement burst is throttled.
+    if (connection.p && message.t === 'dir' && message.x === 0 && message.y === 0) { connection.p.dir = { x: 0, y: 0 }; return; }
+    if (!commandAllowed(connection, message.t)) return;
     if (message.t === 'join') return joinPlayer(connection, message);
     if (connection.p && Object.hasOwn(messageHandlers, message.t)) {
       messageHandlers[message.t](connection.p, message);

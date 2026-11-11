@@ -467,7 +467,7 @@ smithAutoDialog.addEventListener('close', () => {
   if (smithAutoDialog.returnValue === 'confirm' && uid) submitUpgrade(uid, true);
 });
 
-let smTab = 'up', mmSel = [];
+let smTab = 'up', mmSel = [], forgePending = false;
 function buildSmith() {
   if (!I || !me) return;
   for (const b of document.querySelectorAll('#smtabs [data-smtab]')) b.classList.toggle('on', b.dataset.smtab === smTab);
@@ -485,8 +485,8 @@ function buildSmith() {
   $('smcard').innerHTML = '<div class="itemcard"><b class="nm" style="color:' + RC[it.rar] + '">' + esc(gearName(it.name)) + ' +' + it.plus + ' → +' + (it.plus + 1) + '</b><div class="mu">' + text("inventory.equipped", "Equipped") + ' · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + it.ilvl + '</div><div style="margin:6px 0">' + rows + '</div>' +
     '<div class="ln"><span>' + esc(text("smith.cost", "Cost")) + '</span><b style="color:' + (me.g >= c ? '#ffd77a' : '#ff7a6a') + '">' + GameText.number(c) + 'g</b></div><div class="ln"><span>' + esc(text("smith.chance", "Success chance")) + '</span><b style="color:' + (ch >= 70 ? '#6fe39a' : ch >= 40 ? '#ffd24a' : '#ff7a6a') + '">' + ch + '%</b></div>' +
     (it.plus >= 5 ? '<div class="dn" style="margin-top:4px">' + esc(text('smith.failureLevel', '⚠ Failure drops the item to +{level}', { level: it.plus - 1 })) + '</div>' : '<div class="mu" style="margin-top:4px">' + esc(text("smith.goldOnly", "Failure only costs gold.")) + '</div>') + '</div>';
-  $('smauto').disabled = me.g < c;
-  $('smgo').disabled = me.g < c; $('smgo').textContent = text("smith.upgradeFor", "Upgrade for {cost}g", { cost: GameText.number(c) });
+  $('smauto').disabled = forgePending || me.g < c;
+  $('smgo').disabled = forgePending || me.g < c; $('smgo').textContent = text("smith.upgradeFor", "Upgrade for {cost}g", { cost: GameText.number(c) });
 }
 let myTab = 're', afSel = null, afKey = null;
 function buildMystic() {
@@ -611,6 +611,7 @@ function buildChronicle() {
     '<div class="hd2">' + esc(text('universe.legends', 'Legends')) + '</div><div class="uni-list">' + (u.legends.length ? u.legends.map((l, i) => '<div class="uni-row"><span class="mu">' + (i + 1) + '.</span><div><b>' + esc(l.name) + '</b><small>' + esc(text('universe.renown', '{renown} renown · {deeds} deeds in the chronicle', { renown: l.renown, deeds: l.deeds })) + '</small></div></div>').join('') : '<div class="mu">' + esc(text('universe.noLegends', 'No hero has entered the chronicle yet.')) + '</div>') + '</div>';
 }
 function onForge(m) {
+  forgePending = Boolean(m.pending);
   if (m.m) {
     const result = $('smres');
     result.textContent = GameText.resolve(m.text || m.m);
@@ -620,11 +621,14 @@ function onForge(m) {
   }
   if (m.automatic) {
     const result = $('smres');
-    result.textContent = text('smith.autoResult', 'Final level: +{level} · Attempts: {attempts} · Gold spent: {gold}', {
+    const key = m.pending ? 'smith.autoProgress' : m.cancelled ? 'smith.autoStopped' : 'smith.autoResult';
+    const fallback = m.pending ? 'Upgrading… +{level} · Attempts: {attempts} · Gold spent: {gold}' : m.cancelled ? 'Stopped at +{level} · Attempts: {attempts} · Gold spent: {gold}' : 'Final level: +{level} · Attempts: {attempts} · Gold spent: {gold}';
+    result.textContent = text(key, fallback, {
       level: m.plus, attempts: m.attempts, gold: GameText.number(m.spent),
     });
     result.style.color = m.plus === 9 ? '#6fe39a' : '#ffe0a0';
-    sfx(m.ok ? 'lvl' : 'fail');
+    if (!m.pending) sfx(m.ok ? 'lvl' : 'fail');
+    if (isOpen('smithw')) buildSmith();
     return;
   }
   const r = $('smres'); r.textContent = m.ok ? text("smith.success", "✔ Success! Now +{level}", { level: m.plus }) : (m.drop ? text("smith.dropped", "✖ Failed - dropped to +{level}", { level: m.plus }) : text("smith.failed", "✖ Failed")); r.style.color = m.ok ? '#6fe39a' : '#ff7a6a';

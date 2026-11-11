@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('node:fs');
+const { boundedRateSettings } = require('./safety-limits');
 const path = require('node:path');
 
 function loadServerConfig(directory) {
@@ -8,7 +9,7 @@ function loadServerConfig(directory) {
   try { Object.assign(config, JSON.parse(fs.readFileSync(path.join(directory, 'config.json'), 'utf8'))); } catch (error) {}
 
   const ratesFile = path.join(directory, 'rates.json');
-  const rates = { xpRate: 1, goldRate: 1, gearDropRate: 0.8, potionDropRate: 1, rarityBoost: 0, monsterHp: 1.6, monsterDamage: 1.4, deathZoneMonsters: 1800, deathGoldLoss: 0.1, respawnSeconds: 11 };
+  const rates = boundedRateSettings({ xpRate: 1, goldRate: 1, gearDropRate: 0.8, potionDropRate: 1, rarityBoost: 0, monsterHp: 1.6, monsterDamage: 1.4, deathZoneMonsters: 1800, deathGoldLoss: 0.1, respawnSeconds: 11 });
   function writeDefaultRates() {
     const defaults = Object.assign({ _README: [
       'Edit the numbers below and save - the running server picks them up within ~2 seconds (no restart).',

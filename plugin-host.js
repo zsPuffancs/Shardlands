@@ -8,10 +8,12 @@ const { MOBTYPES, TIERS, MAX_LEVEL } = require('./monsters');
 const { SLOTS, STATDEF, RARITY } = require('./equipment');
 const { ITEMS, CLASSES, SKILLS, stats } = require('./characters');
 const { BAGMAX } = require('./inventory');
-const { SUMMON_LIFETIME_MS } = require('./combat');
+const { createSummons } = require('./summons');
+const { MAX_ITEM_STACK, adjust } = require('./safety-limits');
 
 function createPluginHost({ directory, config, generatorVersion = 1, rates, players, mobs, loot, pluginData, getNextId, eventCount, truncateEvents, genGear, addGear, dropAt, spawnMob, say, toast, broadcast, gainXp, afterGearChange, sendInv, ev, isAdmin, serverStats }) {
   const hooks = Object.create(null), commands = Object.create(null);
+  const summons = createSummons({ mobs, spawnMob });
   function fire(event, ...args) {
     const handlers = hooks[event];
     if (!handlers) return true;
@@ -38,12 +40,12 @@ function createPluginHost({ directory, config, generatorVersion = 1, rates, play
       genGear, giveGear: (p, it) => addGear(p, it), dropAt: (x, y, d, owner) => dropAt(x, y, d, owner),
       players: () => [...players.values()], mobs: () => [...mobs.values()],
       findPlayer: n => [...players.values()].find(p => p.name.toLowerCase() === String(n).toLowerCase()),
-      spawn(type, x, y, options) { if (!MOBTYPES[type]) throw new Error('unknown mob ' + type); const m = spawnMob(type, x, y, tierOf(x, y), options); if (options && options.temp) { m.summoned = true; m.expiresAt = Date.now() + SUMMON_LIFETIME_MS; } m.awake = true; return m; },
+      spawn(type, x, y, options) { if (!MOBTYPES[type]) throw new Error('unknown mob ' + type); const m = options?.temp ? summons.spawnBatch({ id: 'plugin:' + pluginName, x, y, tier: tierOf(x, y) }, [{ type, x, y, options }])[0] : spawnMob(type, x, y, tierOf(x, y), options); if (!m) throw new Error('Summon limit reached.'); m.awake = true; return m; },
       say, toast, message: localizedText, gearName: gearText,
       zoneName: name => localizedText('zone.' + name.toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, ''), name),
       broadcast: msg => broadcast({ t: 'chat', n: '*', m: isLocalizedText(msg) ? msg : String(msg) }),
-      giveItem(p, k, n) { if (!ITEMS[k]) return false; p.inv[k] = (p.inv[k] || 0) + (n === undefined ? 1 : n); return true; },
-      giveGold(p, n) { p.gold = Math.max(0, p.gold + n); }, giveXp: (p, n) => gainXp(p, n), refresh: p => afterGearChange(p),
+      giveItem(p, k, n) { if (!ITEMS[k]) return false; return adjust(p.inv, k, n === undefined ? 1 : n, MAX_ITEM_STACK) !== 0; },
+      giveGold(p, n) { return adjust(p, 'gold', n); }, giveSouls(p, n) { return adjust(p, 'souls', n); }, giveXp: (p, n) => gainXp(p, n), refresh: p => afterGearChange(p),
       heal(p) { p.hp = p.maxhp; p.mp = p.maxmp; },
       // Positions given to teleport are local to the map the player is on. toVillage returns them to that map's village.
       toVillage(p) { placeInVillage(p); p.dest = null; p.target = 0; p.chasingTarget = false; },

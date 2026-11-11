@@ -729,5 +729,9 @@ GameText.addCatalog('hu', {
   "settings.tutorialAgain": "Bemutató újra",
   "settings.windowsReset": "Ablakok helyének visszaállítása",
   "chronicle.howTitle": "Hogyan nő a világszint?",
-  "chronicle.how": "Minden zónának egy világfőnöke (👑) van, a szerver magja választja ki. Ha legyőzitek a saját zónájában, a világszint eggyel nő, és feltárul a következő vidék. A hetedik után a falu közepén világkapu nyílik az új térképekre. Minden első győzelem bekerül ebbe a krónikába."
+  "chronicle.how": "Minden zónának egy világfőnöke (👑) van, a szerver magja választja ki. Ha legyőzitek a saját zónájában, a világszint eggyel nő, és feltárul a következő vidék. A hetedik után a falu közepén világkapu nyílik az új térképekre. Minden első győzelem bekerül ebbe a krónikába.",
+  "server.storageFull": "Elérted a pénz- vagy fogyóeszköz-készlet biztonsági határát.",
+  "server.forgeBusy": "Az automatikus fejlesztésed még folyamatban van.",
+  "smith.autoProgress": "Fejlesztés… +{level} · Próbák: {attempts} · Elköltött arany: {gold}",
+  "smith.autoStopped": "Megállt: +{level} · Próbák: {attempts} · Elköltött arany: {gold}"
 }, 'Magyar');

@@ -3,7 +3,7 @@ module.exports = { name: 'admin', version: '1.0', init(api) {
   const A = { admin: true };
   const num = (v, d) => (v === undefined || isNaN(+v) ? d : +v);
   const target = (p, n) => (n ? api.findPlayer(n) : p);
-  api.command('give', A, (p, a) => { const k = a[0], n = num(a[1], 1); if (!api.ITEMS[k]) return api.message("admin.unknownItem", "Unknown item. Ids: {ids}", { ids: Object.keys(api.ITEMS).join(', ') }); api.giveItem(p, k, n); return api.message("admin.gave", "Gave {count} x {item}", { count: n, item: api.message('item.' + k + '.name', api.ITEMS[k].n) }); });
+  api.command('give', A, (p, a) => { const k = a[0], n = num(a[1], 1); if (!api.ITEMS[k]) return api.message("admin.unknownItem", "Unknown item. Ids: {ids}", { ids: Object.keys(api.ITEMS).join(', ') }); const previous = p.inv[k] || 0; api.giveItem(p, k, n); const added = (p.inv[k] || 0) - previous; return api.message("admin.gave", "Gave {count} x {item}", { count: added, item: api.message('item.' + k + '.name', api.ITEMS[k].n) }); });
   api.command('gear', A, (p, a) => { // /gear <slot|any> <ilvl> <rarity 0-4>
     const it = api.genGear(a[0] === 'any' ? undefined : a[0], num(a[1], p.lvl), a[2] === undefined ? undefined : num(a[2], 0));
     return api.giveGear(p, it) ? api.message("admin.created", "Created {item}", { item: api.gearName(it.name) }) : api.message("admin.bagFull", "Bag is full."); });
@@ -11,7 +11,7 @@ module.exports = { name: 'admin', version: '1.0', init(api) {
     const n = Math.min(10, num(a[3], 1)); for (let i = 0; i < n; i++) { const it = api.genGear(a[0] === 'any' ? undefined : a[0], num(a[1], p.lvl), a[2] === undefined ? undefined : num(a[2], 0));
       api.dropAt(p.x + 50 + i * 28, p.y + (i % 2 ? 30 : -30), { kind: 'gear', item: it, name: it.name, rar: it.rar }, p.id); } return api.message("admin.dropped", "Dropped {count} item(s).", { count: n }); });
   api.command('gold', A, (p, a) => { api.giveGold(p, num(a[0], 1000)); return api.message("admin.gold", "Gold: {gold}", { gold: p.gold }); });
-  api.command('souls', A, (p, a) => { p.souls = Math.max(0, (p.souls || 0) + num(a[0], 50)); return api.message("admin.souls", "Souls: {souls}", { souls: p.souls }); });
+  api.command('souls', A, (p, a) => { api.giveSouls(p, num(a[0], 50)); return api.message("admin.souls", "Souls: {souls}", { souls: p.souls }); });
   api.command('level', A, (p, a) => { api.setLevel(p, num(a[0], p.lvl + 1)); return api.message("admin.level", "You are level {level}", { level: p.lvl }); });
   api.command('heal', A, (p, a) => { const t = target(p, a[0]); if (!t) return api.message("admin.noPlayer", "No such player."); api.heal(t); });
   api.command('tp', A, (p, a) => { if (isNaN(+a[0])) { const t = api.findPlayer(a[0]); if (!t) return api.message("admin.noPlayer", "No such player."); api.teleportTo(p, t); return api.message("admin.teleported", "Teleported."); } api.teleport(p, num(a[0], api.consts.CX), num(a[1], api.consts.CY)); return api.message("admin.teleported", "Teleported."); });

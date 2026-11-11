@@ -1,5 +1,6 @@
 'use strict';
 
+const { MAX_SAFE_AMOUNT, LEVEL_UPS_PER_TICK, validAmount, credit } = require('./safety-limits');
 const { localizedText: messageText } = require('./localized-text');
 
 const { SLOTS, NO_DMG, PASSIVES, plusMul } = require('./equipment');
@@ -70,19 +71,32 @@ const dmgMul = (player, now) => (1 + passive(player, 'might')) * (now < player.b
 const playerDmg = player => ((6 + player.lvl * 2.6) * CLASSES[player.cls].atk + (player.g.dmg || 0)) * dmgMul(player, Date.now());
 
 function createProgression({ fire, ev, say, toast, broadcast, sendInv }) {
+  const pendingLevels = new Map();
   function gainXp(player, xp) {
-    { const award = { v: xp }; fire('xp', player, award); xp = Math.round(award.v); }
+    { const award = { v: xp }; fire('xp', player, award); if (!Number.isFinite(award.v)) return; xp = Math.round(award.v); }
     xp = Math.max(1, Math.round(xp * (1 + (player.g.xpb || 0) / 100)));
     if (Date.now() < player.buf.xp) xp = Math.round(xp * 1.5);
-    player.xp += xp; ev('xp', player.x, player.y, '+' + xp + ' xp');
-    let leveledUp = false;
-    while (player.xp >= xpNeed(player.lvl)) {
-      player.xp -= xpNeed(player.lvl); player.lvl++; player.sp++; leveledUp = true; stats(player); player.hp = player.maxhp; player.mp = player.maxmp;
-      ev('lvl', player.x, player.y, messageText("server.levelBanner", "LEVEL {level}", { level: player.lvl })); ev('fx', player.x, player.y, 110, { s: 'lvl', a: player.id });
-      say(player, messageText("server.levelPoint", "Level {level}! You gained a skill point (press K).", { level: player.lvl })); toast(player, messageText("server.level", "Level {level}!", { level: player.lvl }), '#ffe97a');
-      broadcast({ t: 'chat', n: '*', m: messageText("server.playerLevel", "{player} reached level {level}!", { player: player.name, level: player.lvl }) }); fire('levelup', player);
+    xp = Math.min(MAX_SAFE_AMOUNT, xp);
+    const awarded = credit(player, 'xp', xp, MAX_SAFE_AMOUNT); if (awarded) ev('xp', player.x, player.y, '+' + awarded + ' xp');
+    pendingLevels.set(player.id, player);
+  }
+  function processLevels(activePlayers) {
+    const online = new Set(activePlayers); let budget = LEVEL_UPS_PER_TICK;
+    for (const player of activePlayers) if (validAmount(player.xp) && player.xp >= xpNeed(player.lvl)) pendingLevels.set(player.id, player);
+    for (const [id, player] of [...pendingLevels]) {
+      pendingLevels.delete(id); if (!online.has(player) || !validAmount(player.xp)) continue;
+      let leveledUp = false, count = 0;
+      while (budget > 0 && count < 5 && Number.isSafeInteger(player.lvl) && player.lvl > 0 && player.xp >= xpNeed(player.lvl)) {
+        budget--; count++;
+        player.xp -= xpNeed(player.lvl); player.lvl++; player.sp++; leveledUp = true; stats(player); player.hp = player.maxhp; player.mp = player.maxmp;
+        ev('lvl', player.x, player.y, messageText("server.levelBanner", "LEVEL {level}", { level: player.lvl })); ev('fx', player.x, player.y, 110, { s: 'lvl', a: player.id });
+        say(player, messageText("server.levelPoint", "Level {level}! You gained a skill point (press K).", { level: player.lvl })); toast(player, messageText("server.level", "Level {level}!", { level: player.lvl }), '#ffe97a');
+        broadcast({ t: 'chat', n: '*', m: messageText("server.playerLevel", "{player} reached level {level}!", { player: player.name, level: player.lvl }) }); fire('levelup', player);
+      }
+      if (leveledUp) sendInv(player);
+      if (player.xp >= xpNeed(player.lvl)) pendingLevels.set(id, player);
+      if (budget <= 0) break;
     }
-    if (leveledUp) sendInv(player);
   }
 
   function learnSkill(player, skillKey) {
@@ -95,7 +109,7 @@ function createProgression({ fire, ev, say, toast, broadcast, sendInv }) {
     sendInv(player);
   }
 
-  return { gainXp, learnSkill };
+  return { gainXp, learnSkill, processLevels };
 }
 
 module.exports = { BASE_PLAYER_MOVE_SPEED, MAX_PLAYER_MOVE_SPEED, playerMoveSpeed, rank, passive, passiveValue, PASSIVE_EFFECT, gearLifesteal, gearAttackSpeed, CLASSES, ITEMS, SKILLS, MAXRANK, PMAX, maxRank, xpNeed, newSk, stats, defRed, critCh, critMul, goldFind, playerDmg, createProgression };

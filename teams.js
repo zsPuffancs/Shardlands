@@ -2,6 +2,7 @@
 // Teams of up to 5 heroes, and trading between members of the same team.
 // Teams live only while the members are online.
 const { localizedText: messageText, gearText } = require('./localized-text');
+const { room, canSpend } = require('./safety-limits');
 const { mapOf } = require('./game-world');
 const { itemView } = require('./equipment');
 const { BAGMAX } = require('./inventory');
@@ -154,11 +155,12 @@ function createTeams({ players, send, say, toast, fire, afterGearChange }) {
     if (!a || !b || !sameTeam(a, b)) return cancelTrade(a || b, messageText('trade.cancelled', 'The trade was cancelled.'));
     const itemsA = trade.a.uids.map(uid => a.bag.find(item => item.uid === uid)), itemsB = trade.b.uids.map(uid => b.bag.find(item => item.uid === uid));
     if (itemsA.some(item => !item) || itemsB.some(item => !item)) return fail(messageText('trade.changed', 'An offered item is no longer in the bag. Check the offers and accept again.'));
-    if (a.gold < trade.a.gold || b.gold < trade.b.gold) return fail(messageText('trade.noGold', 'Someone no longer has the offered gold.'));
+    if (!canSpend(a.gold, trade.a.gold) || !canSpend(b.gold, trade.b.gold)) return fail(messageText('trade.noGold', 'Someone no longer has the offered gold.'));
     if (a.bag.length - itemsA.length + itemsB.length > BAGMAX || b.bag.length - itemsB.length + itemsA.length > BAGMAX) return fail(messageText('trade.bagFull', 'Not enough bag space for the trade.'));
+    if (trade.b.gold > room(a.gold - trade.a.gold) || trade.a.gold > room(b.gold - trade.b.gold)) return fail(messageText('server.storageFull', 'Your currency or consumable storage limit has been reached.'));
     a.bag = a.bag.filter(item => !itemsA.includes(item)).concat(itemsB);
     b.bag = b.bag.filter(item => !itemsB.includes(item)).concat(itemsA);
-    a.gold += trade.b.gold - trade.a.gold; b.gold += trade.a.gold - trade.b.gold;
+    a.gold = a.gold - trade.a.gold + trade.b.gold; b.gold = b.gold - trade.b.gold + trade.a.gold;
     trades.delete(a.id); trades.delete(b.id);
     const done = messageText('trade.done', 'Trade complete.');
     for (const p of [a, b]) { send(p.c, { t: 'trade', open: false, done: true }); toast(p, done, '#8fd18f'); afterGearChange(p); }

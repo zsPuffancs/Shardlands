@@ -161,3 +161,16 @@ The receiver applies patches atomically to its own baseline before calling the e
 
 ## Procedural generator versions
 New universes use generator v2: area-correct annulus sampling, bounded encounter placement and lazy player-driven activation. Existing universes remain on generator v1 without layout migration. See `docs/PROCEDURAL-GENERATION.md` for the mathematical audit, compatibility guarantees, deployment budgets, test commands and remaining runtime limits.
+
+## Operational safety limits
+Shared server limits live in `safety-limits.js`. Combat stat formulas and equipment/passive bonus caps are unchanged by this work.
+
+- Equipment drops: at most 10 per kill, including high-tier stones and extreme gear-drop rates.
+- Temporary summons: at most 512 globally, 128 on one map and 64 from one source. Bosses, stone guardians and the plugin API's temporary spawns share these quotas. Existing summons expire normally; reaching a limit suppresses additional summons.
+- Currency and pending XP use JavaScript's maximum safe integer (9,007,199,254,740,991); consumables accept additions only up to 1,000,000 per item type. Existing larger valid stacks are preserved and can still be consumed. Purchases/sales/trades validate capacity before spending or transferring items. Partial pickups leave the remainder on the ground with its original expiry/ownership. Invalid unsafe legacy balances are preserved but cannot be spent until repaired explicitly.
+- Rate assignments from config reloads and admin/plugin writes share bounded settings: XP/gold/HP/damage multipliers up to 1,000,000; gear/potion/rarity rates up to 1,000; legacy Death Zone population up to 10,000; respawn seconds up to 86,400; death loss fraction up to 1. Nonfinite assignments keep the last valid setting.
+- Incoming WebSocket traffic has frame/byte budgets before JSON parsing. Normal gameplay commands then use per-connection token buckets: 40 movement commands/s, 3 chat commands/s, 15 actions/s and 5 sync queries/s, with short burst allowances. Movement-stop commands still clear the input when command tokens are exhausted; transport-level flooding closes the connection.
+- Automatic forging processes at most 100 attempts per simulation tick globally and 25 per job per tick. It reports progress and stops on death, disconnect, leaving the smith or removing the selected equipment. Completed work is saved normally; unfinished jobs do not resume after restart. Level-ups also run in bounded batches (20 globally / 5 per player per tick) instead of an unbounded XP loop. XP already awarded remains stored while processing catches up.
+- All client particles share a 700-particle cap; all transient effects share a 256-effect cap. Cosmetic effects stop at 192, reserving space for danger telegraphs. If the warning budget itself fills, closer warnings take priority over more distant ones. Asset-model mesh arrays are not subject to the particle cap.
+
+Focused regression cases are prepared in `tests/safety-limits.test.js`. They were not executed during implementation because tests are run only on explicit user request. No automatic test hooks were added.

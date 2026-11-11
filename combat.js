@@ -7,9 +7,10 @@ const { clampWorld, mapOf, inVillage, dist, rnd, rint, pick } = require('./game-
 const { MOBTYPES, TIERS, SPECIAL } = require('./monsters');
 const { CLASSES, critCh, critMul, defRed, playerDmg, rank, passive, gearLifesteal } = require('./characters');
 
-const SUMMON_LIFETIME_MS = 120000;
+const { SUMMON_LIFETIME_MS, createSummons } = require('./summons');
 
 function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLoot, broadcast, say, teams }) {
+  const summons = createSummons({ mobs, spawnMob });
   function hitMob(player, monster, damage) {
     if (player.dead || inVillage(player) || monster.dead) return;
     const criticalHit = Math.random() < critCh(player);
@@ -34,8 +35,10 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
       const step = Math.ceil((monster.hp / monster.mh) * 5);
       while (monster.stoneStep > step && monster.hp > 0) {
         monster.stoneStep--;
-        for (let i = 0; i < Math.min(12, 5 + monster.tier); i++) { const a = rnd(0, 6.283), r = rnd(60, 140); const g = spawnMob(pick(TIERS[monster.tier].types), monster.x + Math.cos(a) * r, monster.y + Math.sin(a) * r, monster.tier); g.target = player.id; g.hx = monster.x; g.hy = monster.y; g.summoned = true; g.expiresAt = Date.now() + SUMMON_LIFETIME_MS; g.awake = true; }
-        if (monster.stoneStep <= 3) { const g = spawnMob(pick(TIERS[monster.tier].types), monster.x + rnd(-60, 60), monster.y + rnd(-60, 60), monster.tier, { alpha: true }); g.target = player.id; g.hx = monster.x; g.hy = monster.y; g.summoned = true; g.expiresAt = Date.now() + SUMMON_LIFETIME_MS; g.awake = true; }
+        const requests = [];
+        for (let i = 0; i < Math.min(12, 5 + monster.tier); i++) { const angle = rnd(0, Math.PI * 2), radius = rnd(60, 140); requests.push({ type: pick(TIERS[monster.tier].types), x: monster.x + Math.cos(angle) * radius, y: monster.y + Math.sin(angle) * radius }); }
+        if (monster.stoneStep <= 3) requests.push({ type: pick(TIERS[monster.tier].types), x: monster.x + rnd(-60, 60), y: monster.y + rnd(-60, 60), options: { alpha: true } });
+        for (const guardian of summons.spawnBatch(monster, requests)) guardian.target = player.id;
         ev('fx', monster.x, monster.y, 160, { s: 'summon' });
       }
     }
@@ -104,7 +107,12 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     else if (cast.s === 'charge') { const x0 = monster.x, y0 = monster.y; monster.x = cast.tx; monster.y = cast.ty; ev('slam', monster.x, monster.y, 70, { s: 'charge', x0: Math.round(x0), y0: Math.round(y0) });
       for (const player of activePlayers) { if (player.dead || inVillage(player)) continue; const vx = monster.x - x0, vy = monster.y - y0, L2 = vx * vx + vy * vy || 1, k = Math.max(0, Math.min(1, ((player.x - x0) * vx + (player.y - y0) * vy) / L2)), ex = x0 + vx * k - player.x, ey = y0 + vy * k - player.y; if (Math.hypot(ex, ey) < cast.r) hurtPlayer(player, monster, baseDamage * 1.5, now); } }
     else if (cast.s === 'meteor') { ev('slam', monster.x, monster.y, cast.r, { s: 'meteor', pts: cast.pts, ty: monster.ty }); for (const player of activePlayers) { if (player.dead || inVillage(player)) continue; for (const q of cast.pts) if (Math.hypot(player.x - q[0], player.y - q[1]) <= cast.r) { hurtPlayer(player, monster, baseDamage * 1.4, now); break; } } }
-    else if (cast.s === 'summon') { ev('slam', monster.x, monster.y, 140, { s: 'summon' }); const T = TIERS[monster.tier] || TIERS[0]; const targetPlayer = monster.target; for (let i = 0; i < 4; i++) { const a = rnd(0, 6.283); const g = spawnMob(pick(T.types), monster.x + Math.cos(a) * 110, monster.y + Math.sin(a) * 110, monster.tier); g.summoned = true; g.expiresAt = Date.now() + SUMMON_LIFETIME_MS; g.awake = true; g.target = targetPlayer; g.hx = monster.x; g.hy = monster.y; } }
+    else if (cast.s === 'summon') {
+      ev('slam', monster.x, monster.y, 140, { s: 'summon' });
+      const types = (TIERS[monster.tier] || TIERS[0]).types, requests = [];
+      for (let i = 0; i < 4; i++) { const angle = rnd(0, Math.PI * 2); requests.push({ type: pick(types), x: monster.x + Math.cos(angle) * 110, y: monster.y + Math.sin(angle) * 110 }); }
+      summons.spawnBatch(monster, requests);
+    }
   }
 
   function skill(player, skillNumber) {

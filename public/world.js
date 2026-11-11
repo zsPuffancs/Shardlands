@@ -137,7 +137,7 @@ function drawChar(e, name, o, now) {
 // ---------------- combat effects ----------------
 const CLR = { blade: [1, .97, .88], archer: [1, .9, .55], mage: [.78, .5, 1], heal: [.4, 1, .6], lvl: [1, .9, .3], rage: [1, .3, .2], buff: [.5, .8, 1], summon: [.75, .35, 1], monster: [1, .25, .2] };
 const BREATHC = { elderdrake: [1, .45, .1], frostwyrm: [.6, .9, 1], abyssalwyrm: [.75, .25, 1] };
-function fxPush(o) { o.t0 = performance.now(); fxs.push(o); return o; }
+function fxPush(o) { o.t0 = performance.now(); addEffect(o); return o; }
 function isMelee(cls) { return cls === 'blade' || !(['archer', 'mage'].includes(cls)) && ((I.classes[cls] || {}).range || 40) < 100; }
 function fxAttack(f, E) { // basic attacks: sword slash / arrow / magic bolt
   const yaw = Math.atan2(f.tx - f.x, f.ty - f.y);
@@ -168,7 +168,7 @@ function fxWarn(f) {
 }
 function fxSlam(f) {
   const s = f.s || 'slam', near = Math.hypot(S.rx - f.x, S.ry - f.y) < (f.v || 100) + 350;
-  if (s === 'breath') { const c = BREATHC[f.ty] || [1, .5, .1]; for (let i = 0; i < 90; i++) { const a = f.ang + (Math.random() * 2 - 1) * (f.half || .55), sp = 250 + Math.random() * 380; parts.push({ x: f.x + Math.sin(f.ang) * 30, y: 40, z: f.y + Math.cos(f.ang) * 30, vx: Math.sin(a) * sp, vy: 30 * Math.random(), vz: Math.cos(a) * sp, t0: performance.now(), life: .55 + Math.random() * .4, col: Math.random() < .5 ? c : mix(c, [1, 1, .8], .5), size: 5 + Math.random() * 6, emis: 1, g: -20 }); } sfx('slam', f.x, f.y); if (near) cam.shake = 5; return; }
+  if (s === 'breath') { const c = BREATHC[f.ty] || [1, .5, .1]; for (let i = 0; i < 90; i++) { const a = f.ang + (Math.random() * 2 - 1) * (f.half || .55), sp = 250 + Math.random() * 380; addParticle({ x: f.x + Math.sin(f.ang) * 30, y: 40, z: f.y + Math.cos(f.ang) * 30, vx: Math.sin(a) * sp, vy: 30 * Math.random(), vz: Math.cos(a) * sp, t0: performance.now(), life: .55 + Math.random() * .4, col: Math.random() < .5 ? c : mix(c, [1, 1, .8], .5), size: 5 + Math.random() * 6, emis: 1, g: -20 }); } sfx('slam', f.x, f.y); if (near) cam.shake = 5; return; }
   if (s === 'charge') { const L = Math.hypot(f.x - f.x0, f.y - f.y0); for (let i = 0; i < 24; i++) { const k = i / 24; burst(f.x0 + (f.x - f.x0) * k, 6, f.y0 + (f.y - f.y0) * k, 1, [.6, .5, .4], 80, .8, 3, .05, 200); } addRing(f.x, f.y, 10, 110, [1, .7, .4], 420, 3); sfx('slam', f.x, f.y); if (near) cam.shake = 7; return; }
   if (s === 'meteor') { for (const p of f.pts || []) fxPush({ k: 'meteor', x: p[0], z: p[1], r: f.v, dur: 320, col: f.ty === 'voidlord' || f.ty === 'deathlord' ? [.6, .2, 1] : [1, .45, .1] }); return; }
   if (s === 'summon') { fxPush({ k: 'portal', x: f.x, z: f.y, r: 140, dur: 700, col: CLR.summon }); burst(f.x, 10, f.y, 40, CLR.summon, 220, 1, 2.4, 1, -120); return; }
@@ -182,10 +182,10 @@ function drawFx2(f, a, now) {
     case 'whirl': { for (let i = 0; i < 3; i++) { const ang = now / 70 + i * 2.094; D(M.arc, f.x, 24 + i * 6, f.z, f.r * .75, 1, f.r * .75, ang, 0, f.col, 1, (1 - a) * .85); } return true; }
     case 'arrow': { const x = f.x + (f.x1 - f.x) * a, z = f.z + (f.z1 - f.z) * a, yaw = Math.atan2(f.x1 - f.x, f.z1 - f.z), y = f.h + Math.sin(a * Math.PI) * 14, pit = -Math.cos(a * Math.PI) * .35;
       D(M.box, x, y, z, 1.3, 1.3, 26, yaw, pit, [.55, .4, .25]); D(M.cone, x + Math.sin(yaw) * 13, y, z + Math.cos(yaw) * 13, 1.6, 5, 1.6, yaw, 1.5708 + pit, [.85, .85, .9], .3); D(M.box, x - Math.sin(yaw) * 11, y, z - Math.cos(yaw) * 11, .4, 3.2, 5, yaw, pit, [1, .95, .8], .4);
-      if (Math.random() < .5) parts.push({ x, y, z, vx: 0, vy: 0, vz: 0, t0: now, life: .25, col: [1, .95, .7], size: 1.2, emis: 1, g: 0 }); if (a > .97 && !f.hit) { f.hit = 1; burst(f.x1, f.h, f.z1, 6, [1, .9, .6], 120, .35, 1.4, 1); } return true; }
+      if (Math.random() < .5) addParticle({ x, y, z, vx: 0, vy: 0, vz: 0, t0: now, life: .25, col: [1, .95, .7], size: 1.2, emis: 1, g: 0 }); if (a > .97 && !f.hit) { f.hit = 1; burst(f.x1, f.h, f.z1, 6, [1, .9, .6], 120, .35, 1.4, 1); } return true; }
     case 'bolt': { const x = f.x + (f.x1 - f.x) * a, z = f.z + (f.z1 - f.z) * a, y = f.h + Math.sin(a * Math.PI) * 18; D(M.ball, x, y, z, 5.5, 5.5, 5.5, 0, 0, f.col, 1); D(M.ball, x, y, z, 9, 9, 9, 0, 0, f.col, 1, .25);
       for (let i = 0; i < 2; i++) { const t = now / 60 + i * 3.14; D(M.ball, x + Math.cos(t) * 8, y + Math.sin(t) * 8, z, 1.8, 1.8, 1.8, 0, 0, [1, .85, 1], 1); }
-      parts.push({ x, y, z, vx: (Math.random() - .5) * 30, vy: (Math.random() - .5) * 30, vz: (Math.random() - .5) * 30, t0: now, life: .4, col: f.col, size: 2, emis: 1, g: 0 });
+      addParticle({ x, y, z, vx: (Math.random() - .5) * 30, vy: (Math.random() - .5) * 30, vz: (Math.random() - .5) * 30, t0: now, life: .4, col: f.col, size: 2, emis: 1, g: 0 });
       if (a > .97 && !f.hit) { f.hit = 1; addRing(f.x1, f.z1, 6, 34, f.col, 300, 30); burst(f.x1, f.h, f.z1, 14, f.col, 170, .45, 1.8, 1, 0); } return true; }
     case 'nova': { const r = f.r * Math.min(1, a * 1.5); D(M.ball, f.x, 10, f.z, r, r * .55, r, 0, 0, f.col, 1, (1 - a) * .35); D(M.ring, f.x, 2.5, f.z, f.r * .55, 1, f.r * .55, now / 400, 0, f.col, 1, (1 - a) * .9);
       for (let i = 0; i < 6; i++) { const ang = now / 500 + i * 1.047; D(M.octa, f.x + Math.cos(ang) * f.r * .55, 6, f.z + Math.sin(ang) * f.r * .55, 3, 6, 3, ang, 0, [1, .85, 1], 1, 1 - a); } return true; }
@@ -209,7 +209,7 @@ function drawFx2(f, a, now) {
       }
       return true;
     }
-    case 'meteor': { const y = 600 * (1 - a); D(M.rock, f.x, y + 10, f.z, 16, 16, 16, now / 200, 0, f.col, .9); if (Math.random() < .8) parts.push({ x: f.x + (Math.random() - .5) * 10, y: y + 20, z: f.z, vx: 0, vy: 60, vz: 0, t0: now, life: .5, col: f.col, size: 4, emis: 1, g: 0 });
+    case 'meteor': { const y = 600 * (1 - a); D(M.rock, f.x, y + 10, f.z, 16, 16, 16, now / 200, 0, f.col, .9); if (Math.random() < .8) addParticle({ x: f.x + (Math.random() - .5) * 10, y: y + 20, z: f.z, vx: 0, vy: 60, vz: 0, t0: now, life: .5, col: f.col, size: 4, emis: 1, g: 0 });
       if (a > .96 && !f.hit) { f.hit = 1; addRing(f.x, f.z, 10, f.r * 1.2, f.col, 500, 3); burst(f.x, 10, f.z, 36, f.col, 280, .8, 3, 1, 500); burst(f.x, 10, f.z, 16, [.35, .3, .28], 200, 1, 3, .05, 600); sfx('slam', f.x, f.z); if (Math.hypot(S.rx - f.x, S.ry - f.z) < 300) cam.shake = 6; } return true; }
   }
   return false;

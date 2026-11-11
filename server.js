@@ -75,7 +75,7 @@ const equipment = createEquipment({ rates });
 const inventory = createInventory({ ...notifications, genGear: equipment.genGear, rerollGear: equipment.rerollGear, applyAffix: equipment.applyAffix });
 const teams = createTeams({ ...notifications, players, afterGearChange: inventory.afterGearChange });
 setInterval(() => teams.tick(Date.now()), 1000).unref();
-const { gainXp, learnSkill } = createProgression({ ...notifications, sendInv: inventory.sendInv });
+const { gainXp, learnSkill, processLevels } = createProgression({ ...notifications, sendInv: inventory.sendInv });
 const lootService = createLoot({
   ...notifications, ...equipment, addGear: inventory.addGear, players, loot, rates, allocateId,
 });
@@ -88,6 +88,7 @@ const publishSnapshots = createSnapshotPublisher({
 });
 const simulation = createSimulation({
   ...notifications, ...combat, players, mobs, loot, rates, respawnMonster, publishSnapshots,
+  processJobs: activePlayers => { inventory.processJobs(); processLevels(activePlayers); },
   updateEncounters: regions.tick, pickupTick: lootService.pickupTick, getTransportStats: () => transport.stats(),
 });
 const pluginHost = createPluginHost({

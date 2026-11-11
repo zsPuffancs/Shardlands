@@ -379,10 +379,27 @@ function drawLoot(L, now) {
 }
 
 // ---------- effects ----------
-function addRing(x, z, r0, r1, col, dur, y, emis) { fxs.push({ k: 'ring', x, z, r0, r1, col, t0: performance.now(), dur, y: y || 2, emis: emis === undefined ? 1 : emis }); }
-function addProj(x0, z0, x1, z1, col, dur, h) { fxs.push({ k: 'proj', x: x0, z: z0, x1, z1, col, t0: performance.now(), dur, h: h || 40 }); }
+const MAX_PARTICLES = 700, MAX_EFFECTS = 256, WARNING_RESERVE = 64;
+const isWarningEffect = effect => ['tele', 'tcone', 'tline', 'portal'].includes(effect.k);
+function addParticle(particle) { if (parts.length >= MAX_PARTICLES) return false; parts.push(particle); return true; }
+function addEffect(effect) {
+  const warning = isWarningEffect(effect);
+  if (!warning && fxs.length >= MAX_EFFECTS - WARNING_RESERVE) return false;
+  if (fxs.length < MAX_EFFECTS) { fxs.push(effect); return true; }
+  if (!warning) return false;
+  let replace = fxs.findIndex(current => !isWarningEffect(current));
+  if (replace < 0) {
+    const distance = value => Math.max(0, Math.hypot(value.x - S.rx, value.z - S.ry) - (value.r || 0));
+    let farthest = distance(effect);
+    for (let i = 0; i < fxs.length; i++) if (distance(fxs[i]) > farthest) { farthest = distance(fxs[i]); replace = i; }
+  }
+  if (replace < 0) return false;
+  fxs[replace] = effect; return true;
+}
+function addRing(x, z, r0, r1, col, dur, y, emis) { addEffect({ k: 'ring', x, z, r0, r1, col, t0: performance.now(), dur, y: y || 2, emis: emis === undefined ? 1 : emis }); }
+function addProj(x0, z0, x1, z1, col, dur, h) { addEffect({ k: 'proj', x: x0, z: z0, x1, z1, col, t0: performance.now(), dur, h: h || 40 }); }
 function burst(x, y, z, n, col, spd, life, size, emis, grav) {
-  for (let i = 0; i < n && parts.length < 700; i++) { const a = Math.random() * 6.283, u = Math.sqrt(Math.random()), s = spd * (.4 + Math.random() * .6); parts.push({ x, y, z, vx: Math.cos(a) * s * u, vy: (Math.random() * .9 + .25) * spd, vz: Math.sin(a) * s * u, t0: performance.now(), life: life * (.6 + Math.random() * .6), col, size, emis: emis === undefined ? .8 : emis, g: grav === undefined ? 520 : grav }); }
+  for (let i = 0; i < n && parts.length < MAX_PARTICLES; i++) { const a = Math.random() * 6.283, u = Math.sqrt(Math.random()), s = spd * (.4 + Math.random() * .6); addParticle({ x, y, z, vx: Math.cos(a) * s * u, vy: (Math.random() * .9 + .25) * spd, vz: Math.sin(a) * s * u, t0: performance.now(), life: life * (.6 + Math.random() * .6), col, size, emis: emis === undefined ? .8 : emis, g: grav === undefined ? 520 : grav }); }
 }
 const FXC = { blade: [1, 1, 1], archer: [.5, 1, .5], mage: [.7, .5, 1], heal: [.4, 1, .6], lvl: [1, .9, .3], rage: [1, .3, .2], buff: [.5, .8, 1] };
 window.Shardlands.FXC = FXC;
