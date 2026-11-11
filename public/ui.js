@@ -556,7 +556,7 @@ function buildTeam() {
     (p.id === I.id ? '' : '<button data-trwith="' + esc(p.n) + '">' + esc(text('team.trade', 'Trade')) + '</button>' + (mine ? ' <button data-teamop="kick" data-name="' + esc(p.n) + '">✕</button>' : '')) + '</div>').join('') : '<div class="mu">' + esc(text('team.none', 'You are not in a team. Invite a hero by name - only team members can trade with each other.')) + '</div>';
   $('teamb').innerHTML = members + '<div class="teaminv"><input id="teamname" maxlength="14" placeholder="' + esc(text('team.namePlaceholder', 'Hero name')) + '"><button data-teamop="invite" class="pri">' + esc(text('team.invite', 'Invite')) + '</button></div>' +
     (t ? '<div class="itemcard" style="margin-top:8px;font-size:0.75rem"><div class="ln"><span>' + esc(text('team.sharing', 'XP and gold sharing')) + '</span>' + (mine ? '<button data-teamop="share">' + esc(t.share ? text('team.on', 'ON') : text('team.off', 'OFF')) + '</button>' : '<b>' + esc(t.share ? text('team.on', 'ON') : text('team.off', 'OFF')) + '</b>') + '</div>' +
-      '<div class="mu" style="margin-top:4px">' + esc(text('team.rulesHint', 'Members within {range} of a kill split its XP (+{bonus}% per extra member) and gold. Monsters you fight together get x{scale} HP and damage for every extra member nearby.', { range: t.near, bonus: Math.round(t.xpBonus * 100), scale: t.scale })) + '</div></div>' : '') +
+      '<div class="mu" style="margin-top:4px">' + esc(text('team.rulesCurrent', 'Nearby contributors share XP; nearby members share gold. Health scaling depends on enemy category; each extra party member adds {damage}% damage.', { damage: Math.round((WORLD.scaling?.partyDamage || 0) * 100) })) + '</div></div>' : '') +
     (t ? '<button data-teamop="leave" style="width:100%;margin-top:6px">' + esc(text('team.leave', 'Leave team')) + '</button>' : '') +
     '<div class="mu" style="font-size:0.6875rem;margin-top:6px">' + esc(text('team.chatHint', 'Team chat: /t message')) + '</div>';
 }
@@ -589,7 +589,7 @@ function buildCamp() {
   const row = k => { const b = st.built[k], cost = st.cost[k], donors = (st.funds && st.funds[k]) || {};
     const name = '<div class="t">' + esc(text('camp.stall.' + k, STALL_NAME[k])) + '<small>';
     if (b) return '<div class="row">' + name + esc(text('camp.builtBy', 'Built by {name}', { name: b.by })) + (b.donors > 1 ? ' · ' + esc(text('camp.withHelp', 'with {count} heroes', { count: b.donors })) : '') + '</small></div><b style="color:#8fd18f">✔</b></div>';
-    const raised = Object.values(donors).reduce((s, v) => s + v, 0), left = Math.max(0, cost - raised), mine = donors[I.name] || 0;
+    const raised = Object.values(donors).reduce((s, v) => s + v, 0), left = Math.max(0, cost - raised), mine = Object.hasOwn(donors, I.name) ? donors[I.name] : 0;
     const top = Object.keys(donors).sort((a, c) => donors[c] - donors[a])[0];
     const pct = Math.min(100, raised / cost * 100), give = Math.min(left, me.g);
     return '<div class="row camp-row" style="flex-wrap:wrap">' + name + esc(village ? text('camp.bringsVillage', 'Brings the {npc} to this village', { npc: text(STALL_NPC[k], k) }) : text('camp.brings', 'Brings the {npc} to this camp', { npc: text(STALL_NPC[k], k) })) + '</small></div>' +

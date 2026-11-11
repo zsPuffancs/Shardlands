@@ -1,6 +1,8 @@
 'use strict';
 
-const { TIERS } = require('./monsters');
+const { TIERS, WORLD_BOSS_SIZE } = require('./monsters');
+const { ENEMY_SCALING, worldFactor } = require('./enemy-scaling');
+const { XP_BALANCE } = require('./xp-economy');
 const Settlement = require('./public/settlement');
 
 const W = 10600, H = 10600, CX = 5300, CY = 5300, VILLAGE = Settlement.SAFE_RADIUS.village;
@@ -86,7 +88,10 @@ function worldInfo(map) {
     funds: Object.fromEntries(Object.entries((map.settlement && map.settlement.funds) || {}).map(([key, fund]) => [key, fund.donors])) };
   const zones = map.index === 0 ? TIERS.filter(t => !t.generated).map(t => ({ name: t.name, min: t.min, max: t.max, lv: t.lv, outer: !!t.outer }))
     : [{ name: TIERS[map.tier].name, min: REGION_SAFE_RADIUS, max: 99999, lv: TIERS[map.tier].lv, outer: false, look: map.look, generated: true }];
-  return { universe: universeIdentity(), map: map.index, maps: maps.length, W: map.w, H: map.h, CX: map.cx - map.x0, CY: map.cy - map.y0, V: layoutOf(map).safe, settlement, npcs, npcRange: NPC_RANGE, tiers: zones };
+  const depth = worldFactor(map.regionTier || 1);
+  const scaling = { worldHp: depth.hp, worldDamage: depth.dmg, worldBossSize: WORLD_BOSS_SIZE, bossHp: ENEMY_SCALING.categories.boss.hp, worldBossHp: ENEMY_SCALING.categories.worldBoss.hp,
+    partyHp: ENEMY_SCALING.partyHpPerMember, partyDamage: XP_BALANCE.partyDamagePerMember, punishBonus: ENEMY_SCALING.boss.punishBonus };
+  return { universe: universeIdentity(), map: map.index, maps: maps.length, W: map.w, H: map.h, CX: map.cx - map.x0, CY: map.cy - map.y0, V: layoutOf(map).safe, settlement, npcs, npcRange: NPC_RANGE, tiers: zones, scaling };
 }
 
 module.exports = { boardPosition, FOUNDING_LAYOUT, setSettlement, layoutOf, npcAvailable, collideSettlement, W, H, CX, CY, VILLAGE, NPCS, NPC_RANGE, REGION_SIZE, REGION_SAFE_RADIUS, maps, addMap, mapAt, mapOf, portalOpen, npcPosition, placeInVillage, rnd, rint, pick, dist, nearNpc, inVillage, clampWorld, moveToward, tierOf, worldInfo, attachUniverse };

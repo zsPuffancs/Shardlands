@@ -3,6 +3,7 @@
 const { nearby: queryNearby } = require('./spatial-index');
 const { CLASSES, xpNeed, playerDmg } = require('./characters');
 const { inVillage, mapOf, worldInfo } = require('./game-world');
+const { bossPhase, ENEMY_SCALING } = require('./enemy-scaling');
 
 const SNAPSHOT_RADIUS = 1150;
 const SNAPSHOT_MOB_LIMIT = 420;
@@ -46,7 +47,9 @@ function snapshotMobs(mobs, player, cells) {
 }
 // Wire fields: mo is a full list, md contains changed rows, and mi carries the new ID order.
 function mobSnapshot(connection, nearby, typeIndex, originX = 0, originY = 0) {
-  const rows = nearby.map(mob => [mob.id, typeIndex[mob.ty], Math.round(mob.x - originX), Math.round(mob.y - originY), Math.max(0, Math.round(mob.hp)), mob.mh, mob.lvl, mob.alpha]);
+  const rows = nearby.map(mob => [mob.id, typeIndex[mob.ty], Math.round(mob.x - originX), Math.round(mob.y - originY), Math.max(0, Math.round(mob.hp)), mob.mh, mob.lvl, mob.alpha,
+    mob.boss ? bossPhase(mob) : 0, mob.cast?.s || '', mob.cast?.startedAt || 0, mob.cast?.at || 0, mob.recoverUntil || 0,
+    mob.worldBoss && mob.fightStart ? mob.fightStart + ENEMY_SCALING.boss.worldBossEnrage.afterMs : 0]);
   if (!connection.mobDeltas) return { mo: rows };
 
   const previous = connection.mobRows;

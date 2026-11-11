@@ -39,6 +39,7 @@ const AutoAffixUI = (() => {
     if (prediction?.valid) {
       estimateHtml = row(tr('range', 'Possible value range'), number(prediction.minValue) + '–' + number(prediction.maxValue) + '%') + row(tr('effective', 'Effective maximum attempts'), number(prediction.effectiveAttempts)) + row(tr('chance', 'Success per roll'), percent(prediction.probability)) + row(tr('within', 'Success within budget'), percent(prediction.chanceWithin)) + row(tr('expectedAttempts', 'Expected attempts to success'), number(prediction.expectedAttempts)) + row(tr('expectedSouls', 'Expected Souls to success (unlimited)'), number(prediction.expectedSoulsToSuccess)) + row(tr('limitedSouls', 'Expected Souls spent within limits'), number(prediction.expectedSouls));
     }
+    if (typeof affixUsageHtml === 'function' && item && validInputs) estimateHtml += affixUsageHtml(item, key, minimum);
     $('aa-estimate').innerHTML = estimateHtml;
     $('aa-notice').textContent = error ? status(error) : !ready ? tr('loading', 'Waiting for authoritative item data…') : !validInputs ? status('invalid_limits') : prediction?.alreadySatisfied ? status('already_satisfied') : prediction?.impossible ? status('impossible_target') : prediction?.guaranteed ? tr('guaranteed', 'The next valid roll meets this target.') : tr('estimateHint', 'Independent rolls: estimates are not a guarantee of success.');
     $('aa-start').disabled = running() || !prediction?.valid || prediction.impossible || (!prediction.alreadySatisfied && !prediction.effectiveAttempts);

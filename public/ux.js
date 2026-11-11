@@ -142,8 +142,9 @@ function buildWorldInfo() {
   if (u) h += '<div class="itemcard"><div class="ln"><span>' + esc(text('universe.worldTier', 'World Tier')) + '</span><b>' + u.tier + '</b></div><div class="ln"><span>' + esc(text('universe.frontier', 'Frontier region')) + '</span><b>' + esc(regionName(u.frontier)) + '</b></div><div class="ln"><span>' + esc(text('universe.worldBoss', 'World Boss')) + '</span><b style="color:#ffd24a">👑 ' + esc(bossName(u.frontier.worldBoss)) + '</b></div></div>';
   h += '<div class="hd2" style="margin-top:8px">' + esc(text('worldinfo.active', 'Active here')) + '</div><ul class="wi-list">' +
     '<li>' + esc(text('worldinfo.activeLevels', 'Monsters are levels {min}-{max}.', { min: zone.lv[0], max: zone.lv[1] })) + '</li>' +
-    '<li>' + esc(text('worldinfo.activeTeam', 'Team fights: x1.5 monster HP and damage per extra team member nearby.')) + '</li>' +
-    '<li>' + esc(text('worldinfo.activeWorldBoss', 'World Bosses (👑) are 1.5x bigger with 3x HP.')) + '</li></ul>';
+    '<li>' + esc(text('worldinfo.teamScaling', 'Each additional party member adds {hp}% normal-monster HP and {damage}% damage; bosses have separate health scaling.', { hp: Math.round((WORLD.scaling?.partyHp.normal || 0) * 100), damage: Math.round((WORLD.scaling?.partyDamage || 0) * 100) })) + '</li>' +
+    '<li>' + esc(text('worldinfo.bossScaling', 'World Bosses: {size}× size and {min}–{max}× the level health budget, depending on World Tier.', { size: WORLD.scaling?.worldBossSize ?? '—', min: WORLD.scaling?.worldBossHp[0] ?? '—', max: WORLD.scaling?.worldBossHp[1] ?? '—' })) + '</li>' +
+    '<li>' + esc(text('worldinfo.depthScaling', 'Current world-depth multipliers: {hp}× health / {damage}× damage.', { hp: (WORLD.scaling?.worldHp || 1).toFixed(2), damage: (WORLD.scaling?.worldDamage || 1).toFixed(2) })) + '</li></ul>';
   const mods = region && region.modifiers || [];
   h += '<div class="hd2" style="margin-top:8px">' + esc(text('worldinfo.modifiers', 'Region modifiers')) + ' <span class="badge-planned">' + esc(text('worldinfo.notActive', 'not active yet')) + '</span></div>';
   h += mods.length ? '<ul class="wi-list planned">' + mods.map(m => '<li>' + esc(text('modifier.' + m, m.replace(/-/g, ' '))) + '</li>').join('') + '</ul><div class="mu" style="font-size:0.6875rem">' + esc(text('worldinfo.modifiersHint', 'These are generated and recorded for this region, but have no effect on gameplay yet.')) + '</div>'
@@ -171,6 +172,7 @@ applyAccessibility();
 // ---------- boss cast warnings ----------
 const ATTACK_NAME = { charge: 'Charge', breath: 'Breath', meteor: 'Meteor Rain', summon: 'Summon', slam: 'Ground Slam' };
 let castTimer = 0;
+let phaseNoticeTimer = 0;
 // Telegraphed boss attacks already show on the ground; this names them under the target frame as well.
 function castWarning(f) {
   if (!I || !me) return;
@@ -185,9 +187,9 @@ function bossPhaseNotice(f) {
   if (!I || !me) return;
   const m = mo.find(x => x.id === f.a), t = m && I.types[m.ty];
   if (!t || !t.boss || (me.tg !== m.id && Math.hypot(m.x - me.x, m.y - me.y) > 700)) return;
-  const name = mobName(m.ty, t.n), el = $('castwarn');
+  const name = mobName(m.ty, t.n), el = $('bossnotice');
   const message = f.s === 'stagger'
     ? '✦ ' + text('ux.bossStagger', '{boss} is recovering: strike now for extra damage!', { boss: name })
     : '🔥 ' + (f.v >= 2 ? text('ux.bossFinalPhase', '{boss} is desperate: attacks come much faster and hit harder!', { boss: name }) : text('ux.bossEnraged', '{boss} is enraged: attacks come faster!', { boss: name }));
-  el.textContent = message; el.style.display = 'block'; clearTimeout(castTimer); castTimer = setTimeout(() => { el.style.display = 'none'; }, f.s === 'stagger' ? 1300 : 3000);
+  el.textContent = message; el.style.display = 'block'; clearTimeout(phaseNoticeTimer); phaseNoticeTimer = setTimeout(() => { el.style.display = 'none'; }, f.s === 'stagger' ? 1300 : 3000);
 }

@@ -52,8 +52,9 @@ function passiveValue(k, r) {
 }
 const passive = (player, k) => passiveValue(k, rank(player, k));
 // Affix totals from gear, with caps.
-const gearLifesteal = player => Math.min(15, player.g.ls || 0) / 100;
-const gearAttackSpeed = player => Math.min(40, player.g.aspd || 0) / 100;
+const AFFIX_CAPS = Object.freeze({ ls: 15, aspd: 40 });
+const gearLifesteal = player => Math.min(AFFIX_CAPS.ls, player.g.ls || 0) / 100;
+const gearAttackSpeed = player => Math.min(AFFIX_CAPS.aspd, player.g.aspd || 0) / 100;
 function stats(player) {
   const characterClass = CLASSES[player.cls]; player.g = gearSum(player);
   player.maxhp = Math.floor((100 + player.lvl * 28) * characterClass.hp * (1 + passive(player, 'vit')) + (player.g.hp || 0));
@@ -121,4 +122,4 @@ function createProgression({ fire, ev, say, toast, broadcast, sendInv }) {
   return { gainXp, learnSkill, processLevels };
 }
 
-module.exports = { BASE_PLAYER_MOVE_SPEED, MAX_PLAYER_MOVE_SPEED, playerMoveSpeed, rank, passive, passiveValue, PASSIVE_EFFECT, gearLifesteal, gearAttackSpeed, CLASSES, ITEMS, SKILLS, MAXRANK, PMAX, maxRank, xpNeed, newSk, stats, defRed, critCh, critMul, goldFind, playerDmg, createProgression };
+module.exports = { AFFIX_CAPS, BASE_PLAYER_MOVE_SPEED, MAX_PLAYER_MOVE_SPEED, playerMoveSpeed, rank, passive, passiveValue, PASSIVE_EFFECT, gearLifesteal, gearAttackSpeed, CLASSES, ITEMS, SKILLS, MAXRANK, PMAX, maxRank, xpNeed, newSk, stats, defRed, critCh, critMul, goldFind, playerDmg, createProgression };

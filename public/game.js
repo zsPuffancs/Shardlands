@@ -8,6 +8,7 @@ const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[
 const RC_CSS = ['#d8d8d8', '#4ee26a', '#4da3ff', '#b25cff', '#ff9d2e', '#ff4560'], RCV = RC_CSS.map(hex);
 let WORLD = null, ZT = [], I = null, me = null, pl = [], mo = [], lo = [], ws, sel = 'blade', keys = {}, held = false, lastHold = null, serverTm = 0, dt = 0.016, intent = null;
 const ents = new Map(), floaters = [], fxs = [], parts = [], labels = new Map();
+let serverReceivedAt = 0;
 const cam = { yaw: 0, pitch: 0.82, dist: 440, x: 3600, z: 3600, shake: 0 };
 const S = { rx: 0, ry: 0, x: 0, y: 0, yaw: 0, ph: 0, mv: 0, atkT: -9999, flash: 0, id: 0 };
 const send = o => ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
@@ -469,7 +470,7 @@ const mobRows = new Map();
 let mobIds = [];
 function updateMobSnapshot(message) {
   if (!message.mo && !message.md && !message.mi && !message.mf) return;
-  const decode = a => ({ id: a[0], ty: I.tl[a[1]], x: a[2], y: a[3], hp: a[4], mh: a[5], l: a[6], al: a[7] });
+  const decode = a => ({ id: a[0], ty: I.tl[a[1]], x: a[2], y: a[3], hp: a[4], mh: a[5], l: a[6], al: a[7], phase: a[8] || 0, castType: a[9] || '', castStart: a[10] || 0, castEnd: a[11] || 0, recoverEnd: a[12] || 0, enrageAt: a[13] || 0 });
   if (message.mo) {
     mobRows.clear();
     mobIds = message.mo.map(row => row[0]);
@@ -477,7 +478,7 @@ function updateMobSnapshot(message) {
   for (const row of message.mo || message.md || []) mobRows.set(row[0], decode(row));
   for (const patch of message.mf || []) {
     const monster = mobRows.get(patch[0]); if (!monster) continue;
-    const fields = ['ty', 'x', 'y', 'hp', 'mh', 'l', 'al']; let offset = 2;
+    const fields = ['ty', 'x', 'y', 'hp', 'mh', 'l', 'al', 'phase', 'castType', 'castStart', 'castEnd', 'recoverEnd', 'enrageAt']; let offset = 2;
     for (let bit = 0; bit < fields.length; bit++) if (patch[1] & (1 << bit)) {
       const value = patch[offset++]; monster[fields[bit]] = bit === 0 ? I.tl[value] : value;
     }
@@ -515,7 +516,9 @@ function onMsg(m) {
   else if (m.t === 'toast') toast(m.text || m.m, m.c); else if (m.t === 'forge') onForge(m); else if (m.t === 'reroll') onReroll(m); else if (m.t === 'universe') onUniverse(m.u); else if (m.t === 'portal') onPortal(m);
   else if (m.t === 'team') onTeam(m); else if (m.t === 'trade') onTrade(m); else if (m.t === 'mythicMerge') onMythicMerge(m); else if (m.t === 'affix') onAffix(m);
   else if (m.t === 'teamInvite') showAsk('team', text('team.invitedYou', '{name} invites you to a team.', { name: m.from })); else if (m.t === 'tradeRequest') showAsk('trade', text('trade.requestedYou', '{name} wants to trade with you.', { name: m.from }));
-  else if (m.t === 'types') { if (I) { I.types = m.types; I.tl = m.tl; } } else if (m.t === 'map') { setWorld(m.world, m.arrived); if (isOpen('portalw')) send({ t: 'portal' }); }
+  else if (m.t === 'affixCaps') { if (I) I.affixCaps = m.caps; }
+  else if (m.t === 'adventure' || m.t === 'adventureUpdate') onAdventureMessage(m);
+  else if (m.t === 'types') { if (I) { I.types = m.types; I.tl = m.tl; } } else if (m.t === 'map') { setWorld(m.world, m.arrived); if (isOpen('portalw')) send({ t: 'portal' }); if (isOpen('journalw')) send({ t: 'adventure', op: 'inspect' }); }
   else if (m.t === 'chat') log(m.n, m.text || m.m, m.channel); else if (m.t === 'msg') log('*', m.text || m.m);
   else if (m.t === 's') {
     const nextMe = applyOwnSnapshot(me, m);
@@ -526,7 +529,7 @@ function onMsg(m) {
       held = false;
       lastDir = [0, 0];
     }
-    serverTm = m.tm; me = nextMe;
+    serverTm = m.tm; serverReceivedAt = performance.now(); me = nextMe;
     if (m.sf) { playerRows.clear(); lootRows.clear(); }
     if (m.pl || m.pd || m.pr) pl = applyEntityList(playerRows, m, 'pl', 'pd', 'pr');
     if (m.lo || m.ld || m.lr) lo = applyEntityList(lootRows, m, 'lo', 'ld', 'lr');

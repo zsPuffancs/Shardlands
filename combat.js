@@ -14,7 +14,7 @@ const canEarnMonsterXp = (hero, monster) => levelGapScale(hero.lvl, monster.lvl)
 const { SUMMON_LIFETIME_MS, createSummons } = require('./summons');
 const { ENEMY_SCALING, bossPhase, bossPressure, recoverMs } = require('./enemy-scaling');
 
-function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLoot, broadcast, say, teams }) {
+function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLoot, broadcast, say, teams, adventure }) {
   const summons = createSummons({ mobs, spawnMob });
   const participation = createEncounterParticipation({ players, teams }), processingHits = new WeakSet();
   function hitMob(player, monster, damage) {
@@ -33,6 +33,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
       damage = Math.min(Number.MAX_SAFE_INTEGER, Math.max(1, Math.round(hit.v)));
       participation.begin(player, monster);
       participation.record(player, monster, Math.min(monster.hp, damage), Date.now());
+      adventure?.observe(player, monster);
       monster.hp -= damage;
       // Bosses grow more dangerous below 60% and 30% health. Everyone nearby sees the change.
       if (monster.boss && monster.hp > 0) { const phase = bossPhase(monster); if (phase > (monster.phase || 0)) { monster.phase = phase; ev('phase', monster.x, monster.y, phase, { a: monster.id, s: 'enrage', monsterType: monster.ty }); ev('fx', monster.x, monster.y, 90, { s: 'rage', a: monster.id }); } }
@@ -69,7 +70,9 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     }
     // Gold/loot retain their current sharing policy. XP uses the encounter's fixed roster and participation.
     const sharers = teams?.sharesLoot?.(player) ? teams.nearbyMembers(player, monster) : [player];
-    const xpSharers = participation.recipients(monster, Date.now()).filter(hero => canEarnMonsterXp(hero, monster));
+    const contributors = participation.recipients(monster, Date.now());
+    for (const hero of contributors) adventure?.kill(hero, monster);
+    const xpSharers = contributors.filter(hero => canEarnMonsterXp(hero, monster));
     const category = encounterCategory(monster, template);
     if (rates.xpRate > 0) for (const hero of xpSharers) {
       const amount = encounterShare({ playerLevel: hero.lvl, monsterLevel: monster.lvl, category, members: xpSharers.length, healthScale: monster.ps || 1 });
@@ -104,7 +107,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     const radius = monster.r + 120;
     const inRange = { slam: distance < monster.r + 170, breath: distance < monster.r + 260, charge: distance < 520, meteor: distance < 650, summon: distance < 520 };
     if (!inRange[attack]) { if (attack === signature) monster.alt = !monster.alt; attack = 'slam'; if (!inRange.slam) return; }
-    const cast = { s: attack, at: now + (attack === 'meteor' ? 1450 : 1150), r: radius, ang: Math.atan2(targetPlayer.x - monster.x, targetPlayer.y - monster.y) };
+    const cast = { s: attack, startedAt: now, at: now + (attack === 'meteor' ? 1450 : 1150), r: radius, ang: Math.atan2(targetPlayer.x - monster.x, targetPlayer.y - monster.y) };
     if (attack === 'breath') { cast.r = monster.r + 300; cast.half = 0.55; }
     if (attack === 'charge') {
       const length = Math.min(480, Math.max(260, distance + 120));

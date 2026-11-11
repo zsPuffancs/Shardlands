@@ -15,8 +15,10 @@ function createEncounterRuntime({ players, mobs, spawnMob, maxActive = 2048, max
     regions.set(id, region);
     let group = regionsByMap.get(map.index); if (!group) regionsByMap.set(map.index, group = new Set()); group.add(region);
   }
-  function save(region, id, monster) {
-    region.storage()[id] = { health: monster.mh > 0 ? monster.hp / monster.mh : 1, deadUntil: monster.dead || 0, stoneStep: monster.stoneStep, ps: monster.ps || 1, partyDamageScale: monster.partyDamageScale || 1, slamT: monster.slamT || 0 };
+  function save(region, id, monster, now = Date.now()) {
+    region.storage()[id] = { health: monster.mh > 0 ? monster.hp / monster.mh : 1, deadUntil: monster.dead || 0, stoneStep: monster.stoneStep, ps: monster.ps || 1, partyDamageScale: monster.partyDamageScale || 1, slamT: monster.slamT || 0,
+      fightElapsed: monster.fightStart ? Math.max(0, Math.min(86400000, now - monster.fightStart)) : null,
+      recoveryLeft: Math.max(0, Math.min(2000, (monster.recoverUntil || 0) - now)) };
   }
   function checkpoint() { for (const region of liveRegions) for (const [id, monster] of region.live) if (mobs.get(monster.id) === monster) save(region, id, monster); }
   function tick(now = Date.now()) {
@@ -47,7 +49,7 @@ function createEncounterRuntime({ players, mobs, spawnMob, maxActive = 2048, max
         if (mobs.get(monster.id) !== monster) { region.live.delete(id); continue; }
         const definition = region.definitions.get(id);
         if (!wanted.has(id) && now - (region.seen.get(definition.encounterId) || 0) >= unloadAfterMs && !monster.target && !monster.cast) {
-          save(region, id, monster); mobs.delete(monster.id); region.live.delete(id); counts.set(region.map.index, counts.get(region.map.index) - 1);
+          save(region, id, monster, now); mobs.delete(monster.id); region.live.delete(id); counts.set(region.map.index, counts.get(region.map.index) - 1);
         }
       }
       for (const id of wanted) {
@@ -66,12 +68,17 @@ function createEncounterRuntime({ players, mobs, spawnMob, maxActive = 2048, max
           monster.mh = Math.round(monster.mh * monster.ps);
           monster.hp = Math.max(0, Math.min(1, Number.isFinite(state.health) ? state.health : 1)) * monster.mh;
           monster.dead = state.deadUntil || 0; monster.stoneStep = state.stoneStep ?? 5; monster.slamT = state.slamT || 0;
+          if (!monster.dead && (Number.isFinite(state.fightElapsed) || monster.hp < monster.mh)) {
+            monster.fightStart = now - Math.max(0, Math.min(86400000, Number.isFinite(state.fightElapsed) ? state.fightElapsed : 0));
+            monster.recoverUntil = now + Math.max(0, Math.min(2000, Number.isFinite(state.recoveryLeft) ? state.recoveryLeft : 0));
+            monster.combatActive = true;
+          }
         }
         region.live.set(id, monster); liveRegions.add(region); counts.set(region.map.index, (counts.get(region.map.index) || 0) + 1);
       }
       if (!region.live.size) liveRegions.delete(region);
       // Keep persisted health/cooldowns current; shutdown also calls checkpoint explicitly.
-      for (const [id, monster] of region.live) save(region, id, monster);
+      for (const [id, monster] of region.live) save(region, id, monster, now);
     }
   }
   return { register, tick, checkpoint, limits: { maxActive, maxPerMap, activationRadius, unloadAfterMs } };

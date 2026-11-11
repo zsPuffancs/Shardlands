@@ -200,3 +200,7 @@ Inventory now searches all 90 equipment slots and combines rarity/type/level/sta
 ## Automatic Soul Mystic affixes
 
 Open **Soul Mystic → Affix → Auto Affix** for a separate draggable window with target-value probability estimates, attempt and Souls caps, and authoritative live results. Closing the window cancels rolling. The last actual roll stays on the item; best-roll history is informational. See [Auto Affix](docs/AUTO-AFFIX.md) for formulas, limits, safety rules and persistence.
+
+## Adventurer's journal and party equipment
+
+Open **📖** below the minimap for the discovered-enemy bestiary and daily village contracts. Team leaders can enable round-robin equipment ownership. Boss frames now show cast/phase/enrage/recovery state, and affix details distinguish raw values from effective gear caps. Character and world saves share a recoverable checkpoint so settlement funding and wallet deductions stay consistent. See [Adventure and recovery](docs/ADVENTURE.md) for controls, reward rules, limits and save recovery.

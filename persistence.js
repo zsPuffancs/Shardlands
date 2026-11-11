@@ -1,6 +1,47 @@
 'use strict';
 const fs = require('node:fs');
-const { basename } = require('node:path');
+const { basename, join } = require('node:path');
+
+// A durable redo record makes the existing JSON files one recoverable checkpoint.
+// Recovery runs before any store is opened. A corrupt journal is preserved and stops startup.
+function recoverSaveGroup(directory, names) {
+  const journal = join(directory, 'save-journal.json');
+  if (!fs.existsSync(journal)) return;
+  const record = JSON.parse(fs.readFileSync(journal, 'utf8'));
+  if (record.version !== 1 || !record.stores || names.some(name => !Object.hasOwn(record.stores, name) || !record.stores[name] || typeof record.stores[name] !== 'object' || Array.isArray(record.stores[name]))) throw new Error('Invalid save journal; files preserved.');
+  for (const name of names) {
+    const file = join(directory, name), temporary = file + '.recovery.tmp';
+    fs.writeFileSync(temporary, JSON.stringify(record.stores[name]), { mode: 0o600 });
+    fs.renameSync(temporary, file);
+  }
+  fs.unlinkSync(journal);
+}
+
+function coordinateSaves({ directory, stores, beforeSave = () => {} }) {
+  const writers = Object.fromEntries(Object.entries(stores).map(([name, store]) => [name, store.save]));
+  const journal = join(directory, 'save-journal.json');
+  let pending, dirty = false;
+  function save() {
+    dirty = true;
+    if (pending) return pending;
+    // Run on the next microtask so synchronous world events and their wallet mutations settle together.
+    pending = Promise.resolve().then(async () => {
+      do {
+        dirty = false;
+        beforeSave();
+        const record = JSON.parse(JSON.stringify({ version: 1, stores: Object.fromEntries(Object.entries(stores).map(([name, store]) => [name, store.data])) }));
+        const temporary = journal + '.tmp';
+        await fs.promises.writeFile(temporary, JSON.stringify(record), { mode: 0o600 });
+        await fs.promises.rename(temporary, journal);
+        for (const [name, writer] of Object.entries(writers)) await writer(record.stores[name]);
+        await fs.promises.unlink(journal);
+      } while (dirty);
+    }).finally(() => { pending = null; });
+    return pending;
+  }
+  for (const store of Object.values(stores)) store.save = save;
+  return save;
+}
 const { mapOf } = require('./game-world');
 
 function openJsonStore(file) {
@@ -17,10 +58,10 @@ function openJsonStore(file) {
     }
   }
 
-  async function writeNow() {
+  async function writeNow(snapshot) {
     const temporaryFile = file + '.' + process.pid + '.tmp';
     try {
-      await fs.promises.writeFile(temporaryFile, JSON.stringify(data), { mode: 0o600 });
+      await fs.promises.writeFile(temporaryFile, JSON.stringify(snapshot), { mode: 0o600 });
       await fs.promises.rename(temporaryFile, file);
     } catch (error) {
       await fs.promises.unlink(temporaryFile).catch(() => {});
@@ -29,8 +70,8 @@ function openJsonStore(file) {
   }
   // Saves of one store run one after another: two at once would fight over the same temporary file.
   let lastSave = Promise.resolve();
-  function save() {
-    const next = lastSave.catch(() => {}).then(writeNow);
+  function save(snapshot = data) {
+    const next = lastSave.catch(() => {}).then(() => writeNow(snapshot));
     lastSave = next;
     return next;
   }
@@ -59,4 +100,4 @@ function createGameSaves({ players, saveStore, pluginStore, extraStores = [] }) 
   return { savePlayer, saveAll };
 }
 
-module.exports = { openJsonStore, createGameSaves };
+module.exports = { openJsonStore, createGameSaves, coordinateSaves, recoverSaveGroup };

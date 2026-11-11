@@ -97,9 +97,13 @@ function createRegions({ universe, players, mobs, spawnMob, config = {}, populat
     const cost = Settlement.STALL_COST[key];
     if (!record.funds) record.funds = {};
     const fund = record.funds[key] || (record.funds[key] = { donors: {}, reached: {} });
+    // Saved objects regain Object.prototype after JSON parsing; normalize on every mutation.
+    fund.donors = Object.assign(Object.create(null), fund.donors);
+    fund.reached = Object.assign(Object.create(null), fund.reached);
     const raised = Object.values(fund.donors).reduce((sum, value) => sum + value, 0), remaining = Math.max(0, cost - raised);
     // No amount means "pay whatever is left"; never take more than the player has or the stall still needs.
-    const wanted = requested === undefined || requested === null ? remaining : Math.floor(Number(requested));
+    const wanted = requested === undefined || requested === null ? remaining : requested;
+    if (!Number.isSafeInteger(wanted) || wanted < 1 || !Number.isSafeInteger(player.gold) || player.gold < 0) return;
     const amount = Math.min(remaining, player.gold, Number.isFinite(wanted) ? wanted : 0);
     if (!(amount > 0)) return say(player, messageText('server.stallNoGold', 'You have no gold to give.'));
     player.gold -= amount;

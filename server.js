@@ -5,7 +5,7 @@ const { createSender } = require('./public/state-delta');
 const { IndexedEntities } = require('./spatial-index');
 const { withLocalizedText, localizedText } = require('./localized-text');
 const { loadServerConfig } = require('./server-config');
-const { openJsonStore, createGameSaves } = require('./persistence');
+const { openJsonStore, createGameSaves, coordinateSaves, recoverSaveGroup } = require('./persistence');
 const { W, H, CX, CY, rnd, rint, pick, attachUniverse, clampWorld, maps, setSettlement } = require('./game-world');
 const { createUniverse, newSeed } = require('./universe');
 const { createRegions } = require('./regions');
@@ -16,6 +16,7 @@ const { createInventory } = require('./inventory');
 const { createProgression } = require('./characters');
 const { createLoot } = require('./loot');
 const { createCombat } = require('./combat');
+const { createAdventure } = require('./adventure');
 const { createPlayerSessions } = require('./player-session');
 const { createPluginHost } = require('./plugin-host');
 const { createSimulation } = require('./simulation');
@@ -26,6 +27,7 @@ const { startServer } = require('./server-lifecycle');
 
 const { config, rates } = loadServerConfig(__dirname);
 const port = process.env.PORT || config.port || 3000;
+recoverSaveGroup(__dirname, ['saves.json', 'plugin-data.json', 'universe.json']);
 const saveStore = openJsonStore(path.join(__dirname, 'saves.json'));
 const pluginStore = openJsonStore(path.join(__dirname, 'plugin-data.json'));
 const universeStore = openJsonStore(path.join(__dirname, 'universe.json'));
@@ -72,17 +74,19 @@ const { spawnMob, populateMonsters, populateZone, respawnMonster } = createMonst
 });
 const regions = createRegions({ ...notifications, universe, players, mobs, spawnMob, config, populateZone, refreshMobTypes });
 const saveAll = () => { regions.checkpoint(); return saveGameState(); };
+coordinateSaves({ directory: __dirname, stores: { 'saves.json': saveStore, 'plugin-data.json': pluginStore, 'universe.json': universeStore }, beforeSave: () => { regions.checkpoint(); for (const player of players.values()) savePlayer(player); } });
 universe.onTierUnlocked = regions.unlock;
 const equipment = createEquipment({ rates });
 const inventory = createInventory({ ...notifications, genGear: equipment.genGear, rerollGear: equipment.rerollGear, applyAffix: equipment.applyAffix, isItemReserved: (player, uid) => teams.isItemReserved(player, uid), persistPlayer: savePlayer, isPlayerOnline: player => players.get(player.id) === player && player.c.p === player && !player.c.closed });
 const teams = createTeams({ ...notifications, players, afterGearChange: inventory.afterGearChange, isExternalItemReserved: inventory.isAutoAffixReserved });
+const adventure = createAdventure({ send, say, persistPlayer: savePlayer, durableSave: () => saveStore.save(), sendInventory: inventory.sendInv });
 setInterval(() => teams.tick(Date.now()), 1000).unref();
 const { gainXp, learnSkill, processLevels } = createProgression({ ...notifications, sendInv: inventory.sendInv });
 const lootService = createLoot({
-  ...notifications, ...equipment, addGear: inventory.addGear, players, loot, rates, allocateId,
+  ...notifications, ...equipment, addGear: inventory.addGear, players, loot, rates, allocateId, gearRecipient: teams.gearRecipient, onPickup: adventure.pickup,
 });
 const combat = createCombat({
-  teams,
+  teams, adventure,
   ...notifications, players, mobs, rates, spawnMob, gainXp, dropLoot: lootService.dropLoot,
 });
 const publishSnapshots = createSnapshotPublisher({
@@ -90,7 +94,7 @@ const publishSnapshots = createSnapshotPublisher({
 });
 const simulation = createSimulation({
   ...notifications, ...combat, players, mobs, loot, rates, respawnMonster, publishSnapshots,
-  processJobs: activePlayers => { inventory.processJobs(); processLevels(activePlayers); },
+  processJobs: activePlayers => { inventory.processJobs(); processLevels(activePlayers); adventure.flush(activePlayers); },
   updateEncounters: regions.tick, pickupTick: lootService.pickupTick, getTransportStats: () => transport.stats(),
 });
 const pluginHost = createPluginHost({
@@ -101,7 +105,7 @@ const pluginHost = createPluginHost({
   isAdmin: player => sessions.isAdmin(player), serverStats: simulation.serverStats,
 });
 const sessions = createPlayerSessions({
-  ...notifications, inventory, config, players, mobs, saves: saveStore.data, allocateId,
+  ...notifications, inventory, adventure, config, players, mobs, saves: saveStore.data, allocateId,
   resyncUi: (connection, channel) => send.resync(connection, channel),
   refreshMobTypes, universe, regions, teams, commands: pluginHost.commands, skill: combat.skill, learnSkill, savePlayer,
 });

@@ -16,12 +16,13 @@ function createEncounterParticipation({ players, teams }) {
     fight = { epoch: monster.combatEpoch || 0, shared, members: members.map(member => ({ id: member.id, token: identity(member) })), damage: new Map(), lastActivity: Date.now() };
     fights.set(monster, fight);
     monster.combatActive = true;
+    if (!monster.fightStart) monster.fightStart = Date.now();
     // Scale only a pristine encounter, before any damage. Mid-fight changes never heal or inflate it.
     // Health grows per member by category (bosses most, enemy-scaling.js); XP still pays the normal party scale.
     if (monster.hp === monster.mh && (monster.ps || 1) === 1) {
       const scale = partyHealthScale(monster.cat || (monster.alpha ? 'alpha' : 'normal'), members.length);
       monster.mh = Math.round(monster.mh * scale); monster.hp = monster.mh; monster.ps = scale;
-      monster.partyDamageScale = partyDamageScale(members.length); monster.fightStart = Date.now();
+      monster.partyDamageScale = partyDamageScale(members.length);
     }
     return fight;
   }
@@ -41,7 +42,7 @@ function createEncounterParticipation({ players, teams }) {
       return player && identities.get(player) === member.token && !player.dead && mapOf(player) === mapOf(monster) && Math.hypot(player.x - monster.x, player.y - monster.y) <= XP_BALANCE.sharingRadius && contribution && contribution.damage >= monster.mh * XP_BALANCE.minimumDamageFraction && now - contribution.lastHit <= XP_BALANCE.participationWindowMs ? player : null;
     }).filter(Boolean);
   }
-  function reset(monster) { fights.delete(monster); monster.combatEpoch = (monster.combatEpoch || 0) + 1; monster.combatActive = false; monster.partyDamageScale = 1; }
+  function reset(monster) { fights.delete(monster); monster.combatEpoch = (monster.combatEpoch || 0) + 1; monster.combatActive = false; monster.partyDamageScale = 1; monster.fightStart = 0; monster.phase = 0; monster.recoverUntil = 0; }
   return { begin, record, recipients, reset };
 }
 module.exports = { createEncounterParticipation };

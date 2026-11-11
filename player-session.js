@@ -10,8 +10,9 @@ const { mobTypesForClient } = require('./snapshots');
 const { CLASSES, ITEMS, MAXRANK, PMAX, PASSIVE_EFFECT, newSk, stats } = require('./characters');
 const { SLOTS, STATDEF, UP_RATE, RARITY, AFFIXES, AFFIX_SLOTS, AFFIX_COST, MYTHIC_MERGE_COUNT, MYTHIC_MERGE_GOLD, sanitize } = require('./equipment');
 const { BAGMAX, BAG_PAGE_SIZE } = require('./inventory');
+const { AFFIX_CAPS } = require('./characters');
 
-function createPlayerSessions({ config, players, mobs, saves, allocateId, refreshMobTypes, universe, regions, teams, send, say, broadcast, fire, commands, skill, learnSkill, inventory, savePlayer, resyncUi }) {
+function createPlayerSessions({ config, players, mobs, saves, allocateId, refreshMobTypes, universe, regions, teams, adventure, send, say, broadcast, fire, commands, skill, learnSkill, inventory, savePlayer, resyncUi }) {
   const isAdminName = name => config.admins.some(a => String(a).toLowerCase() === name.toLowerCase());
   const isAdmin = player => Boolean(player.ph && isAdminName(player.name));
   const clamp1 = v => Math.max(-1, Math.min(1, +v || 0));
@@ -74,6 +75,7 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     const types = mobTypesForClient(MOBTYPES);
     send(connection, { t: 'init', id: player.id, name: player.name, cls: player.cls, world: worldInfo(mapOf(player)), types, tl: typeList, classes: CLASSES, items: ITEMS, maxRank: MAXRANK, pMax: PMAX, passiveEffect: PASSIVE_EFFECT, affixes: Object.fromEntries(Object.entries(AFFIXES).map(([k, v]) => [k, { n: v.n, prefix: v.prefix }])), affixSlots: Object.keys(AFFIX_SLOTS), affixCost: AFFIX_COST, mythicMerge: { count: MYTHIC_MERGE_COUNT, gold: MYTHIC_MERGE_GOLD }, buffCapMs: 300000, bagMax: BAGMAX, bagPageSize: BAG_PAGE_SIZE, slots: SLOTS, rarity: RARITY.map(r => r.n), upRate: UP_RATE, stat: Object.fromEntries(Object.entries(STATDEF).map(([k, v]) => [k, { n: v.n, pct: !!v.pct }])), resumed: !!savedPlayer, server: config.serverName, admin: isAdmin(player) });
     inventory.sendInv(player);
+    send(connection, { t: 'affixCaps', caps: AFFIX_CAPS });
     broadcast({ t: 'chat', n: '*', m: messageText("server.joined", "{player} entered {server}.", { player: player.name, server: config.serverName }) });
     if (config.motd) say(player, config.motd);
     fire('join', player);
@@ -106,6 +108,7 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
   }
 
   const messageHandlers = {
+    adventure: (player, message) => { void adventure?.handle(player, message).catch(error => console.error('[adventure]', error)); },
     dir(player, message) {
       player.dir = { x: clamp1(message.x), y: clamp1(message.y) };
       if (player.dir.x || player.dir.y) {

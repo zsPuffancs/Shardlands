@@ -25,7 +25,7 @@ function createTeams({ players, send, say, toast, fire, afterGearChange, isExter
 
   function sendTeam(team) {
     const members = team ? team.members.map(id => players.get(id)).filter(Boolean) : [];
-    const view = team ? { id: team.id, leader: team.leader, share: team.share !== false, near: SHARE_RANGE, xpBonus: XP_BONUS_PER_MEMBER, scale: MONSTER_SCALE_PER_MEMBER, scalingModel: 'linear-v2', hpPerMember: XP_BALANCE.partyHpPerMember, damagePerMember: XP_BALANCE.partyDamagePerMember, members: members.map(p => ({ id: p.id, n: p.name, l: p.lvl, c: p.cls, hp: Math.round(p.hp), mh: p.maxhp, map: mapOf(p).index })) } : null;
+    const view = team ? { id: team.id, leader: team.leader, share: team.share !== false, lootMode: team.lootMode || 'killer', near: SHARE_RANGE, xpBonus: XP_BONUS_PER_MEMBER, scale: MONSTER_SCALE_PER_MEMBER, scalingModel: 'linear-v2', hpPerMember: XP_BALANCE.partyHpPerMember, damagePerMember: XP_BALANCE.partyDamagePerMember, members: members.map(p => ({ id: p.id, n: p.name, l: p.lvl, c: p.cls, hp: Math.round(p.hp), mh: p.maxhp, map: mapOf(p).index })) } : null;
     for (const member of members) send(member.c, { t: 'team', team: view });
   }
   function teamChat(team, message) { for (const id of team.members) { const p = players.get(id); if (p) send(p.c, { t: 'chat', n: '*', channel: 'team', m: message }); } }
@@ -88,6 +88,22 @@ function createTeams({ players, send, say, toast, fire, afterGearChange, isExter
     return [player, ...near];
   }
   const sharesLoot = player => { const team = teamOf(player); return !!team && team.share !== false; };
+  function gearRecipient(player, point) {
+    const team = teamOf(player);
+    if (!team || team.share === false || team.lootMode !== 'roundRobin') return player;
+    const eligible = new Set(nearbyMembers(player, point).map(member => member.id));
+    const candidates = team.members.map(id => players.get(id)).filter(member => member && eligible.has(member.id) && !member.dead && member.bag.length < BAGMAX);
+    if (!candidates.length) return player;
+    const index = (team.lootCursor || 0) % candidates.length;
+    team.lootCursor = (index + 1) % candidates.length;
+    return candidates[index];
+  }
+  function toggleLoot(player) {
+    const team = teamOf(player);
+    if (!team || team.leader !== player.id) return say(player, messageText('team.leaderOnly', 'Only the team leader can invite.'));
+    team.lootMode = team.lootMode === 'roundRobin' ? 'killer' : 'roundRobin'; team.lootCursor = 0;
+    sendTeam(team);
+  }
   // Compatibility accessor for HP only. Combat freezes the initial roster and scales once.
   const monsterScale = (player, monster) => partyHpScale(sharesLoot(player) ? nearbyMembers(player, monster).length : 1);
   function toggleShare(player) {
@@ -183,6 +199,7 @@ function createTeams({ players, send, say, toast, fire, afterGearChange, isExter
       else if (op === 'leave') leave(player);
       else if (op === 'kick') kick(player, message.name);
       else if (op === 'share') { const reply = toggleShare(player); if (reply) say(player, reply); }
+      else if (op === 'loot') toggleLoot(player);
     },
     trade(player, message) {
       const op = String(message.op || '');
@@ -207,7 +224,7 @@ function createTeams({ players, send, say, toast, fire, afterGearChange, isExter
   function tick(now) { if (now - lastRefresh < 1000) return; lastRefresh = now; for (const team of teams.values()) sendTeam(team); }
 
   const isItemReserved = (player, uid) => { const trade = trades.get(player.id); return !!trade && trade[tradeSide(trade, player)].uids.includes(uid); };
-  return { isItemReserved, handlers, chatCommands, onLeave, tick, sameTeam, nearbyMembers, sharesLoot, monsterScale, XP_BONUS_PER_MEMBER };
+  return { isItemReserved, handlers, chatCommands, onLeave, tick, sameTeam, nearbyMembers, sharesLoot, gearRecipient, monsterScale, XP_BONUS_PER_MEMBER };
 }
 
 module.exports = { createTeams, TEAM_SIZE };
