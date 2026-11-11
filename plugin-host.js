@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { localizedText, isLocalizedText, gearText } = require('./localized-text');
 const { W, H, CX, CY, VILLAGE, NPCS, tierOf, clampWorld, mapOf, placeInVillage } = require('./game-world');
-const { MOBTYPES, TIERS } = require('./monsters');
+const { MOBTYPES, TIERS, MAX_LEVEL } = require('./monsters');
 const { SLOTS, STATDEF, RARITY } = require('./equipment');
 const { ITEMS, CLASSES, SKILLS, stats } = require('./characters');
 const { BAGMAX } = require('./inventory');
@@ -28,7 +28,7 @@ function createPluginHost({ directory, config, rates, players, mobs, loot, plugi
 
   function makeApi(pluginName) {
     return {
-      name: pluginName, config: config, rates: rates, log: (...a) => console.log('[' + pluginName + ']', ...a), consts: { W, H, CX, CY, VILLAGE, BAGMAX }, MOBTYPES, ITEMS, CLASSES, TIERS, RARITY, STATDEF, SLOTS, NPCS,
+      name: pluginName, config: config, rates: rates, log: (...a) => console.log('[' + pluginName + ']', ...a), consts: { W, H, CX, CY, VILLAGE, BAGMAX, MAX_LEVEL }, MOBTYPES, ITEMS, CLASSES, TIERS, RARITY, STATDEF, SLOTS, NPCS,
       on(ev, handler) { (hooks[ev] = hooks[ev] || []).push({ fn: handler, plugin: pluginName }); },
       command(name, options, handler) { if (typeof options === 'function') { handler = options; options = {}; } commands[String(name).toLowerCase()] = { fn: handler, admin: !!options.admin, help: options.help || '', plugin: pluginName }; },
       addMob(id, definition) { MOBTYPES[id] = Object.assign({ name: id, lvl: 5, hp: 50, dmg: 5, spd: 100, xp: 10, gold: [1, 5], r: 16, aggro: 120, color: '#cccccc' }, definition); return MOBTYPES[id]; },
@@ -49,7 +49,7 @@ function createPluginHost({ directory, config, rates, players, mobs, loot, plugi
       toVillage(p) { placeInVillage(p); p.dest = null; p.target = 0; p.chasingTarget = false; },
       teleportTo(p, target) { p.x = target.x; p.y = target.y; clampWorld(p); p.dest = null; p.target = 0; p.chasingTarget = false; },
       teleport(p, x, y) { const map = mapOf(p); p.x = map.x0 + +x; p.y = map.y0 + +y; clampWorld(p); p.dest = null; p.target = 0; p.chasingTarget = false; },
-      setLevel(p, l) { p.lvl = Math.max(1, Math.min(200, l | 0)); p.xp = 0; const spent = SKILLS.reduce((s, k) => s + p.sk[k], 0) - 1; p.sp = Math.max(0, p.lvl - spent); stats(p); p.hp = p.maxhp; p.mp = p.maxmp; sendInv(p); },
+      setLevel(p, l) { p.lvl = Math.max(1, Math.min(MAX_LEVEL, l | 0)); p.xp = 0; const spent = SKILLS.reduce((s, k) => s + p.sk[k], 0) - 1; p.sp = Math.max(0, p.lvl - spent); stats(p); p.hp = p.maxhp; p.mp = p.maxmp; sendInv(p); },
       effect(x, y, radius, style) { ev('fx', x, y, radius || 60, { s: style || 'buff' }); }, text(x, y, message, kind) { ev(kind || 'xp', x, y, isLocalizedText(message) ? message : String(message)); },
       isAdmin, kick(p) { try { p.c.sock.end(); } catch (e) {} }, data: () => (pluginData[pluginName] = pluginData[pluginName] || {}),
       stats: serverStats,

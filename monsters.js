@@ -71,6 +71,8 @@ const TIERS = [
 ];
 // boss signature attacks (they alternate with a ground slam)
 const SPECIAL = { alphawolf: 'charge', kingslime: 'summon', warlord: 'charge', broodmother: 'summon', boneking: 'summon', ogrechief: 'slam', elderdrake: 'breath', infernal: 'meteor', yetiking: 'charge', frostwyrm: 'breath', voidlord: 'meteor', abyssalwyrm: 'breath', deathlord: 'meteor' };
+// Generated regions go up 10 levels per World Tier with no end, so levels are only limited to keep numbers sane.
+const MAX_LEVEL = 10000;
 const STONE_DMG = [30, 70, 120, 180, 250, 330, 430];
 
 function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick, clampWorld }) {
@@ -85,8 +87,8 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick,
     const baseLevel = template.lvl || Math.round((minZoneLevel + maxZoneLevel) / 2);
     let spawnLevel = baseLevel;
     if (options.level !== undefined) {
-      if (!Number.isInteger(options.level) || options.level < 1 || options.level > 200) {
-        throw new RangeError('Monster level must be an integer from 1 to 200.');
+      if (!Number.isInteger(options.level) || options.level < 1 || options.level > MAX_LEVEL) {
+        throw new RangeError('Monster level must be an integer from 1 to ' + MAX_LEVEL + '.');
       }
       spawnLevel = options.level;
     } else if (!template.stone && (zone.scale || baseLevel < minZoneLevel)) {
@@ -186,4 +188,4 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick,
   return { spawnMob, populateMonsters, populateZone, respawnMonster };
 }
 
-module.exports = { MOBTYPES, TIERS, SPECIAL, STONE_DMG, createMonsterSpawner };
+module.exports = { MAX_LEVEL, MOBTYPES, TIERS, SPECIAL, STONE_DMG, createMonsterSpawner };

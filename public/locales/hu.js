@@ -17,7 +17,7 @@ GameText.addCatalog('hu', {
   "admin.online": "Online: {players}",
   "admin.rates": "Szorzók: {rates}",
   "admin.spawnLevel": " ({level}. szint)",
-  "admin.spawnUsage": "Használat: /spawn <típus> [darab: 1–20] [szint: 1–200]",
+  "admin.spawnUsage": "Használat: /spawn <típus> [darab: 1–20] [szint: 1–{max}]",
   "admin.spawned": "Idézve: {count} × {type}{level}.",
   "admin.stats": "Játékosok: {players} · szörnyek: {mobs} ({awake} aktív) · zsákmány: {loot} · tick: {tickMs} ms (p95 {tickP95}, max. {tickMax}, keret 50) · küldés: {bytesPerSecond} B/s · max./játékos: {peakPlayerBytesPerSecond} B/s · lassú kapcsolatok bontása: {backpressureDisconnects}",
   "admin.teleported": "Teleportálás kész.",

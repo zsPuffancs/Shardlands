@@ -20,8 +20,8 @@ module.exports = { name: 'admin', version: '1.0', init(api) {
     if (!Object.hasOwn(api.MOBTYPES, type)) return api.message("admin.unknownMob", "Unknown mob. Ids: {ids}", { ids: Object.keys(api.MOBTYPES).join(', ') });
     const count = Number(countText), level = levelText === undefined ? undefined : Number(levelText);
     if (!Number.isInteger(count) || count < 1 || count > 20 ||
-        (level !== undefined && (!Number.isInteger(level) || level < 1 || level > 200))) {
-      return api.message("admin.spawnUsage", "Usage: /spawn <type> [count: 1-20] [level: 1-200]");
+        (level !== undefined && (!Number.isInteger(level) || level < 1 || level > api.consts.MAX_LEVEL))) {
+      return api.message("admin.spawnUsage", "Usage: /spawn <type> [count: 1-20] [level: 1-{max}]", { max: api.consts.MAX_LEVEL });
     }
     for (let i = 0; i < count; i++) {
       api.spawn(type, player.x + 60 + Math.random() * 60, player.y + Math.random() * 80 - 40, { temp: true, level });

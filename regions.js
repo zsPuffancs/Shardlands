@@ -35,7 +35,9 @@ function createRegions({ universe, players, populateZone, refreshMobTypes, send,
     return map;
   }
   function openUnlockedRegions() {
-    for (let tier = FOUNDING_TIERS + 1; tier <= universe.state.worldTier; tier++) openRegion(tier);
+    for (let tier = FOUNDING_TIERS + 1; tier <= universe.state.worldTier; tier++) {
+      try { openRegion(tier); } catch (error) { console.error('  Could not open World Tier ' + tier + ' (' + error.message + '). The server starts without it.'); }
+    }
   }
   // A new region opened while people are playing: everyone learns the new monster types and sees the portal.
   function announce() {
