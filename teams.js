@@ -204,7 +204,8 @@ function createTeams({ players, send, say, toast, fire, afterGearChange }) {
   let lastRefresh = 0;
   function tick(now) { if (now - lastRefresh < 1000) return; lastRefresh = now; for (const team of teams.values()) sendTeam(team); }
 
-  return { handlers, chatCommands, onLeave, tick, sameTeam, nearbyMembers, sharesLoot, monsterScale, XP_BONUS_PER_MEMBER };
+  const isItemReserved = (player, uid) => { const trade = trades.get(player.id); return !!trade && trade[tradeSide(trade, player)].uids.includes(uid); };
+  return { isItemReserved, handlers, chatCommands, onLeave, tick, sameTeam, nearbyMembers, sharesLoot, monsterScale, XP_BONUS_PER_MEMBER };
 }
 
 module.exports = { createTeams, TEAM_SIZE };

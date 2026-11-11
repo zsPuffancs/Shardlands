@@ -73,7 +73,7 @@ const regions = createRegions({ ...notifications, universe, players, mobs, spawn
 const saveAll = () => { regions.checkpoint(); return saveGameState(); };
 universe.onTierUnlocked = regions.unlock;
 const equipment = createEquipment({ rates });
-const inventory = createInventory({ ...notifications, genGear: equipment.genGear, rerollGear: equipment.rerollGear, applyAffix: equipment.applyAffix });
+const inventory = createInventory({ ...notifications, genGear: equipment.genGear, rerollGear: equipment.rerollGear, applyAffix: equipment.applyAffix, isItemReserved: (player, uid) => teams.isItemReserved(player, uid), persistPlayer: savePlayer });
 const teams = createTeams({ ...notifications, players, afterGearChange: inventory.afterGearChange });
 setInterval(() => teams.tick(Date.now()), 1000).unref();
 const { gainXp, learnSkill, processLevels } = createProgression({ ...notifications, sendInv: inventory.sendInv });

@@ -1,5 +1,6 @@
 'use strict';
 const { MAX_PLAYER_LEVEL, encounterBaseXp, encounterCategory } = require('./xp-economy');
+const { monsterGoldScaling } = require('./gold-rewards');
 
 const STONE_BASE_LEVEL = 5;
 const STONE_BASE_HEALTH = 6000;
@@ -134,13 +135,13 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick,
     const healthExponent = template.stone ? STONE_HEALTH_EXPONENT : 1.9;
     const healthMultiplier = levelRatio ** healthExponent * (isAlpha ? 5 : 1) * (template.worldBoss ? WORLD_BOSS_HEALTH : 1);
     const damageMultiplier = levelDamageMultiplier * (isAlpha ? 1.6 : 1);
-    const goldMultiplier = levelRatio ** 1.5 * (isAlpha ? 5 : 1);
+    const goldScaling = monsterGoldScaling({ level: spawnLevel, baseLevel, alpha: isAlpha, generated: !!zone.generated });
     if (clampWorld) { const point = { x, y }; clampWorld(point, zone.area); x = point.x; y = point.y; }
     else { x = Math.max(20, Math.min(width - 20, x)); y = Math.max(20, Math.min(height - 20, y)); }
     const monster = {
       id: allocateId(), ty: type, x, y, hx: x, hy: y, sx: x, sy: y, tier, lvl: spawnLevel,
       hb: template.hp * healthMultiplier, dmg: template.dmg * damageMultiplier,
-      xp: encounterBaseXp(spawnLevel, encounterCategory({ alpha: isAlpha }, template)), gm: goldMultiplier, gb: template.gold,
+      xp: encounterBaseXp(spawnLevel, encounterCategory({ alpha: isAlpha }, template)), ...goldScaling, gb: template.gold,
       r: Math.round(template.r * (isAlpha ? 1.3 : 1)), alpha: isAlpha ? 1 : 0,
       boss: Boolean(template.boss), cd: 0, target: 0, dead: 0, stoneStep: 5, slamT: 0,
       slamAt: 0, awake: false, wake: 0,

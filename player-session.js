@@ -134,6 +134,8 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     },
     learn: (player, message) => learnSkill(player, String(message.k)),
     equip: (player, message) => inventory.equipItem(player, message.uid),
+    prepareDestroy: (player, message) => inventory.prepareDestroy(player, message.uid),
+    destroy: (player, message) => inventory.destroyItem(player, message.uid, message.token, message.deliberate),
     unequip: (player, message) => inventory.unequipItem(player, message.slot),
     merge: (player, message) => inventory.doMerge(player, message.uids),
     automerge: (player, message) => inventory.autoMerge(player, message.max),

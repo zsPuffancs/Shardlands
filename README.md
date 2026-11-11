@@ -182,3 +182,11 @@ New frontier descriptors use the independently versioned level-range policy in `
 New generator-v2 frontier regions now have deterministic biome-specific danger fields, protected entry areas, validated safe approaches and optional risky shortcuts. Encounter placement uses the same field without changing monster HP/damage formulas or increasing population budgets. Existing saved geography and v1 worlds are preserved.
 
 After starting `node server.js`, open **http://localhost:3000/dev/atlas** locally (adjust the port if configured). The Atlas provides persisted region selection, isolated seed/tier dry-run previews, zoom/pan, exact danger inspection, toggleable layers, diagnostics, PNG export and JSON validation reports. It never unlocks regions or writes previews to saves. Local-only access is enforced; normal players do not receive the raw seed or internal encounter/danger descriptors. See [docs/DANGER-ATLAS.md](docs/DANGER-ATLAS.md) for operation, algorithms, compatibility, tests and measured limits.
+
+## Monster gold rewards
+
+Generated frontier gold now follows a bounded linear level/cost reference with ±20% variation and exclusive encounter-category multipliers. Founding solo rewards, personal Gold Find, configured gold rates, current party selection and loot ownership are preserved; integer party pools prevent rounding inflation. Prices, item selling and saved balances are unchanged. See [gold policy](docs/GOLD-REWARDS.md) and the [before/after report](docs/GOLD-BALANCE-REPORT.md). Reproduce the report with `node scripts/gold-balance.js --out docs/GOLD-BALANCE-REPORT.md`.
+
+## Inventory search and safe destruction
+
+Inventory now searches all 90 equipment slots and combines rarity/type/level/status filters with stable display sorting before pagination. Sort preferences stay local and the server bag order is unchanged. Use an item's **⋯** menu to request deliberate, server-confirmed single-item destruction; Legendary/Mythic items require an extra acknowledgement and typed confirmation. Existing equip, Ctrl+click locking and Merchant selling remain available. See [Inventory QoL 2.0](docs/INVENTORY-QOL.md) for controls, protection rules, persistence and tests.

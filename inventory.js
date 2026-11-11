@@ -1,4 +1,5 @@
 'use strict';
+const crypto = require('node:crypto');
 
 const { MAX_ITEM_STACK, FORGE_ATTEMPTS_PER_TICK, FORGE_ATTEMPTS_PER_JOB, validAmount, room, credit, canSpend } = require('./safety-limits');
 const { localizedText: messageText, gearText, isLocalizedText } = require('./localized-text');
@@ -14,7 +15,41 @@ const { CLASSES, ITEMS, SKILLS, newSk, stats, defRed, critCh, critMul, goldFind,
 const BAG_PAGE_SIZE = 30;
 const BAGMAX = BAG_PAGE_SIZE * 3;
 
-function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerollGear, applyAffix }) {
+function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerollGear, applyAffix, isItemReserved = () => false, persistPlayer = () => {} }) {
+  const destroyRequests = new WeakMap(), DESTROY_TTL_MS = 30000;
+  const validUid = uid => typeof uid === 'string' && uid.length > 0 && uid.length <= 128 && uid.trim() === uid && !/[\x00-\x1f\x7f]/.test(uid);
+  const itemFingerprint = item => crypto.createHash('sha256').update(JSON.stringify(item)).digest('hex');
+  function destroyFailure(player, uid, key, fallback) { send(player.c, { t: 'destroyResult', uid: typeof uid === 'string' ? uid : null, ok: false, m: messageText(key, fallback) }); return false; }
+  function destroyCandidate(player, uid) {
+    if (!validUid(uid)) return { key: 'inventory.destroyInvalidUid', fallback: 'Invalid item identifier.' };
+    if (player.dead) return { key: 'inventory.destroyDead', fallback: 'You cannot destroy items while dead.' };
+    const items = player.bag.filter(item => item.uid === uid);
+    if (Object.values(player.eq).some(item => item?.uid === uid) || items.length > 1 || items[0]?.lk || isItemReserved(player, uid) || forgeJobs.get(player.id)?.uid === uid) return { key: 'inventory.destroyProtected', fallback: 'This item is equipped, locked or reserved by another operation.' };
+    if (items.length !== 1) return { key: 'inventory.destroyNotFound', fallback: 'This item is no longer in your bag.' };
+    return { item: items[0] };
+  }
+  function prepareDestroy(player, uid) {
+    destroyRequests.delete(player);
+    const candidate = destroyCandidate(player, uid);
+    if (!candidate.item) return destroyFailure(player, uid, candidate.key, candidate.fallback);
+    const token = crypto.randomBytes(18).toString('base64url'), expiresAt = Date.now() + DESTROY_TTL_MS;
+    destroyRequests.set(player, { uid, token, expiresAt, item: candidate.item, fingerprint: itemFingerprint(candidate.item) });
+    send(player.c, { t: 'destroyPreview', uid, token, expiresAt, item: itemView(candidate.item), deliberate: candidate.item.rar >= 4 });
+    return true;
+  }
+  function destroyItem(player, uid, token, deliberate) {
+    const request = destroyRequests.get(player); destroyRequests.delete(player);
+    if (!validUid(uid) || !request || request.uid !== uid || typeof token !== 'string' || token !== request.token || Date.now() >= request.expiresAt) return destroyFailure(player, uid, 'inventory.destroyExpired', 'Confirmation expired. Select the item and confirm again.');
+    const candidate = destroyCandidate(player, uid);
+    if (!candidate.item) return destroyFailure(player, uid, candidate.key, candidate.fallback);
+    const item = candidate.item;
+    if (item !== request.item || itemFingerprint(item) !== request.fingerprint) return destroyFailure(player, uid, 'inventory.destroyChanged', 'The item changed. Inspect it and confirm again.');
+    if (item.rar >= 4 && deliberate !== true) return destroyFailure(player, uid, 'inventory.destroyDeliberate', 'Legendary and Mythic items require the additional confirmation.');
+    player.bag.splice(player.bag.indexOf(item), 1);
+    persistPlayer(player); sendInv(player);
+    send(player.c, { t: 'destroyResult', uid, ok: true, m: messageText('inventory.destroySuccess', 'Permanently destroyed {item}.', { item: gearText(item.name) }) });
+    return true;
+  }
   function sendInv(player) { const eq = {}; for (const slot of SLOTS) eq[slot] = itemView(player.eq[slot]);
     send(player.c, { t: 'inv', bag: player.bag.map(itemView), eq, skb: player.skb || {}, souls: player.souls || 0, gs: Object.assign({}, player.g, { _dmg: Math.round(playerDmg(player)), _dr: Math.round(defRed(player) * 100), _hp: player.maxhp, _mp: player.maxmp, _crit: Math.round(critCh(player) * 100), _cdmg: Math.round(critMul(player) * 100), _ls: Math.round((passive(player, 'lifesteal') + gearLifesteal(player)) * 1000) / 10, _haste: Math.round((1 - (1 - passive(player, 'haste')) * (1 - gearAttackSpeed(player))) * 100), _gf: Math.round(goldFind(player)) }) }); }
   function afterGearChange(player) {
@@ -273,7 +308,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     say(player, messageText("server.bought", "Bought {count} x {item}.", { count, item: messageText('item.' + itemKey + '.name', item.n) }));
   }
 
-  return { processJobs, lockItem, mergeMythics, affixItem, rerollItem, equipItem, unequipItem, sellItem, sellByRarity, buyItem, sendInv, afterGearChange, starterWeapon, addGear, useItem, doMerge, autoMerge, upgradeItem };
+  return { prepareDestroy, destroyItem, processJobs, lockItem, mergeMythics, affixItem, rerollItem, equipItem, unequipItem, sellItem, sellByRarity, buyItem, sendInv, afterGearChange, starterWeapon, addGear, useItem, doMerge, autoMerge, upgradeItem };
 }
 
 module.exports = { BAGMAX, BAG_PAGE_SIZE, createInventory };

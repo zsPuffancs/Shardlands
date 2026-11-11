@@ -5,7 +5,8 @@ const { nearby } = require('./spatial-index');
 const { localizedText: messageText, gearText } = require('./localized-text');
 
 const { clampWorld, rnd, rint, pick } = require('./game-world');
-const { MOBTYPES } = require('./monsters');
+const { MOBTYPES, TIERS } = require('./monsters');
+const { monsterGoldRewards } = require('./gold-rewards');
 const { SLOTS, RARITY } = require('./equipment');
 const { ITEMS, CLASSES, goldFind } = require('./characters');
 
@@ -17,10 +18,11 @@ function createLoot({ loot, players, allocateId, rates, ev, say, toast, broadcas
   // sharers: team members who split the gold (the killer first). Everything else goes to the killer.
   function dropLoot(player, monster, sharers) {
     sharers = sharers && sharers.length ? sharers : [player];
+    sharers = [...new Map(sharers.map(hero => [hero.id, hero])).values()];
     const template = MOBTYPES[monster.ty], boss = !!template.boss, stone = !!template.stone, alpha = !!monster.alpha;
-    const baseGold = rint((monster.gb || template.gold)[0], (monster.gb || template.gold)[1]) * monster.gm * rates.goldRate * (stone ? 1.5 : 1) / sharers.length;
-    for (const hero of sharers) {
-      const gold = positiveAmount(Math.round(baseGold * (1 + goldFind(hero) / 100)));
+    const goldRewards = monsterGoldRewards({ monster, template, generated: !!TIERS[monster.tier]?.generated, rate: rates.goldRate ?? 0, roll: Math.random(), bonuses: sharers.map(goldFind) });
+    for (let index = 0; index < sharers.length; index++) {
+      const hero = sharers[index], gold = goldRewards[index];
       if (gold <= 0) continue;
       // The killer's part drops on the ground as before; team members get theirs straight away.
       if (hero === player) dropAt(monster.x + rnd(-25, 25), monster.y + rnd(-25, 25), { kind: 'gold', v: gold, name: gold + ' gold' }, player.id);
