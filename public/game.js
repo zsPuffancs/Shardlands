@@ -23,10 +23,10 @@ const lookZoneOf = (x, z) => lookIndex(zoneOf(x, z));
 let snapNext = false;
 // Switch to (or refresh) the map this client is on. Positions are always local to the current map.
 function setWorld(world, arrived) {
-  const changed = !WORLD || world.map !== WORLD.map, shape = s => s && JSON.stringify([s.kind, s.style, s.layout, s.built]), rebuilt = !changed && shape(world.settlement) !== shape(WORLD.settlement);
+  const changed = !WORLD || world.map !== WORLD.map, shape = s => s && JSON.stringify([s.kind, s.style, s.layout, s.stalls, s.built]), rebuilt = !changed && shape(world.settlement) !== shape(WORLD.settlement);
   const fundsChanged = !changed && !rebuilt && JSON.stringify(world.settlement && world.settlement.funds) !== JSON.stringify(WORLD.settlement && WORLD.settlement.funds);
   const st = world.settlement || { kind: 'village', style: 'timber', built: {} };
-  world.layout = Settlement.layout(st.kind, st.style, st.built, st.layout);
+  world.layout = Settlement.layout(st.kind, st.style, st.built, st.layout, st.stalls);
   WORLD = world; ZT = world.tiers;
   // A stall was built on this map: redraw the settlement, keep everything else.
   if (rebuilt) { bakeWorld(); buildGround(); if (isOpen('campw')) buildCamp(); }
@@ -334,7 +334,7 @@ function drawWorld(now) {
     if (Math.hypot(cam.x - sN.x, cam.z - sN.y) < 700) burst(anvil.x, 14, anvil.z, 7, [1, .75, .3], 120, .5, 1.2, 1);
   }, 260); }
   if (sN && !drawChar(sm, 'Monk', { h: 68, tint: [1, .92, .85] }, now)) human(sm, { sc: 1.08, kind: 'smith', body: hex('#7a5a3a'), leg: hex('#3a2e24'), skin: hex('#d9a27a'), arm: hex('#d9a27a'), wide: 11, pad: 0 });
-  { const cN = WORLD.npcs.camp; if (cN && Math.hypot(cam.x - cN.x, cam.z - cN.y) < 650) label('npc5', esc(text('npc.camp', NPCNAME.camp)) + (nearNpcK === 'camp' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', cN.x, 50, cN.y, 0, 150); }
+  { const cN = WORLD.npcs.camp; if (cN && Math.hypot(cam.x - cN.x, cam.z - cN.y) < 650) label('npc5', esc(WORLD.settlement && WORLD.settlement.kind === 'village' ? text('npc.villageBoard', '📜 Village board') : text('npc.camp', NPCNAME.camp)) + (nearNpcK === 'camp' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', cN.x, 50, cN.y, 0, 150); }
   { const pN = WORLD.npcs.portal; if (pN && kitOn) { if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc4', esc(text('npc.portal', NPCNAME.portal)) + (nearNpcK === 'portal' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', pN.x, 215, pN.y, 0, 150); }
     else if (pN) { const pu = .9 + Math.sin(now / 260) * .1; D(M.disc, pN.x, 1.2, pN.y, 34, 1, 34, 0, 0, [.12, .05, .25], .6); D(M.ring, pN.x, 2, pN.y, 37 * pu, 1, 37 * pu, -now / 500, 0, [.75, .6, 1], 1);
     for (let i = 0; i < 4; i++) { const k = (now / 1100 + i / 4) % 1, r = 31 * (1 - k * .6); D(M.ring, pN.x, 5 + k * 78, pN.y, r, 1, r, now / 300 + i, 0, [.55, .4, 1], 1, (1 - k) * .9); }

@@ -582,7 +582,9 @@ function buildTrade() {
 // ---------- encampment ----------
 const STALL_NAME = { merchant: "Merchant's stall", smith: "Blacksmith's forge", mystic: "Soul Mystic's tent" }, STALL_NPC = { merchant: 'npc.merchant', smith: 'npc.smith', mystic: 'npc.mystic' };
 function buildCamp() {
-  const st = WORLD && WORLD.settlement; if (!st || st.kind !== 'camp') { $('campb').innerHTML = ''; return; }
+  const st = WORLD && WORLD.settlement; if (!st || !(st.kind === 'camp' || st.stalls)) { $('campb').innerHTML = ''; return; }
+  const village = st.kind === 'village';
+  { const title = document.querySelector('#campw .win-h b span'); if (title) title.textContent = village ? text('npc.villageBoard', '📜 Village board') : text('npc.camp', '🏕 Encampment board'); }
   // Each unbuilt stall shows how much is raised. Heroes can give any part of their gold; the biggest contributor gets the deed.
   const row = k => { const b = st.built[k], cost = st.cost[k], donors = (st.funds && st.funds[k]) || {};
     const name = '<div class="t">' + esc(text('camp.stall.' + k, STALL_NAME[k])) + '<small>';
@@ -590,7 +592,7 @@ function buildCamp() {
     const raised = Object.values(donors).reduce((s, v) => s + v, 0), left = Math.max(0, cost - raised), mine = donors[I.name] || 0;
     const top = Object.keys(donors).sort((a, c) => donors[c] - donors[a])[0];
     const pct = Math.min(100, raised / cost * 100), give = Math.min(left, me.g);
-    return '<div class="row camp-row" style="flex-wrap:wrap">' + name + esc(text('camp.brings', 'Brings the {npc} to this camp', { npc: text(STALL_NPC[k], k) })) + '</small></div>' +
+    return '<div class="row camp-row" style="flex-wrap:wrap">' + name + esc(village ? text('camp.bringsVillage', 'Brings the {npc} to this village', { npc: text(STALL_NPC[k], k) }) : text('camp.brings', 'Brings the {npc} to this camp', { npc: text(STALL_NPC[k], k) })) + '</small></div>' +
       '<b style="color:#ffd24a">' + GameText.number(cost) + 'g</b>' +
       '<div class="camp-fund" style="flex-basis:100%;margin-top:4px">' +
         '<div style="height:8px;border-radius:4px;background:#1a130c;border:1px solid #4a3a2a;overflow:hidden"><div style="height:100%;width:' + pct.toFixed(1) + '%;background:linear-gradient(90deg,#b8862e,#ffd24a)"></div></div>' +
@@ -602,7 +604,7 @@ function buildCamp() {
           '<button class="pri" data-donate="' + k + '"' + (give < 1 ? ' disabled' : '') + '>' + esc(text('camp.give', 'Give')) + '</button>' +
           '<button data-build="' + k + '"' + (me.g < left || left < 1 ? ' disabled' : '') + '>' + esc(text('camp.payRest', 'Pay the rest ({gold}g)', { gold: GameText.number(left) })) + '</button>' +
         '</div></div></div>'; };
-  $('campb').innerHTML = '<div class="mu" style="font-size:0.75rem;margin-bottom:6px">' + esc(text('camp.intro', 'This land is too harsh for a village. Fund a stall and its keeper will stay here for every hero on the server. Heroes can pool their gold: whoever gives the most gets the deed. The first stall founds the encampment, and every stall is written in the Chronicle.')) + '</div>' + Object.keys(STALL_NAME).map(row).join('');
+  $('campb').innerHTML = '<div class="mu" style="font-size:0.75rem;margin-bottom:6px">' + esc(village ? text('camp.villageIntro', 'This village has no traders yet. Fund a stall and its keeper will stay here for every hero on the server. Heroes can pool their gold: whoever gives the most gets the deed, and every stall is written in the Chronicle.') : text('camp.intro', 'This land is too harsh for a village. Fund a stall and its keeper will stay here for every hero on the server. Heroes can pool their gold: whoever gives the most gets the deed. The first stall founds the encampment, and every stall is written in the Chronicle.')) + '</div>' + Object.keys(STALL_NAME).map(row).join('');
 }
 // ---------- world portal ----------
 let PORTAL = null;

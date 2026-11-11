@@ -193,6 +193,7 @@ test('the client renderer draws every layout in every style, and camps and porta
   const cases = [];
   for (const id of Settlement.LAYOUT_IDS) for (const style of STYLES) cases.push({ kind: 'village', style, layout: id, built: {} });
   for (const style of ['ember', 'void']) cases.push({ kind: 'camp', style, built: { merchant: { by: 'a' } } });
+  for (const id of Settlement.LAYOUT_IDS) cases.push({ kind: 'village', style: 'dark', layout: id, built: { smith: { by: 'a' } }, stalls: true }); // without vendors, one bought
   cases.push({ kind: 'none', style: 'timber', built: {} });
   const counts = {};
   for (const settlement of cases) {
@@ -207,4 +208,58 @@ test('the client renderer draws every layout in every style, and camps and porta
   context.WORLD = { CX: 0, CY: 0, settlement: { kind: 'village', style: 'timber', layout: 'grand', built: {} }, npcs: {} };
   const anvil = context.cartPoint('smith', -10, 0), cart = Settlement.layout('village', 'timber', {}, 'grand').carts.find(c => c.key === 'smith');
   assert.ok(Math.hypot(anvil.x - cart.x, anvil.z - cart.y) < 12, 'the anvil sits on the smith cart');
+});
+
+test('villages can spawn without vendors: stalls are bought at the village board, the rest of the village is unchanged', () => {
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  for (const style of ['timber', 'dark']) for (const id of Settlement.LAYOUT_IDS) {
+    const normal = Settlement.layout('village', style, {}, id), empty = Settlement.layout('village', style, {}, id, true), label = id + ':' + style;
+    // normal village: all three vendors and carts, no board
+    assert.deepEqual(Object.keys(normal.npcs).sort(), ['merchant', 'mystic', 'smith']); assert.equal(normal.carts.length, 3); assert.equal(normal.board, undefined);
+    // without vendors: no NPCs or carts, three empty sites where the carts go, a board; nothing else changes
+    assert.deepEqual(empty.npcs, {}, label); assert.equal(empty.carts.length, 0); assert.equal(empty.stallSites.length, 3);
+    for (const site of empty.stallSites) { const cart = normal.carts.find(c => c.key === site.key); assert.ok(cart && site.x === cart.x && site.y === cart.y && site.yaw === cart.yaw); }
+    for (const key of ['houses', 'props', 'roads', 'wall', 'portal', 'npcSpots', 'safe', 'arrival']) assert.ok(same(empty[key], normal[key]), label + ' keeps ' + key);
+    assert.equal(empty.obstacles.length, normal.obstacles.length - 3, label + ' only the carts are gone');
+    // the board stands on the plaza, clear of everything and of the walk from the portal to every NPC spot
+    const b = { type: 'circle', x: empty.board.x, y: empty.board.y, r: 14 };
+    assert.ok(Math.hypot(b.x, b.y) < empty.plazaR, label + ' board on the plaza');
+    for (const o of empty.obstacles) assert.ok(!Settlement.overlaps(b, o), label + ' board clear');
+    for (const n of Object.values(empty.npcSpots)) for (let t = .3; t <= 1; t += .05) assert.ok(Math.hypot(n.x * t - b.x, n.y * t - b.y) > 24, label + ' board off the NPC paths');
+    // buying the Merchant's stall brings exactly the normal Merchant and cart back
+    const one = Settlement.layout('village', style, { merchant: { by: 'Ann' } }, id, true);
+    assert.deepEqual(Object.keys(one.npcs), ['merchant']); assert.ok(same(one.carts, normal.carts.filter(c => c.key === 'merchant')));
+    assert.ok(same(one.obstacles.find(o => o.key === 'merchant'), normal.obstacles.find(o => o.key === 'merchant')));
+    // all three bought: the same as a normal village (plus the board)
+    const all = Settlement.layout('village', style, { merchant: { by: 'a' }, smith: { by: 'b' }, mystic: { by: 'c' } }, id, true);
+    assert.ok(same(all.carts, normal.carts) && same(all.obstacles, normal.obstacles) && same(all.npcs, normal.npcs), label + ' fully bought');
+  }
+  assert.equal(Settlement.UNSTAFFED_VILLAGE_CHANCE, 0.25);
+});
+
+test('server: a village without vendors offers the board, NPCs appear only when bought, the roll is stored once', () => {
+  const map = world.addMap(6, { tier: 12, regionTier: 13 });
+  world.setSettlement(map, { kind: 'village', style: 'dark', built: {}, layout: 'citadel', stalls: true });
+  for (const key of Settlement.VENDORS) assert.equal(world.npcAvailable(map, key), false);
+  assert.equal(world.npcAvailable(map, 'camp'), true);
+  const board = world.boardPosition(map), lay = world.layoutOf(map);
+  assert.ok(Math.abs(board.x - map.cx - lay.board.x) < 1e-6 && Math.abs(board.y - map.cy - lay.board.y) < 1e-6);
+  assert.ok(world.nearNpc({ x: board.x + 20, y: board.y }, 'camp'));
+  world.setSettlement(map, { kind: 'village', style: 'dark', built: { smith: { by: 'Ann' } }, layout: 'citadel', stalls: true });
+  assert.equal(world.npcAvailable(map, 'smith'), true); assert.equal(world.npcAvailable(map, 'merchant'), false);
+  const normal = world.addMap(7, { tier: 13, regionTier: 14 });
+  world.setSettlement(normal, { kind: 'village', style: 'dark', built: {}, layout: 'citadel', stalls: false });
+  for (const key of Settlement.VENDORS) assert.equal(world.npcAvailable(normal, key), true);
+  assert.equal(world.npcAvailable(normal, 'camp'), false);
+  { const a = world.npcPosition(map, 'smith'), b = world.npcPosition(normal, 'smith'); assert.ok(Math.abs(a.x - map.cx - (b.x - normal.cx)) < 1e-6 && Math.abs(a.y - map.cy - (b.y - normal.cy)) < 1e-6, 'normal position'); }
+  // universe: new villages roll about 25% without vendors, deterministic and stored; old saves and the founding village keep theirs
+  const { createUniverse } = require('../universe');
+  const universe = createUniverse({ store: { data: {}, save: async () => {} }, config: { worldSeed: 'VENDOR-TEST', generatorVersion: 2 }, broadcast: () => {}, messageText: () => '', isAdmin: () => false });
+  universe.state.worldTier = 400;
+  let villages = 0, empty = 0;
+  for (let tier = 8; tier < 400; tier++) { const s = universe.settlement(tier); if (s.kind !== 'village') { assert.equal(s.stalls, undefined, 'camps and portal sites unchanged'); continue; } villages++; if (s.stalls) empty++; assert.equal(typeof s.stalls, 'boolean'); assert.equal(universe.settlement(tier).stalls, s.stalls); }
+  assert.ok(villages > 150 && Math.abs(empty / villages - 0.25) < 0.08, empty + ' of ' + villages);
+  assert.equal(universe.settlement(1).stalls, false);
+  universe.state.settlements['500'] = { kind: 'village', style: 'snow', built: {}, layout: 'fortress' }; universe.state.worldTier = 500;
+  assert.equal(universe.settlement(500).stalls, false, 'older saves keep their vendors');
 });

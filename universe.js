@@ -182,11 +182,18 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
     const key = tier > FOUNDING_TIERS ? String(tier) : 'founding';
     if (!state.settlements[key]) {
       if (tier <= FOUNDING_TIERS) state.settlements[key] = { kind: 'village', style: 'timber', built: {} };
-      else { const region = regionFor(tier); state.settlements[key] = { ...Settlement.choose(region.biome, tier, seededRandom(state.seed, 'settlement', tier)), built: {} }; }
+      else {
+        const region = regionFor(tier), record = { ...Settlement.choose(region.biome, tier, seededRandom(state.seed, 'settlement', tier)), built: {} };
+        // A new village rolls once whether it starts without vendors (their stalls are bought at the village board).
+        if (record.kind === 'village') record.stalls = seededRandom(state.seed, 'settlement-vendors', tier)() < Settlement.UNSTAFFED_VILLAGE_CHANCE;
+        state.settlements[key] = record;
+      }
       persist();
     }
     // Villages keep the layout they were given (older saves get one now, from a stream of their own).
     const record = state.settlements[key];
+    // Villages saved before the vendor roll existed keep their vendors, and so does the founding village.
+    if (record.kind === 'village' && record.stalls === undefined) { record.stalls = false; persist(); }
     if (record.kind === 'village' && !Settlement.LAYOUT_IDS.includes(record.layout)) {
       record.layout = tier <= FOUNDING_TIERS ? 'grand' : Settlement.chooseLayout(record.style, seededRandom(state.seed, 'settlement-layout', tier));
       persist();

@@ -19,7 +19,7 @@ const VENDOR_COLOR = { merchant: [.85, .7, .2], smith: [.42, .42, .46], mystic: 
 
 // The layout of this map, made on demand (the login screen bakes the world before setWorld runs).
 function settlementLayout() {
-  if (!WORLD.layout) { const s = WORLD.settlement || { kind: 'village', style: 'timber', built: {} }; WORLD.layout = Settlement.layout(s.kind, s.style, s.built, s.layout); }
+  if (!WORLD.layout) { const s = WORLD.settlement || { kind: 'village', style: 'timber', built: {} }; WORLD.layout = Settlement.layout(s.kind, s.style, s.built, s.layout, s.stalls); }
   return WORLD.layout;
 }
 // Materials: the style's, darkened and made more solemn for the Ancient Citadel.
@@ -189,6 +189,15 @@ function bakeSettlement(B, R) {
     }
     if (!kit) { lay.houses.forEach(building); lay.carts.forEach(cart); }
     lay.props.forEach((p, i) => { if (!kit || KIT_LEAVES.has(p.type)) prop(p, i); });
+    // a village without vendors: roped-off sites where the unbought stalls will stand, and the stall board
+    for (const s of lay.stallSites || []) { const [x, z] = P(s.x, s.y), at = turn(x, z, s.yaw);
+      for (const [lx, lz] of [[-22, -11], [22, -11], [22, 11], [-22, 11]]) { const q = at(lx, lz); B(M.trunk, q[0], 0, q[1], 1.6, 14, 1.6, 0, 0, [.45, .35, .22]); }
+      for (const [lx, lz, w2, d2] of [[0, -11, 44, .6], [0, 11, 44, .6], [-22, 0, .6, 22], [22, 0, .6, 22]]) { const q = at(lx, lz); B(M.box, q[0], 11, q[1], w2, .6, d2, s.yaw, 0, [.85, .75, .5]); }
+      const q = at(0, 16); B(M.box, q[0], 8, q[1], 10, 7, 1, s.yaw, 0, [.9, .85, .6]); }
+    if (lay.board) { const [bx, bz] = P(lay.board.x, lay.board.y), yaw = Math.atan2(-lay.board.x, -lay.board.y), at = turn(bx, bz, yaw);
+      for (const sd of [-1, 1]) { const q = at(sd * 10, 0); B(M.trunk, q[0], 0, q[1], 2, 34, 2, 0, 0, wood); }
+      B(M.box, bx, 24, bz, 26, 16, 1.6, yaw, 0, [.5, .38, .22]); B(M.gable, bx, 33, bz, 30, 5, 6, yaw, 0, st.roofs[0]);
+      for (const [dx, dy] of [[-6, 3], [5, -2], [-2, -4]]) { const q = at(dx, 1); B(M.box, q[0], 24 + dy, q[1], 6, 4.5, .4, yaw, 0, [.92, .88, .75]); } }
     // curved paths (Crescent) and stepping stones (Wildwood Haven)
     for (const path of lay.paths || []) for (let a = path.from; a < path.to; a += 14 / path.r) B(M.cyl, CX + Math.cos(a) * path.r, -.2, CY + Math.sin(a) * path.r, 7, 1, 5, a, 0, st.pave);
     if (lay.steppingStones) for (const road of lay.roads) for (let d = lay.plazaR + 8; d < lay.wall.inner; d += 13) for (const sd of [-.45, .45]) { const x = CX + Math.cos(road.angle) * d - Math.sin(road.angle) * sd * road.half, z = CY + Math.sin(road.angle) * d + Math.cos(road.angle) * sd * road.half; B(M.cyl, x, -.1, z, 5 + (d % 3), 1, 4.5, d, 0, st.stone); }

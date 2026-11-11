@@ -4,7 +4,7 @@
 const { buildRegionPlan, frontierZone } = require('./region-blueprint');
 const { createEncounterRuntime } = require('./encounter-runtime');
 const { MOBTYPES, TIERS, SPECIAL, WORLD_BOSS_SIZE } = require('./monsters');
-const { maps, addMap, mapOf, nearNpc, npcPosition, placeInVillage, worldInfo, REGION_SAFE_RADIUS, setSettlement } = require('./game-world');
+const { maps, addMap, mapOf, nearNpc, npcPosition, placeInVillage, worldInfo, REGION_SAFE_RADIUS, setSettlement, boardPosition } = require('./game-world');
 const Settlement = require('./public/settlement');
 const { localizedText: messageText } = require('./localized-text');
 const { mobTypesForClient } = require('./snapshots');
@@ -86,11 +86,12 @@ function createRegions({ universe, players, mobs, spawnMob, config = {}, populat
     const portal = npcPosition(destination, 'portal'); ev('fx', portal.x, portal.y, 70, { s: 'summon' });
   }
   // Encampments: on fire and void maps players pay for each stall; the first one founds the camp.
+  // Villages that spawned without vendors (record.stalls) use the same stalls, prices and funding.
   // Anyone can give part of their gold towards a stall. When the total reaches the cost the stall is built,
   // and the biggest contributor gets the deed (on a tie, whoever reached that amount first).
   function buildStall(player, key, requested) {
     const map = mapOf(player), record = map.settlement;
-    if (player.dead || !record || record.kind !== 'camp' || !Object.hasOwn(Settlement.STALL_COST, key)) return;
+    if (player.dead || !record || !(record.kind === 'camp' || (record.kind === 'village' && record.stalls)) || !Object.hasOwn(Settlement.STALL_COST, key)) return;
     if (!nearNpc(player, 'camp')) return say(player, messageText('server.campBoardFar', 'Walk up to the encampment board to build.'));
     if (record.built[key]) return say(player, messageText('server.stallBuilt', 'That stall is already built.'));
     const cost = Settlement.STALL_COST[key];
@@ -103,7 +104,7 @@ function createRegions({ universe, players, mobs, spawnMob, config = {}, populat
     if (!(amount > 0)) return say(player, messageText('server.stallNoGold', 'You have no gold to give.'));
     player.gold -= amount;
     fund.donors[player.name] = (fund.donors[player.name] || 0) + amount; fund.reached[player.name] = Date.now();
-    const region = universe.regionFor(map.regionTier), board = { x: map.cx + Settlement.CAMP_BOARD.x, y: map.cy + Settlement.CAMP_BOARD.y };
+    const region = universe.regionFor(map.regionTier), board = boardPosition(map);
     if (amount < remaining) {
       universe.save();
       say(player, messageText('server.stallDonated', 'You gave {gold} gold towards the {stall}. {left} gold still needed.', { gold: amount, stall: Settlement.STALL_NAMES[key], stallKey: key, left: remaining - amount }));
@@ -112,7 +113,7 @@ function createRegions({ universe, players, mobs, spawnMob, config = {}, populat
       return;
     }
     const donors = Object.keys(fund.donors).sort((a, b) => fund.donors[b] - fund.donors[a] || fund.reached[a] - fund.reached[b]);
-    const owner = donors[0], first = !Object.keys(record.built).length;
+    const owner = donors[0], first = record.kind === 'camp' && !Object.keys(record.built).length;
     record.built[key] = { by: owner, at: Date.now(), gold: fund.donors[owner], donors: donors.length };
     delete record.funds[key];
     setSettlement(map, record);

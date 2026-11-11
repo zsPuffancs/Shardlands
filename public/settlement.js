@@ -38,6 +38,9 @@
   // On an encampment the stalls are built by players. The board stands near the fire.
   const CAMP_BOARD = { x: 62, y: -48 };
   const STALL_COST = { merchant: 250000, smith: 400000, mystic: 400000 };
+  // Chance that a generated village starts without its vendors: the Merchant, Blacksmith and Soul Mystic then
+  // come only when heroes buy their stalls at the village board (the encampment stall system, same prices).
+  const UNSTAFFED_VILLAGE_CHANCE = 0.25;
   const STALL_NAMES = { merchant: "Merchant's stall", smith: "Blacksmith's forge", mystic: "Soul Mystic's tent" };
   const VENDORS = ['merchant', 'smith', 'mystic'];
 
@@ -341,7 +344,27 @@
     }
     return out;
   }
-  function layout(kind, style, built, layoutId) {
+  // A village without vendors: only the bought stalls (and their NPCs and carts) stand; the others are empty sites,
+  // and a stall board on the plaza takes the purchases. Buildings, walls, roads and the portal are untouched.
+  function villageBoard(base) {
+    const npcAngles = Object.values(base.npcSpots).map(n => n.angle);
+    for (const a of [Math.PI / 4, -Math.PI / 4, Math.PI * 3 / 4, -Math.PI * 3 / 4, Math.PI / 8, -Math.PI / 8, Math.PI * 7 / 8, -Math.PI * 7 / 8]) {
+      if (npcAngles.some(n => angleDiff(a, n) < 0.5) || GATES.some(g => angleDiff(a, g) < 0.35)) continue;
+      return polar(a, 78);
+    }
+    return polar(Math.PI / 4, 78);
+  }
+  function unstaffed(out, built) {
+    const missing = new Set(VENDORS.filter(k => !built[k]));
+    out.npcs = Object.fromEntries(VENDORS.filter(k => !missing.has(k)).map(k => [k, true]));
+    out.stallSites = out.carts.filter(c => missing.has(c.key)).map(c => ({ ...c, site: true }));
+    out.carts = out.carts.filter(c => !missing.has(c.key));
+    out.obstacles = out.obstacles.filter(o => !(o.key && missing.has(o.key)));
+    out.board = villageBoard(out); out.stalls = true;
+    return out;
+  }
+  // stalls: true for a village that spawned without vendors (see UNSTAFFED_VILLAGE_CHANCE).
+  function layout(kind, style, built, layoutId, stalls) {
     built = built || {};
     let out;
     if (kind === 'village') {
@@ -350,6 +373,7 @@
       const base = cache.get(id);
       out = { ...base, style, npcs: { ...base.npcs } };
       if (KIT_STYLES.includes(style)) out.obstacles = kitObstacles(base);
+      if (stalls) unstaffed(out, built);
     } else if (kind === 'camp') out = { ...campLayout(built), style };
     else out = { ...noneLayout(), style };
     // Quick reject for collision: nothing to bump into beyond this distance from the centre.
@@ -426,7 +450,7 @@
   // Compatibility: the founding village's NPC spots (Grand Circle).
   const NPC_OFFSETS = Object.fromEntries(VENDORS.map(k => { const s = layout('village', 'timber', {}, 'grand').npcSpots[k]; return [k, { x: s.x, y: s.y }]; }));
 
-  return { KIT_STYLES, KIT_STATION, KIT_PORTAL_FEET, VILLAGE_SCALE, DIM, NPC_OFFSETS, PORTAL, PORTAL_OFFSET, CAMP_BOARD, STALL_COST, STALL_NAMES, SAFE_RADIUS, WALL, GATES, VENDORS, LAYOUT_IDS, LAYOUT_NAMES, LAYOUT_WEIGHTS,
+  return { UNSTAFFED_VILLAGE_CHANCE, KIT_STYLES, KIT_STATION, KIT_PORTAL_FEET, VILLAGE_SCALE, DIM, NPC_OFFSETS, PORTAL, PORTAL_OFFSET, CAMP_BOARD, STALL_COST, STALL_NAMES, SAFE_RADIUS, WALL, GATES, VENDORS, LAYOUT_IDS, LAYOUT_NAMES, LAYOUT_WEIGHTS,
     debugLayout: id => { DEBUG = true; try { return LAYOUTS[id](); } finally { DEBUG = false; } },
     layout, chooseLayout, arrivalPoint, collide, choose, overlaps, faceCentre, gateOpen, buildWall };
 }));
