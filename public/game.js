@@ -394,14 +394,14 @@ function faceAttackTarget(entity, event, now) {
 }
 function onEvent(f) {
   const now = performance.now(), E = f.a && (I && f.a === I.id ? S : ents.get(f.a));
-  if (f.k === 'warn') { fxWarn(f); if (E) { E.atkT = now + 500; E.skill = true; } return; }
+  if (f.k === 'warn') { fxWarn(f); if (E) { E.atkT = now + 500; E.skill = true; } castWarning(f); return; }
   if (f.k === 'slam') { fxSlam(f); return; }
   if (f.k === 'fx') { if (E && I.classes[f.s]) { E.atkT = now; E.skill = true; faceAttackTarget(E, f, now); } fxSkill(f, E); return; }
   if (f.k === 'atk') { if (E) { E.atkT = now; E.skill = false; faceAttackTarget(E, f, now); } fxAttack(f, E); return; }
   if (f.k === 'die') { const t = I.types[f.v], c = hex(t ? t.c : '#cccccc'), big = t && (t.boss || f.b); burst(f.x, 18, f.y, big ? 70 : 22, c, 200, 1.1, 2.2, .25, 560); addRing(f.x, f.y, 4, big ? 80 : 40, big ? [1, .7, .3] : [.85, .85, .85], 500, 14, .2); sfx(big ? 'boss' : 'die', f.x, f.y); return; }
   if (f.k === 'hurt') {
     const A = f.a && ents.get(f.a); if (A) { A.atkT = now; A.skill = false; A.yaw = Math.atan2(f.x - A.rx, f.y - A.ry); fxClaw(f.x, f.y, A.yaw); }
-    if (me && f.combatPlayerId === I.id) { S.flash = now; hurtFlash(f.v > me.mh * .15); cam.shake = Math.min(7, 2 + f.v / Math.max(1, me.mh) * 40); sfx('hurt'); } else sfx('hurt', f.x, f.y);
+    if (me && f.combatPlayerId === I.id) { S.flash = now; hurtFlash(f.v > me.mh * .15); cam.shake = document.body.classList.contains('reduce-motion') ? 0 : Math.min(7, 2 + f.v / Math.max(1, me.mh) * 40); sfx('hurt'); } else sfx('hurt', f.x, f.y);
     burst(f.x, 30, f.y, 6, [.9, .15, .1], 120, .5, 1.8, .3);
   }
   if (f.k === 'dmg') { burst(f.x, 24, f.y, f.c ? 12 : 5, f.c ? [1, .8, .2] : [1, 1, .9], f.c ? 190 : 110, .45, 1.7, .9); sfx(f.c ? 'crit' : 'hit', f.x, f.y); }
@@ -414,12 +414,22 @@ function onEvent(f) {
   const style = f.k === 'dmg' && f.c ? 'critical' : FLOATER_STYLE[f.k];
   if (!style || floaters.length > 60) return;
   const isDamage = f.k === 'dmg' || f.k === 'hurt';
+  // Shapes as well as colours: ✦ crit, − damage taken, + healing and mana. Other heroes' hits are smaller.
+  let message = f.text || f.v;
+  if (typeof f.v === 'number' && !f.text) {
+    const n = GameText.number(Math.round(f.v));
+    message = f.k === 'dmg' ? (f.c ? '✦ ' + n + '!' : n) : f.k === 'hurt' ? '−' + n : f.k === 'heal' || f.k === 'mana' ? '+' + n : message;
+  } else if (f.k === 'heal' && typeof f.v === 'string') message = f.v + ' ♥';
+  const mine = !I || !f.combatPlayerId || f.combatPlayerId === I.id;
+  // Numbers that appear at the same spot at the same moment stack upwards instead of covering each other.
+  let lift = 0;
+  if (isDamage) for (const other of floaters) if (other.isDamage && now - other.t0 < 450 && Math.abs(other.x - f.x) < 50 && Math.abs(other.z - f.y) < 50) lift++;
   const el = document.createElement('div');
-  el.className = 'ft';
-  GameText.present(el, { message: f.text || f.v, style, color: f.k === 'loot' ? RC_CSS[f.r || 0] : f.k === 'souls' ? '#c9a0ff' : undefined });
+  el.className = 'ft' + (f.k === 'hurt' ? ' ft--hurt' : '') + (f.k === 'heal' || f.k === 'mana' ? ' ft--restore' : '') + (!mine && f.k === 'dmg' ? ' ft--other' : '');
+  GameText.present(el, { message, style, color: f.k === 'loot' ? RC_CSS[f.r || 0] : f.k === 'souls' ? '#c9a0ff' : undefined });
   $('floaters').appendChild(el);
   floaters.push({
-    el, isDamage, x: f.x + (isDamage ? (Math.random() - .5) * 24 : 0), z: f.y,
+    el, isDamage, lift: Math.min(5, lift) * 18, x: f.x + (isDamage ? (Math.random() - .5) * 24 : 0), z: f.y,
     h: isDamage ? 38 : 56, t0: now, life: f.k === 'loot' || f.k === 'lvl' || f.k === 'souls' ? 1600 : 950,
   });
 }
@@ -532,11 +542,8 @@ addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     e.preventDefault();
     if (e.repeat) return;
-    if (isOpen('setw')) closeWin('setw');
-    else {
-      closeAll();
-      openWin('setw');
-    }
+    // Close the topmost window, prompt or tooltip. Settings open with O or the gear button.
+    uxEscape();
     return;
   }
   if (e.target && e.target.tagName === 'INPUT' && e.target.type !== 'checkbox' && e.target.type !== 'range') return;
@@ -747,11 +754,11 @@ function drawFx(now) {
 function updateFloaters(now) {
   for (let i = floaters.length - 1; i >= 0; i--) {
     const f = floaters[i], a = (now - f.t0) / f.life; if (a >= 1) { f.el.remove(); floaters.splice(i, 1); continue; }
-    const p = GL.project(f.x, f.h + a * 40, f.z); if (!p) { f.el.style.display = 'none'; continue; }
+    const p = GL.project(f.x, f.h + a * (document.body.classList.contains('reduce-motion') ? 10 : 40), f.z); if (!p) { f.el.style.display = 'none'; continue; }
     f.el.style.display = 'block';
     f.el.style.opacity = a < .7 ? 1 : 1 - (a - .7) / .3;
     const x = (p.x - (f.isDamage ? 0 : 20)) | 0;
-    f.el.style.transform = 'translate(' + x + 'px,' + ((p.y - 10) | 0) + 'px)' + (f.isDamage ? ' translateX(-50%)' : '');
+    f.el.style.transform = 'translate(' + x + 'px,' + ((p.y - 10 - (f.lift || 0)) | 0) + 'px)' + (f.isDamage ? ' translateX(-50%)' : '');
   }
 }
 function drawMini() {
@@ -767,13 +774,23 @@ function drawMini() {
   }
   g.fillStyle = '#9a8a66'; g.beginPath(); g.arc(px(WORLD.CX), py(WORLD.CY), WORLD.V * scale, 0, Math.PI * 2); g.fill();
   function dot(x, y, color, radius) { g.fillStyle = color; g.beginPath(); g.arc(px(x), py(y), radius, 0, Math.PI * 2); g.fill(); }
+  // Important markers get their own shape and a dark outline, so they read without relying on colour (see the map legend).
+  function mark(x, y, shape, color, r) {
+    const X = px(x), Y = py(y); g.fillStyle = color; g.strokeStyle = '#120d08'; g.lineWidth = 1.5; g.beginPath();
+    if (shape === 'diamond') { g.moveTo(X, Y - r); g.lineTo(X + r, Y); g.lineTo(X, Y + r); g.lineTo(X - r, Y); g.closePath(); }
+    else if (shape === 'square') g.rect(X - r * .8, Y - r * .8, r * 1.6, r * 1.6);
+    else if (shape === 'triangle') { g.moveTo(X, Y - r); g.lineTo(X + r, Y + r * .8); g.lineTo(X - r, Y + r * .8); g.closePath(); }
+    else g.arc(X, Y, r, 0, Math.PI * 2);
+    if (shape === 'ring') { g.lineWidth = 3; g.strokeStyle = color; g.stroke(); g.lineWidth = 1; g.strokeStyle = '#120d08'; g.stroke(); return; }
+    g.fill(); g.stroke();
+  }
   for (const monster of mo) {
     const type = I.types[monster.ty]; if (!type) continue;
-    dot(monster.x, monster.y, type.boss ? '#ff4949' : type.st ? '#cf9aff' : monster.al ? '#ffac42' : '#d6c69c', type.boss ? 5 : type.st ? 3.5 : 2);
+    if (type.boss) mark(monster.x, monster.y, 'diamond', type.wb ? '#ffd24a' : '#ff4949', type.wb ? 7 : 5.5); else if (type.st) mark(monster.x, monster.y, 'square', '#cf9aff', 4); else if (monster.al) mark(monster.x, monster.y, 'triangle', '#ffac42', 3.5); else dot(monster.x, monster.y, '#d6c69c', 2);
   }
   for (const drop of lo) if (drop.k === 'gear' && drop.r >= 2) dot(drop.x, drop.y, '#ffd24a', 2);
-  for (const other of pl) dot(other.x, other.y, '#55cfff', 3);
-  for (const [key, npc] of Object.entries(WORLD.npcs)) dot(npc.x, npc.y, key === 'portal' ? '#ba85ff' : '#ffe292', key === 'portal' ? 4 : 3);
+  for (const other of pl) mark(other.x, other.y, 'circle', '#55cfff', 3.5);
+  for (const [key, npc] of Object.entries(WORLD.npcs)) mark(npc.x, npc.y, key === 'portal' ? 'ring' : 'circle', key === 'portal' ? '#ba85ff' : '#ffe292', key === 'portal' ? 5 : 3);
   g.save(); g.translate(c, c); g.rotate(-S.yaw + Math.PI); g.fillStyle = '#fff'; g.strokeStyle = '#211a12'; g.lineWidth = 2;
   g.beginPath(); g.moveTo(0, -9); g.lineTo(6, 7); g.lineTo(0, 4); g.lineTo(-6, 7); g.closePath(); g.fill(); g.stroke(); g.restore();
   g.font = 'bold 16px sans-serif'; g.textAlign = 'center'; g.fillStyle = '#fff0bd'; g.fillText('N', c, 20);

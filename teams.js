@@ -135,7 +135,7 @@ function createTeams({ players, send, say, toast, fire, afterGearChange }) {
     const trade = trades.get(player.id); if (!trade) return;
     const mine = trade[tradeSide(trade, player)];
     const wanted = Array.isArray(uids) ? [...new Set(uids.map(String))].slice(0, TRADE_ITEMS) : [];
-    mine.uids = wanted.filter(uid => player.bag.some(item => item.uid === uid));
+    mine.uids = wanted.filter(uid => player.bag.some(item => item.uid === uid && !item.lk));
     mine.gold = Math.max(0, Math.min(player.gold, Math.floor(Number(gold) || 0), MAX_GOLD));
     trade.a.ok = false; trade.b.ok = false;
     sendTrade(trade);

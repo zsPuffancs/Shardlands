@@ -63,6 +63,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
   function doMerge(player, uids) {
     if (player.dead || !Array.isArray(uids) || uids.length < 2 || uids.length > 15 || new Set(uids).size !== uids.length) return;
     const items = uids.map(u => player.bag.find(i => i.uid === u)); if (items.some(i => !i)) return;
+    if (items.some(i => i.lk)) return say(player, messageText('server.itemLocked', 'Locked items are protected. Unlock them first (Ctrl+click).'));
     if (items.some(i => i.rar !== items[0].rar)) return say(player, messageText("server.mergeRarity", "Pick items of the same rarity (colour) to merge."));
     if (items[0].rar >= MYTHIC) return say(player, messageText("server.mergeMythic", "Mythic items are the highest tier and cannot be merged."));
     const need = MERGE_COST[items[0].rar];
@@ -75,7 +76,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
   function autoMerge(player, maxRarity) {
     if (player.dead) return; maxRarity = Math.max(0, Math.min(MYTHIC - 1, maxRarity | 0)); let n = 0, used = 0, best = null;
     for (let r = 0; r <= maxRarity; r++) for (;;) {
-      const need = MERGE_COST[r], g = player.bag.filter(i => i.rar === r).sort((a, b) => a.ilvl - b.ilvl); if (g.length < need) break;
+      const need = MERGE_COST[r], g = player.bag.filter(i => i.rar === r && !i.lk).sort((a, b) => a.ilvl - b.ilvl); if (g.length < need) break;
       const result = mergeItems(player, g.slice(0, need)); n++; used += need; if (!best || result.rar > best.rar) best = result;
     }
     if (!n) return say(player, messageText("server.nothingToMergeCounts", "Nothing to merge: you need 2 Common, 3 Uncommon, 4 Rare, 5 Epic or 15 Legendary items of the same rarity."));
@@ -142,12 +143,21 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     afterGearChange(player);
   }
 
+  // Locked items cannot be sold, merged, fused or traded until they are unlocked.
+  function lockItem(player, uid) {
+    let item = player.bag.find(i => i.uid === uid) || null;
+    for (const slot of SLOTS) if (!item && player.eq[slot] && player.eq[slot].uid === uid) item = player.eq[slot];
+    if (!item) return;
+    if (item.lk) delete item.lk; else item.lk = 1;
+    sendInv(player);
+  }
   // Blacksmith: three unwanted Mythics from the bag become one random Mythic at their average item level.
   function mergeMythics(player, uids) {
     const reply = (message, extra) => send(player.c, { t: 'mythicMerge', m: message, ...extra });
     if (player.dead || !Array.isArray(uids) || uids.length !== MYTHIC_MERGE_COUNT || new Set(uids).size !== uids.length) return;
     if (!nearNpc(player, 'smith')) return reply(messageText('server.mythicMergeAtSmith', 'Only the Blacksmith can fuse Mythic items.'));
     const items = uids.map(uid => player.bag.find(item => item.uid === uid));
+    if (items.some(item => item && item.lk)) return reply(messageText('server.itemLocked', 'Locked items are protected. Unlock them first (Ctrl+click).'));
     if (items.some(item => !item || item.rar !== MYTHIC)) return reply(messageText('server.mythicMergeOnly', 'Pick {count} Mythic items from your bag.', { count: MYTHIC_MERGE_COUNT }));
     if (player.gold < MYTHIC_MERGE_GOLD) return reply(messageText('server.mythicMergeGold', 'Fusing Mythics costs {gold} gold.', { gold: MYTHIC_MERGE_GOLD }));
     player.gold -= MYTHIC_MERGE_GOLD;
@@ -204,6 +214,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     if (!nearNpc(player, 'merchant')) return say(player, messageText("server.sellAtMerchant", "Sell items to the Merchant in the village."));
     const index = player.bag.findIndex(item => item.uid === itemId);
     if (index < 0) return;
+    if (player.bag[index].lk) return say(player, messageText('server.itemLocked', 'Locked items are protected. Unlock them first (Ctrl+click).'));
     const value = sellValue(player.bag[index]);
     player.gold += value;
     player.bag.splice(index, 1);
@@ -216,7 +227,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     const maxRarity = Math.max(0, Math.min(4, rarity | 0));
     let total = 0, soldCount = 0;
     player.bag = player.bag.filter(item => {
-      if (!(item.rar <= maxRarity)) return true;
+      if (!(item.rar <= maxRarity) || item.lk) return true;
       total += sellValue(item);
       soldCount++;
       return false;
@@ -237,7 +248,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     say(player, messageText("server.bought", "Bought {count} x {item}.", { count, item: messageText('item.' + itemKey + '.name', item.n) }));
   }
 
-  return { mergeMythics, affixItem, rerollItem, equipItem, unequipItem, sellItem, sellByRarity, buyItem, sendInv, afterGearChange, starterWeapon, addGear, useItem, doMerge, autoMerge, upgradeItem };
+  return { lockItem, mergeMythics, affixItem, rerollItem, equipItem, unequipItem, sellItem, sellByRarity, buyItem, sendInv, afterGearChange, starterWeapon, addGear, useItem, doMerge, autoMerge, upgradeItem };
 }
 
 module.exports = { BAGMAX, BAG_PAGE_SIZE, createInventory };

@@ -94,6 +94,14 @@ Only team members can trade. Press **Trade** next to a member (or `/trade name`)
 
 Choose English or Hungarian on the login screen or in Settings → Graphics. Text follows the game window size, and the text-size slider lets you adjust it further from 85% to 130%. Both settings are saved in the browser. See PLUGINS.md for adding a locale.
 
+## Interface tips
+- **Esc** closes the topmost window, prompt or tooltip. Settings open with **O** or ⚙.
+- **Hover** an item for its stats and a short verdict against what you wear; hold **Shift** for each stat's change and possible range.
+- **Ctrl+click** an item to lock it: locked items cannot be sold, merged or traded. Merges and sales that use Epic or better items ask first.
+- The **?** on the minimap shows what the markers mean; **🗺** shows the current region, World Tier and region modifiers.
+- Settings → Graphics: rarity letters on items, reduce motion, show the tutorial again, reset window positions. Dragged windows keep their place.
+See `docs/UI-AUDIT.md` for the full list.
+
 ## Controls (all rebindable in Settings → Key bindings, except movement)
 Click: move / attack / loot / talk · Space: attack the selected monster in reach or pick the nearest one in reach · WASD walk · right-drag or ←→ camera · wheel zoom · 1-3 skills · Q/E/R/T potions & return scroll
 F talk · I inventory · K skills · Y team · H chronicle · O settings · G graphics quality · P fps · M mute · Enter chat (/help) · Esc close windows.

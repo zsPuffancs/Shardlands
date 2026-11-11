@@ -147,6 +147,7 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     travel: (player, message) => regions.travel(player, message.map),
     team: (player, message) => teams.handlers.team(player, message),
     trade: (player, message) => teams.handlers.trade(player, message),
+    lock: (player, message) => inventory.lockItem(player, String(message.uid || '')),
     mythicMerge: (player, message) => inventory.mergeMythics(player, message.uids),
     affix: (player, message) => inventory.affixItem(player, String(message.uid || ''), String(message.k || '')),
     reroll: (player, message) => inventory.rerollItem(player, String(message.uid || '')),

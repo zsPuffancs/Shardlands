@@ -171,3 +171,53 @@ kbd { border: 4px solid transparent; border-image: url(ui/keycap.png) 12 fill / 
 #mapwrap #mini { position: absolute; inset: 5%; width: 90%; height: 90%; margin: 0; }
 #zname { white-space: normal; overflow-wrap: anywhere; }
 #mapbtns { display: flex; justify-content: center; flex-wrap: wrap; gap: 2px; }
+
+/* ---------- UX layer (ux.js) ---------- */
+/* item slots: rarity letter and lock */
+.slot .rmark { display: none; position: absolute; left: 3px; top: 1px; font-size: 0.625rem; font-weight: 800; color: #fff; text-shadow: 0 0 2px #000, 0 1px 2px #000; pointer-events: none; }
+body.rarity-marks .slot .rmark { display: block; }
+.slot .lockmark { position: absolute; right: 2px; top: 1px; font-size: 0.625rem; font-style: normal; pointer-events: none; }
+.slot.locked { box-shadow: inset 0 0 0 2px rgba(255, 176, 74, .55); }
+#tip .cmpsum { margin-top: 4px; font-size: 0.75rem; display: flex; gap: 6px; flex-wrap: wrap; }
+#tip { max-height: calc(100vh - 16px); overflow: hidden; }
+/* combat numbers */
+.ft--hurt { color: #ff5a4a !important; }
+.ft--restore { font-weight: 800; }
+.ft--other { opacity: .7; font-size: calc(clamp(15px, 2vmin, 26px) * var(--ui-text-scale)) !important; }
+/* confirmation and tutorial */
+#uxconfirm { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, .45); z-index: 1000; }
+#uxconfirm .panel { max-width: min(420px, calc(100vw - 32px)); padding: 16px 18px; }
+#uxconfirm p { margin: 0 0 12px; line-height: 1.45; }
+.row2 { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+#tutorial { position: fixed; left: 50%; bottom: 168px; transform: translateX(-50%); width: min(460px, calc(100vw - 32px)); padding: 14px 16px; display: none; z-index: 950; }
+#tutorial .tut-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+#tutorial #tut-title { font-size: 1rem; color: #ffd77a; }
+#tutorial p { margin: 8px 0 12px; line-height: 1.5; font-size: 0.875rem; }
+/* boss cast warning */
+#castwarn { position: fixed; left: 50%; top: 74px; transform: translateX(-50%); display: none; padding: 4px 12px; border-radius: 6px; background: rgba(120, 10, 4, .85); border: 1px solid #ff6a4a; color: #fff; font-weight: 800; font-size: 0.875rem; z-index: 30; pointer-events: none; white-space: nowrap; }
+/* minimap legend */
+#mapwrap { position: relative; }
+#maplegend-btn { position: absolute; right: 2px; bottom: 2px; width: 22px; height: 22px; padding: 0; border-radius: 50%; font-weight: 800; font-size: 0.75rem; z-index: 2; }
+#maplegend { display: none; margin: 6px 4px 0; font-size: 0.6875rem; columns: 2; column-gap: 8px; }
+#maplegend div { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; break-inside: avoid; }
+.lg { display: inline-block; width: 9px; height: 9px; background: var(--c); border: 1px solid #120d08; flex-shrink: 0; }
+.lg.circle, .lg.dot { border-radius: 50%; } .lg.dot { width: 6px; height: 6px; margin: 0 1.5px; }
+.lg.ring { border-radius: 50%; background: transparent; border: 2.5px solid var(--c); }
+.lg.diamond { transform: rotate(45deg) scale(.85); }
+.lg.triangle { background: transparent; border: 0; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid var(--c); }
+/* world information */
+.wi-list { margin: 4px 0 0; padding-left: 18px; font-size: 0.75rem; line-height: 1.5; }
+.wi-list.planned { opacity: .7; }
+.badge-planned { font-size: 0.625rem; text-transform: none; letter-spacing: 0; padding: 1px 6px; border-radius: 8px; border: 1px dashed #9fb4c8; color: #9fb4c8; margin-left: 4px; }
+/* reduced motion */
+body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+/* small screens: shrink the fixed HUD pieces so they do not meet */
+@media (max-height: 700px), (max-width: 1100px) {
+  #pframe { transform: scale(.85); transform-origin: top left; }
+  #mapbox { transform: scale(.85); transform-origin: top right; }
+  #actionbar { transform: translateX(-50%) scale(.85); transform-origin: bottom center; }
+  #chat { transform: scale(.9); transform-origin: bottom left; }
+  #tutorial { bottom: 130px; }
+}
+.howto { margin: 6px 0 4px; font-size: 0.75rem; } .howto summary { cursor: pointer; color: #ffd77a; } .howto p { margin: 4px 0 0; line-height: 1.45; }
+#actionbar { z-index: 19; }
