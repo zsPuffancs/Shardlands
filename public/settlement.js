@@ -29,7 +29,7 @@
   // the portal's two monoliths, the full vendor station around each cart, and the gate towers beside each road.
   const KIT_STYLES = ['dark'];
   const KIT_STATION = Object.freeze({ w: 82, d: 26 });
-  const KIT_PORTAL_FEET = Object.freeze([{ x: -46, y: 0, r: 13 }, { x: 46, y: 0, r: 13 }]);
+  const KIT_PORTAL_FEET = Object.freeze([{ x: -46, y: 0, r: 13 }, { x: 46, y: 0, r: 13 }, { x: 0, y: -40, r: 12 }, { x: 0, y: 40, r: 12 }]); // two crossed gates
   // Kept for compatibility: the classic circular wall description.
   const WALL = { r: DIM.wallR, thickness: DIM.wallThickness, gateHalfWidth: DIM.gateHalfWidth };
   const GATES = [0, Math.PI / 2, Math.PI, Math.PI * 1.5];        // east, south, west, north: the world's four roads

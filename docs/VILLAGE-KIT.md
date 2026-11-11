@@ -22,14 +22,14 @@ chunk; GLB loading is only used for skinned characters. The kit uses the same in
   the kit draws the glow and a little smoke there.
 - Flat ground work (plaza paving, streets, terraces, pond, stairs) stays baked by `village.js`.
 
-Totals for the whole kit: 38 assets, 177 meshes, about 10,800 triangles, built once. A Grand Circle village is about
+Totals for the whole kit: 38 assets, 178 meshes, about 11,700 triangles, built once. A Grand Circle village is about
 800 instances in about 126 instanced draw calls, plus about 70 small lights.
 
 ## Assets
 
 | Group | Assets (`VillageKit.RECIPES`) |
 |---|---|
-| Portal | `portal`: stepped octagonal dais with rune inlays, two leaning rune monoliths, a pointed arch of carved blocks, a floating keystone crystal, layered violet energy panes, drifting glyphs and rune stones. About 195 tall. |
+| Portal | `portal`: stepped octagonal dais with rune inlays and two crossed gates (east-west and north-south), each with two leaning rune monoliths, a pointed arch of carved blocks and layered violet energy panes; a floating crown crystal, drifting glyphs and rune stones. About 200 tall, readable from every road. |
 | Vendor stations | `cartMerchant` + `stationMerchant` (covered wagon with crates and sacks; crates, barrels, sign with a coin mark, a table); `cartSmith` + `stationSmith` (flatbed with a chest and a weapon rack; anvil on a stump, quench tub, forge brazier with a hood); `cartMystic` + `stationMystic` (caravan with charms, bones and candles; candle altar with a rune circle, crystal pylon). |
 | Houses | `houseCottage` (timber frame, steep slate gable, chimney, porch lantern), `houseStone` (rough stone, hip roof, side chimney, arched door, moss), `houseTown` (stone ground floor, jettied timber upper floor, dormer), `houseTower` (stone base, octagonal timber floor, spire), `houseChapel` (buttressed gothic hall, bell tower with a spire, glowing pointed windows). |
 | Structures | `wall` (24-unit module with merlons), `tower`, `gateTower`, `gateArch` (scaled to the gate, raised portcullis, banner), `marketStall`, `well`, `forge` (open smithy shed), `lantern`, `brazier`. |
@@ -48,7 +48,7 @@ with gate towers and arches on the four roads. A deterministic scatter adds 40-5
 are never placed on roads, doorsteps, the plaza, near NPCs or in solid things, and have no collision.
 
 Collision for the kit's larger solid pieces lives in `settlement.js` (so server and client agree), only for kit styles:
-the two portal monoliths, the full vendor station (82 x 26) and the gate towers. The station's space is reserved in
+the four portal monoliths, the full vendor station (82 x 26) and the gate towers. The station's space is reserved in
 every style, so a layout is the same whatever its style.
 
 ## Adding the other biome styles

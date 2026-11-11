@@ -30,7 +30,7 @@ test('the portal is at the exact centre, on a clear plaza, for every kind of set
     // only the kit portal's own two monoliths stand on the dais
     const feet = Settlement.KIT_STYLES.includes(lay.style) ? Settlement.KIT_PORTAL_FEET : [];
     for (const o of lay.obstacles) if (!feet.some(f => o.type === 'circle' && o.x === f.x && o.y === f.y)) assert.ok(!Settlement.overlaps({ type: 'circle', x: 0, y: 0, r: 52 }, o), id + ': nothing solid on the portal dais');
-    for (const f of feet) assert.ok(Math.abs(f.y) < 1e-9 && Math.abs(Math.abs(f.x) - 46) < 1e-9, 'monoliths flank the portal east and west');
+    for (const f of feet) assert.ok((Math.abs(f.x) < 1e-9) !== (Math.abs(f.y) < 1e-9) && Math.hypot(f.x, f.y) <= 46, 'monoliths stand on the portal axes');
   }
   for (const kind of ['camp', 'none']) assert.deepEqual(Settlement.layout(kind, 'ember', { merchant: { by: 'a' } }).portal, { x: 0, y: 0 });
   const map = world.addMap(3, { tier: 9, regionTier: 10 });

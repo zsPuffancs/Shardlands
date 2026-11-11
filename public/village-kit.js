@@ -109,11 +109,12 @@ const VillageKit = (() => {
         const top = T([0, h, 0]), bot = T([0, 0, 0]), tris = []; for (let i = 0; i < n; i++) { const j = (i + 1) % n; tris.push([ring[i], ring[j], top], [ring[j], ring[i], bot]); } piece(mat, tris);
       },
       // a stone arc in the x-y plane (portal and gate arches): centre (cx, cy), from angle a0 to a1, thickness t (radial), depth d (z)
-      arc(mat, { cx = 0, cy = 0, z = 0, r, t, d, a0, a1, n = 8, jitter = 0, pointed = 0 }) {
+      arc(mat, { cx = 0, cy = 0, z = 0, r, t, d, a0, a1, n = 8, jitter = 0, pointed = 0, yaw = 0 }) {
+        const Y = xform({ yaw });
         for (let i = 0; i < n; i++) {
           const ang = k => a0 + (a1 - a0) * k / n, pt = (a, rr, zz) => { const pk = pointed * Math.sin(a) ** 6; return [cx + Math.cos(a) * rr * (1 - pk * .25), cy + Math.sin(a) * rr * (1 + pk), zz]; };
           const A0 = ang(i), A1 = ang(i + 1), jj = () => J(jitter);
-          hexa(mat, [pt(A0, r - t / 2, -d / 2), pt(A1, r - t / 2, -d / 2), pt(A1, r + t / 2 + jj(), -d / 2), pt(A0, r + t / 2, -d / 2), pt(A0, r - t / 2, d / 2), pt(A1, r - t / 2, d / 2), pt(A1, r + t / 2 + jj(), d / 2), pt(A0, r + t / 2, d / 2)].map(p => [p[0], p[1], p[2] + z]));
+          hexa(mat, [pt(A0, r - t / 2, -d / 2), pt(A1, r - t / 2, -d / 2), pt(A1, r + t / 2 + jj(), -d / 2), pt(A0, r + t / 2, -d / 2), pt(A0, r - t / 2, d / 2), pt(A1, r - t / 2, d / 2), pt(A1, r + t / 2 + jj(), d / 2), pt(A0, r + t / 2, d / 2)].map(p => Y([p[0], p[1], p[2] + z])));
         }
       },
       panel, piece, hexa, quad,
@@ -149,29 +150,33 @@ const VillageKit = (() => {
     const A = Asset('portal'), anchors = { lights: [], energy: [] };
     A.cyl('stoneDark', { r0: 62, r1: 60, h: 3, n: 8, a0: Math.PI / 8 }); A.cyl('stone', { y: 3, r0: 54, r1: 52, h: 3.5, n: 8, a0: Math.PI / 8 }); A.cyl('stoneLight', { y: 6.5, r0: 45, r1: 44, h: 2.5, n: 8, a0: Math.PI / 8 });
     for (let k = 0; k < 8; k++) { const a = Math.PI / 8 + k * Math.PI / 4, x = Math.cos(a) * 49, z = Math.sin(a) * 49; A.box('rune', { x, y: 6.4, z, w: 9, h: .4, d: 2, yaw: Math.PI / 2 - a }); }
-    // the two monoliths, weathered and leaning in a touch, with glowing rune channels on their inner faces
-    for (const s of [-1, 1]) {
-      A.box('stoneDark', { x: s * 46, y: 9, z: 0, w: 24, h: 10, d: 24, jitter: .6 });
-      A.box('stone', { x: s * 46, y: 19, z: 0, w: 17, h: 104, d: 18, taper: .78, jitter: 1, roll: -s * .02 });
-      A.box('stoneLight', { x: s * 45, y: 123, z: 0, w: 20, h: 6, d: 21, jitter: .5 });
-      for (let k = 0; k < 5; k++) A.box('rune', { x: s * 38.6, y: 32 + k * 17, z: (k % 2 ? 2 : -2), w: .8, h: 9, d: 2.4 });
-      A.crystal('rune', { x: s * 46, y: 129, z: 0, r: 3.4, h: 16, n: 4 });
-      for (const t of [-1, 1]) A.box('stoneDark', { x: s * 52, y: 9, z: t * 9, w: 6, h: 30, d: 6, taper: .6, jitter: .4, roll: s * .12 }); // buttress spurs
-    }
-    // pointed arch of carved blocks, with a floating keystone
-    A.arc('stone', { cx: 0, cy: 126, r: 46, t: 13, d: 16, a0: 0, a1: Math.PI, n: 10, jitter: .8, pointed: .55 });
-    A.arc('stoneDark', { cx: 0, cy: 126, r: 37, t: 3, d: 18, a0: .08, a1: Math.PI - .08, n: 10, pointed: .55 });
-    A.crystal('energyCore', { y: 190, r: 4.5, h: 18, n: 5 });
-    // the held energy: an inner pointed pane on both faces, a brighter core, and spiral fragments
-    const shape = []; for (let i = 0; i <= 14; i++) { const a = i / 14 * Math.PI, pk = .55 * Math.sin(a) ** 6; shape.push([Math.cos(a) * 34 * (1 - pk * .25), 126 + Math.sin(a) * 34 * (1 + pk), 0]); }
-    shape.push([-34, 14, 0], [34, 14, 0]);
-    const pane = (mat, k, z) => { const pts = shape.map(p => [p[0] * k, 14 + (p[1] - 14) * k, z]); A.panel(mat, pts, [0, 0, 1]); A.panel(mat, pts.slice().reverse(), [0, 0, -1]); };
-    pane('energy', 1, 0); pane('energyMid', .7, .5); pane('energyMid', .7, -.5); pane('energyCore', .34, 1); pane('energyCore', .34, -1);
-    for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2; A.box('energyCore', { x: Math.cos(a) * 18, y: 70 + Math.sin(a) * 36, z: (k % 2 ? 1.6 : -1.6), w: 2.6, h: 8, d: .3, roll: a }); } // drifting glyphs
-    for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; A.crystal('rune', { x: Math.cos(a) * 58, y: 40 + (k % 3) * 22, z: Math.sin(a) * 20, r: 2.2, h: 8, n: 4, roll: .4 }); }
+    // Two crossed gates (east-west, and a smaller north-south one): rune monoliths, a pointed arch and the held energy.
+    const gate = (yaw, k, half) => {
+      const T = xform({ yaw }), at = (x, y, z) => T([x, y, z]);
+      for (const s of [-1, 1]) {
+        let q = at(s * half, 0, 0); A.box('stoneDark', { x: q[0], y: 9, z: q[2], w: 24 * k, h: 10, d: 24 * k, yaw, jitter: .6 });
+        A.box('stone', { x: q[0], y: 19, z: q[2], w: 17 * k, h: 104 * k, d: 18 * k, taper: .78, jitter: 1, roll: -s * .02, yaw });
+        q = at(s * (half - 1), 0, 0); A.box('stoneLight', { x: q[0], y: 19 + 104 * k, z: q[2], w: 20 * k, h: 6, d: 21 * k, jitter: .5, yaw });
+        for (let n = 0; n < 5; n++) { q = at(s * (half - 7.4 * k), 0, n % 2 ? 2 : -2); A.box('rune', { x: q[0], y: 32 + n * 17 * k, z: q[2], w: .8, h: 9 * k, d: 2.4, yaw }); }
+        q = at(s * half, 0, 0); A.crystal('rune', { x: q[0], y: 25 + 104 * k, z: q[2], r: 3.4, h: 16, n: 4 });
+        for (const t of [-1, 1]) { q = at(s * (half + 6), 0, t * 9 * k); A.box('stoneDark', { x: q[0], y: 9, z: q[2], w: 6, h: 30 * k, d: 6, taper: .6, jitter: .4, roll: s * .12, yaw }); }
+      }
+      const top = 19 + 104 * k + 3, r = half, inner = half - 12;
+      A.arc('stone', { cx: 0, cy: top, r, t: 13 * k, d: 16 * k, a0: 0, a1: Math.PI, n: 10, jitter: .8, pointed: .55, yaw });
+      A.arc('stoneDark', { cx: 0, cy: top, r: half - 9, t: 3, d: 18 * k, a0: .08, a1: Math.PI - .08, n: 10, pointed: .55, yaw });
+      const shape = []; for (let i = 0; i <= 14; i++) { const a = i / 14 * Math.PI, pk = .55 * Math.sin(a) ** 6; shape.push([Math.cos(a) * inner * (1 - pk * .25), top + Math.sin(a) * inner * (1 + pk), 0]); }
+      shape.push([-inner, 14, 0], [inner, 14, 0]);
+      const n = T([0, 0, 1]), pane = (mat, s2, z) => { const pts = shape.map(p => T([p[0] * s2, 14 + (p[1] - 14) * s2, z])); A.panel(mat, pts, n); A.panel(mat, pts.slice().reverse(), n.map(v => -v)); };
+      pane('energy', 1, 0); pane('energyMid', .7, .5); pane('energyMid', .7, -.5); pane('energyCore', .34, 1); pane('energyCore', .34, -1);
+      for (let g = 0; g < 7; g++) { const a = g / 7 * Math.PI * 2, q = at(Math.cos(a) * inner * .5, 0, g % 2 ? 1.6 : -1.6); A.box('energyCore', { x: q[0], y: 70 * k + Math.sin(a) * 36 * k, z: q[2], w: 2.6, h: 8, d: .3, roll: a, yaw }); }
+      return top + half * 1.55;
+    };
+    const peak = gate(0, 1, 46); gate(Math.PI / 2, .86, 40);
+    A.crystal('energyCore', { y: peak + 2, r: 4.5, h: 18, n: 5 });
+    for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2 + .5; A.crystal('rune', { x: Math.cos(a) * 60, y: 40 + (k % 3) * 22, z: Math.sin(a) * 60, r: 2.2, h: 8, n: 4, roll: .4 }); }
     // small rune stones around the dais
     for (let k = 0; k < 4; k++) { const a = Math.PI / 4 + k * Math.PI / 2, x = Math.cos(a) * 56, z = Math.sin(a) * 56; A.box('stone', { x, y: 0, z, w: 6, h: 16, d: 5, yaw: Math.PI / 2 - a, taper: .7, jitter: .5 }); A.box('rune', { x: x * 1.01, y: 9, z: z * 1.01, w: 2, h: 3, d: 5.4, yaw: Math.PI / 2 - a }); }
-    anchors.lights.push([-46, 136, 0, 'rune'], [46, 136, 0, 'rune'], [0, 70, 0, 'energy']);
+    anchors.lights.push([-46, 136, 0, 'rune'], [46, 136, 0, 'rune'], [0, 120, 40, 'rune'], [0, 120, -40, 'rune'], [0, 70, 0, 'energy']);
     return { ...A.done(), anchors, footprint: 62 };
   };
 
