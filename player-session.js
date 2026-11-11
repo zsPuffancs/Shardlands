@@ -10,7 +10,7 @@ const { CLASSES, ITEMS, MAXRANK, PMAX, PASSIVE_EFFECT, newSk, stats } = require(
 const { SLOTS, STATDEF, UP_RATE, RARITY, AFFIXES, AFFIX_SLOTS, AFFIX_COST, MYTHIC_MERGE_COUNT, MYTHIC_MERGE_GOLD, sanitize } = require('./equipment');
 const { BAGMAX, BAG_PAGE_SIZE } = require('./inventory');
 
-function createPlayerSessions({ config, players, mobs, saves, allocateId, refreshMobTypes, universe, regions, teams, send, say, broadcast, fire, commands, skill, learnSkill, inventory, savePlayer }) {
+function createPlayerSessions({ config, players, mobs, saves, allocateId, refreshMobTypes, universe, regions, teams, send, say, broadcast, fire, commands, skill, learnSkill, inventory, savePlayer, resyncUi }) {
   const isAdminName = name => config.admins.some(a => String(a).toLowerCase() === name.toLowerCase());
   const isAdmin = player => Boolean(player.ph && isAdminName(player.name));
   const clamp1 = v => Math.max(-1, Math.min(1, +v || 0));
@@ -63,6 +63,10 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     connection.mapIndex = mapOf(player).index;
     connection.mobDeltas = message.mobDeltas === true;
     connection.meDeltas = message.meDeltas === true;
+    connection.stateDeltas = message.stateDeltas === true;
+    connection.listDeltas = message.listDeltas === true;
+    connection.mobFieldDeltas = message.mobFieldDeltas === true;
+    connection.uiDeltas = message.uiDeltas === true;
     players.set(player.id, player);
     const { types: typeList } = refreshMobTypes();
     const types = mobTypesForClient(MOBTYPES);
@@ -131,6 +135,12 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     unequip: (player, message) => inventory.unequipItem(player, message.slot),
     merge: (player, message) => inventory.doMerge(player, message.uids),
     automerge: (player, message) => inventory.autoMerge(player, message.max),
+    uiSync(player, message) {
+      if (!['inv', 'team', 'trade', 'universe'].includes(message.channel)) return;
+      const times = player.c.uiSyncTimes || (player.c.uiSyncTimes = {}), now = Date.now();
+      if (now - (times[message.channel] || 0) < 1000) return;
+      times[message.channel] = now; resyncUi?.(player.c, message.channel);
+    },
     universe: player => send(player.c, { t: 'universe', u: universe.summary() }),
     portal: player => send(player.c, regions.portalList(player)),
     travel: (player, message) => regions.travel(player, message.map),

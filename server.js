@@ -1,6 +1,7 @@
 'use strict';
 // Shardlands entry point. Compose game services and manage the server lifecycle.
 const path = require('node:path');
+const { createSender } = require('./public/state-delta');
 const { IndexedEntities } = require('./spatial-index');
 const { withLocalizedText, localizedText } = require('./localized-text');
 const { loadServerConfig } = require('./server-config');
@@ -46,7 +47,7 @@ function drainEvents() {
 function broadcast(message) {
   for (const player of players.values()) send(player.c, message);
 }
-const send = (connection, message) => transport.send(connection, withLocalizedText(message, 'm'));
+const send = createSender((connection, message) => transport.send(connection, withLocalizedText(message, 'm')));
 const say = (player, message) => send(player.c, { t: 'msg', m: message });
 const toast = (player, message, color) => send(player.c, { t: 'toast', m: message, c: color });
 // The universe chronicle listens to the same game events as plugins, and hears them first.
@@ -63,11 +64,12 @@ const universe = createUniverse({
 attachUniverse(universe.identity);
 // The World Boss of each founding zone is chosen by the seed; make those bosses bigger and tougher.
 for (let tier = 1; tier <= TIERS.length; tier++) markWorldBoss(universe.regionFor(tier).worldBoss.type);
-const { savePlayer, saveAll } = createGameSaves({ players, saveStore, pluginStore, extraStores: [universeStore] });
+const { savePlayer, saveAll: saveGameState } = createGameSaves({ players, saveStore, pluginStore, extraStores: [universeStore] });
 const { spawnMob, populateMonsters, populateZone, respawnMonster } = createMonsterSpawner({
   mobs, rates, world: { width: W, height: H, centerX: CX, centerY: CY }, allocateId, rnd, rint, pick, clampWorld,
 });
-const regions = createRegions({ ...notifications, universe, players, populateZone, refreshMobTypes });
+const regions = createRegions({ ...notifications, universe, players, mobs, spawnMob, config, populateZone, refreshMobTypes });
+const saveAll = () => { regions.checkpoint(); return saveGameState(); };
 universe.onTierUnlocked = regions.unlock;
 const equipment = createEquipment({ rates });
 const inventory = createInventory({ ...notifications, genGear: equipment.genGear, rerollGear: equipment.rerollGear, applyAffix: equipment.applyAffix });
@@ -82,14 +84,14 @@ const combat = createCombat({
   ...notifications, players, mobs, rates, spawnMob, gainXp, dropLoot: lootService.dropLoot,
 });
 const publishSnapshots = createSnapshotPublisher({
-  mobs, loot, drainEvents, refreshMobTypes, send, canSend: connection => transport.canSend(connection),
+  players, mobs, loot, drainEvents, refreshMobTypes, send, canSend: connection => transport.canSend(connection),
 });
 const simulation = createSimulation({
   ...notifications, ...combat, players, mobs, loot, rates, respawnMonster, publishSnapshots,
-  pickupTick: lootService.pickupTick, getTransportStats: () => transport.stats(),
+  updateEncounters: regions.tick, pickupTick: lootService.pickupTick, getTransportStats: () => transport.stats(),
 });
 const pluginHost = createPluginHost({
-  ...notifications, ...inventory, directory: __dirname, config, rates, players, mobs, loot,
+  ...notifications, ...inventory, directory: __dirname, config, generatorVersion: universe.state.generatorVersion, rates, players, mobs, loot,
   pluginData: pluginStore.data, getNextId: () => nextEntityId,
   eventCount: () => events.length, truncateEvents: count => { events.length = count; },
   genGear: equipment.genGear, dropAt: lootService.dropAt, spawnMob, gainXp,
@@ -97,6 +99,7 @@ const pluginHost = createPluginHost({
 });
 const sessions = createPlayerSessions({
   ...notifications, inventory, config, players, mobs, saves: saveStore.data, allocateId,
+  resyncUi: (connection, channel) => send.resync(connection, channel),
   refreshMobTypes, universe, regions, teams, commands: pluginHost.commands, skill: combat.skill, learnSkill, savePlayer,
 });
 const { server, transport } = createWebServer({
@@ -109,7 +112,8 @@ console.log('\n  ' + config.serverName.toUpperCase());
 console.log('  Universe: ' + universe.state.name + ' (seed ' + universe.state.seed + ', World Tier ' + universe.state.worldTier + ')' + (universe.founded ? ' - newly founded' : ''));
 pluginHost.loadPlugins();
 for (const [name, command] of Object.entries(teams.chatCommands)) if (!pluginHost.commands[name]) pluginHost.commands[name] = { fn: command.fn, admin: false, help: command.help };
-populateMonsters(universe.layoutRandom('spawns'));
+if (universe.state.generatorVersion === 1) populateMonsters(universe.layoutRandom('spawns'));
+else console.log('  Generator v2: encounters activate around players within bounded live budgets.');
 regions.openUnlockedRegions();
 if (maps.length > 1) console.log('  World Portal open: ' + (maps.length - 1) + ' region(s) beyond the founding lands');
 if (universe.founded) universeStore.save().catch(error => console.error(error));

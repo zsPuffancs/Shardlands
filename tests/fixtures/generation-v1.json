@@ -1,0 +1,431 @@
+[
+  {
+    "seed": "compat-alpha",
+    "regions": [
+      {
+        "tier": 1,
+        "kind": "founding",
+        "playable": true,
+        "name": "Whispering Meadows",
+        "levels": [
+          1,
+          6
+        ],
+        "element": "beast",
+        "worldBoss": {
+          "type": "kingslime",
+          "name": "King Slime"
+        },
+        "generatorVersion": 1
+      },
+      {
+        "tier": 3,
+        "kind": "founding",
+        "playable": true,
+        "name": "Ashen Barrens",
+        "levels": [
+          15,
+          22
+        ],
+        "element": "war",
+        "worldBoss": {
+          "type": "ogrechief",
+          "name": "Ogre Chieftain"
+        },
+        "generatorVersion": 1
+      },
+      {
+        "tier": 7,
+        "kind": "founding",
+        "playable": true,
+        "name": "Death Zone",
+        "levels": [
+          50,
+          60
+        ],
+        "element": "void",
+        "worldBoss": {
+          "type": "deathlord",
+          "name": "Lord of Death"
+        },
+        "generatorVersion": 1
+      },
+      {
+        "tier": 8,
+        "kind": "frontier",
+        "playable": false,
+        "biome": "voidscar",
+        "element": "void",
+        "name": "Balorkar Rift",
+        "levels": [
+          60,
+          70
+        ],
+        "families": [
+          "shade",
+          "voidweaver",
+          "voidknight"
+        ],
+        "stones": 26,
+        "modifiers": [
+          "long-nights"
+        ],
+        "worldBoss": {
+          "type": "wb8",
+          "archetype": "abyssalwyrm",
+          "name": "Balavyn Voidheart",
+          "signature": "breath"
+        },
+        "generatorVersion": 1
+      },
+      {
+        "tier": 20,
+        "kind": "frontier",
+        "playable": false,
+        "biome": "voidscar",
+        "element": "void",
+        "name": "Eldozul Voidscar",
+        "levels": [
+          180,
+          190
+        ],
+        "families": [
+          "voidweaver",
+          "voidknight",
+          "shade"
+        ],
+        "stones": 40,
+        "modifiers": [
+          "twin-stones",
+          "restless-dead",
+          "long-nights"
+        ],
+        "worldBoss": {
+          "type": "wb20",
+          "archetype": "abyssalwyrm",
+          "name": "Vororos the Hollow",
+          "signature": "breath"
+        },
+        "generatorVersion": 1
+      },
+      {
+        "tier": 1000,
+        "kind": "frontier",
+        "playable": false,
+        "biome": "voidscar",
+        "element": "void",
+        "name": "Urorlis Abyss",
+        "levels": [
+          9980,
+          9990
+        ],
+        "families": [
+          "voidweaver",
+          "voidknight",
+          "shade"
+        ],
+        "stones": 40,
+        "modifiers": [
+          "rich-veins",
+          "armored-elites",
+          "twin-stones"
+        ],
+        "worldBoss": {
+          "type": "wb1000",
+          "archetype": "abyssalwyrm",
+          "name": "Kaelegath the Hollow",
+          "signature": "breath"
+        },
+        "generatorVersion": 1
+      }
+    ],
+    "count": 3390,
+    "layoutSha256": "9e642b19c2f1b264a8217935212dff569086709bd41fb655350db776f5cc6b15"
+  },
+  {
+    "seed": "compat-beta",
+    "regions": [
+      {
+        "tier": 1,
+        "kind": "founding",
+        "playable": true,
+        "name": "Whispering Meadows",
+        "levels": [
+          1,
+          6
+        ],
+        "element": "beast",
+        "worldBoss": {
+          "type": "alphawolf",
+          "name": "Alpha Wolf"
+        },
+        "generatorVersion": 1
+      },
+      {
+        "tier": 3,
+        "kind": "founding",
+        "playable": true,
+        "name": "Ashen Barrens",
+        "levels": [
+          15,
+          22
+        ],
+        "element": "war",
+        "worldBoss": {
+          "type": "ogrechief",
+          "name": "Ogre Chieftain"
+        },
+        "generatorVersion": 1
+      },
+      {
+        "tier": 7,
+        "kind": "founding",
+        "playable": true,
+        "name": "Death Zone",
+        "levels": [
+          50,
+          60
+        ],
+        "element": "void",
+        "worldBoss": {
+          "type": "deathlord",
+          "name": "Lord of Death"
+        },
+        "generatorVersion": 1
+      },
+      {
+        "tier": 8,
+        "kind": "frontier",
+        "playable": false,
+        "biome": "voidscar",
+        "element": "void",
+        "name": "Tharaeth Rift",
+        "levels": [
+          60,
+          70
+        ],
+        "families": [
+          "voidweaver",
+          "shade",
+          "voidknight"
+        ],
+        "stones": 26,
+        "modifiers": [
+          "raging-alphas"
+        ],
+        "worldBoss": {
+          "type": "wb8",
+          "archetype": "voidlord",
+          "name": "Thararzul the Unseen",
+          "signature": "meteor"
+        },
+        "generatorVersion": 1
+      },
+      {
+        "tier": 20,
+        "kind": "frontier",
+        "playable": false,
+        "biome": "voidscar",
+        "element": "void",
+        "name": "Uriaren Abyss",
+        "levels": [
+          180,
+          190
+        ],
+        "families": [
+          "voidweaver",
+          "shade",
+          "voidknight"
+        ],
+        "stones": 40,
+        "modifiers": [
+          "twin-stones",
+          "raging-alphas",
+          "long-nights"
+        ],
+        "worldBoss": {
+          "type": "wb20",
+          "archetype": "voidlord",
+          "name": "Gorarros Voidheart",
+          "signature": "meteor"
+        },
+        "generatorVersion": 1
+      },
+      {
+        "tier": 1000,
+        "kind": "frontier",
+        "playable": false,
+        "biome": "necropolis",
+        "element": "undead",
+        "name": "Quoredor Barrows",
+        "levels": [
+          9980,
+          9990
+        ],
+        "families": [
+          "skeleton",
+          "wraith",
+          "shade"
+        ],
+        "stones": 40,
+        "modifiers": [
+          "rich-veins",
+          "raging-alphas",
+          "twin-stones"
+        ],
+        "worldBoss": {
+          "type": "wb1000",
+          "archetype": "boneking",
+          "name": "Tharaeros the Withered",
+          "signature": "summon"
+        },
+        "generatorVersion": 1
+      }
+    ],
+    "count": 3381,
+    "layoutSha256": "3153f50560fc42247f203dbc6026407d3bab9542b84a3c8cab9c1b843f83190b"
+  },
+  {
+    "seed": "compat-gamma",
+    "regions": [
+      {
+        "tier": 1,
+        "kind": "founding",
+        "playable": true,
+        "name": "Whispering Meadows",
+        "levels": [
+          1,
+          6
+        ],
+        "element": "beast",
+        "worldBoss": {
+          "type": "alphawolf",
+          "name": "Alpha Wolf"
+        },
+        "generatorVersion": 1
+      },
+      {
+        "tier": 3,
+        "kind": "founding",
+        "playable": true,
+        "name": "Ashen Barrens",
+        "levels": [
+          15,
+          22
+        ],
+        "element": "war",
+        "worldBoss": {
+          "type": "ogrechief",
+          "name": "Ogre Chieftain"
+        },
+        "generatorVersion": 1
+      },
+      {
+        "tier": 7,
+        "kind": "founding",
+        "playable": true,
+        "name": "Death Zone",
+        "levels": [
+          50,
+          60
+        ],
+        "element": "void",
+        "worldBoss": {
+          "type": "deathlord",
+          "name": "Lord of Death"
+        },
+        "generatorVersion": 1
+      },
+      {
+        "tier": 8,
+        "kind": "frontier",
+        "playable": false,
+        "biome": "volcanic",
+        "element": "fire",
+        "name": "Goriros Caldera",
+        "levels": [
+          60,
+          70
+        ],
+        "families": [
+          "drake",
+          "hellhound",
+          "golem"
+        ],
+        "stones": 26,
+        "modifiers": [
+          "rich-veins"
+        ],
+        "worldBoss": {
+          "type": "wb8",
+          "archetype": "infernal",
+          "name": "Goriavyn the Cinder King",
+          "signature": "meteor"
+        },
+        "generatorVersion": 1
+      },
+      {
+        "tier": 20,
+        "kind": "frontier",
+        "playable": false,
+        "biome": "necropolis",
+        "element": "undead",
+        "name": "Drailis Barrows",
+        "levels": [
+          180,
+          190
+        ],
+        "families": [
+          "skeleton",
+          "wraith",
+          "shade"
+        ],
+        "stones": 40,
+        "modifiers": [
+          "swift-packs",
+          "long-nights",
+          "restless-dead"
+        ],
+        "worldBoss": {
+          "type": "wb20",
+          "archetype": "boneking",
+          "name": "Quorezul the Withered",
+          "signature": "summon"
+        },
+        "generatorVersion": 1
+      },
+      {
+        "tier": 1000,
+        "kind": "frontier",
+        "playable": false,
+        "biome": "wildwood",
+        "element": "beast",
+        "name": "Halaedun Hunting Grounds",
+        "levels": [
+          9980,
+          9990
+        ],
+        "families": [
+          "spider",
+          "wolf",
+          "shroom"
+        ],
+        "stones": 40,
+        "modifiers": [
+          "raging-alphas",
+          "armored-elites",
+          "rich-veins"
+        ],
+        "worldBoss": {
+          "type": "wb1000",
+          "archetype": "kingslime",
+          "name": "Moromar the Untamed",
+          "signature": "summon"
+        },
+        "generatorVersion": 1
+      }
+    ],
+    "count": 3392,
+    "layoutSha256": "367c7c8480ec8a8e3e5da13261f18548705e6fe4cc8ee0a0d30cade71c8fdf19"
+  }
+]

@@ -5,7 +5,7 @@ const { CX, CY, rnd, dist, clampWorld, moveToward, inVillage, placeInVillage } =
 const { CLASSES, playerDmg, rank, passive, gearAttackSpeed } = require('./characters');
 const { MOBTYPES, STONE_DMG } = require('./monsters');
 
-function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, hurtPlayer, startCast, resolveCast, pickupTick, ev, fire, publishSnapshots, getTransportStats }) {
+function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, hurtPlayer, startCast, resolveCast, pickupTick, ev, fire, publishSnapshots, getTransportStats, updateEncounters = () => {} }) {
   const tickSeconds = 0.05;
   const activeMonsters = new Set();
   let maintenanceAt = 0, overruns = 0, snapshotsSkipped = 0;
@@ -14,6 +14,7 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
   const tickTimes = new Float64Array(1200);
   function tick() {
     const now = Date.now(), startedAt = process.hrtime.bigint(); fire('tick', tickSeconds);
+    updateEncounters(now);
     const activePlayers = [...players.values()];
     updatePlayers(activePlayers, now);
     for (const player of activePlayers) players.update?.(player);

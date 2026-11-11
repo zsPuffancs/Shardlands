@@ -1,6 +1,8 @@
 'use strict';
 // Regions beyond the founding lands. Each one is a generated map with its own village,
 // monsters, stones and World Boss, reached through the World Portal.
+const { generateSpawnPlan, validateSpawnPlan } = require('./world-generation');
+const { createEncounterRuntime } = require('./encounter-runtime');
 const { MOBTYPES, TIERS, SPECIAL, WORLD_BOSS_SIZE } = require('./monsters');
 const { maps, addMap, mapOf, nearNpc, npcPosition, placeInVillage, worldInfo, REGION_SAFE_RADIUS } = require('./game-world');
 const { localizedText: messageText } = require('./localized-text');
@@ -12,11 +14,30 @@ const STONE_FOR = { fire: 'emberstone', frost: 'froststone', void: 'voidstone', 
 const LOOK_FOR = { volcanic: 3, glacier: 4, voidscar: 5, wildwood: 1, warfields: 2, necropolis: 6 };
 const REGION_MONSTERS = 260, REGION_ALPHAS = 8;
 
-function createRegions({ universe, players, populateZone, refreshMobTypes, send, say, ev }) {
+function createRegions({ universe, players, mobs, spawnMob, config = {}, populateZone, refreshMobTypes, send, say, ev }) {
+  const version2 = universe.state.generatorVersion === 2;
+  const runtime = version2 ? createEncounterRuntime({ players, mobs, spawnMob, ...(config.worldGeneration?.activation || {}) }) : null;
+  function registerPlan(tier, zone, map, record) {
+    runtime.register({ id: tier, map, zoneIndex: tier - 1, min: zone.min, max: zone.max, outer: zone.outer,
+      loadPlan() {
+        if (!record.spawnPlan) {
+          const plan = generateSpawnPlan({ seed: universe.state.seed, tier, zone: { ...zone, worldBoss: record.worldBoss.type, levelRules: Object.fromEntries([...zone.types, ...(zone.bosses || []), zone.stone || 'stone'].filter(type => MOBTYPES[type]).map(type => [type, { level: MOBTYPES[type].lvl || zone.lv[0] }])) }, area: map, budgets: universe.state.generationSettings?.budgets, spacing: universe.state.generationSettings?.spacing });
+          const validation = validateSpawnPlan(plan);
+          if (!validation.valid) throw new Error('Invalid spawn plan: ' + validation.errors.slice(0, 5).join(', '));
+          record.spawnPlan = plan;
+        }
+        if (record.spawnPlan.version !== 2) throw new Error('Unsupported persisted spawn-plan version; save preserved.');
+        return record.spawnPlan;
+      },
+      storage: () => record.spawnState || (record.spawnState = {}),
+    });
+  }
+  if (runtime) for (let tier = 1; tier <= FOUNDING_TIERS; tier++) registerPlan(tier, TIERS[tier - 1], maps[0], universe.regionFor(tier));
   // Build the map for one World Tier (8 and above). Safe to call again: an open region is returned as is.
   function openRegion(tier) {
     const index = tier - FOUNDING_TIERS, zoneIndex = tier - 1;
     if (index < 1) return null;
+    if (!Number.isSafeInteger(index) || index > 65535) throw new RangeError('This coordinate-based runtime supports at most 65535 frontier maps; the region description is preserved.');
     if (maps[index]) return maps[index];
     const region = universe.regionFor(tier), boss = region.worldBoss;
     const archetype = MOBTYPES[boss.archetype] ? boss.archetype : 'deathlord';
@@ -30,12 +51,14 @@ function createRegions({ universe, players, populateZone, refreshMobTypes, send,
       count: REGION_MONSTERS, stones: region.stones, stone: STONE_FOR[region.element] || 'doomstone', alphas: REGION_ALPHAS,
       scale: true, outer: true, generated: true, area: map,
     };
-    populateZone(zoneIndex, universe.layoutRandom('spawns:' + tier));
+    if (runtime) registerPlan(tier, TIERS[zoneIndex], map, region);
+    else populateZone(zoneIndex, universe.layoutRandom('spawns:' + tier));
     region.playable = true;
     return map;
   }
   function openUnlockedRegions() {
-    for (let tier = FOUNDING_TIERS + 1; tier <= universe.state.worldTier; tier++) {
+    const tiers = version2 ? Object.keys(universe.state.regions).map(Number).filter(tier => tier > FOUNDING_TIERS && tier <= universe.state.worldTier).sort((a, b) => a - b) : Array.from({ length: Math.max(0, universe.state.worldTier - FOUNDING_TIERS) }, (_, i) => i + FOUNDING_TIERS + 1);
+    for (const tier of tiers) {
       try { openRegion(tier); } catch (error) { console.error('  Could not open World Tier ' + tier + ' (' + error.message + '). The server starts without it.'); }
     }
   }
@@ -70,7 +93,7 @@ function createRegions({ universe, players, populateZone, refreshMobTypes, send,
     player.dest = null; player.dir = { x: 0, y: 0 }; player.target = 0; player.chasingTarget = false;
     const portal = npcPosition(destination, 'portal'); ev('fx', portal.x, portal.y, 70, { s: 'summon' });
   }
-  return { openRegion, openUnlockedRegions, unlock, portalList, travel };
+  return { openRegion, openUnlockedRegions, unlock, portalList, travel, tick: runtime ? runtime.tick : () => {}, checkpoint: runtime ? runtime.checkpoint : () => {} };
 }
 
 module.exports = { createRegions, FOUNDING_TIERS };

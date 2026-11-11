@@ -10,7 +10,7 @@ const { ITEMS, CLASSES, SKILLS, stats } = require('./characters');
 const { BAGMAX } = require('./inventory');
 const { SUMMON_LIFETIME_MS } = require('./combat');
 
-function createPluginHost({ directory, config, rates, players, mobs, loot, pluginData, getNextId, eventCount, truncateEvents, genGear, addGear, dropAt, spawnMob, say, toast, broadcast, gainXp, afterGearChange, sendInv, ev, isAdmin, serverStats }) {
+function createPluginHost({ directory, config, generatorVersion = 1, rates, players, mobs, loot, pluginData, getNextId, eventCount, truncateEvents, genGear, addGear, dropAt, spawnMob, say, toast, broadcast, gainXp, afterGearChange, sendInv, ev, isAdmin, serverStats }) {
   const hooks = Object.create(null), commands = Object.create(null);
   function fire(event, ...args) {
     const handlers = hooks[event];
@@ -28,7 +28,7 @@ function createPluginHost({ directory, config, rates, players, mobs, loot, plugi
 
   function makeApi(pluginName) {
     return {
-      name: pluginName, config: config, rates: rates, log: (...a) => console.log('[' + pluginName + ']', ...a), consts: { W, H, CX, CY, VILLAGE, BAGMAX, MAX_LEVEL }, MOBTYPES, ITEMS, CLASSES, TIERS, RARITY, STATDEF, SLOTS, NPCS,
+      name: pluginName, generatorVersion, config: config, rates: rates, log: (...a) => console.log('[' + pluginName + ']', ...a), consts: { W, H, CX, CY, VILLAGE, BAGMAX, MAX_LEVEL }, MOBTYPES, ITEMS, CLASSES, TIERS, RARITY, STATDEF, SLOTS, NPCS,
       on(ev, handler) { (hooks[ev] = hooks[ev] || []).push({ fn: handler, plugin: pluginName }); },
       command(name, options, handler) { if (typeof options === 'function') { handler = options; options = {}; } commands[String(name).toLowerCase()] = { fn: handler, admin: !!options.admin, help: options.help || '', plugin: pluginName }; },
       addMob(id, definition) { MOBTYPES[id] = Object.assign({ name: id, lvl: 5, hp: 50, dmg: 5, spd: 100, xp: 10, gold: [1, 5], r: 16, aggro: 120, color: '#cccccc' }, definition); return MOBTYPES[id]; },

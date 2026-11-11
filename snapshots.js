@@ -63,7 +63,18 @@ function mobSnapshot(connection, nearby, typeIndex, originX = 0, originY = 0) {
   const orderChanged = ids.length !== previousIds.length || ids.some((id, i) => id !== previousIds[i]);
   if (changed.length === rows.length && orderChanged) return { mo: rows };
   const delta = {};
-  if (changed.length) delta.md = changed;
+  if (connection.mobFieldDeltas) {
+    const added = [], fields = [];
+    for (const row of changed) {
+      const old = previous.get(row[0]);
+      if (!old) { added.push(row); continue; }
+      let mask = 0; const values = [];
+      for (let column = 1; column < row.length; column++) if (!Object.is(row[column], old[column])) { mask |= 1 << (column - 1); values.push(row[column]); }
+      if (mask) fields.push([row[0], mask, ...values]);
+    }
+    if (added.length) delta.md = added;
+    if (fields.length) delta.mf = fields;
+  } else if (changed.length) delta.md = changed;
   if (orderChanged) delta.mi = ids;
   return delta;
 }
@@ -110,6 +121,62 @@ function playerStateDelta(connection, state) {
   return state;
 }
 
+const FAR_PLAYER_RADIUS = 750;
+const FAR_PLAYER_INTERVAL_MS = 200;
+const FULL_SNAPSHOT_INTERVAL_MS = 10000;
+
+function sameFields(a, b) {
+  if (Object.is(a, b)) return true;
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every(key => Object.hasOwn(b, key) && Object.is(a[key], b[key]));
+}
+function ownStateDelta(connection, state) {
+  const previous = connection.ownState || (connection.ownState = {}), changed = {};
+  for (const [key, value] of Object.entries(state)) {
+    if (!Object.hasOwn(previous, key) || !sameFields(previous[key], value)) {
+      changed[key] = value;
+      previous[key] = value && typeof value === 'object' ? { ...value } : value;
+    }
+  }
+  return changed;
+}
+
+// Rows are complete replacements. Missing IDs are removed immediately, even when movement is throttled.
+function entityListDelta(connection, rows, kind, now, observer) {
+  const playerList = kind === 'players';
+  const fullKey = playerList ? 'pl' : 'lo', changedKey = playerList ? 'pd' : 'ld', removedKey = playerList ? 'pr' : 'lr';
+  const cacheKey = playerList ? 'playerRows' : 'lootRows';
+  const previous = connection[cacheKey];
+  if (!previous) {
+    connection[cacheKey] = new Map(rows.map(row => [row.id, { ...row }]));
+    if (playerList) connection.playerSentAt = new Map(rows.map(row => [row.id, now]));
+    return { [fullKey]: rows };
+  }
+  const visible = new Set(), changed = [], removed = [];
+  for (const row of rows) {
+    visible.add(row.id);
+    const old = previous.get(row.id);
+    if (old && sameFields(old, row)) continue;
+    if (old && playerList) {
+      const far = Math.hypot(row.x - observer.x, row.y - observer.y) > FAR_PLAYER_RADIUS;
+      const stateChanged = Object.keys(row).some(key => key !== 'x' && key !== 'y' && !Object.is(old[key], row[key]));
+      if (far && !stateChanged && now - connection.playerSentAt.get(row.id) < FAR_PLAYER_INTERVAL_MS) continue;
+    }
+    changed.push(row); previous.set(row.id, { ...row });
+    if (playerList) connection.playerSentAt.set(row.id, now);
+  }
+  for (const id of previous.keys()) if (!visible.has(id)) {
+    previous.delete(id); removed.push(id);
+    if (playerList) connection.playerSentAt.delete(id);
+  }
+  return { ...(changed.length ? { [changedKey]: changed } : {}), ...(removed.length ? { [removedKey]: removed } : {}) };
+}
+function resetSnapshotBaseline(connection) {
+  for (const key of ['ownState', 'playerState', 'playerRows', 'lootRows', 'playerSentAt', 'mobRows', 'mobIds']) delete connection[key];
+  connection.snapshotBaseline = false;
+}
+
 function otherPlayerSnapshot(player, now, map) {
   return {
     id: player.id, n: player.name, x: Math.round(player.x - map.x0), y: Math.round(player.y - map.y0),
@@ -141,32 +208,44 @@ const mobTypesForClient = mobTypes => Object.fromEntries(Object.keys(mobTypes).m
   return [key, { n: type.name, r: type.r, c: type.color, st: !!type.stone, boss: !!type.boss, lvl: type.lvl, shape: type.shape, as: type.archetype, wb: type.worldBoss ? 1 : undefined }];
 }));
 
-function createSnapshotPublisher({ mobs, loot, drainEvents, refreshMobTypes, send, canSend }) {
+function createSnapshotPublisher({ players, mobs, loot, drainEvents, refreshMobTypes, send, canSend }) {
   return function publishSnapshots(activePlayers, now) {
     const events = drainEvents();
     const { indices } = refreshMobTypes();
     const mobCells = !mobs.spatial && activePlayers.length > 1 ? indexLivingMobs(mobs) : null;
     for (const player of activePlayers) {
-      if (!canSend(player.c)) continue;
+      if (!canSend(player.c)) { resetSnapshotBaseline(player.c); continue; }
       const map = mapOf(player);
       // However a player changed map (portal, admin teleport), the client is told before it sees the new positions.
       if (player.c.mapIndex === undefined) player.c.mapIndex = map.index;
       else if (player.c.mapIndex !== map.index) { player.c.mapIndex = map.index; send(player.c, { t: 'map', world: worldInfo(map), arrived: true }); }
+      const connection = player.c;
+      const fullSnapshot = !connection.snapshotBaseline || connection.snapshotMap !== map.index || now >= connection.nextFullSnapshot;
+      if (fullSnapshot) {
+        resetSnapshotBaseline(connection);
+        connection.snapshotBaseline = true; connection.snapshotMap = map.index;
+        connection.nextFullSnapshot = now + FULL_SNAPSHOT_INTERVAL_MS;
+      }
       const isNearby = (entity, radius) => Math.abs(entity.x - player.x) < radius && Math.abs(entity.y - player.y) < radius;
       const nearbyMonsters = snapshotMobs(mobs, player, mobCells);
-      const nearbyPlayers = activePlayers.filter(other => other !== player && isNearby(other, 1500));
+      const nearbyPlayers = (players?.spatial ? queryNearby(players, player, 1500) : activePlayers).filter(other => other !== player && isNearby(other, 1500));
       const nearbyLoot = queryNearby(loot, player, 1150).filter(drop => now <= drop.exp && isNearby(drop, 1150) &&
         (!drop.owner || drop.owner === player.id || now >= drop.free));
-      send(player.c, {
+      const own = ownPlayerSnapshot(player, now, map);
+      const playerRows = nearbyPlayers.map(other => otherPlayerSnapshot(other, now, map));
+      const lootRows = nearbyLoot.map(drop => lootSnapshot(drop, map));
+      const result = send(player.c, {
         t: 's', tm: now,
-        me: player.c.meDeltas ? playerStateDelta(player.c, ownPlayerSnapshot(player, now, map)) : ownPlayerSnapshot(player, now, map),
-        pl: nearbyPlayers.map(other => otherPlayerSnapshot(other, now, map)),
+        ...(fullSnapshot && (connection.stateDeltas || connection.listDeltas) ? { sf: 1 } : {}),
+        me: connection.stateDeltas ? ownStateDelta(connection, own) : connection.meDeltas ? playerStateDelta(connection, own) : own,
+        ...(connection.listDeltas ? entityListDelta(connection, playerRows, 'players', now, own) : { pl: playerRows }),
         ...mobSnapshot(player.c, nearbyMonsters, indices, map.x0, map.y0),
-        lo: nearbyLoot.map(drop => lootSnapshot(drop, map)),
+        ...(connection.listDeltas ? entityListDelta(connection, lootRows, 'loot', now, own) : { lo: lootRows }),
         ev: events.filter(event => isNearby(event, 1300)).map(event => localEvent(event, map)),
       });
+      if (result === false) resetSnapshotBaseline(connection);
     }
   };
 }
 
-module.exports = { playerStateDelta, mobTypesForClient, createMobTypeIndex, createSnapshotPublisher, indexLivingMobs, snapshotMobs, mobSnapshot };
+module.exports = { ownStateDelta, entityListDelta, resetSnapshotBaseline, FAR_PLAYER_RADIUS, FAR_PLAYER_INTERVAL_MS, FULL_SNAPSHOT_INTERVAL_MS, playerStateDelta, mobTypesForClient, createMobTypeIndex, createSnapshotPublisher, indexLivingMobs, snapshotMobs, mobSnapshot };

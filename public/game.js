@@ -32,7 +32,7 @@ function setWorld(world, arrived) {
   for (const key of Object.keys(MODEL)) if (/^wb\d+$/.test(key)) delete MODEL[key];
   S.an = null; S.nodes = null; S.nodesMd = null; S.moveSpeed = 0; S.mv = 0; S.atkT = -9999; S.attackFacingUntil = 0;
   for (const npc of Object.values(NPCE)) { npc.an = null; npc.nodes = null; npc.nodesMd = null; }
-  bakeWorld(); buildGround(); ents.clear(); fxs.length = 0; parts.length = 0; mobRows.clear(); mobIds = []; mo = []; lo = []; pl = [];
+  bakeWorld(); buildGround(); ents.clear(); fxs.length = 0; parts.length = 0; mobRows.clear(); mobIds = []; playerRows.clear(); lootRows.clear(); mo = []; lo = []; pl = [];
   for (const f of floaters) f.el.remove(); floaters.length = 0; snapNext = true; lastZone = -9;
   if (arrived) { banner(world.map ? zoneName(ZT[0].name) : text('portal.founding', 'The Founding Lands'), world.map ? text('portal.arrivedTier', 'World Tier {tier}', { tier: world.map + 7 }) : text('zone.safe', 'Safe zone')); sfx('lvl'); }
 }
@@ -425,12 +425,14 @@ function onEvent(f) {
 }
 
 // ---------- networking ----------
+const uiReceiver = StateDelta.createReceiver(channel => send({ t: 'uiSync', channel }));
 function join() {
   if (ws && ws.readyState !== WebSocket.CLOSED) return;
+  uiReceiver.reset();
   audio(); sfx('click'); GameText.present($('err'), { message: '' });
   const socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
   ws = socket;
-  const request = { t: 'join', name: $('name').value, cls: sel, pw: $('pw').value, mobDeltas: true, meDeltas: true };
+  const request = { t: 'join', name: $('name').value, cls: sel, pw: $('pw').value, mobDeltas: true, meDeltas: true, stateDeltas: true, listDeltas: true, mobFieldDeltas: true, uiDeltas: true };
   socket.onopen = () => socket.send(JSON.stringify(request));
   socket.onmessage = e => {
     if (ws !== socket) return;
@@ -448,13 +450,20 @@ function join() {
 const mobRows = new Map();
 let mobIds = [];
 function updateMobSnapshot(message) {
-  if (!message.mo && !message.md && !message.mi) return;
+  if (!message.mo && !message.md && !message.mi && !message.mf) return;
   const decode = a => ({ id: a[0], ty: I.tl[a[1]], x: a[2], y: a[3], hp: a[4], mh: a[5], l: a[6], al: a[7] });
   if (message.mo) {
     mobRows.clear();
     mobIds = message.mo.map(row => row[0]);
   }
   for (const row of message.mo || message.md || []) mobRows.set(row[0], decode(row));
+  for (const patch of message.mf || []) {
+    const monster = mobRows.get(patch[0]); if (!monster) continue;
+    const fields = ['ty', 'x', 'y', 'hp', 'mh', 'l', 'al']; let offset = 2;
+    for (let bit = 0; bit < fields.length; bit++) if (patch[1] & (1 << bit)) {
+      const value = patch[offset++]; monster[fields[bit]] = bit === 0 ? I.tl[value] : value;
+    }
+  }
   if (message.mi) {
     mobIds = message.mi;
     const visible = new Set(mobIds);
@@ -462,7 +471,21 @@ function updateMobSnapshot(message) {
   }
   mo = mobIds.map(id => mobRows.get(id));
 }
+const playerRows = new Map(), lootRows = new Map();
+function applyEntityList(cache, message, fullKey, changedKey, removedKey) {
+  if (Object.hasOwn(message, fullKey)) {
+    cache.clear(); for (const row of message[fullKey]) cache.set(row.id, row);
+  } else {
+    for (const id of message[removedKey] || []) cache.delete(id);
+    for (const row of message[changedKey] || []) cache.set(row.id, row);
+  }
+  return [...cache.values()];
+}
+function applyOwnSnapshot(current, message) {
+  return { ...(message.sf ? {} : current), ...message.me };
+}
 function onMsg(m) {
+  m = uiReceiver.receive(m); if (!m) return;
   if (m.t === 'err') GameText.present($('err'), { message: m.text || m.m });
   else if (m.t === 'init') {
     clearTimeout(onlineCountTimer);
@@ -475,15 +498,18 @@ function onMsg(m) {
   else if (m.t === 'types') { if (I) { I.types = m.types; I.tl = m.tl; } } else if (m.t === 'map') { setWorld(m.world, m.arrived); if (isOpen('portalw')) send({ t: 'portal' }); }
   else if (m.t === 'chat') log(m.n, m.text || m.m, m.channel); else if (m.t === 'msg') log('*', m.text || m.m);
   else if (m.t === 's') {
-    if (!me || snapNext) { snapNext = false; S.rx = m.me.x; S.ry = m.me.y; cam.x = m.me.x; cam.z = m.me.y; }
-    if (m.me.dead && !me?.dead) {
+    const nextMe = applyOwnSnapshot(me, m);
+    if (!me || snapNext) { snapNext = false; S.rx = nextMe.x; S.ry = nextMe.y; cam.x = nextMe.x; cam.z = nextMe.y; }
+    if (nextMe.dead && !me?.dead) {
       intent = null;
       pendingNpc = null;
       held = false;
       lastDir = [0, 0];
     }
-    if (me) { if (!m.me.inv) m.me.inv = me.inv; if (!m.me.sk) m.me.sk = me.sk; }
-    serverTm = m.tm; me = m.me; pl = m.pl; lo = m.lo;
+    serverTm = m.tm; me = nextMe;
+    if (m.sf) { playerRows.clear(); lootRows.clear(); }
+    if (m.pl || m.pd || m.pr) pl = applyEntityList(playerRows, m, 'pl', 'pd', 'pr');
+    if (m.lo || m.ld || m.lr) lo = applyEntityList(lootRows, m, 'lo', 'ld', 'lr');
     updateMobSnapshot(m);
     const seen = new Set();
     for (const o of mo.concat(pl)) {

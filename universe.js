@@ -5,38 +5,13 @@
 const crypto = require('node:crypto');
 const { TIERS, MOBTYPES, SPECIAL } = require('./monsters');
 
-const GENERATOR_VERSION = 1;
+const GENERATOR_VERSION = 2;
 const STATE_VERSION = 1;
 const LEVEL_MILESTONES = [10, 20, 30, 40, 50, 60];
 const RENOWN = { worldBoss: 5, bossFirstKill: 3, firstMythic: 3, levelMilestone: 2, stoneFirst: 1, firstHero: 1 };
 
 // ---------- deterministic randomness ----------
-function hashString(text) {
-  let hash = 2166136261;
-  for (let i = 0; i < text.length; i++) { hash ^= text.charCodeAt(i); hash = Math.imul(hash, 16777619); }
-  return hash >>> 0;
-}
-function mulberry32(state) {
-  return () => {
-    state = (state + 0x6D2B79F5) | 0;
-    let t = Math.imul(state ^ (state >>> 15), 1 | state);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-// One independent random stream per purpose, e.g. seededRandom(seed, 'spawns') or (seed, 'region', 9).
-function seededRandom(seed, ...labels) {
-  const random = mulberry32(hashString([seed, ...labels].join('|')));
-  random.float = (a, b) => a + random() * (b - a);
-  random.int = (a, b) => Math.floor(random.float(a, b + 1));
-  random.pick = list => list[Math.floor(random() * list.length)];
-  random.weighted = entries => {
-    let roll = random() * entries.reduce((sum, entry) => sum + entry[1], 0);
-    for (const entry of entries) { roll -= entry[1]; if (roll < 0) return entry[0]; }
-    return entries[entries.length - 1][0];
-  };
-  return random;
-}
+const { hashString, seededRandom } = require('./deterministic-random');
 const SEED_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function newSeed() {
   const bytes = crypto.randomBytes(8);
@@ -72,8 +47,8 @@ const FOUNDING_TIERS = TIERS.length;
 
 // Region = Generate(WorldSeed, Tier, HistorySnapshot, GeneratorVersion). Pure: no clock, no Math.random.
 // Tiers 1..7 describe the hand-built founding lands; later tiers are generated frontier regions.
-function generateRegion(seed, tier, historySnapshot, generatorVersion) {
-  generatorVersion = generatorVersion || GENERATOR_VERSION;
+function generateRegionLegacy(seed, tier, historySnapshot, generatorVersion) {
+  generatorVersion = generatorVersion || 1;
   const random = seededRandom(seed, 'region', tier, 'v' + generatorVersion);
   if (tier <= FOUNDING_TIERS) {
     const zone = TIERS[tier - 1];
@@ -99,6 +74,34 @@ function generateRegion(seed, tier, historySnapshot, generatorVersion) {
   };
 }
 
+function validateTier(tier) {
+  if (!Number.isSafeInteger(tier) || tier < 1) throw new RangeError('World tier must be a positive safe integer.');
+}
+function generateRegion(seed, tier, historySnapshot, generatorVersion = GENERATOR_VERSION) {
+  validateTier(tier);
+  if (![1, 2].includes(generatorVersion)) throw new RangeError('Unsupported generator version: ' + generatorVersion);
+  if (generatorVersion === 1) return generateRegionLegacy(seed, tier, historySnapshot, 1);
+  if (tier <= FOUNDING_TIERS) return generateRegionLegacy(seed, tier, historySnapshot, 2);
+  const { stream } = require('./world-generation');
+  const biomeRandom = stream(seed, tier, 2, 'biome'), nameRandom = stream(seed, tier, 2, 'names');
+  const bossRandom = stream(seed, tier, 2, 'bosses'), affixRandom = stream(seed, tier, 2, 'affixes');
+  const slain = historySnapshot?.elements || {};
+  const biome = biomeRandom.weighted(BIOMES.map(candidate => [candidate, 1 + Math.min(6, Math.max(0, Number(slain[candidate.element]) || 0) * .5)]));
+  const depth = tier - FOUNDING_TIERS, levelDepth = Math.min(994, depth);
+  const archetypes = Object.keys(BOSS_ELEMENT).filter(type => BOSS_ELEMENT[type] === biome.element && MOBTYPES[type]).sort();
+  const archetype = bossRandom.pick(archetypes.length ? archetypes : ['deathlord']);
+  const modifiers = shuffled(REGION_MODIFIERS, affixRandom).slice(0, Math.min(3, 1 + Math.floor(Math.min(depth, 9) / 3)));
+  return {
+    tier, kind: 'frontier', playable: false, biome: biome.id, element: biome.element,
+    name: properName(nameRandom) + ' ' + nameRandom.pick(biome.places),
+    levels: [Math.min(10000, 60 + (levelDepth - 1) * 10), Math.min(10000, 60 + levelDepth * 10)],
+    families: shuffled(biome.families, stream(seed, tier, 2, 'families')).slice(0, 3), stones: 32, modifiers,
+    worldBoss: { type: 'wb' + tier, archetype, name: properName(bossRandom) + ' ' + bossRandom.pick(BOSS_TITLES[biome.element]), signature: SPECIAL[archetype] || 'slam' },
+    difficulty: { worldAffixes: modifiers.slice(), encounterAffixes: [], combatAffixes: [], anomalies: { budget: 1, enabled: false } },
+    generatorVersion: 2,
+  };
+}
+
 // ---------- persistent universe ----------
 function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
   const state = store.data;
@@ -106,13 +109,22 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
   if (!state.seed) {
     founded = true;
     Object.assign(state, {
-      version: STATE_VERSION, generatorVersion: GENERATOR_VERSION,
+      version: STATE_VERSION, generatorVersion: config.generatorVersion === 1 ? 1 : GENERATOR_VERSION,
       seed: String(state.requestedSeed || config.worldSeed || newSeed()).trim().slice(0, 40), foundedAt: Date.now(), worldTier: 1,
       nextEventId: 1, history: [], firsts: {}, regions: {},
       stats: { bossKills: {}, elements: {}, stones: 0, deaths: 0, mythics: 0 },
     });
     delete state.requestedSeed;
     state.name = universeName(state.seed);
+  }
+  if (state.generatorVersion === undefined) state.generatorVersion = 1;
+  if (![1, 2].includes(state.generatorVersion)) throw new RangeError('Unsupported saved generator version: ' + state.generatorVersion);
+  validateTier(state.worldTier);
+  if (state.generatorVersion === 1 && state.worldTier > 65542) throw new RangeError('Saved v1 tier exceeds the coordinate-based runtime capacity; save preserved.');
+  if (state.generatorVersion === 2 && !state.generationSettings) {
+    const options = config.worldGeneration || {};
+    const numeric = values => Object.fromEntries(Object.entries(values || {}).filter(([, value]) => Number.isFinite(value)));
+    state.generationSettings = { budgets: numeric(options.budgets), spacing: numeric(options.spacing) };
   }
   const persist = () => store.save().catch(error => console.error(error));
   const historySnapshot = () => ({ elements: { ...state.stats.elements }, bossKills: { ...state.stats.bossKills }, stones: state.stats.stones, deaths: state.stats.deaths, mythics: state.stats.mythics, events: state.history.length });
@@ -123,7 +135,8 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
     if (region.kind === 'frontier' && !region.worldBoss.archetype) { region.worldBoss.archetype = region.worldBoss.type; region.worldBoss.type = 'wb' + tier; }
     return region;
   }
-  for (let tier = 1; tier <= Math.max(state.worldTier, FOUNDING_TIERS); tier++) regionFor(tier);
+  for (let tier = 1; tier <= (state.generatorVersion === 1 ? Math.max(state.worldTier, FOUNDING_TIERS) : FOUNDING_TIERS); tier++) regionFor(tier);
+  if (state.generatorVersion === 2) regionFor(state.worldTier);
 
   const HISTORY_TEXT = {
     founded: 'The universe {universe} was founded.',
@@ -189,7 +202,7 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
       // World progression: only the current tier's World Boss, in its own region, advances the universe.
       // The check and the tier change happen in one synchronous step, so a tier can never unlock twice.
       const frontier = regionFor(state.worldTier);
-      if (frontier.playable && frontier.worldBoss.type === monster.ty && monster.tier === state.worldTier - 1) {
+      if (state.worldTier < Number.MAX_SAFE_INTEGER && frontier.playable && frontier.worldBoss.type === monster.ty && monster.tier === state.worldTier - 1) {
         const beaten = state.worldTier; state.worldTier = beaten + 1;
         const next = regionFor(state.worldTier);
         // Tiers beyond the founding lands get their map built before the victory is announced.
@@ -210,10 +223,11 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
   // Short identity sent with the world description (login screen, client world baking).
   const identity = () => ({ name: state.name, seed: state.seed, seedNumber: hashString(state.seed) % 2147483645 + 1, tier: state.worldTier, foundedAt: state.foundedAt });
   function summary() {
-    const frontier = regionFor(state.worldTier);
+    const view = region => { const { spawnPlan, spawnState, ...metadata } = region; return metadata; };
+    const frontier = view(regionFor(state.worldTier));
     return {
       ...identity(), generatorVersion: state.generatorVersion, frontier,
-      regions: Object.values(state.regions).filter(region => region.tier <= state.worldTier).sort((a, b) => a.tier - b.tier),
+      regions: Object.values(state.regions).filter(region => region.tier <= state.worldTier).sort((a, b) => a.tier - b.tier).map(view),
       history: state.history.slice(-200), legends: legends(), stats: { ...state.stats, bossKills: undefined, elements: { ...state.stats.elements } },
     };
   }

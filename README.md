@@ -134,3 +134,22 @@ Run `node --test tests/performance.test.js` for spatial queries, loot ownership,
 Monsters, players and loot use a shared persistent spatial index. AI processes nearby and still-active monsters; distant lifecycle checks (respawn and summon expiry) run every 500 ms. Empty maps keep their state without running full AI every tick. Code that moves an indexed entity directly should call `entities.update(entity)`; monster membership is also reconciled during lifecycle checks.
 
 Clients that negotiate `meDeltas` receive inventory counts and skill ranks only on change. Older clients keep receiving full state. A simulation tick over its 50 ms budget may skip one snapshot, keeping queued events for the next publication; consecutive snapshots are never skipped. Console `status` reports tick overruns and skipped snapshots. Under sustained overload the fixed-step simulation slows down rather than running a burst of catch-up ticks.
+
+### Snapshot protocol
+New clients negotiate `stateDeltas` and `listDeltas` in the join request. `me` then contains only changed top-level fields (nested inventory, skill and buff objects are replaced as a unit). Player lists use `pl` for a full baseline, `pd` for complete added/changed rows and `pr` for removed IDs; loot uses `lo`, `ld` and `lr` respectively. Omitted fields and lists retain their previous values, including when they contain zero or an empty object.
+
+A snapshot with `sf: 1` resets the client baseline and includes complete own state and lists. The server sends one on entry, map changes, recovery from blocked/failed sends, and every 10 seconds. The existing monster protocol also receives a fresh baseline. Older clients continue to receive their negotiated full-state or inventory/skill-only delta format.
+
+Nearby player movement is published at the normal 20 Hz. Beyond 750 world units, movement updates are limited to 5 Hz per observer; new players, removals, health, death and other non-position changes are immediate. Crossing into the nearby range also removes the throttle. This policy changes network publication only, not movement or combat simulation.
+
+Run `node --test tests/*.test.js` to check both performance behavior and protocol reconstruction, including map transitions and backward compatibility.
+
+### Monster fields and UI patches
+Clients may also negotiate `mobFieldDeltas` and `uiDeltas`. Existing monsters then use `mf: [[id, mask, ...values]]`: bits 0-6 represent type, X, Y, HP, maximum HP, level and Alpha flag in that order. New monsters still use complete rows; visibility/order changes use `mi`, and full baselines use `mo`.
+
+Inventory, team, trade and universe messages share `public/state-delta.js` on the server and browser. A full message carries `uiVersion`; later `uiPatch` messages carry the channel, previous version, new version and patch operations. Inventory items are keyed by UID, team members by ID, chronicle entries by event ID, regions by tier and legends by name. Only added/changed records and removed IDs are sent; list order is included when insertion order alone cannot reproduce it. Other object fields are patched individually, so a trade confirmation can update only an acceptance flag.
+
+The receiver applies patches atomically to its own baseline before calling the existing UI handlers. A version mismatch requests `uiSync` for that channel once; the server returns its latest full state. Requests are limited to one per channel per second. A channel also sends a fresh baseline on its next update after 30 seconds. Failed writes never advance the server cache, and clients without these capabilities retain the original message formats.
+
+## Procedural generator versions
+New universes use generator v2: area-correct annulus sampling, bounded encounter placement and lazy player-driven activation. Existing universes remain on generator v1 without layout migration. See `docs/PROCEDURAL-GENERATION.md` for the mathematical audit, compatibility guarantees, deployment budgets, test commands and remaining runtime limits.
