@@ -721,7 +721,7 @@ function frame(now) {
       const [hd, m, e, t] = vis[i]; let o = modelFor(m.ty, t); if (m.al && !t.st) o = o._a || (o._a = Object.assign({}, o, { sc: (o.sc || 1) * 1.3 }));
       if (m.id === me.tg) { const pu = 1 + Math.sin(now / 150) * .1, rr = (t.r * (m.al ? 1.3 : 1) + 12) * pu; D(M.ring, e.rx, 2.5, e.ry, rr, 1, rr, now / 600, 0, [1, .2, .2], 1, .95); }
       if (m.al) { const rr = t.r * 1.3 + 14 + Math.sin(now / 200 + m.id) * 3; D(M.ring, e.rx, 2, e.ry, rr, 1, rr, -now / 700, 0, [1, .55, .1], 1, .7); }
-      const mc = MOBCHAR[m.ty] || (t.as && MOBCHAR[t.as]); if (t.st) stoneModel(e, t); else if (mc && CHARS[mc.m] && nChar < 26 && hd < 750) { nChar++; drawChar(e, mc.m, { h: 64 * mc.sc * (m.al ? 1.3 : 1) * (t.wb ? 1.5 : 1), tint: mc.tint, emc: mc.emc }, now); } else if (i < full || hd < 420) { if (blob) D(M.disc, e.rx, 1, e.ry, t.r * 1.1, 1, t.r * 1.1, 0, 0, [0, 0, 0], 0, .3); o.fn(e, o); } else lod(e, t, o, m.al);
+      const mc = MOBCHAR[m.ty] || (t.as && MOBCHAR[t.as]); if (t.st) stoneModel(e, t); else if (mc && CHARS[mc.m] && nChar < 26 && hd < 750) { nChar++; const gr = mc.gear && !t.wb && !t.boss ? gearFor(CHARS[mc.m], mc.gear, m.id, m.al) : null; drawChar(e, mc.m, { h: 64 * mc.sc * (m.al ? 1.3 : 1) * (t.wb ? 1.5 : 1), tint: gr ? gr.body : mc.tint, emc: mc.emc, gear: gr }, now); } else if (i < full || hd < 420) { if (blob) D(M.disc, e.rx, 1, e.ry, t.r * 1.1, 1, t.r * 1.1, 0, 0, [0, 0, 0], 0, .3); o.fn(e, o); } else lod(e, t, o, m.al);
       if ((hd < 620 && nl < 45) || m.id === me.tg || ((t.boss || m.al || t.st) && hd < 1100)) {
         nl++;
         const nameColor = t.st ? t.c : t.boss ? '#ffd24a' : m.al ? '#ffb04a' : '#fff';

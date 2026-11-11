@@ -104,7 +104,7 @@ const CHARDEF = {
   Monk: { atk: 'Attack', skill: 'Attack2', idle: ['Idle_Attacking', 'Idle'], run: ['Run'] },
 };
 const CLASSMODEL = { blade: 'Warrior', archer: 'Ranger', mage: 'Wizard' }, FAMMODEL = { sword: 'Warrior', bow: 'Ranger', staff: 'Wizard' };
-const MOBCHAR = { bandit: { m: 'Rogue', sc: 1.05, tint: [1, .72, .68] }, goblin: { m: 'Rogue', sc: .8, tint: [.55, .95, .42] }, orc: { m: 'Monk', sc: 1.18, tint: [.6, .92, .48] }, voidknight: { m: 'Warrior', sc: 1.25, tint: [.52, .38, .8], emc: [.07, .01, .12] } };
+const MOBCHAR = { bandit: { m: 'Rogue', sc: 1.05, tint: [1, .72, .68], gear: 'bandit' }, goblin: { m: 'Rogue', sc: .8, tint: [.55, .95, .42] }, orc: { m: 'Monk', sc: 1.18, tint: [.6, .92, .48] }, voidknight: { m: 'Warrior', sc: 1.25, tint: [.52, .38, .8], emc: [.07, .01, .12] } };
 if (window.Shardlands) { Shardlands.charModel = (mobType, def) => { MOBCHAR[mobType] = def; }; Shardlands.CHARS = CHARS; }
 async function loadChars() { if (!GL.skinOK()) return; await Promise.all(Object.keys(CHARDEF).map(async n => { try { const md = await GL.loadGLB('assets/chars/' + n + '.glb'); md.def = CHARDEF[n]; md.pick = l => l.find(a => md.anims[a]) || Object.keys(md.anims)[0]; CHARS[n] = md; } catch (e) { console.warn('character ' + n + ' not loaded', e); } })); }
 function classModel(cls) { const c = I && I.classes[cls]; const n = (c && c.model) || CLASSMODEL[cls] || FAMMODEL[c && c.fam] || 'Warrior'; return CHARS[n] ? n : null; }
@@ -125,11 +125,25 @@ function animChar(e, md, o, now) {
   if (!e.nodes || e.nodes.length !== md.N * 16 || e.nodesMd !== md) { e.nodes = new Float32Array(md.N * 16); e.nodesMd = md; }
   GL.pose(md, a.name, a.t, a.prev, a.pt, a.fade, e.nodes);
 }
+// ---- equipment (public/equipment-kit.js): baked once per model + variant + elite, then one extra draw per character ----
+const GEAR = new Map(), gearErrors = [];
+function gearRig(md) { return md.rig || (md.rig = { names: md.names, parent: Array.from(md.parent), joints: md.joints, ibm: md.ibm, prims: md.prims, rest: GL.pose(md, '', 0, null, 0, 1, new Float32Array(md.N * 16)) }); }
+// the look of one monster: same id -> same variant on every client. Returns { hide, mesh, body } or null (no kit / failed bake).
+function gearFor(md, setKey, id, elite) {
+  if (!window.EquipKit || !md || !md.names) return null;
+  const variant = EquipKit.pick(setKey, id), key = md.names.length + '|' + setKey + '|' + variant + '|' + (elite ? 1 : 0);
+  if (GEAR.has(key)) return GEAR.get(key);
+  let g = null;
+  try { const b = EquipKit.bake(gearRig(md), setKey, variant, !!elite); g = { hide: b.hide, mesh: GL.gearMesh(b.verts, EquipKit.PALETTE, EquipKit.PAL_W), body: EquipKit.SETS[setKey].variants[variant].tint, variant }; }
+  catch (e) { gearErrors.push(e.message); console.error('[equipment] ' + e.message + ' - drawing the plain model instead'); }
+  GEAR.set(key, g); return g;
+}
+if (window.Shardlands) Shardlands.gearErrors = gearErrors;
 // draw a character; returns false if the model is not loaded (caller then uses the built-in model)
 function drawChar(e, name, o, now) {
   const md = CHARS[name]; if (!md) return false; animChar(e, md, o, now);
   const sc = (o.h || 64) / md.height, fl = e.flash > now - 110;
-  GL.drawSkinned(md, e.nodes, e.rx, -md.minY * sc, e.ry, e.yaw, sc, o.tint, fl ? [.45, .45, .45] : o.rage ? [.22, .03, 0] : o.emc, o.alpha, o.wemc);
+  GL.drawSkinned(md, e.nodes, e.rx, -md.minY * sc, e.ry, e.yaw, sc, o.tint, fl ? [.45, .45, .45] : o.rage ? [.22, .03, 0] : o.emc, o.alpha, o.wemc, o.gear);
   if (!GL.shadowsOn()) D(M.disc, e.rx, 1, e.ry, 16 * (o.h || 64) / 64, 1, 16 * (o.h || 64) / 64, 0, 0, [0, 0, 0], 0, .3);
   return true;
 }
