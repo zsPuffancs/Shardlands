@@ -73,12 +73,12 @@ test('real loot path keeps killer ownership, immediate ally payment, wallet over
   assert.equal(owned.free - owned.exp, 25000 - 180000); assert.equal(service.events.filter(event => event[0] === 'gold').length, 1);
 });
 
-test('equipment/passive Gold Find remains active in live pickup and founding/generated reward paths', () => {
-  const player = hero(); player.eq.ring = { slot: 'ring', plus: 0, stats: { gf: 100 } }; player.sk.fortune = 1; stats(player);
-  assert.equal(goldFind(player), 106);
+test('Fortune Gold Find (gear gold find ignored) stays active in live pickup and founding/generated reward paths', () => {
+  const player = hero(); player.eq.ring = { slot: 'ring', plus: 0, stats: { gf: 100 } }; player.sk.fortune = 5; stats(player);
+  assert.equal(goldFind(player), 6);
   for (const generated of [false, true]) {
     const service = lootService([player]), monster = spawn('wolf', generated ? 100 : 1, generated);
-    const expected = gold.monsterGoldRewards({ monster, template: MOBTYPES.wolf, bonuses: [106], roll: .5 })[0], before = player.gold;
+    const expected = gold.monsterGoldRewards({ monster, template: MOBTYPES.wolf, bonuses: [6], roll: .5 })[0], before = player.gold;
     fixedRandom(() => service.dropLoot(player, monster)); const drop = [...service.loot.values()].find(drop => drop.kind === 'gold'); assert.equal(drop.v, expected);
     player.x = monster.x; player.y = monster.y; service.pickupTick(Date.now()); assert.equal(player.gold, before + expected);
   }
