@@ -1,6 +1,7 @@
 'use strict';
 const { MAX_PLAYER_LEVEL, encounterBaseXp, encounterCategory } = require('./xp-economy');
 const { monsterGoldScaling } = require('./gold-rewards');
+const { ENEMY_SCALING, monsterStats } = require('./enemy-scaling');
 
 const STONE_BASE_LEVEL = 5;
 const STONE_BASE_HEALTH = 6000;
@@ -75,7 +76,8 @@ const TIERS = [
 const SPECIAL = { alphawolf: 'charge', kingslime: 'summon', warlord: 'charge', broodmother: 'summon', boneking: 'summon', ogrechief: 'slam', elderdrake: 'breath', infernal: 'meteor', yetiking: 'charge', frostwyrm: 'breath', voidlord: 'meteor', abyssalwyrm: 'breath', deathlord: 'meteor' };
 // On generated maps every monster is scaled from the same reference instead of from its own base level.
 // Scaling a level-1 Wild Wolf to level 225 made it ten times stronger than anything else there.
-// Each monster keeps a little of its own character: how tough it is next to the others of its founding zone.
+// Each monster keeps its own character: how tough / hard-hitting it is next to the others of its founding zone
+// (enemy-scaling.js archetypeRange). The same factor is used on the founding lands and on generated maps.
 const GENERATED_REFERENCE = {
   monster: { lvl: 47, hp: 5200, dmg: 180, xp: 2100, gold: [700, 1400] },    // a Voidreach monster
   boss: { lvl: 60, hp: 300000, dmg: 450, xp: 120000, gold: [20000, 40000] }, // the Lord of Death
@@ -84,12 +86,12 @@ const GENERATED_REFERENCE = {
 const characterCache = new Map();
 function character(type, key) {
   const id = type + ':' + key; if (characterCache.has(id)) return characterCache.get(id);
-  const zone = TIERS.find(t => !t.generated && (t.types.includes(type) || (t.bosses || []).includes(type)));
+  const zone = TIERS.find(t => t && !t.generated && (t.types.includes(type) || (t.bosses || []).includes(type)));
   const template = MOBTYPES[type]; let factor = 1;
   if (zone && template) {
     const peers = (template.boss ? [...new Set(zone.bosses)] : zone.types).map(t => MOBTYPES[t]).filter(Boolean);
     const mean = peers.reduce((sum, peer) => sum + peer[key], 0) / peers.length;
-    if (mean > 0) factor = Math.max(0.75, Math.min(1.35, template[key] / mean));
+    if (mean > 0) factor = Math.max(ENEMY_SCALING.archetypeRange[0], Math.min(ENEMY_SCALING.archetypeRange[1], template[key] / mean));
   }
   characterCache.set(id, factor); return factor;
 }
@@ -103,8 +105,10 @@ function generatedTemplate(template, zone) {
 }
 // Character and monster levels share the same finite ceiling; World Tier is independent.
 const MAX_LEVEL = MAX_PLAYER_LEVEL;
-// World Bosses (the one boss per World Tier that unlocks the next) are bigger and tougher than other bosses.
-const WORLD_BOSS_HEALTH = 3, WORLD_BOSS_SIZE = 1.5;
+// World Bosses (the one boss per World Tier that unlocks the next) are bigger than other bosses;
+// how much tougher they are is set in enemy-scaling.js (categories.worldBoss).
+const WORLD_BOSS_SIZE = 1.5;
+const WORLD_BOSS_HEALTH = ENEMY_SCALING.categories.worldBoss.hp[0];
 function markWorldBoss(type) { const template = MOBTYPES[type]; if (!template || template.worldBoss) return; template.worldBoss = true; template.r = Math.round(template.r * WORLD_BOSS_SIZE); }
 const STONE_DMG = [30, 70, 120, 180, 250, 330, 430];
 
@@ -129,24 +133,24 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick,
       spawnLevel = Math.max(baseLevel, zoneLevel);
     }
 
-    const levelRatio = spawnLevel / baseLevel;
     const isAlpha = Boolean(options.alpha);
-    const levelDamageMultiplier = levelRatio ** 1.37;
-    const healthExponent = template.stone ? STONE_HEALTH_EXPONENT : 1.9;
-    const healthMultiplier = levelRatio ** healthExponent * (isAlpha ? 5 : 1) * (template.worldBoss ? WORLD_BOSS_HEALTH : 1);
-    const damageMultiplier = levelDamageMultiplier * (isAlpha ? 1.6 : 1);
+    // Health and damage come from the level budget (enemy-scaling.js): category, World Tier and the type's identity.
+    const category = template.stone ? 'stone' : template.worldBoss ? 'worldBoss' : template.boss ? 'boss' : isAlpha ? 'alpha' : 'normal';
+    const identity = template.archetype || type, worldTier = tier + 1;
+    const scaled = monsterStats({ level: spawnLevel, category, worldTier, archetype: { hp: character(identity, 'hp'), dmg: character(identity, 'dmg') } });
     const goldScaling = monsterGoldScaling({ level: spawnLevel, baseLevel, alpha: isAlpha, generated: !!zone.generated });
     if (clampWorld) { const point = { x, y }; clampWorld(point, zone.area); x = point.x; y = point.y; }
     else { x = Math.max(20, Math.min(width - 20, x)); y = Math.max(20, Math.min(height - 20, y)); }
     const monster = {
       id: allocateId(), ty: type, x, y, hx: x, hy: y, sx: x, sy: y, tier, lvl: spawnLevel,
-      hb: template.hp * healthMultiplier, dmg: template.dmg * damageMultiplier,
+      hb: scaled.hp, dmg: template.stone ? 0 : scaled.dmg, cat: category, worldBoss: Boolean(template.worldBoss),
       xp: encounterBaseXp(spawnLevel, encounterCategory({ alpha: isAlpha }, template)), ...goldScaling, gb: template.gold,
       r: Math.round(template.r * (isAlpha ? 1.3 : 1)), alpha: isAlpha ? 1 : 0,
       boss: Boolean(template.boss), cd: 0, target: 0, dead: 0, stoneStep: 5, slamT: 0,
       slamAt: 0, awake: false, wake: 0,
     };
-    if (template.stone) monster.pulseMultiplier = levelDamageMultiplier;
+    // A stone's pulse hits as hard as categories.stone.dmg on-level normal hits (STONE_DMG is the base it scales).
+    if (template.stone) monster.pulseMultiplier = scaled.dmg / STONE_DMG[Math.min(6, tier)];
     monster.mh = maxHealth(monster);
     monster.hp = monster.mh;
     mobs.set(monster.id, monster);
@@ -208,6 +212,7 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick,
 
   function respawnMonster(monster) {
     monster.combatEpoch = (monster.combatEpoch || 0) + 1; monster.combatActive = false; monster.partyDamageScale = 1;
+    monster.phase = 0; monster.fightStart = 0; monster.recoverUntil = 0;
     monster.dead = 0;
     monster.ps = 1;
     monster.mh = maxHealth(monster);

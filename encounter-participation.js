@@ -1,6 +1,7 @@
 'use strict';
 const { mapOf } = require('./game-world');
-const { XP_BALANCE, partyHpScale, partyDamageScale } = require('./xp-economy');
+const { XP_BALANCE, partyDamageScale } = require('./xp-economy');
+const { partyHealthScale } = require('./enemy-scaling');
 // A fixed roster and sharing policy are captured once. No membership scans run on server ticks.
 function createEncounterParticipation({ players, teams }) {
   const fights = new WeakMap(), identities = new WeakMap();
@@ -16,10 +17,11 @@ function createEncounterParticipation({ players, teams }) {
     fights.set(monster, fight);
     monster.combatActive = true;
     // Scale only a pristine encounter, before any damage. Mid-fight changes never heal or inflate it.
+    // Health grows per member by category (bosses most, enemy-scaling.js); XP still pays the normal party scale.
     if (monster.hp === monster.mh && (monster.ps || 1) === 1) {
-      const scale = partyHpScale(members.length);
+      const scale = partyHealthScale(monster.cat || (monster.alpha ? 'alpha' : 'normal'), members.length);
       monster.mh = Math.round(monster.mh * scale); monster.hp = monster.mh; monster.ps = scale;
-      monster.partyDamageScale = partyDamageScale(members.length);
+      monster.partyDamageScale = partyDamageScale(members.length); monster.fightStart = Date.now();
     }
     return fight;
   }

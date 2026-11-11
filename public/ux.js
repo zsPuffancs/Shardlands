@@ -180,3 +180,14 @@ function castWarning(f) {
   el.textContent = '⚠ ' + text('ux.castWarning', '{boss}: {attack}! Leave the red area.', { boss: mobName(m.ty, t.n), attack: text('attack.' + f.s, ATTACK_NAME[f.s] || f.s) });
   el.style.display = 'block'; clearTimeout(castTimer); castTimer = setTimeout(() => { el.style.display = 'none'; }, 2600);
 }
+// Boss phases (below 60% / 30% health) and the punish window after each telegraphed attack.
+function bossPhaseNotice(f) {
+  if (!I || !me) return;
+  const m = mo.find(x => x.id === f.a), t = m && I.types[m.ty];
+  if (!t || !t.boss || (me.tg !== m.id && Math.hypot(m.x - me.x, m.y - me.y) > 700)) return;
+  const name = mobName(m.ty, t.n), el = $('castwarn');
+  const message = f.s === 'stagger'
+    ? '✦ ' + text('ux.bossStagger', '{boss} is recovering: strike now for extra damage!', { boss: name })
+    : '🔥 ' + (f.v >= 2 ? text('ux.bossFinalPhase', '{boss} is desperate: attacks come much faster and hit harder!', { boss: name }) : text('ux.bossEnraged', '{boss} is enraged: attacks come faster!', { boss: name }));
+  el.textContent = message; el.style.display = 'block'; clearTimeout(castTimer); castTimer = setTimeout(() => { el.style.display = 'none'; }, f.s === 'stagger' ? 1300 : 3000);
+}

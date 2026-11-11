@@ -4,6 +4,7 @@ const { nearby } = require('./spatial-index');
 const { CX, CY, rnd, dist, clampWorld, moveToward, inVillage, placeInVillage, mapOf, collideSettlement } = require('./game-world');
 const { CLASSES, playerDmg, rank, passive, gearAttackSpeed, playerMoveSpeed } = require('./characters');
 const { MOBTYPES, STONE_DMG } = require('./monsters');
+const { ENEMY_SCALING, bossPressure } = require('./enemy-scaling');
 
 function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, hurtPlayer, startCast, resolveCast, pickupTick, ev, fire, publishSnapshots, getTransportStats, updateEncounters = () => {}, processJobs = () => {}, resetEncounter = () => {} }) {
   const tickSeconds = 0.05;
@@ -112,13 +113,15 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
         let targetPlayer = monster.target ? players.get(monster.target) : null; const leash = template.boss ? 1000 : monster.alpha ? 850 : 700;
         const canTarget = player => !player.dead && !inVillage(player) && Math.hypot(player.x - monster.sx, player.y - monster.sy) <= leash;
         if (targetPlayer && !canTarget(targetPlayer)) { targetPlayer = null; monster.target = 0; }
-        if (!targetPlayer) for (const player of nearby(players, monster, template.aggro)) if (Math.abs(player.x - monster.x) < template.aggro && Math.abs(player.y - monster.y) < template.aggro && dist(player, monster) < template.aggro && canTarget(player)) { monster.target = player.id; targetPlayer = player; break; }
+        const aggro = template.aggro * (monster.alpha ? ENEMY_SCALING.alpha.aggroRange : 1);
+        if (!targetPlayer) for (const player of nearby(players, monster, aggro)) if (Math.abs(player.x - monster.x) < aggro && Math.abs(player.y - monster.y) < aggro && dist(player, monster) < aggro && canTarget(player)) { monster.target = player.id; targetPlayer = player; break; }
         if (targetPlayer) {
           const distance = dist(monster, targetPlayer);
           if (template.boss && !monster.cast && now > monster.slamT) startCast(monster, targetPlayer, distance, now);
           if (monster.cast && monster.cast.s !== 'summon') continue;
+          if (monster.recoverUntil > now) continue; // recovering after a telegraphed attack: the punish window
           if (distance > monster.r + 20) { const ox = monster.x, oy = monster.y; moveToward(monster, targetPlayer.x, targetPlayer.y, template.spd * (monster.alpha ? 1.1 : 1), tickSeconds); if (inVillage(monster)) { monster.x = ox; monster.y = oy; } }
-          else if (now >= monster.cd) { monster.cd = now + (monster.alpha ? 950 : 1100); hurtPlayer(targetPlayer, monster, monster.dmg * (monster.partyDamageScale || 1) * rates.monsterDamage * rnd(0.8, 1.2), now); }
+          else if (now >= monster.cd) { monster.cd = now + (monster.alpha ? 950 : 1100) / bossPressure(monster, now).attackSpeed; hurtPlayer(targetPlayer, monster, monster.dmg * (monster.partyDamageScale || 1) * rates.monsterDamage * rnd(0.8, 1.2), now); }
         } else {
           const d = moveToward(monster, monster.hx, monster.hy, template.spd * 0.5, tickSeconds);
           if (d < 5 && Math.random() < 0.02) {
@@ -129,7 +132,7 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
           }
           if (monster.hp < monster.mh) monster.hp = Math.min(monster.mh, monster.hp + monster.mh * 0.05 * tickSeconds);
           // Back home and healed: a monster made tougher by a team goes back to normal.
-          else if (monster.ps > 1 || monster.combatActive) { monster.mh = Math.max(1, Math.round(monster.mh / (monster.ps || 1))); monster.hp = monster.mh; monster.ps = 1; resetEncounter(monster); }
+          else if (monster.ps > 1 || monster.combatActive) { monster.mh = Math.max(1, Math.round(monster.mh / (monster.ps || 1))); monster.hp = monster.mh; monster.ps = 1; monster.phase = 0; monster.fightStart = 0; resetEncounter(monster); }
         }
       } finally {
         mobs.update?.(monster);

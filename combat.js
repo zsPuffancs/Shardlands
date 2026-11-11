@@ -12,6 +12,7 @@ const { createEncounterParticipation } = require('./encounter-participation');
 const XP_LEVEL_GAP_LIMIT = XP_BALANCE.overlevelCutoff;
 const canEarnMonsterXp = (hero, monster) => levelGapScale(hero.lvl, monster.lvl) > 0;
 const { SUMMON_LIFETIME_MS, createSummons } = require('./summons');
+const { ENEMY_SCALING, bossPhase, bossPressure, recoverMs } = require('./enemy-scaling');
 
 function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLoot, broadcast, say, teams }) {
   const summons = createSummons({ mobs, spawnMob });
@@ -22,6 +23,9 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     try {
       const criticalHit = Math.random() < critCh(player);
       if (criticalHit) damage *= critMul(player);
+      // A boss recovering from a telegraphed attack is open: hits land harder (the punish window).
+      const punished = monster.boss && monster.recoverUntil > Date.now();
+      if (punished) damage *= ENEMY_SCALING.boss.punishBonus;
       damage = Math.max(1, Math.round(damage * rnd(0.9, 1.1)));
       const hit = { v: damage, crit: criticalHit };
       fire('damage', player, monster, hit);
@@ -30,6 +34,8 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
       participation.begin(player, monster);
       participation.record(player, monster, Math.min(monster.hp, damage), Date.now());
       monster.hp -= damage;
+      // Bosses grow more dangerous below 60% and 30% health. Everyone nearby sees the change.
+      if (monster.boss && monster.hp > 0) { const phase = bossPhase(monster); if (phase > (monster.phase || 0)) { monster.phase = phase; ev('phase', monster.x, monster.y, phase, { a: monster.id, s: 'enrage', monsterType: monster.ty }); ev('fx', monster.x, monster.y, 90, { s: 'rage', a: monster.id }); } }
       ev('dmg', monster.x, monster.y, damage, {
         c: criticalHit ? 1 : 0, combatPlayerId: player.id, monsterType: monster.ty,
       });
@@ -110,11 +116,14 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
       cast.r = monster.r + 45;
     }
     if (attack === 'meteor') { cast.pts = []; for (const player of players.values()) if (!player.dead && dist(player, monster) < 700) for (let i = 0; i < 3; i++) cast.pts.push([Math.round(player.x + rnd(-120, 120)), Math.round(player.y + rnd(-120, 120))]); cast.pts.push([Math.round(targetPlayer.x), Math.round(targetPlayer.y)]); cast.r = 95; }
-    monster.cast = cast; monster.slamT = now + rnd(5500, 8500);
+    monster.cast = cast; monster.slamT = now + rnd(5500, 8500) * bossPressure(monster, now).castInterval;
     ev('warn', monster.x, monster.y, cast.r, { a: monster.id, s: attack, ang: Math.round(cast.ang * 100) / 100, tx: cast.tx && Math.round(cast.tx), ty: cast.ty && Math.round(cast.ty), pts: cast.pts, half: cast.half });
   }
   function resolveCast(monster, activePlayers, now) {
-    const cast = monster.cast; monster.cast = null; const baseDamage = monster.dmg * (monster.partyDamageScale || 1) * rates.monsterDamage;
+    const cast = monster.cast; monster.cast = null; const pressure = bossPressure(monster, now);
+    const baseDamage = monster.dmg * (monster.partyDamageScale || 1) * rates.monsterDamage * pressure.castDamage;
+    // After the attack the boss recovers for a moment: it cannot move or hit and takes extra damage.
+    if (cast.s !== 'summon') { monster.recoverUntil = now + recoverMs(pressure.phase); ev('phase', monster.x, monster.y, 0, { a: monster.id, s: 'stagger', monsterType: monster.ty }); }
     if (cast.s === 'slam') { ev('slam', monster.x, monster.y, cast.r, { s: 'slam' }); for (const player of activePlayers) if (!player.dead && !inVillage(player) && dist(player, monster) <= cast.r) hurtPlayer(player, monster, baseDamage * 1.8, now); }
     else if (cast.s === 'breath') { ev('slam', monster.x, monster.y, cast.r, { s: 'breath', ang: cast.ang, half: cast.half, ty: monster.ty }); for (const player of activePlayers) { if (player.dead || inVillage(player)) continue; const dd = dist(player, monster); if (dd > cast.r) continue; let da = Math.atan2(player.x - monster.x, player.y - monster.y) - cast.ang; da = Math.atan2(Math.sin(da), Math.cos(da)); if (Math.abs(da) <= cast.half) hurtPlayer(player, monster, baseDamage * 1.7, now); } }
     else if (cast.s === 'charge') { const x0 = monster.x, y0 = monster.y; monster.x = cast.tx; monster.y = cast.ty; ev('slam', monster.x, monster.y, 70, { s: 'charge', x0: Math.round(x0), y0: Math.round(y0) });

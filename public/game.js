@@ -467,6 +467,7 @@ function onEvent(f) {
   const now = performance.now(), E = f.a && (I && f.a === I.id ? S : ents.get(f.a));
   if (f.k === 'warn') { fxWarn(f); if (E) { E.atkT = now + 500; E.skill = true; } castWarning(f); return; }
   if (f.k === 'slam') { fxSlam(f); return; }
+  if (f.k === 'phase') { if (typeof bossPhaseNotice === 'function') bossPhaseNotice(f); return; }
   if (f.k === 'fx') { if (E && I.classes[f.s]) { E.atkT = now; E.skill = true; faceAttackTarget(E, f, now); } fxSkill(f, E); return; }
   if (f.k === 'atk') { if (E) { E.atkT = now; E.skill = false; faceAttackTarget(E, f, now); } fxAttack(f, E); return; }
   if (f.k === 'die') { const t = I.types[f.v], c = hex(t ? t.c : '#cccccc'), big = t && (t.boss || f.b); burst(f.x, 18, f.y, big ? 70 : 22, c, 200, 1.1, 2.2, .25, 560); addRing(f.x, f.y, 4, big ? 80 : 40, big ? [1, .7, .3] : [.85, .85, .85], 500, 14, .2); sfx(big ? 'boss' : 'die', f.x, f.y); return; }

@@ -108,4 +108,4 @@ function createEquipment({ rates }) {
   return { rollRarity, genGear, rerollGear, applyAffix };
 }
 
-module.exports = { ITEM_STAT_SOFT_CAP_START, ITEM_STAT_SOFT_CAP_SCALE, effectiveStatLevel, affixRange, REMOVED_STATS, SLOTS, NO_DMG, RARITY, MYTHIC, PASSIVES, MERGE_COST, REROLL_COST, AFFIXES, AFFIX_SLOTS, AFFIX_COST, MYTHIC_MERGE_COUNT, MYTHIC_MERGE_GOLD, statRanges, itemView, BASES, STATDEF, UP_RATE, sanitize, plusMul, sellValue, upCostFor, createEquipment };
+module.exports = { PRIMARY, ITEM_STAT_SOFT_CAP_START, ITEM_STAT_SOFT_CAP_SCALE, effectiveStatLevel, affixRange, REMOVED_STATS, SLOTS, NO_DMG, RARITY, MYTHIC, PASSIVES, MERGE_COST, REROLL_COST, AFFIXES, AFFIX_SLOTS, AFFIX_COST, MYTHIC_MERGE_COUNT, MYTHIC_MERGE_GOLD, statRanges, itemView, BASES, STATDEF, UP_RATE, sanitize, plusMul, sellValue, upCostFor, createEquipment };
