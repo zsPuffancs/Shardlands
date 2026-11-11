@@ -427,7 +427,9 @@ document.addEventListener('click', e => {
   if (t.id === 'autoMerge2') { send({ t: 'automerge', max: 2 }); return; }
   if (t.id === 'autoMerge3') { send({ t: 'automerge', max: 3 }); return; }
   if (t.id === 'autoMerge4') { send({ t: 'automerge', max: 4 }); return; }
-  if (t.dataset.build) { const k = t.dataset.build, cost = WORLD.settlement.cost[k]; uxConfirm(text('camp.confirm', 'Build the {stall} for {gold} gold? It stays for everyone on this server.', { stall: text('camp.stall.' + k, STALL_NAME[k]), gold: GameText.number(cost) }), text('camp.build', 'Build'), () => send({ t: 'build', k })); return; }
+  if (t.dataset.build) { const k = t.dataset.build, st = WORLD.settlement, raised = Object.values((st.funds && st.funds[k]) || {}).reduce((s, v) => s + v, 0), left = st.cost[k] - raised; uxConfirm(text('camp.confirm', 'Build the {stall} for {gold} gold? It stays for everyone on this server.', { stall: text('camp.stall.' + k, STALL_NAME[k]), gold: GameText.number(left) }), text('camp.build', 'Build'), () => send({ t: 'build', k, amount: left })); return; }
+  if (t.dataset.donate) { const k = t.dataset.donate, field = $('campamt-' + k), amount = Math.floor(+(field && field.value) || 0); if (amount < 1) return;
+    uxConfirm(text('camp.donateConfirm', 'Give {gold} gold towards the {stall}? Gold given is not returned. The biggest contributor gets the deed.', { gold: GameText.number(Math.min(amount, me.g)), stall: text('camp.stall.' + k, STALL_NAME[k]) }), text('camp.give', 'Give'), () => send({ t: 'build', k, amount })); return; }
   if (t.dataset.travel) { send({ t: 'travel', map: +t.dataset.travel }); closeWin('portalw'); return; }
   if (t.dataset.my) { mySel = t.dataset.my; buildMystic(); return; }
   if (t.id === 'mygo') { if (mySel) { send({ t: 'reroll', uid: mySel }); $('myres').textContent = '…'; $('myres').style.color = '#ccc'; } return; }
@@ -581,10 +583,26 @@ function buildTrade() {
 const STALL_NAME = { merchant: "Merchant's stall", smith: "Blacksmith's forge", mystic: "Soul Mystic's tent" }, STALL_NPC = { merchant: 'npc.merchant', smith: 'npc.smith', mystic: 'npc.mystic' };
 function buildCamp() {
   const st = WORLD && WORLD.settlement; if (!st || st.kind !== 'camp') { $('campb').innerHTML = ''; return; }
-  const row = k => { const b = st.built[k], cost = st.cost[k];
-    return '<div class="row"><div class="t">' + esc(text('camp.stall.' + k, STALL_NAME[k])) + '<small>' + esc(b ? text('camp.builtBy', 'Built by {name}', { name: b.by }) : text('camp.brings', 'Brings the {npc} to this camp', { npc: text(STALL_NPC[k], k) })) + '</small></div>' +
-      (b ? '<b style="color:#8fd18f">✔</b>' : '<button class="pri" data-build="' + k + '"' + (me.g < cost ? ' disabled' : '') + '>' + GameText.number(cost) + 'g</button>') + '</div>'; };
-  $('campb').innerHTML = '<div class="mu" style="font-size:0.75rem;margin-bottom:6px">' + esc(text('camp.intro', 'This land is too harsh for a village. Fund a stall and its keeper will stay here for every hero on the server. The first stall founds the encampment, and every stall is written in the Chronicle.')) + '</div>' + Object.keys(STALL_NAME).map(row).join('');
+  // Each unbuilt stall shows how much is raised. Heroes can give any part of their gold; the biggest contributor gets the deed.
+  const row = k => { const b = st.built[k], cost = st.cost[k], donors = (st.funds && st.funds[k]) || {};
+    const name = '<div class="t">' + esc(text('camp.stall.' + k, STALL_NAME[k])) + '<small>';
+    if (b) return '<div class="row">' + name + esc(text('camp.builtBy', 'Built by {name}', { name: b.by })) + (b.donors > 1 ? ' · ' + esc(text('camp.withHelp', 'with {count} heroes', { count: b.donors })) : '') + '</small></div><b style="color:#8fd18f">✔</b></div>';
+    const raised = Object.values(donors).reduce((s, v) => s + v, 0), left = Math.max(0, cost - raised), mine = donors[I.name] || 0;
+    const top = Object.keys(donors).sort((a, c) => donors[c] - donors[a])[0];
+    const pct = Math.min(100, raised / cost * 100), give = Math.min(left, me.g);
+    return '<div class="row camp-row" style="flex-wrap:wrap">' + name + esc(text('camp.brings', 'Brings the {npc} to this camp', { npc: text(STALL_NPC[k], k) })) + '</small></div>' +
+      '<b style="color:#ffd24a">' + GameText.number(cost) + 'g</b>' +
+      '<div class="camp-fund" style="flex-basis:100%;margin-top:4px">' +
+        '<div style="height:8px;border-radius:4px;background:#1a130c;border:1px solid #4a3a2a;overflow:hidden"><div style="height:100%;width:' + pct.toFixed(1) + '%;background:linear-gradient(90deg,#b8862e,#ffd24a)"></div></div>' +
+        '<div class="mu" style="font-size:0.6875rem;margin-top:2px">' + esc(text('camp.raised', '{raised} / {cost} gold raised · {left} to go', { raised: GameText.number(raised), cost: GameText.number(cost), left: GameText.number(left) })) +
+          (top ? ' · ' + esc(text('camp.topDonor', 'Deed goes to {name} ({gold}g)', { name: top, gold: GameText.number(donors[top]) })) : '') +
+          (mine ? ' · ' + esc(text('camp.yourShare', 'You gave {gold}g', { gold: GameText.number(mine) })) : '') + '</div>' +
+        '<div style="display:flex;gap:6px;margin-top:4px;align-items:center">' +
+          '<input id="campamt-' + k + '" type="number" min="1" max="' + give + '" step="1000" value="' + give + '" aria-label="' + esc(text('camp.amount', 'Gold to give')) + '" style="width:120px"' + (give < 1 ? ' disabled' : '') + '>' +
+          '<button class="pri" data-donate="' + k + '"' + (give < 1 ? ' disabled' : '') + '>' + esc(text('camp.give', 'Give')) + '</button>' +
+          '<button data-build="' + k + '"' + (me.g < left || left < 1 ? ' disabled' : '') + '>' + esc(text('camp.payRest', 'Pay the rest ({gold}g)', { gold: GameText.number(left) })) + '</button>' +
+        '</div></div></div>'; };
+  $('campb').innerHTML = '<div class="mu" style="font-size:0.75rem;margin-bottom:6px">' + esc(text('camp.intro', 'This land is too harsh for a village. Fund a stall and its keeper will stay here for every hero on the server. Heroes can pool their gold: whoever gives the most gets the deed. The first stall founds the encampment, and every stall is written in the Chronicle.')) + '</div>' + Object.keys(STALL_NAME).map(row).join('');
 }
 // ---------- world portal ----------
 let PORTAL = null;
@@ -607,7 +625,7 @@ const CHRONICLE_TEXT = {
   levelMilestone: '{player} was the first to reach level {level}.', bossFirstKill: '{player} was the first to slay {boss}.',
   stoneFirst: '{player} shattered the first stone of {region}.', firstMythic: '{player} forged the first Mythic item: {item}.',
   worldBoss: '{player} defeated the World Boss {boss}. World Tier {tier} begins: {region} is discovered.',
-  campFounded: '{player} founded the encampment of {region}.', stallBuilt: '{player} built the {stall} in {region} for {gold} gold.',
+  campFounded: '{player} founded the encampment of {region}.', stallBuilt: '{player} built the {stall} in {region} for {gold} gold.', stallFunded: '{player} led the building of the {stall} in {region}: {count} heroes gave {gold} gold.',
 };
 const zoneKey = name => 'zone.' + String(name).toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '');
 const regionName = region => region.kind === 'founding' ? text(zoneKey(region.name), region.name) : region.name;

@@ -23,12 +23,15 @@ const lookZoneOf = (x, z) => lookIndex(zoneOf(x, z));
 let snapNext = false;
 // Switch to (or refresh) the map this client is on. Positions are always local to the current map.
 function setWorld(world, arrived) {
-  const changed = !WORLD || world.map !== WORLD.map, rebuilt = !changed && JSON.stringify(world.settlement) !== JSON.stringify(WORLD.settlement);
+  const changed = !WORLD || world.map !== WORLD.map, shape = s => s && JSON.stringify([s.kind, s.style, s.built]), rebuilt = !changed && shape(world.settlement) !== shape(WORLD.settlement);
+  const fundsChanged = !changed && !rebuilt && JSON.stringify(world.settlement && world.settlement.funds) !== JSON.stringify(WORLD.settlement && WORLD.settlement.funds);
   const st = world.settlement || { kind: 'village', style: 'timber', built: {} };
   world.layout = Settlement.layout(st.kind, st.style, st.built);
   WORLD = world; ZT = world.tiers;
   // A stall was built on this map: redraw the settlement, keep everything else.
   if (rebuilt) { bakeWorld(); buildGround(); if (isOpen('campw')) buildCamp(); }
+  // Only the donations changed: refresh the board, the 3D settlement stays as it is.
+  if (fundsChanged && isOpen('campw')) buildCamp();
   if (!changed) return;
   intent = null; pendingNpc = null; nearNpcK = null; held = false; lastHold = null;
   keys = {}; lastDir = [0, 0]; rotating = false;

@@ -10,7 +10,7 @@ const { createDangerSpec } = require('./danger-geography');
 const GENERATOR_VERSION = 2;
 const STATE_VERSION = 1;
 const LEVEL_MILESTONES = [10, 20, 30, 40, 50, 60];
-const RENOWN = { campFounded: 4, stallBuilt: 2, worldBoss: 5, bossFirstKill: 3, firstMythic: 3, levelMilestone: 2, stoneFirst: 1, firstHero: 1 };
+const RENOWN = { campFounded: 4, stallBuilt: 2, stallFunded: 2, worldBoss: 5, bossFirstKill: 3, firstMythic: 3, levelMilestone: 2, stoneFirst: 1, firstHero: 1 };
 
 // ---------- deterministic randomness ----------
 const { hashString, seededRandom } = require('./deterministic-random');
@@ -172,6 +172,7 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
     worldBoss: '{player} defeated the World Boss {boss}. World Tier {tier} begins: {region} is discovered.',
     campFounded: '{player} founded the encampment of {region}.',
     stallBuilt: '{player} built the {stall} in {region} for {gold} gold.',
+    stallFunded: '{player} led the building of the {stall} in {region}: {count} heroes gave {gold} gold.',
   };
   // Only verified gameplay facts go in. Text is rendered from the structured record, never stored as fact.
   // The settlement of each map. Map 0 (the founding lands) always has the village; generated regions get theirs
@@ -269,7 +270,7 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
       history: state.history.slice(-200), legends: legends(), stats: { ...state.stats, bossKills: undefined, elements: { ...state.stats.elements } },
     };
   }
-  const universe = { state, hooks, identity, summary, founded, record, recordOnce, regionFor, settlement, onTierUnlocked: null, layoutRandom: label => seededRandom(state.seed, label) };
+  const universe = { state, hooks, identity, summary, founded, record, recordOnce, regionFor, settlement, save: persist, onTierUnlocked: null, layoutRandom: label => seededRandom(state.seed, label) };
   return universe;
 }
 

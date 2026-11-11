@@ -77,7 +77,8 @@ function worldInfo(map) {
   const local = key => { const npc = npcPosition(map, key); return { x: npc.x - map.x0, y: npc.y - map.y0, name: npc.name }; };
   const npcs = {}; for (const key in NPCS) if (npcAvailable(map, key)) npcs[key] = local(key); if (portalOpen()) npcs.portal = local('portal');
   if (npcAvailable(map, 'camp')) npcs.camp = { x: map.cx - map.x0 + Settlement.CAMP_BOARD.x, y: map.cy - map.y0 + Settlement.CAMP_BOARD.y, name: 'Encampment board' };
-  const settlement = { kind: layoutOf(map).kind, style: layoutOf(map).style, built: (map.settlement && map.settlement.built) || {}, cost: Settlement.STALL_COST };
+  const settlement = { kind: layoutOf(map).kind, style: layoutOf(map).style, built: (map.settlement && map.settlement.built) || {}, cost: Settlement.STALL_COST,
+    funds: Object.fromEntries(Object.entries((map.settlement && map.settlement.funds) || {}).map(([key, fund]) => [key, fund.donors])) };
   const zones = map.index === 0 ? TIERS.filter(t => !t.generated).map(t => ({ name: t.name, min: t.min, max: t.max, lv: t.lv, outer: !!t.outer }))
     : [{ name: TIERS[map.tier].name, min: REGION_SAFE_RADIUS, max: 99999, lv: TIERS[map.tier].lv, outer: false, look: map.look, generated: true }];
   return { universe: universeIdentity(), map: map.index, maps: maps.length, W: map.w, H: map.h, CX: map.cx - map.x0, CY: map.cy - map.y0, V: layoutOf(map).safe, settlement, npcs, npcRange: NPC_RANGE, tiers: zones };

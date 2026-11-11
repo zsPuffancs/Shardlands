@@ -86,20 +86,40 @@ function createRegions({ universe, players, mobs, spawnMob, config = {}, populat
     const portal = npcPosition(destination, 'portal'); ev('fx', portal.x, portal.y, 70, { s: 'summon' });
   }
   // Encampments: on fire and void maps players pay for each stall; the first one founds the camp.
-  function buildStall(player, key) {
+  // Anyone can give part of their gold towards a stall. When the total reaches the cost the stall is built,
+  // and the biggest contributor gets the deed (on a tie, whoever reached that amount first).
+  function buildStall(player, key, requested) {
     const map = mapOf(player), record = map.settlement;
     if (player.dead || !record || record.kind !== 'camp' || !Object.hasOwn(Settlement.STALL_COST, key)) return;
     if (!nearNpc(player, 'camp')) return say(player, messageText('server.campBoardFar', 'Walk up to the encampment board to build.'));
     if (record.built[key]) return say(player, messageText('server.stallBuilt', 'That stall is already built.'));
     const cost = Settlement.STALL_COST[key];
-    if (player.gold < cost) return say(player, messageText('server.stallGold', 'Building it costs {gold} gold.', { gold: cost }));
-    player.gold -= cost;
-    const first = !Object.keys(record.built).length, region = universe.regionFor(map.regionTier);
-    record.built[key] = { by: player.name, at: Date.now() };
+    if (!record.funds) record.funds = {};
+    const fund = record.funds[key] || (record.funds[key] = { donors: {}, reached: {} });
+    const raised = Object.values(fund.donors).reduce((sum, value) => sum + value, 0), remaining = Math.max(0, cost - raised);
+    // No amount means "pay whatever is left"; never take more than the player has or the stall still needs.
+    const wanted = requested === undefined || requested === null ? remaining : Math.floor(Number(requested));
+    const amount = Math.min(remaining, player.gold, Number.isFinite(wanted) ? wanted : 0);
+    if (!(amount > 0)) return say(player, messageText('server.stallNoGold', 'You have no gold to give.'));
+    player.gold -= amount;
+    fund.donors[player.name] = (fund.donors[player.name] || 0) + amount; fund.reached[player.name] = Date.now();
+    const region = universe.regionFor(map.regionTier), board = { x: map.cx + Settlement.CAMP_BOARD.x, y: map.cy + Settlement.CAMP_BOARD.y };
+    if (amount < remaining) {
+      universe.save();
+      say(player, messageText('server.stallDonated', 'You gave {gold} gold towards the {stall}. {left} gold still needed.', { gold: amount, stall: Settlement.STALL_NAMES[key], stallKey: key, left: remaining - amount }));
+      ev('fx', board.x, board.y, 40, { s: 'buff' });
+      for (const other of players.values()) if (mapOf(other) === map) send(other.c, { t: 'map', world: worldInfo(map) });
+      return;
+    }
+    const donors = Object.keys(fund.donors).sort((a, b) => fund.donors[b] - fund.donors[a] || fund.reached[a] - fund.reached[b]);
+    const owner = donors[0], first = !Object.keys(record.built).length;
+    record.built[key] = { by: owner, at: Date.now(), gold: fund.donors[owner], donors: donors.length };
+    delete record.funds[key];
     setSettlement(map, record);
-    if (first) universe.recordOnce('camp:' + map.regionTier, 'campFounded', [player.name], { region: region.name });
-    universe.recordOnce('stall:' + map.regionTier + ':' + key, 'stallBuilt', [player.name], { stall: Settlement.STALL_NAMES[key], stallKey: key, region: region.name, gold: cost });
-    const board = { x: map.cx + Settlement.CAMP_BOARD.x, y: map.cy + Settlement.CAMP_BOARD.y }; ev('fx', board.x, board.y, 70, { s: 'lvl' });
+    if (first) universe.recordOnce('camp:' + map.regionTier, 'campFounded', [owner], { region: region.name });
+    if (donors.length === 1) universe.recordOnce('stall:' + map.regionTier + ':' + key, 'stallBuilt', [owner], { stall: Settlement.STALL_NAMES[key], stallKey: key, region: region.name, gold: cost });
+    else universe.recordOnce('stall:' + map.regionTier + ':' + key, 'stallFunded', donors, { stall: Settlement.STALL_NAMES[key], stallKey: key, region: region.name, gold: cost, count: donors.length });
+    ev('fx', board.x, board.y, 70, { s: 'lvl' });
     // Everyone on this map sees the new stall and its NPC at once.
     for (const other of players.values()) if (mapOf(other) === map) send(other.c, { t: 'map', world: worldInfo(map) });
   }
