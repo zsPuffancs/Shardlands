@@ -127,3 +127,10 @@ See PLUGINS.md. Drop files into `plugins/`, restart.
 
 ## Credits
 3D models: Quaternius (https://quaternius.com), CC0. Everything else: original.
+
+## Performance checks
+Run `node --test tests/performance.test.js` for spatial queries, loot ownership, skill targeting, sleeping AI, state deltas and overload handling.
+
+Monsters, players and loot use a shared persistent spatial index. AI processes nearby and still-active monsters; distant lifecycle checks (respawn and summon expiry) run every 500 ms. Empty maps keep their state without running full AI every tick. Code that moves an indexed entity directly should call `entities.update(entity)`; monster membership is also reconciled during lifecycle checks.
+
+Clients that negotiate `meDeltas` receive inventory counts and skill ranks only on change. Older clients keep receiving full state. A simulation tick over its 50 ms budget may skip one snapshot, keeping queued events for the next publication; consecutive snapshots are never skipped. Console `status` reports tick overruns and skipped snapshots. Under sustained overload the fixed-step simulation slows down rather than running a burst of catch-up ticks.

@@ -1,6 +1,7 @@
 'use strict';
 // Shardlands entry point. Compose game services and manage the server lifecycle.
 const path = require('node:path');
+const { IndexedEntities } = require('./spatial-index');
 const { withLocalizedText, localizedText } = require('./localized-text');
 const { loadServerConfig } = require('./server-config');
 const { openJsonStore, createGameSaves } = require('./persistence');
@@ -26,7 +27,7 @@ const port = process.env.PORT || config.port || 3000;
 const saveStore = openJsonStore(path.join(__dirname, 'saves.json'));
 const pluginStore = openJsonStore(path.join(__dirname, 'plugin-data.json'));
 const universeStore = openJsonStore(path.join(__dirname, 'universe.json'));
-const players = new Map(), mobs = new Map(), loot = new Map();
+const players = new IndexedEntities(), mobs = new IndexedEntities(), loot = new IndexedEntities();
 let nextEntityId = 1;
 const allocateId = () => nextEntityId++;
 const refreshMobTypes = createMobTypeIndex(MOBTYPES);

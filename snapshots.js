@@ -1,5 +1,6 @@
 'use strict';
 
+const { nearby: queryNearby } = require('./spatial-index');
 const { CLASSES, xpNeed, playerDmg } = require('./characters');
 const { inVillage, mapOf, worldInfo } = require('./game-world');
 
@@ -25,7 +26,8 @@ function snapshotMobs(mobs, player, cells) {
       if (!mob.dead && Math.abs(mob.x - player.x) < SNAPSHOT_RADIUS && Math.abs(mob.y - player.y) < SNAPSHOT_RADIUS) nearby.push(mob);
     }
   };
-  if (cells) {
+  if (mobs.spatial) collect(queryNearby(mobs, player, SNAPSHOT_RADIUS));
+  else if (cells) {
     const cx = Math.floor(player.x / SNAPSHOT_RADIUS), cy = Math.floor(player.y / SNAPSHOT_RADIUS);
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
@@ -39,7 +41,7 @@ function snapshotMobs(mobs, player, cells) {
     const distance = mob => Math.abs(mob.x - player.x) + Math.abs(mob.y - player.y);
     nearby.sort((a, b) => distance(a) - distance(b) || a.id - b.id);
     nearby.length = SNAPSHOT_MOB_LIMIT;
-  } else if (cells) nearby.sort((a, b) => a.id - b.id);
+  } else if (cells || mobs.spatial) nearby.sort((a, b) => a.id - b.id);
   return nearby;
 }
 // Wire fields: mo is a full list, md contains changed rows, and mi carries the new ID order.
@@ -97,6 +99,17 @@ function ownPlayerSnapshot(player, now, map) {
   };
 }
 
+// Keep frequently changing state small; send inventory and skill ranks only when changed.
+function playerStateDelta(connection, state) {
+  const previous = connection.playerState || (connection.playerState = {});
+  for (const key of ['inv', 'sk']) {
+    const value = state[key], old = previous[key], keys = Object.keys(value);
+    if (old && keys.length === Object.keys(old).length && keys.every(name => value[name] === old[name])) delete state[key];
+    else previous[key] = { ...value };
+  }
+  return state;
+}
+
 function otherPlayerSnapshot(player, now, map) {
   return {
     id: player.id, n: player.name, x: Math.round(player.x - map.x0), y: Math.round(player.y - map.y0),
@@ -132,7 +145,7 @@ function createSnapshotPublisher({ mobs, loot, drainEvents, refreshMobTypes, sen
   return function publishSnapshots(activePlayers, now) {
     const events = drainEvents();
     const { indices } = refreshMobTypes();
-    const mobCells = activePlayers.length > 1 ? indexLivingMobs(mobs) : null;
+    const mobCells = !mobs.spatial && activePlayers.length > 1 ? indexLivingMobs(mobs) : null;
     for (const player of activePlayers) {
       if (!canSend(player.c)) continue;
       const map = mapOf(player);
@@ -142,11 +155,11 @@ function createSnapshotPublisher({ mobs, loot, drainEvents, refreshMobTypes, sen
       const isNearby = (entity, radius) => Math.abs(entity.x - player.x) < radius && Math.abs(entity.y - player.y) < radius;
       const nearbyMonsters = snapshotMobs(mobs, player, mobCells);
       const nearbyPlayers = activePlayers.filter(other => other !== player && isNearby(other, 1500));
-      const nearbyLoot = [...loot.values()].filter(drop => isNearby(drop, 1150) &&
+      const nearbyLoot = queryNearby(loot, player, 1150).filter(drop => now <= drop.exp && isNearby(drop, 1150) &&
         (!drop.owner || drop.owner === player.id || now >= drop.free));
       send(player.c, {
         t: 's', tm: now,
-        me: ownPlayerSnapshot(player, now, map),
+        me: player.c.meDeltas ? playerStateDelta(player.c, ownPlayerSnapshot(player, now, map)) : ownPlayerSnapshot(player, now, map),
         pl: nearbyPlayers.map(other => otherPlayerSnapshot(other, now, map)),
         ...mobSnapshot(player.c, nearbyMonsters, indices, map.x0, map.y0),
         lo: nearbyLoot.map(drop => lootSnapshot(drop, map)),
@@ -156,4 +169,4 @@ function createSnapshotPublisher({ mobs, loot, drainEvents, refreshMobTypes, sen
   };
 }
 
-module.exports = { mobTypesForClient, createMobTypeIndex, createSnapshotPublisher, indexLivingMobs, snapshotMobs, mobSnapshot };
+module.exports = { playerStateDelta, mobTypesForClient, createMobTypeIndex, createSnapshotPublisher, indexLivingMobs, snapshotMobs, mobSnapshot };

@@ -62,6 +62,7 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     connection.p = player;
     connection.mapIndex = mapOf(player).index;
     connection.mobDeltas = message.mobDeltas === true;
+    connection.meDeltas = message.meDeltas === true;
     players.set(player.id, player);
     const { types: typeList } = refreshMobTypes();
     const types = mobTypesForClient(MOBTYPES);

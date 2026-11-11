@@ -1,5 +1,6 @@
 'use strict';
 
+const { nearby } = require('./spatial-index');
 const { localizedText: messageText, gearText } = require('./localized-text');
 
 const { clampWorld, rnd, rint, pick } = require('./game-world');
@@ -41,11 +42,22 @@ function createLoot({ loot, players, allocateId, rates, ev, say, toast, broadcas
       if (item.rar >= 3) broadcast({ t: 'chat', n: '*', channel: 'loot', m: messageText("server.playerLoot", "{player} found {rarity} {item}!", { player: player.name, rarity: messageText('rarity.' + item.rar, RARITY[item.rar].n), item: gearText(item.name) }) });
     }
   }
+  let cleanupAt = 0;
   function pickupTick(now) {
-    for (const drop of loot.values()) {
+    if (now >= cleanupAt) {
+      cleanupAt = now + 500;
+      for (const drop of loot.values()) if (now > drop.exp) loot.delete(drop.id);
+    }
+    let candidates = loot.values();
+    if (loot.spatial) {
+      const found = new Set();
+      for (const player of players.values()) if (!player.dead) for (const drop of nearby(loot, player, 58)) found.add(drop);
+      candidates = [...found].sort((a, b) => loot.spatial.members.get(a).order - loot.spatial.members.get(b).order);
+    }
+    for (const drop of candidates) {
       if (now > drop.exp) { loot.delete(drop.id); continue; }
       if (drop.owner && now < drop.free && !players.has(drop.owner)) drop.free = 0;
-      for (const player of players.values()) {
+      for (const player of nearby(players, drop, 58)) {
         if (player.dead || (drop.owner && now < drop.free && drop.owner !== player.id) || Math.abs(player.x - drop.x) > 58 || Math.abs(player.y - drop.y) > 58 || Math.hypot(player.x - drop.x, player.y - drop.y) > 58) continue;
         if (drop.kind === 'gold') { player.gold += drop.v; ev('gold', drop.x, drop.y, messageText('server.pickedUpGold', 'You gained: {gold} gold', { gold: drop.v }), { pickupBy: player.id }); }
         else if (drop.kind === 'souls') { player.souls = (player.souls || 0) + drop.v; ev('souls', drop.x, drop.y, messageText('server.pickedUpSouls', 'You gained: {souls} souls', { souls: drop.v }), { pickupBy: player.id }); }

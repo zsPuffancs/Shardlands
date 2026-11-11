@@ -1,5 +1,6 @@
 'use strict';
 
+const { nearby } = require('./spatial-index');
 const { localizedText: messageText } = require('./localized-text');
 
 const { clampWorld, inVillage, dist, rnd, rint, pick } = require('./game-world');
@@ -113,7 +114,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
       const rank = player.sk.s1; if (rank < 1 || now < player.cd1) return;
       const cost = Math.round(characterClass.s1c * (1 + 0.05 * (rank - 1))); if (player.mp < cost) return;
       const maxTargets = characterClass.s1n + (player.cls === 'archer' ? (rank >= 3 ? 2 : 0) + (rank >= 5 ? 2 : 0) : 0), range = characterClass.s1r;
-      const targets = []; for (const monster of mobs.values()) if (!monster.dead && Math.abs(monster.x - player.x) < range + 60 && Math.abs(monster.y - player.y) < range + 60 && dist(player, monster) <= range + monster.r) targets.push(monster);
+      const targets = []; for (const monster of nearby(mobs, player, range + 60)) if (!monster.dead && Math.abs(monster.x - player.x) < range + 60 && Math.abs(monster.y - player.y) < range + 60 && dist(player, monster) <= range + monster.r) targets.push(monster);
       if (!targets.length) return; targets.sort((a, b) => dist(player, a) - dist(player, b)); targets.length = Math.min(targets.length, maxTargets);
       player.mp -= cost; player.cd1 = now + 2000 - 100 * (rank - 1); ev('fx', player.x, player.y, characterClass.s1r, { s: player.cls, a: player.id, tx: Math.round(targets[0].x), ty: Math.round(targets[0].y) });
       targets.forEach(monster => hitMob(player, monster, playerDmg(player) * characterClass.s1m * (1 + 0.18 * (rank - 1))));

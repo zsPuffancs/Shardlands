@@ -10,7 +10,13 @@ function startServer({ server, transport, port, saveAll, reseed, tick, tickInter
     return pendingSave;
   }
   const autosave = setInterval(requestSave, 10000);
-  const simulationTimer = setInterval(tick, tickIntervalMs);
+  let simulationTimer;
+  function scheduleTick() {
+    const startedAt = performance.now();
+    tick();
+    if (!stopping) simulationTimer = setTimeout(scheduleTick, Math.max(1, tickIntervalMs - (performance.now() - startedAt)));
+  }
+  simulationTimer = setTimeout(scheduleTick, tickIntervalMs);
 
   async function shutdown({ restart = false } = {}) {
     if (stopping) return;
@@ -18,7 +24,7 @@ function startServer({ server, transport, port, saveAll, reseed, tick, tickInter
     console.log(restart ? 'Saving server data before restart...' : 'Saving server data before shutdown...');
     serverConsole?.close();
     clearInterval(autosave);
-    clearInterval(simulationTimer);
+    clearTimeout(simulationTimer);
     server.close();
     transport.close();
     await pendingSave;
@@ -37,7 +43,7 @@ function startServer({ server, transport, port, saveAll, reseed, tick, tickInter
 
   function onStartupError(error) {
     clearInterval(autosave);
-    clearInterval(simulationTimer);
+    clearTimeout(simulationTimer);
     transport.close();
     const message = error.code === 'EADDRINUSE'
       ? 'Port ' + port + ' is already in use. Stop the other server or choose a different port.'

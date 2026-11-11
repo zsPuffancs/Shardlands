@@ -80,7 +80,7 @@ kbd { border: 4px solid transparent; border-image: url(ui/keycap.png) 12 fill / 
 #mapbox { padding: 6px 6px 8px; }
 #mapwrap { position: relative; width: 168px; height: 168px; margin: 4px auto 0; }
 #mapwrap #mini { width: 150px; height: 150px; margin: 9px; border: 0; box-shadow: none; }
-#mapwrap::after { content: ""; position: absolute; inset: -4px; background: url(ui/minimap-frame.png) 0 0 / 100% 100%; pointer-events: none; }
+#mapwrap::after { content: ""; position: absolute; inset: 0; background: url(ui/minimap-frame.png) 0 0 / 100% 100%; pointer-events: none; }
 #mapbtns button { width: 34px; height: 30px; padding: 0; font-size: 0.875rem; }
 #zname { font-family: Georgia, serif; letter-spacing: 1px; }
 .lb .hb { border-radius: 2px; box-shadow: 0 0 0 1px #000, 0 0 0 2px #a37a2c99; }
@@ -168,6 +168,6 @@ kbd { border: 4px solid transparent; border-image: url(ui/keycap.png) 12 fill / 
 /* Keep the circular map inside the panel's border, including narrow viewports. */
 #mapbox { width: min(220px, calc(100vw - 24px)); }
 #mapwrap { width: min(168px, 100%); height: auto; aspect-ratio: 1; }
-#mapwrap #mini { width: 89.2857%; height: auto; aspect-ratio: 1; margin: 5.3571%; }
+#mapwrap #mini { position: absolute; inset: 5%; width: 90%; height: 90%; margin: 0; }
 #zname { white-space: normal; overflow-wrap: anywhere; }
 #mapbtns { display: flex; justify-content: center; flex-wrap: wrap; gap: 2px; }

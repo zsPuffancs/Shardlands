@@ -59,8 +59,8 @@ function startServerConsole({ getStatus, save, shutdown, canRestart, reseed }) {
       name: 'status',
       description: 'Show online players, monsters, and server tick timing.',
       run() {
-        const { players, mobs, tickP95, tickMax } = getStatus();
-        return 'Online: ' + players + ' | Monsters: ' + mobs + ' | Tick p95: ' + tickP95 + ' ms | Tick max: ' + tickMax + ' ms';
+        const { players, mobs, tickP95, tickMax, tickOverruns = 0, snapshotsSkipped = 0 } = getStatus();
+        return 'Online: ' + players + ' | Monsters: ' + mobs + ' | Tick p95: ' + tickP95 + ' ms | Tick max: ' + tickMax + ' ms | Overruns: ' + tickOverruns + ' | Skipped snapshots: ' + snapshotsSkipped;
       },
     }),
     new Command({

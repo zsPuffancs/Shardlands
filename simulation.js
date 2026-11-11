@@ -1,21 +1,31 @@
 'use strict';
 
+const { nearby } = require('./spatial-index');
 const { CX, CY, rnd, dist, clampWorld, moveToward, inVillage, placeInVillage } = require('./game-world');
 const { CLASSES, playerDmg, rank, passive, gearAttackSpeed } = require('./characters');
 const { MOBTYPES, STONE_DMG } = require('./monsters');
 
 function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, hurtPlayer, startCast, resolveCast, pickupTick, ev, fire, publishSnapshots, getTransportStats }) {
   const tickSeconds = 0.05;
+  const activeMonsters = new Set();
+  let maintenanceAt = 0, overruns = 0, snapshotsSkipped = 0;
   let tickMs = 0, tickSample = 0;
+  let skipPreviousSnapshot = false;
   const tickTimes = new Float64Array(1200);
   function tick() {
     const now = Date.now(), startedAt = process.hrtime.bigint(); fire('tick', tickSeconds);
     const activePlayers = [...players.values()];
     updatePlayers(activePlayers, now);
+    for (const player of activePlayers) players.update?.(player);
     updateMonsters(activePlayers, now);
     pickupTick(now);
-    publishSnapshots(activePlayers, now);
+    // Shed network work when simulation has already exhausted its budget, but never
+    // skip two snapshots in a row (events remain queued until the next publication).
+    const simulationMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+    if (simulationMs >= 50 && !skipPreviousSnapshot) { snapshotsSkipped++; skipPreviousSnapshot = true; }
+    else { publishSnapshots(activePlayers, now); skipPreviousSnapshot = false; }
     const elapsed = Number(process.hrtime.bigint() - startedAt) / 1e6;
+    if (elapsed > 50) overruns++;
     tickTimes[tickSample++ % tickTimes.length] = elapsed;
     tickMs = tickMs * 0.95 + elapsed * 0.05;
   }
@@ -69,39 +79,59 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
   }
 
   function updateMonsters(activePlayers, now) {
-    for (const monster of mobs.values()) {
-      if (monster.expiresAt && now >= monster.expiresAt) { mobs.delete(monster.id); continue; }
-      const template = MOBTYPES[monster.ty];
-      if (monster.dead) { if (now > monster.dead) respawnMonster(monster); continue; }
-      if (template.stone) {
-        updateSpiritStone(monster, activePlayers, now);
-        continue;
+    // Cheap lifecycle checks for distant monsters run at 2 Hz, not the 20 Hz AI rate.
+    if (now >= maintenanceAt) {
+      maintenanceAt = now + 500;
+      for (const monster of mobs.values()) {
+        if (monster.expiresAt && now >= monster.expiresAt) { mobs.delete(monster.id); activeMonsters.delete(monster); continue; }
+        if (monster.dead && now > monster.dead) respawnMonster(monster);
+        mobs.update?.(monster);
+        if (monster.target || monster.cast) activeMonsters.add(monster);
       }
-      // sleeping monsters (no player nearby) cost almost nothing
-      if (!monster.target && now > monster.wake) { monster.wake = now + 600; monster.awake = false; for (const player of activePlayers) if (Math.abs(player.x - monster.x) < 1700 && Math.abs(player.y - monster.y) < 1700) { monster.awake = true; break; } }
-      if (!monster.awake && !monster.target) continue;
-      if (monster.cast && now >= monster.cast.at) resolveCast(monster, activePlayers, now);
-      let targetPlayer = monster.target ? players.get(monster.target) : null; const leash = template.boss ? 1000 : monster.alpha ? 850 : 700;
-      const canTarget = player => !player.dead && !inVillage(player) && Math.hypot(player.x - monster.sx, player.y - monster.sy) <= leash;
-      if (targetPlayer && !canTarget(targetPlayer)) { targetPlayer = null; monster.target = 0; }
-      if (!targetPlayer) for (const player of activePlayers) if (Math.abs(player.x - monster.x) < template.aggro && Math.abs(player.y - monster.y) < template.aggro && dist(player, monster) < template.aggro && canTarget(player)) { monster.target = player.id; targetPlayer = player; break; }
-      if (targetPlayer) {
-        const distance = dist(monster, targetPlayer);
-        if (template.boss && !monster.cast && now > monster.slamT) startCast(monster, targetPlayer, distance, now);
-        if (monster.cast && monster.cast.s !== 'summon') continue;
-        if (distance > monster.r + 20) { const ox = monster.x, oy = monster.y; moveToward(monster, targetPlayer.x, targetPlayer.y, template.spd * (monster.alpha ? 1.1 : 1), tickSeconds); if (inVillage(monster)) { monster.x = ox; monster.y = oy; } }
-        else if (now >= monster.cd) { monster.cd = now + (monster.alpha ? 950 : 1100); hurtPlayer(targetPlayer, monster, monster.dmg * (monster.ps || 1) * rates.monsterDamage * rnd(0.8, 1.2), now); }
-      } else {
-        const d = moveToward(monster, monster.hx, monster.hy, template.spd * 0.5, tickSeconds);
-        if (d < 5 && Math.random() < 0.02) {
-          const home = { x: monster.sx + rnd(-70, 70), y: monster.sy + rnd(-70, 70) };
-          clampWorld(home);
-          monster.hx = home.x;
-          monster.hy = home.y;
+    }
+    const candidates = new Set(activeMonsters);
+    for (const player of activePlayers) for (const monster of nearby(mobs, player, 1700)) candidates.add(monster);
+    for (const monster of candidates) {
+      if (mobs.get(monster.id) !== monster) { activeMonsters.delete(monster); continue; }
+      try {
+        if (monster.expiresAt && now >= monster.expiresAt) { mobs.delete(monster.id); continue; }
+        const template = MOBTYPES[monster.ty];
+        if (monster.dead) { if (now > monster.dead) respawnMonster(monster); continue; }
+        if (template.stone) {
+          updateSpiritStone(monster, nearby(players, monster, 300), now);
+          continue;
         }
-        if (monster.hp < monster.mh) monster.hp = Math.min(monster.mh, monster.hp + monster.mh * 0.05 * tickSeconds);
-        // Back home and healed: a monster made tougher by a team goes back to normal.
-        else if (monster.ps > 1) { monster.mh = Math.max(1, Math.round(monster.mh / monster.ps)); monster.hp = monster.mh; monster.ps = 1; }
+        // sleeping monsters (no player nearby) cost almost nothing
+        if (!monster.target && now > monster.wake) { monster.wake = now + 600; monster.awake = false; for (const player of nearby(players, monster, 1700)) if (Math.abs(player.x - monster.x) < 1700 && Math.abs(player.y - monster.y) < 1700) { monster.awake = true; break; } }
+        if (!monster.awake && !monster.target) continue;
+        if (monster.cast && now >= monster.cast.at) resolveCast(monster, activePlayers, now);
+        let targetPlayer = monster.target ? players.get(monster.target) : null; const leash = template.boss ? 1000 : monster.alpha ? 850 : 700;
+        const canTarget = player => !player.dead && !inVillage(player) && Math.hypot(player.x - monster.sx, player.y - monster.sy) <= leash;
+        if (targetPlayer && !canTarget(targetPlayer)) { targetPlayer = null; monster.target = 0; }
+        if (!targetPlayer) for (const player of nearby(players, monster, template.aggro)) if (Math.abs(player.x - monster.x) < template.aggro && Math.abs(player.y - monster.y) < template.aggro && dist(player, monster) < template.aggro && canTarget(player)) { monster.target = player.id; targetPlayer = player; break; }
+        if (targetPlayer) {
+          const distance = dist(monster, targetPlayer);
+          if (template.boss && !monster.cast && now > monster.slamT) startCast(monster, targetPlayer, distance, now);
+          if (monster.cast && monster.cast.s !== 'summon') continue;
+          if (distance > monster.r + 20) { const ox = monster.x, oy = monster.y; moveToward(monster, targetPlayer.x, targetPlayer.y, template.spd * (monster.alpha ? 1.1 : 1), tickSeconds); if (inVillage(monster)) { monster.x = ox; monster.y = oy; } }
+          else if (now >= monster.cd) { monster.cd = now + (monster.alpha ? 950 : 1100); hurtPlayer(targetPlayer, monster, monster.dmg * (monster.ps || 1) * rates.monsterDamage * rnd(0.8, 1.2), now); }
+        } else {
+          const d = moveToward(monster, monster.hx, monster.hy, template.spd * 0.5, tickSeconds);
+          if (d < 5 && Math.random() < 0.02) {
+            const home = { x: monster.sx + rnd(-70, 70), y: monster.sy + rnd(-70, 70) };
+            clampWorld(home);
+            monster.hx = home.x;
+            monster.hy = home.y;
+          }
+          if (monster.hp < monster.mh) monster.hp = Math.min(monster.mh, monster.hp + monster.mh * 0.05 * tickSeconds);
+          // Back home and healed: a monster made tougher by a team goes back to normal.
+          else if (monster.ps > 1) { monster.mh = Math.max(1, Math.round(monster.mh / monster.ps)); monster.hp = monster.mh; monster.ps = 1; }
+        }
+      } finally {
+        mobs.update?.(monster);
+        const returning = !MOBTYPES[monster.ty].stone && monster.awake && (monster.ps > 1 || Math.hypot(monster.x - monster.hx, monster.y - monster.hy) > 5 || monster.hp < monster.mh);
+        if (!monster.dead && mobs.has(monster.id) && (monster.target || monster.cast || returning)) activeMonsters.add(monster);
+        else activeMonsters.delete(monster);
       }
     }
   }
@@ -130,7 +160,7 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
   function serverStats() {
     const times = tickTimes.slice(0, Math.min(tickSample, tickTimes.length)).sort();
     return { players: players.size, mobs: mobs.size, awake: [...mobs.values()].filter(m => m.awake || m.target).length,
-      loot: loot.size, tickMs: Math.round(tickMs * 100) / 100, tickP95: Math.round((times[Math.ceil(times.length * .95) - 1] || 0) * 100) / 100,
+      loot: loot.size, tickOverruns: overruns, snapshotsSkipped, tickMs: Math.round(tickMs * 100) / 100, tickP95: Math.round((times[Math.ceil(times.length * .95) - 1] || 0) * 100) / 100,
       tickMax: Math.round((times[times.length - 1] || 0) * 100) / 100, ...getTransportStats() };
   }
 

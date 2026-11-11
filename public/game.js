@@ -430,7 +430,7 @@ function join() {
   audio(); sfx('click'); GameText.present($('err'), { message: '' });
   const socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
   ws = socket;
-  const request = { t: 'join', name: $('name').value, cls: sel, pw: $('pw').value, mobDeltas: true };
+  const request = { t: 'join', name: $('name').value, cls: sel, pw: $('pw').value, mobDeltas: true, meDeltas: true };
   socket.onopen = () => socket.send(JSON.stringify(request));
   socket.onmessage = e => {
     if (ws !== socket) return;
@@ -482,6 +482,7 @@ function onMsg(m) {
       held = false;
       lastDir = [0, 0];
     }
+    if (me) { if (!m.me.inv) m.me.inv = me.inv; if (!m.me.sk) m.me.sk = me.sk; }
     serverTm = m.tm; me = m.me; pl = m.pl; lo = m.lo;
     updateMobSnapshot(m);
     const seen = new Set();
@@ -616,7 +617,8 @@ function label(id, html, cls, x, y, z, hpv, wd, color) {
   const w = wd || 90;
   if (!L.vis) { L.vis = true; L.el.style.display = 'block'; }
   const horizontalOffset = id === 'me' ? '-50%' : ((p.x - w / 2) | 0) + 'px';
-  L.el.style.transform = 'translate(' + horizontalOffset + ',' + ((p.y - 14) | 0) + 'px)';
+  const transform = 'translate(' + horizontalOffset + ',' + ((p.y - 14) | 0) + 'px)';
+  if (L.transform !== transform) { L.transform = transform; L.el.style.transform = transform; }
   if (L.wd !== w) { L.wd = w; L.el.style.width = w + 'px'; }
   const hh = html + '|' + (color || ''); if (L.h !== hh) { L.h = hh; L.n.innerHTML = html; if (color) L.el.style.color = color; }
   const pc = Math.round(hpv * 100); if (pc !== L.w) { L.w = pc; L.i.style.width = pc + '%'; }
