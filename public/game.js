@@ -571,6 +571,7 @@ function onMsg(m) {
     hudInit(); log('*', m.resumed ? text("login.welcomeBack", "Welcome back, ") + m.name + '!' : text("login.welcome", "Welcome, ") + m.name + text("login.welcomeHint", "! Loot drops on the ground - walk over it. Talk to the Merchant and the Blacksmith in the village (click them or press F)."));
   } else if (m.t === 'inv') onInv(m);
   else if (m.t === 'destroyPreview' || m.t === 'destroyResult') onDestroyMessage(m);
+  else if (m.t === 'autoAffixPreview' || m.t === 'autoAffixStatus') onAutoAffixMessage(m);
   else if (m.t === 'toast') toast(m.text || m.m, m.c); else if (m.t === 'forge') onForge(m); else if (m.t === 'reroll') onReroll(m); else if (m.t === 'universe') onUniverse(m.u); else if (m.t === 'portal') onPortal(m);
   else if (m.t === 'team') onTeam(m); else if (m.t === 'trade') onTrade(m); else if (m.t === 'mythicMerge') onMythicMerge(m); else if (m.t === 'affix') onAffix(m);
   else if (m.t === 'teamInvite') showAsk('team', text('team.invitedYou', '{name} invites you to a team.', { name: m.from })); else if (m.t === 'tradeRequest') showAsk('trade', text('trade.requestedYou', '{name} wants to trade with you.', { name: m.from }));

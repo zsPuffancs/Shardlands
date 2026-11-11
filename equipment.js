@@ -1,6 +1,7 @@
 'use strict';
 
 const { rnd, rint, pick } = require('./game-world');
+const { rollValue } = require('./public/affix-math');
 
 const SLOTS = ['weapon', 'helm', 'armor', 'boots', 'ring', 'amulet'], NO_DMG = { helm: 1, armor: 1, boots: 1 };
 const RARITY = [{ n: 'Common', m: 1, x: 0, w: 60 }, { n: 'Uncommon', m: 1.25, x: 1, w: 25 }, { n: 'Rare', m: 1.55, x: 2, w: 11 }, { n: 'Epic', m: 1.9, x: 3, w: 3.5 }, { n: 'Legendary', m: 2.4, x: 4, w: 0.6 }, { n: 'Mythic', m: 3.1, x: 5, w: 0 }];
@@ -34,6 +35,12 @@ const AFFIX_COST = [2, 2, 3, 5, 8, 15];
 const MYTHIC_MERGE_COUNT = 3, MYTHIC_MERGE_GOLD = 1000000;
 const PRIMARY_SPREAD = [0.9, 1.1], EXTRA_SPREAD = [0.85, 1.15], AFFIX_SPREAD = [0.85, 1.15];
 const extraFactor = rarity => 0.6 + 0.4 * RARITY[rarity].m;
+// The same continuous range drives real rolls, tooltips and Auto Affix probability estimates.
+function affixRange(item, key) {
+  if (!item || !Object.hasOwn(AFFIXES, key) || !Object.hasOwn(AFFIX_SLOTS, item.slot) || !Number.isSafeInteger(item.ilvl) || item.ilvl < 1 || !Number.isInteger(item.rar) || !RARITY[item.rar]) return null;
+  const base = AFFIXES[key].f(item.ilvl) * extraFactor(item.rar), low = base * AFFIX_SPREAD[0], high = base * AFFIX_SPREAD[1];
+  return [base, low, high].every(Number.isFinite) && low >= 0 && high * 10 < Number.MAX_SAFE_INTEGER ? { base, low, high, spread: AFFIX_SPREAD.slice() } : null;
+}
 // Lowest and highest value each stat of this item could have rolled (before + upgrades).
 function statRanges(item) {
   const ranges = {}, rarity = RARITY[item.rar] ? item.rar : 0;
@@ -68,9 +75,9 @@ function createEquipment({ rates }) {
   function rerollGear(item) { const fresh = genGear(item.slot, item.ilvl, item.rar, item.fam); item.stats = fresh.stats; if (fresh.psk) item.psk = fresh.psk; else delete item.psk; return item; }
   // Put a new affix on an item (replacing the old one, and its name prefix).
   function applyAffix(item, key) {
-    const affix = AFFIXES[key]; if (!affix || !AFFIX_SLOTS[item.slot]) return false;
+    const range = affixRange(item, key), affix = AFFIXES[key]; if (!range) return false;
     if (item.afx && AFFIXES[item.afx.k] && item.name.startsWith(AFFIXES[item.afx.k].prefix + ' ')) item.name = item.name.slice(AFFIXES[item.afx.k].prefix.length + 1);
-    item.afx = { k: key, v: Math.round(affix.f(item.ilvl) * extraFactor(item.rar) * rnd(AFFIX_SPREAD[0], AFFIX_SPREAD[1]) * 10) / 10 };
+    item.afx = { k: key, v: rollValue(range.base, range.spread, Math.random()) };
     item.name = affix.prefix + ' ' + item.name;
     return true;
   }
@@ -91,4 +98,4 @@ function createEquipment({ rates }) {
   return { rollRarity, genGear, rerollGear, applyAffix };
 }
 
-module.exports = { REMOVED_STATS, SLOTS, NO_DMG, RARITY, MYTHIC, PASSIVES, MERGE_COST, REROLL_COST, AFFIXES, AFFIX_SLOTS, AFFIX_COST, MYTHIC_MERGE_COUNT, MYTHIC_MERGE_GOLD, statRanges, itemView, BASES, STATDEF, UP_RATE, sanitize, plusMul, sellValue, upCostFor, createEquipment };
+module.exports = { affixRange, REMOVED_STATS, SLOTS, NO_DMG, RARITY, MYTHIC, PASSIVES, MERGE_COST, REROLL_COST, AFFIXES, AFFIX_SLOTS, AFFIX_COST, MYTHIC_MERGE_COUNT, MYTHIC_MERGE_GOLD, statRanges, itemView, BASES, STATDEF, UP_RATE, sanitize, plusMul, sellValue, upCostFor, createEquipment };

@@ -140,6 +140,7 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     unequip: (player, message) => inventory.unequipItem(player, message.slot),
     merge: (player, message) => inventory.doMerge(player, message.uids),
     automerge: (player, message) => inventory.autoMerge(player, message.max),
+    autoAffix: (player, message) => inventory.handleAutoAffix(player, message),
     uiSync(player, message) {
       if (!['inv', 'team', 'trade', 'universe'].includes(message.channel)) return;
       const times = player.c.uiSyncTimes || (player.c.uiSyncTimes = {}), now = Date.now();
@@ -167,6 +168,10 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     if (connection.closed || !message || typeof message !== 'object' || Array.isArray(message) || typeof message.t !== 'string') return;
     // Releasing movement must remain possible even after a movement burst is throttled.
     if (connection.p && message.t === 'dir' && message.x === 0 && message.y === 0) { connection.p.dir = { x: 0, y: 0 }; return; }
+    // A crafting cancellation must remain possible after an action burst is throttled.
+    if (connection.p && message.t === 'autoAffix' && message.op === 'stop') {
+      inventory.cancelActiveAutoAffix(connection.p); return;
+    }
     if (!commandAllowed(connection, message.t)) return;
     if (message.t === 'join') return joinPlayer(connection, message);
     if (connection.p && Object.hasOwn(messageHandlers, message.t)) {
@@ -177,6 +182,7 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
   function leavePlayer(connection) {
     const player = connection.p;
     if (!player) return;
+    inventory.cancelAutoAffix?.(player, 'disconnected');
     fire('leave', player);
     teams.onLeave(player);
     savePlayer(player);

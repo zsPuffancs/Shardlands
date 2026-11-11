@@ -2,7 +2,7 @@
 
 const { startServerConsole, RESTART_EXIT_CODE } = require('./server-console');
 
-function startServer({ server, transport, port, saveAll, reseed, tick, tickIntervalMs, getStatus, monsterCount, width, height, zoneCount }) {
+function startServer({ server, transport, port, saveAll, reseed, tick, tickIntervalMs, getStatus, monsterCount, width, height, zoneCount, beforeShutdown = () => {} }) {
   let pendingSave, stopping = false, serverConsole;
   const localLauncher = typeof process.send === 'function' && process.argv.includes('--local-console');
   function requestSave() {
@@ -25,6 +25,7 @@ function startServer({ server, transport, port, saveAll, reseed, tick, tickInter
     serverConsole?.close();
     clearInterval(autosave);
     clearTimeout(simulationTimer);
+    beforeShutdown();
     server.close();
     transport.close();
     await pendingSave;

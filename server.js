@@ -74,8 +74,8 @@ const regions = createRegions({ ...notifications, universe, players, mobs, spawn
 const saveAll = () => { regions.checkpoint(); return saveGameState(); };
 universe.onTierUnlocked = regions.unlock;
 const equipment = createEquipment({ rates });
-const inventory = createInventory({ ...notifications, genGear: equipment.genGear, rerollGear: equipment.rerollGear, applyAffix: equipment.applyAffix, isItemReserved: (player, uid) => teams.isItemReserved(player, uid), persistPlayer: savePlayer });
-const teams = createTeams({ ...notifications, players, afterGearChange: inventory.afterGearChange });
+const inventory = createInventory({ ...notifications, genGear: equipment.genGear, rerollGear: equipment.rerollGear, applyAffix: equipment.applyAffix, isItemReserved: (player, uid) => teams.isItemReserved(player, uid), persistPlayer: savePlayer, isPlayerOnline: player => players.get(player.id) === player && player.c.p === player && !player.c.closed });
+const teams = createTeams({ ...notifications, players, afterGearChange: inventory.afterGearChange, isExternalItemReserved: inventory.isAutoAffixReserved });
 setInterval(() => teams.tick(Date.now()), 1000).unref();
 const { gainXp, learnSkill, processLevels } = createProgression({ ...notifications, sendInv: inventory.sendInv });
 const lootService = createLoot({
@@ -133,6 +133,7 @@ async function reseedUniverse(requestedSeed) {
   return { seed, backup };
 }
 startServer({
+  beforeShutdown: () => inventory.cancelAllAutoAffix('cancelled'),
   server, transport, port, saveAll, reseed: reseedUniverse, tick: simulation.tick, tickIntervalMs: simulation.tickIntervalMs,
   getStatus: simulation.serverStats, monsterCount: () => mobs.size, width: W, height: H, zoneCount: TIERS.length,
 });

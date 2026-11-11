@@ -13,7 +13,7 @@ const TEAM_SIZE = 5, INVITE_MS = 60000, TRADE_ITEMS = 12;
 const SHARE_RANGE = XP_BALANCE.sharingRadius, XP_BONUS_PER_MEMBER = XP_BALANCE.partyEfficiencyPerMember, MONSTER_SCALE_PER_MEMBER = 1 + XP_BALANCE.partyHpPerMember;
 const MAX_GOLD = 1e12;
 
-function createTeams({ players, send, say, toast, fire, afterGearChange }) {
+function createTeams({ players, send, say, toast, fire, afterGearChange, isExternalItemReserved = () => false }) {
   let nextTeamId = 1, nextTradeId = 1;
   const teams = new Map();       // team id -> { id, leader: player id, members: [player ids] }
   const invites = new Map();     // invited player id -> { teamOf: inviter id, until }
@@ -137,6 +137,7 @@ function createTeams({ players, send, say, toast, fire, afterGearChange }) {
     const trade = trades.get(player.id); if (!trade) return;
     const mine = trade[tradeSide(trade, player)];
     const wanted = Array.isArray(uids) ? [...new Set(uids.map(String))].slice(0, TRADE_ITEMS) : [];
+    if (wanted.some(uid => isExternalItemReserved(player, uid))) return say(player, messageText('autoAffix.busy', 'Stop Auto Affix before changing this item.'));
     mine.uids = wanted.filter(uid => player.bag.some(item => item.uid === uid && !item.lk));
     mine.gold = Math.max(0, Math.min(player.gold, Math.floor(Number(gold) || 0), MAX_GOLD));
     trade.a.ok = false; trade.b.ok = false;
@@ -156,6 +157,7 @@ function createTeams({ players, send, say, toast, fire, afterGearChange }) {
     if (!a || !b || !sameTeam(a, b)) return cancelTrade(a || b, messageText('trade.cancelled', 'The trade was cancelled.'));
     const itemsA = trade.a.uids.map(uid => a.bag.find(item => item.uid === uid)), itemsB = trade.b.uids.map(uid => b.bag.find(item => item.uid === uid));
     if (itemsA.some(item => !item) || itemsB.some(item => !item)) return fail(messageText('trade.changed', 'An offered item is no longer in the bag. Check the offers and accept again.'));
+    if (itemsA.some(item => isExternalItemReserved(a, item.uid)) || itemsB.some(item => isExternalItemReserved(b, item.uid))) return fail(messageText('autoAffix.busy', 'Stop Auto Affix before changing this item.'));
     if (!canSpend(a.gold, trade.a.gold) || !canSpend(b.gold, trade.b.gold)) return fail(messageText('trade.noGold', 'Someone no longer has the offered gold.'));
     if (a.bag.length - itemsA.length + itemsB.length > BAGMAX || b.bag.length - itemsB.length + itemsA.length > BAGMAX) return fail(messageText('trade.bagFull', 'Not enough bag space for the trade.'));
     if (trade.b.gold > room(a.gold - trade.a.gold) || trade.a.gold > room(b.gold - trade.b.gold)) return fail(messageText('server.storageFull', 'Your currency or consumable storage limit has been reached.'));

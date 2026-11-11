@@ -192,3 +192,7 @@ Generated frontier gold now follows a bounded linear level/cost reference with �
 ## Inventory search and safe destruction
 
 Inventory now searches all 90 equipment slots and combines rarity/type/level/status filters with stable display sorting before pagination. Sort preferences stay local and the server bag order is unchanged. Use an item's **⋯** menu to request deliberate, server-confirmed single-item destruction; Legendary/Mythic items require an extra acknowledgement and typed confirmation. Existing equip, Ctrl+click locking and Merchant selling remain available. See [Inventory QoL 2.0](docs/INVENTORY-QOL.md) for controls, protection rules, persistence and tests.
+
+## Automatic Soul Mystic affixes
+
+Open **Soul Mystic → Affix → Auto Affix** for a separate draggable window with target-value probability estimates, attempt and Souls caps, and authoritative live results. Closing the window cancels rolling. The last actual roll stays on the item; best-roll history is informational. See [Auto Affix](docs/AUTO-AFFIX.md) for formulas, limits, safety rules and persistence.

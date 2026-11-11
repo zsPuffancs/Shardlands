@@ -6,6 +6,7 @@ const MAX_ITEM_STACK = 1000000;
 const MAX_GEAR_DROPS = 10;
 const MAX_SUMMONS_GLOBAL = 512, MAX_SUMMONS_PER_MAP = 128, MAX_SUMMONS_PER_SOURCE = 64;
 const FORGE_ATTEMPTS_PER_TICK = 100, FORGE_ATTEMPTS_PER_JOB = 25;
+const AUTO_AFFIX_LIMITS = Object.freeze({ attemptsPerTick: 50, attemptsPerJob: 10, jobsPerTick: 100, maxAttempts: 100000, maxSouls: 1000000, maxMinimum: 1000000, progressMs: 250 });
 const LEVEL_UPS_PER_TICK = 20;
 const RATE_BOUNDS = Object.freeze({ xpRate: 1000000, goldRate: 1000000, gearDropRate: 1000, potionDropRate: 1000, rarityBoost: 1000, monsterHp: 1000000, monsterDamage: 1000000, deathZoneMonsters: 10000, deathGoldLoss: 1, respawnSeconds: 86400 });
 const validAmount = value => Number.isSafeInteger(value) && value >= 0;
@@ -44,4 +45,4 @@ function commandAllowed(connection, type, now = Date.now()) {
   if (['uiSync', 'universe', 'portal'].includes(type)) return consume(budget.sync, 5, 10, now);
   return consume(budget.actions, 15, 30, now);
 }
-module.exports = { MAX_SAFE_AMOUNT, MAX_CURRENCY, MAX_ITEM_STACK, MAX_GEAR_DROPS, MAX_SUMMONS_GLOBAL, MAX_SUMMONS_PER_MAP, MAX_SUMMONS_PER_SOURCE, FORGE_ATTEMPTS_PER_TICK, FORGE_ATTEMPTS_PER_JOB, LEVEL_UPS_PER_TICK, RATE_BOUNDS, validAmount, positiveAmount, room, credit, canSpend, adjust, boundedRateSettings, consume, commandAllowed };
+module.exports = { AUTO_AFFIX_LIMITS, MAX_SAFE_AMOUNT, MAX_CURRENCY, MAX_ITEM_STACK, MAX_GEAR_DROPS, MAX_SUMMONS_GLOBAL, MAX_SUMMONS_PER_MAP, MAX_SUMMONS_PER_SOURCE, FORGE_ATTEMPTS_PER_TICK, FORGE_ATTEMPTS_PER_JOB, LEVEL_UPS_PER_TICK, RATE_BOUNDS, validAmount, positiveAmount, room, credit, canSpend, adjust, boundedRateSettings, consume, commandAllowed };
