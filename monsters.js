@@ -176,6 +176,7 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick,
 
   function respawnMonster(monster) {
     monster.dead = 0;
+    monster.ps = 1;
     monster.mh = maxHealth(monster);
     monster.hp = monster.mh;
     monster.target = 0;

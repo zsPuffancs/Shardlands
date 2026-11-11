@@ -75,6 +75,7 @@ const lootService = createLoot({
   ...notifications, ...equipment, addGear: inventory.addGear, players, loot, rates, allocateId,
 });
 const combat = createCombat({
+  teams,
   ...notifications, players, mobs, rates, spawnMob, gainXp, dropLoot: lootService.dropLoot,
 });
 const publishSnapshots = createSnapshotPublisher({

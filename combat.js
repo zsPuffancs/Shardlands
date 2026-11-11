@@ -8,13 +8,16 @@ const { CLASSES, critCh, critMul, defRed, playerDmg, rank, passive, gearLifestea
 
 const SUMMON_LIFETIME_MS = 120000;
 
-function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLoot, broadcast, say }) {
+function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLoot, broadcast, say, teams }) {
   function hitMob(player, monster, damage) {
     if (player.dead || inVillage(player) || monster.dead) return;
     const criticalHit = Math.random() < critCh(player);
     if (criticalHit) damage *= critMul(player);
     damage = Math.max(1, Math.round(damage * rnd(0.9, 1.1)));
     const hit = { v: damage, crit: criticalHit };
+    // A team fighting together makes the monster tougher. It keeps the highest strength until it rests or respawns.
+    const scale = teams.monsterScale(player, monster);
+    if (scale > (monster.ps || 1)) { const ratio = scale / (monster.ps || 1); monster.mh = Math.round(monster.mh * ratio); monster.hp *= ratio; monster.ps = scale; }
     fire('damage', player, monster, hit);
     damage = Math.max(1, Math.round(hit.v));
     monster.hp -= damage;
@@ -44,9 +47,12 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
       player.target = 0;
       player.chasingTarget = false;
     }
-    const experienceMultiplier = template.stone ? 2 : template.boss || monster.alpha ? 1 : Math.max(0.1, 1 - Math.max(0, player.lvl - monster.lvl - 5) * 0.12);
-    if (rates.xpRate > 0) gainXp(player, Math.max(1, Math.round(monster.xp * rates.xpRate * experienceMultiplier)));
-    dropLoot(player, monster); ev('die', monster.x, monster.y, monster.ty, { b: monster.alpha ? 1 : 0 });
+    const experienceMultiplier = hero => template.stone ? 2 : template.boss || monster.alpha ? 1 : Math.max(0.1, 1 - Math.max(0, hero.lvl - monster.lvl - 5) * 0.12);
+    // Team sharing: everyone nearby gets an equal part of the XP, +15% in total for every extra member.
+    const sharers = teams.sharesLoot(player) ? teams.nearbyMembers(player, monster) : [player];
+    const teamBonus = 1 + teams.XP_BONUS_PER_MEMBER * (sharers.length - 1);
+    if (rates.xpRate > 0) for (const hero of sharers) gainXp(hero, Math.max(1, Math.round(monster.xp * rates.xpRate * experienceMultiplier(hero) * teamBonus / sharers.length)));
+    dropLoot(player, monster, sharers); ev('die', monster.x, monster.y, monster.ty, { b: monster.alpha ? 1 : 0 });
     if (template.boss) { broadcast({ t: 'chat', n: '*', m: messageText("server.bossSlain", "{player} has slain {monster}!", { player: player.name, monster: messageText('monster.' + monster.ty, template.name) }) }); broadcast({ t: 'toast', m: messageText("server.bossSlain", "{player} has slain {monster}!", { player: player.name, monster: messageText('monster.' + monster.ty, template.name) }), c: '#ffd24a' }); }
     fire('kill', player, monster);
     if (monster.summoned) mobs.delete(monster.id);
@@ -91,7 +97,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     ev('warn', monster.x, monster.y, cast.r, { a: monster.id, s: attack, ang: Math.round(cast.ang * 100) / 100, tx: cast.tx && Math.round(cast.tx), ty: cast.ty && Math.round(cast.ty), pts: cast.pts, half: cast.half });
   }
   function resolveCast(monster, activePlayers, now) {
-    const cast = monster.cast; monster.cast = null; const baseDamage = monster.dmg * rates.monsterDamage;
+    const cast = monster.cast; monster.cast = null; const baseDamage = monster.dmg * (monster.ps || 1) * rates.monsterDamage;
     if (cast.s === 'slam') { ev('slam', monster.x, monster.y, cast.r, { s: 'slam' }); for (const player of activePlayers) if (!player.dead && !inVillage(player) && dist(player, monster) <= cast.r) hurtPlayer(player, monster, baseDamage * 1.8, now); }
     else if (cast.s === 'breath') { ev('slam', monster.x, monster.y, cast.r, { s: 'breath', ang: cast.ang, half: cast.half, ty: monster.ty }); for (const player of activePlayers) { if (player.dead || inVillage(player)) continue; const dd = dist(player, monster); if (dd > cast.r) continue; let da = Math.atan2(player.x - monster.x, player.y - monster.y) - cast.ang; da = Math.atan2(Math.sin(da), Math.cos(da)); if (Math.abs(da) <= cast.half) hurtPlayer(player, monster, baseDamage * 1.7, now); } }
     else if (cast.s === 'charge') { const x0 = monster.x, y0 = monster.y; monster.x = cast.tx; monster.y = cast.ty; ev('slam', monster.x, monster.y, 70, { s: 'charge', x0: Math.round(x0), y0: Math.round(y0) });

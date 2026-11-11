@@ -12,10 +12,18 @@ function createLoot({ loot, players, allocateId, rates, ev, say, toast, broadcas
     const drop = Object.assign({ id: allocateId(), x: Math.round(x), y: Math.round(y), owner: owner || 0, free: Date.now() + (owner ? 25000 : 0), exp: Date.now() + 180000 }, details);
     clampWorld(drop); loot.set(drop.id, drop); return drop;
   }
-  function dropLoot(player, monster) {
+  // sharers: team members who split the gold (the killer first). Everything else goes to the killer.
+  function dropLoot(player, monster, sharers) {
+    sharers = sharers && sharers.length ? sharers : [player];
     const template = MOBTYPES[monster.ty], boss = !!template.boss, stone = !!template.stone, alpha = !!monster.alpha;
-    const gold = Math.round(rint(template.gold[0], template.gold[1]) * monster.gm * rates.goldRate * (stone ? 1.5 : 1) * (1 + goldFind(player) / 100));
-    if (gold > 0) dropAt(monster.x + rnd(-25, 25), monster.y + rnd(-25, 25), { kind: 'gold', v: gold, name: gold + ' gold' }, player.id);
+    const baseGold = rint(template.gold[0], template.gold[1]) * monster.gm * rates.goldRate * (stone ? 1.5 : 1) / sharers.length;
+    for (const hero of sharers) {
+      const gold = Math.round(baseGold * (1 + goldFind(hero) / 100));
+      if (gold <= 0) continue;
+      // The killer's part drops on the ground as before; team members get theirs straight away.
+      if (hero === player) dropAt(monster.x + rnd(-25, 25), monster.y + rnd(-25, 25), { kind: 'gold', v: gold, name: gold + ' gold' }, player.id);
+      else { hero.gold += gold; ev('gold', hero.x, hero.y, messageText('server.teamGold', 'Team share: {gold} gold', { gold }), { pickupBy: hero.id }); }
+    }
     // souls: the Soul Mystic's currency, only from stones, Alphas and bosses
     if (stone || boss || alpha) { const souls = rint(1, 5); dropAt(monster.x + rnd(-30, 30), monster.y + rnd(-30, 30), { kind: 'souls', v: souls, name: souls + (souls === 1 ? ' soul' : ' souls') }, player.id); }
     const consumableCount = stone ? 4 : boss ? 4 : alpha ? 2 : (Math.random() < Math.min(1, 0.16 * rates.potionDropRate) ? 1 : 0);

@@ -627,5 +627,13 @@ GameText.addCatalog('hu', {
   "server.affixAtMystic": "A toldalékokhoz beszélj egy falu lélekmisztikusával.",
   "server.affixSlots": "Toldalék csak fegyverre, gyűrűre és amulettre kerülhet.",
   "server.affixDone": "{item} új toldalékot kapott: {affix}.",
-  "skill.maxRank": "maximális szint"
+  "skill.maxRank": "maximális szint",
+  "team.sharing": "Tapasztalat- és aranymegosztás",
+  "team.on": "BE",
+  "team.off": "KI",
+  "team.rulesHint": "A zsákmánytól {range} távolságon belüli tagok megosztják a tapasztalatot (+{bonus}% minden további tag után) és az aranyat. Az együtt megtámadott szörnyek minden további közeli tag után x{scale} életerőt és sebzést kapnak.",
+  "team.leaderShare": "Csak a csapatvezető kapcsolhatja a megosztást.",
+  "team.shareOn": "A tapasztalat- és aranymegosztás BE van kapcsolva.",
+  "team.shareOff": "A tapasztalat- és aranymegosztás KI van kapcsolva.",
+  "server.teamGold": "Csapatrész: {gold} arany"
 }, 'Magyar');

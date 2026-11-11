@@ -90,7 +90,7 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
         if (template.boss && !monster.cast && now > monster.slamT) startCast(monster, targetPlayer, distance, now);
         if (monster.cast && monster.cast.s !== 'summon') continue;
         if (distance > monster.r + 20) { const ox = monster.x, oy = monster.y; moveToward(monster, targetPlayer.x, targetPlayer.y, template.spd * (monster.alpha ? 1.1 : 1), tickSeconds); if (inVillage(monster)) { monster.x = ox; monster.y = oy; } }
-        else if (now >= monster.cd) { monster.cd = now + (monster.alpha ? 950 : 1100); hurtPlayer(targetPlayer, monster, monster.dmg * rates.monsterDamage * rnd(0.8, 1.2), now); }
+        else if (now >= monster.cd) { monster.cd = now + (monster.alpha ? 950 : 1100); hurtPlayer(targetPlayer, monster, monster.dmg * (monster.ps || 1) * rates.monsterDamage * rnd(0.8, 1.2), now); }
       } else {
         const d = moveToward(monster, monster.hx, monster.hy, template.spd * 0.5, tickSeconds);
         if (d < 5 && Math.random() < 0.02) {
@@ -100,6 +100,8 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
           monster.hy = home.y;
         }
         if (monster.hp < monster.mh) monster.hp = Math.min(monster.mh, monster.hp + monster.mh * 0.05 * tickSeconds);
+        // Back home and healed: a monster made tougher by a team goes back to normal.
+        else if (monster.ps > 1) { monster.mh = Math.max(1, Math.round(monster.mh / monster.ps)); monster.hp = monster.mh; monster.ps = 1; }
       }
     }
   }
@@ -112,7 +114,7 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
       ev('slam', monster.x, monster.y, radius, { s: 'pulse' });
       for (const player of activePlayers) {
         if (!player.dead && !inVillage(player) && dist(player, monster) <= radius) {
-          const damage = STONE_DMG[Math.min(6, monster.tier)] * monster.pulseMultiplier * rates.monsterDamage;
+          const damage = STONE_DMG[Math.min(6, monster.tier)] * monster.pulseMultiplier * (monster.ps || 1) * rates.monsterDamage;
           hurtPlayer(player, monster, damage, now);
         }
       }

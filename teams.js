@@ -7,6 +7,8 @@ const { itemView } = require('./equipment');
 const { BAGMAX } = require('./inventory');
 
 const TEAM_SIZE = 5, INVITE_MS = 60000, TRADE_ITEMS = 12;
+// Team members this close to a kill (on the same map) share its XP and gold, and make the monster stronger.
+const SHARE_RANGE = 1000, XP_BONUS_PER_MEMBER = 0.15, MONSTER_SCALE_PER_MEMBER = 1.5;
 const MAX_GOLD = 1e12;
 
 function createTeams({ players, send, say, toast, fire, afterGearChange }) {
@@ -21,7 +23,7 @@ function createTeams({ players, send, say, toast, fire, afterGearChange }) {
 
   function sendTeam(team) {
     const members = team ? team.members.map(id => players.get(id)).filter(Boolean) : [];
-    const view = team ? { id: team.id, leader: team.leader, members: members.map(p => ({ id: p.id, n: p.name, l: p.lvl, c: p.cls, hp: Math.round(p.hp), mh: p.maxhp, map: mapOf(p).index })) } : null;
+    const view = team ? { id: team.id, leader: team.leader, share: team.share !== false, near: SHARE_RANGE, xpBonus: XP_BONUS_PER_MEMBER, scale: MONSTER_SCALE_PER_MEMBER, members: members.map(p => ({ id: p.id, n: p.name, l: p.lvl, c: p.cls, hp: Math.round(p.hp), mh: p.maxhp, map: mapOf(p).index })) } : null;
     for (const member of members) send(member.c, { t: 'team', team: view });
   }
   function teamChat(team, message) { for (const id of team.members) { const p = players.get(id); if (p) send(p.c, { t: 'chat', n: '*', channel: 'team', m: message }); } }
@@ -44,7 +46,7 @@ function createTeams({ players, send, say, toast, fire, afterGearChange }) {
     if (!inviter) return say(player, messageText('team.noInvite', 'You have no team invitation.'));
     if (player.team) return say(player, messageText('team.leaveFirst', 'Leave your team first.'));
     let team = teamOf(inviter);
-    if (!team) { team = { id: nextTeamId++, leader: inviter.id, members: [inviter.id] }; teams.set(team.id, team); inviter.team = team.id; }
+    if (!team) { team = { id: nextTeamId++, leader: inviter.id, members: [inviter.id], share: true }; teams.set(team.id, team); inviter.team = team.id; }
     if (team.members.length >= TEAM_SIZE) return say(player, messageText('team.full', 'The team is full ({count} heroes).', { count: TEAM_SIZE }));
     team.members.push(player.id); player.team = team.id;
     teamChat(team, messageText('team.joined', '{name} joined the team.', { name: player.name }));
@@ -74,6 +76,24 @@ function createTeams({ players, send, say, toast, fire, afterGearChange }) {
     if (!target || target.team !== team.id || target === player) return;
     say(target, messageText('team.kicked', 'You were removed from the team.'));
     leave(target, true);
+  }
+
+  // Living members of the player's team near a point, the player first. Solo heroes get just themselves.
+  function nearbyMembers(player, point) {
+    const team = teamOf(player), map = mapOf(point);
+    if (!team) return [player];
+    const near = team.members.map(id => players.get(id)).filter(p => p && p !== player && !p.dead && mapOf(p) === map && Math.hypot(p.x - point.x, p.y - point.y) <= SHARE_RANGE);
+    return [player, ...near];
+  }
+  const sharesLoot = player => { const team = teamOf(player); return !!team && team.share !== false; };
+  // Monster HP and damage multiplier for a team fighting together: x1.5 for every extra member nearby.
+  const monsterScale = (player, monster) => MONSTER_SCALE_PER_MEMBER ** (nearbyMembers(player, monster).length - 1);
+  function toggleShare(player) {
+    const team = teamOf(player); if (!team) return messageText('team.notInTeam', 'You are not in a team.');
+    if (team.leader !== player.id) return messageText('team.leaderShare', 'Only the team leader can change sharing.');
+    team.share = team.share === false;
+    teamChat(team, team.share ? messageText('team.shareOn', 'XP and gold sharing is ON.') : messageText('team.shareOff', 'XP and gold sharing is OFF.'));
+    sendTeam(team);
   }
 
   // ---------- trading ----------
@@ -157,6 +177,7 @@ function createTeams({ players, send, say, toast, fire, afterGearChange }) {
       else if (op === 'decline') decline(player);
       else if (op === 'leave') leave(player);
       else if (op === 'kick') kick(player, message.name);
+      else if (op === 'share') { const reply = toggleShare(player); if (reply) say(player, reply); }
     },
     trade(player, message) {
       const op = String(message.op || '');
@@ -172,6 +193,7 @@ function createTeams({ players, send, say, toast, fire, afterGearChange }) {
     invite: { help: 'Invite a hero to your team', fn: (p, a) => { invite(p, a[0]); } },
     accept: { help: 'Accept a team invitation', fn: p => { accept(p); } },
     leave: { help: 'Leave your team', fn: p => { leave(p); } },
+    share: { help: 'Team leader: switch XP and gold sharing on or off', fn: p => toggleShare(p) },
     trade: { help: 'Ask a team member to trade', fn: (p, a) => { request(p, a[0]); } },
     t: { help: 'Team chat', fn: (p, a, raw) => { const team = teamOf(p); if (!team) return messageText('team.notInTeam', 'You are not in a team.'); const text = raw.replace(/^\/t\s*/i, '').trim(); if (text) for (const id of team.members) { const m = players.get(id); if (m) send(m.c, { t: 'chat', n: p.name, channel: 'team', m: text }); } } },
   };
@@ -179,7 +201,7 @@ function createTeams({ players, send, say, toast, fire, afterGearChange }) {
   let lastRefresh = 0;
   function tick(now) { if (now - lastRefresh < 1000) return; lastRefresh = now; for (const team of teams.values()) sendTeam(team); }
 
-  return { handlers, chatCommands, onLeave, tick, sameTeam };
+  return { handlers, chatCommands, onLeave, tick, sameTeam, nearbyMembers, sharesLoot, monsterScale, XP_BONUS_PER_MEMBER };
 }
 
 module.exports = { createTeams, TEAM_SIZE };

@@ -85,6 +85,8 @@ Hover an item and hold **Shift** to see the lowest and highest value each of its
 
 ## Teams and trading
 Press **Y** (or the 👥 button) to open the Team window. Invite a hero by name (or `/invite name`, `/accept`, `/leave`); up to 5 heroes, team chat with `/t message`.
+**Sharing**: team members within 1000 units of a kill (same map) split its XP - with +15% in total for every extra member - and its gold. The killer's gold drops on the ground as usual; the others get theirs straight away. Gear and other drops still go to the killer. The leader switches sharing on or off with `/share` or the button in the Team window (on by default).
+**Tougher monsters**: a monster fought by a team gets x1.5 HP and damage for every extra member nearby (2 heroes x1.5, 3 x2.25, 4 x3.4, 5 x5.1). It keeps that strength until it walks home and heals, or respawns. This applies whether sharing is on or off.
 Only team members can trade. Press **Trade** next to a member (or `/trade name`). Both put bag items and gold on the table; when both press **Accept trade** the swap happens at once. Any change to an offer takes back both acceptances, so nobody can switch items after you accepted. Leaving the team or the game cancels the trade.
 
 ## Language and text size
