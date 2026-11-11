@@ -635,5 +635,9 @@ GameText.addCatalog('hu', {
   "team.leaderShare": "Csak a csapatvezető kapcsolhatja a megosztást.",
   "team.shareOn": "A tapasztalat- és aranymegosztás BE van kapcsolva.",
   "team.shareOff": "A tapasztalat- és aranymegosztás KI van kapcsolva.",
-  "server.teamGold": "Csapatrész: {gold} arany"
+  "server.teamGold": "Csapatrész: {gold} arany",
+  "settings.fpsLimit": "FPS-korlát",
+  "settings.unlimited": "Korlátlan",
+  "settings.resolution": "3D felbontás",
+  "settings.shadows": "Árnyékok"
 }, 'Magyar');

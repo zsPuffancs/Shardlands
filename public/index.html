@@ -231,6 +231,9 @@ kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1
       <input type="range" id="text-scale" min="85" max="130" step="5">
     </div>
     <div class="row"><div class="t"><span data-text="settings.quality">Quality</span><small><span data-text="settings.autoHint">Auto lowers resolution / shadows / view distance when the frame rate drops</span></small></div><select id="gfxsel"><option value="auto" data-text="quality.auto">Auto</option><option value="low" data-text="quality.low">Low</option><option value="medium" data-text="quality.medium">Medium</option><option value="high" data-text="quality.high">High</option></select></div>
+    <div class="row"><span class="t" data-text="settings.fpsLimit">Frame rate limit</span><select id="fpslimit"><option value="30">30 FPS</option><option value="60">60 FPS</option><option value="120">120 FPS</option><option value="0" data-text="settings.unlimited">Unlimited</option></select></div>
+    <div class="row"><span class="t" data-text="settings.resolution">3D resolution</span><select id="renderscale"><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option></select></div>
+    <div class="row"><span class="t" data-text="settings.shadows">Shadows</span><select id="shadowquality"><option value="off" data-text="common.off">Off</option><option value="low" data-text="quality.low">Low</option><option value="high" data-text="quality.high">High</option></select></div>
     <label class="row"><span class="t" data-text="settings.fps">Show FPS counter</span><input type="checkbox" id="fpschk"></label></div>
   <div data-spage="log" style="display:none">
     <div class="mu" data-text="settings.logHint">Choose which messages appear in the chat log. Floating text and notifications stay visible.</div>

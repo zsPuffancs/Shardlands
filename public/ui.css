@@ -164,3 +164,10 @@ kbd { border: 4px solid transparent; border-image: url(ui/keycap.png) 12 fill / 
 .pips .rankbar { display: inline-block; width: 120px; height: 6px; border-radius: 3px; background: rgba(0, 0, 0, .45); border: 1px solid rgba(232, 191, 85, .35); vertical-align: middle; overflow: hidden; }
 .pips .rankbar i { display: block; height: 100%; background: linear-gradient(90deg, #b8860b, #ffd24a); }
 .win-b > * { flex-shrink: 0; }
+
+/* Keep the circular map inside the panel's border, including narrow viewports. */
+#mapbox { width: min(220px, calc(100vw - 24px)); }
+#mapwrap { width: min(168px, 100%); height: auto; aspect-ratio: 1; }
+#mapwrap #mini { width: 89.2857%; height: auto; aspect-ratio: 1; margin: 5.3571%; }
+#zname { white-space: normal; overflow-wrap: anywhere; }
+#mapbtns { display: flex; justify-content: center; flex-wrap: wrap; gap: 2px; }

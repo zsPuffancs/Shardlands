@@ -742,8 +742,11 @@ document.addEventListener('game-language-change', () => {
   if (isOpen('setw')) buildSettings();
 });
 function volLabels() { $('volv').textContent = Math.round(volume * 100) + '%'; $('volcv').textContent = Math.round(volC * 100) + '%'; $('voluv').textContent = Math.round(volU * 100) + '%'; }
-function buildSettings() { $('gfxsel').value = GL.Q.mode; $('fpschk').checked = $('perf').style.display === 'block'; $('vol').value = Math.round(volume * 100); $('volc').value = Math.round(volC * 100); $('volu').value = Math.round(volU * 100); $('mutechk').checked = muted; volLabels(); buildKeys(); }
+function buildSettings() { $('gfxsel').value = GL.Q.mode; $('fpslimit').value = GL.Q.fpsLimit; $('renderscale').value = GL.Q.resolution; $('shadowquality').value = GL.Q.shadowQuality; $('fpschk').checked = $('perf').style.display === 'block'; $('vol').value = Math.round(volume * 100); $('volc').value = Math.round(volC * 100); $('volu').value = Math.round(volU * 100); $('mutechk').checked = muted; volLabels(); buildKeys(); }
 $('gfxsel').onchange = e => { GL.setQuality(e.target.value); toast(text("settings.qualityChanged", "Graphics: {quality}", { quality: qualityName(e.target.value) })); };
+$('fpslimit').onchange = e => GL.setRenderOptions({ fpsLimit: +e.target.value });
+$('renderscale').onchange = e => GL.setRenderOptions({ resolution: +e.target.value });
+$('shadowquality').onchange = e => GL.setRenderOptions({ shadowQuality: e.target.value });
 $('fpschk').onchange = e => { $('perf').style.display = e.target.checked ? 'block' : 'none'; };
 const store = (k, v) => { try { localStorage.setItem(k, v); } catch (x) {} };
 $('vol').oninput = e => { volume = e.target.value / 100; if (master) master.gain.value = volume; store('sl_vol', volume); volLabels(); };

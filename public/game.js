@@ -26,6 +26,12 @@ function setWorld(world, arrived) {
   const changed = !WORLD || world.map !== WORLD.map;
   WORLD = world; ZT = world.tiers;
   if (!changed) return;
+  intent = null; pendingNpc = null; nearNpcK = null; held = false; lastHold = null;
+  keys = {}; lastDir = [0, 0]; rotating = false;
+  for (const label of labels.values()) label.el.remove(); labels.clear();
+  for (const key of Object.keys(MODEL)) if (/^wb\d+$/.test(key)) delete MODEL[key];
+  S.an = null; S.nodes = null; S.nodesMd = null; S.moveSpeed = 0; S.mv = 0; S.atkT = -9999; S.attackFacingUntil = 0;
+  for (const npc of Object.values(NPCE)) { npc.an = null; npc.nodes = null; npc.nodesMd = null; }
   bakeWorld(); buildGround(); ents.clear(); fxs.length = 0; parts.length = 0; mobRows.clear(); mobIds = []; mo = []; lo = []; pl = [];
   for (const f of floaters) f.el.remove(); floaters.length = 0; snapNext = true; lastZone = -9;
   if (arrived) { banner(world.map ? zoneName(ZT[0].name) : text('portal.founding', 'The Founding Lands'), world.map ? text('portal.arrivedTier', 'World Tier {tier}', { tier: world.map + 7 }) : text('zone.safe', 'Safe zone')); sfx('lvl'); }
@@ -619,7 +625,7 @@ function label(id, html, cls, x, y, z, hpv, wd, color) {
 // ---------- main loop ----------
 let last = performance.now(), lastZone = -9, zoneCheck = 0, miniT = 0, perfT = 0;
 const mini = $('mini').getContext('2d');
-function animate(e, mx, my, d) { const sp = Math.hypot(mx, my) / d; e.mv += (Math.min(1, sp / 120) - e.mv) * Math.min(1, d * 14); if (Math.hypot(mx, my) > .12 && performance.now() >= (e.attackFacingUntil || 0)) { const ty = Math.atan2(mx, my); let a = ty - e.yaw; a = Math.atan2(Math.sin(a), Math.cos(a)); e.yaw += a * Math.min(1, d * 12); } e.ph += sp * d * 0.1; }
+function animate(e, mx, my, d) { const sp = Math.hypot(mx, my) / Math.max(.001, d); e.moveSpeed = (e.moveSpeed || 0) + (sp - (e.moveSpeed || 0)) * Math.min(1, d * 14); e.mv += (Math.min(1, sp / 120) - e.mv) * Math.min(1, d * 14); if (Math.hypot(mx, my) > .12 && performance.now() >= (e.attackFacingUntil || 0)) { const ty = Math.atan2(mx, my); let a = ty - e.yaw; a = Math.atan2(Math.sin(a), Math.cos(a)); e.yaw += a * Math.min(1, d * 12); } e.ph += sp * d * 0.1; }
 function smoothEnt(e, d) { const dx = e.x - e.rx, dy = e.y - e.ry; if (Math.hypot(dx, dy) > 400) { e.rx = e.x; e.ry = e.y; return; } const k = 1 - Math.pow(0.0005, d), mx = dx * k, my = dy * k; e.rx += mx; e.ry += my; animate(e, mx, my, d); }
 function updateSelf(d) { // client-side prediction: our own hero reacts instantly, then eases toward the server position
   const ox = S.rx, oy = S.ry; let vx = 0, vz = 0;
@@ -631,8 +637,20 @@ function updateSelf(d) { // client-side prediction: our own hero reacts instantl
   else { const k = 1 - Math.pow(0.00003, d); S.rx += ex * k; S.ry += ez * k; }
   S.rx = Math.max(20, Math.min(WORLD.W - 20, S.rx)); S.ry = Math.max(20, Math.min(WORLD.H - 20, S.ry)); animate(S, S.rx - ox, S.ry - oy, d);
 }
+let nextFrameAt = 0, wasHidden = false;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { keys = {}; held = false; rotating = false; lastDir = [0, 0]; send({ t: 'dir', x: 0, y: 0 }); }
+  wasHidden = true;
+});
 function frame(now) {
-  requestAnimationFrame(frame); const raw = now - last; dt = Math.min(0.05, raw / 1000); last = now; GL.perf(raw);
+  requestAnimationFrame(frame);
+  if (document.hidden) { wasHidden = true; return; }
+  if (wasHidden) { last = now - 1000 / (GL.Q.fpsLimit || 60); nextFrameAt = now; wasHidden = false; }
+  const interval = GL.Q.fpsLimit ? 1000 / GL.Q.fpsLimit : 0;
+  if (interval && now + .5 < nextFrameAt) return;
+  if (interval) nextFrameAt = Math.max(nextFrameAt + interval, now);
+  else nextFrameAt = now;
+  const raw = now - last; dt = Math.min(0.05, raw / 1000); last = now; GL.perf(raw);
   if (me && !me.dead) {
     if (keys.arrowleft) cam.yaw += dt * 1.8; if (keys.arrowright) cam.yaw -= dt * 1.8;
     const d = wantDir(), ch = Math.abs(d[0] - lastDir[0]) + Math.abs(d[1] - lastDir[1]) > 0.06, zero = !d[0] && !d[1];
@@ -679,7 +697,7 @@ function frame(now) {
   drawFx(now); updateFloaters(now); GL.render();
   if (now - miniT > 180) { miniT = now; drawMini(); }
   if (now - perfT > 500) { perfT = now; const p = $('perf'); if (p.style.display === 'block') p.textContent = text('performance.summary', '{fps} FPS · {quality} · res {resolution}% · shadows {shadows} · {draws} draws / {parts} parts · {plants} plants', {
-    fps: GL.Q.fps, quality: qualityName(GL.Q.mode), resolution: Math.round(GL.Q.scale * 100),
+    fps: GL.Q.fps, quality: qualityName(GL.Q.mode), resolution: Math.round(GL.Q.scale * GL.Q.resolution * 100),
     shadows: GL.shadowsOn() ? text('common.on', 'on') : text('common.off', 'off'),
     draws: GL.Q.draws, parts: GL.Q.inst, plants: decorStats,
   }); }
@@ -709,14 +727,29 @@ function updateFloaters(now) {
   }
 }
 function drawMini() {
-  if (!me) return; const g = mini, N = 320, s = N / WORLD.W, c = N / 2;
-  g.fillStyle = ZCOL[Math.min(6, lookIndex(ZT.length - 1))]; g.fillRect(0, 0, N, N);
-  for (let i = ZT.length - 1; i >= 0; i--) { if (ZT[i].outer) continue; g.fillStyle = ZCOL[lookIndex(i)] || '#444'; g.beginPath(); g.arc(c, c, ZT[i].max * s, 0, 7); g.fill(); }
-  g.fillStyle = '#e8bf55'; g.beginPath(); g.arc(c, c, WORLD.V * s, 0, 7); g.fill();
-  for (const m of mo) { const t = I.types[m.ty]; if (t.st) { g.fillStyle = t.c; g.fillRect(m.x * s - 2.5, m.y * s - 2.5, 5, 5); } else if (t.boss) { g.fillStyle = '#f33'; g.beginPath(); g.arc(m.x * s, m.y * s, 4.5, 0, 7); g.fill(); g.strokeStyle = '#fd4'; g.lineWidth = 1.5; g.stroke(); } else if (m.al) { g.fillStyle = '#ffb04a'; g.beginPath(); g.arc(m.x * s, m.y * s, 3, 0, 7); g.fill(); } }
-  g.fillStyle = '#ffd24a'; for (const L of lo) if (L.k === 'gear' && L.r >= 2) g.fillRect(L.x * s - 1.5, L.y * s - 1.5, 3, 3);
-  g.fillStyle = '#4af'; for (const o of pl) g.fillRect(o.x * s - 2.5, o.y * s - 2.5, 5, 5);
-  g.save(); g.translate(S.rx * s, S.ry * s); g.rotate(-cam.yaw + 3.14159); g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(0, -8); g.lineTo(5.5, 6); g.lineTo(-5.5, 6); g.closePath(); g.fill(); g.stroke(); g.restore();
+  if (!me) return;
+  const g = mini, N = g.canvas.width, c = N / 2, scale = N / 2400;
+  const px = x => c + (x - S.rx) * scale, py = y => c + (y - S.ry) * scale;
+  g.clearRect(0, 0, N, N); g.save();
+  g.beginPath(); g.arc(c, c, c, 0, Math.PI * 2); g.clip();
+  g.fillStyle = ZCOL[Math.min(6, lookIndex(ZT.length - 1))] || '#444'; g.fillRect(0, 0, N, N);
+  for (let i = ZT.length - 1; i >= 0; i--) {
+    if (ZT[i].outer || ZT[i].generated) continue;
+    g.fillStyle = ZCOL[lookIndex(i)] || '#444'; g.beginPath(); g.arc(px(WORLD.CX), py(WORLD.CY), ZT[i].max * scale, 0, Math.PI * 2); g.fill();
+  }
+  g.fillStyle = '#9a8a66'; g.beginPath(); g.arc(px(WORLD.CX), py(WORLD.CY), WORLD.V * scale, 0, Math.PI * 2); g.fill();
+  function dot(x, y, color, radius) { g.fillStyle = color; g.beginPath(); g.arc(px(x), py(y), radius, 0, Math.PI * 2); g.fill(); }
+  for (const monster of mo) {
+    const type = I.types[monster.ty]; if (!type) continue;
+    dot(monster.x, monster.y, type.boss ? '#ff4949' : type.st ? '#cf9aff' : monster.al ? '#ffac42' : '#d6c69c', type.boss ? 5 : type.st ? 3.5 : 2);
+  }
+  for (const drop of lo) if (drop.k === 'gear' && drop.r >= 2) dot(drop.x, drop.y, '#ffd24a', 2);
+  for (const other of pl) dot(other.x, other.y, '#55cfff', 3);
+  for (const [key, npc] of Object.entries(WORLD.npcs)) dot(npc.x, npc.y, key === 'portal' ? '#ba85ff' : '#ffe292', key === 'portal' ? 4 : 3);
+  g.save(); g.translate(c, c); g.rotate(-S.yaw + Math.PI); g.fillStyle = '#fff'; g.strokeStyle = '#211a12'; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(0, -9); g.lineTo(6, 7); g.lineTo(0, 4); g.lineTo(-6, 7); g.closePath(); g.fill(); g.stroke(); g.restore();
+  g.font = 'bold 16px sans-serif'; g.textAlign = 'center'; g.fillStyle = '#fff0bd'; g.fillText('N', c, 20);
+  g.restore();
   const z = zoneOf(S.rx, S.ry); setT('zname', zoneName(z < 0 ? 'Dawnhearth' : ZT[z].name)); setT('zinfo', (z < 0 ? text("zone.safe", "Safe zone") : text("zone.levelShort", "Lv ") + ZT[z].lv[0] + '-' + ZT[z].lv[1]) + ' · ' + Math.round(S.rx) + ', ' + Math.round(S.ry)); $('zname').style.color = z >= 0 && ZT[z].outer ? '#ff5a4a' : '';
 }
 

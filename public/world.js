@@ -113,9 +113,9 @@ function animChar(e, md, o, now) {
   const a = e.an || (e.an = { name: '', t: 0, prev: '', pt: 0, fade: 1, atkT: -1, sp: 1, loop: true });
   const def = md.def; let want, loop = true, speed = 1, restart = false;
   if (o.dead) { want = 'Death'; loop = false; }
+  else if (e.mv > .14) { want = md.pick(def.run); speed = Math.max(.45, Math.min(2.5, (e.moveSpeed || 120) / 150)); }
   else if (now - e.atkT < 650) { want = e.skill ? def.skill : def.atk; loop = false; if (a.atkT !== e.atkT) { a.atkT = e.atkT; restart = true; } const d = md.anims[want] ? md.anims[want].dur : 1; speed = Math.max(1, d / .62); }
   else if (e.flash > now - 300 && e.mv < .2 && md.anims.RecieveHit) { want = 'RecieveHit'; loop = false; speed = 1.6; }
-  else if (e.mv > .14) { want = md.pick(def.run); speed = .55 + .75 * e.mv; }
   else want = md.pick(def.idle);
   if (!md.anims[want]) want = md.pick(def.idle);
   if (want !== a.name || restart) { a.prev = a.name; a.pt = a.t; a.name = want; a.t = 0; a.fade = a.prev ? 0 : 1; }
