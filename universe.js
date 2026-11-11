@@ -10,10 +10,11 @@ const { createDangerSpec } = require('./danger-geography');
 const GENERATOR_VERSION = 2;
 const STATE_VERSION = 1;
 const LEVEL_MILESTONES = [10, 20, 30, 40, 50, 60];
-const RENOWN = { worldBoss: 5, bossFirstKill: 3, firstMythic: 3, levelMilestone: 2, stoneFirst: 1, firstHero: 1 };
+const RENOWN = { campFounded: 4, stallBuilt: 2, worldBoss: 5, bossFirstKill: 3, firstMythic: 3, levelMilestone: 2, stoneFirst: 1, firstHero: 1 };
 
 // ---------- deterministic randomness ----------
 const { hashString, seededRandom } = require('./deterministic-random');
+const Settlement = require('./public/settlement');
 const SEED_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function newSeed() {
   const bytes = crypto.randomBytes(8);
@@ -169,8 +170,22 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
     stoneFirst: '{player} shattered the first stone of {region}.',
     firstMythic: '{player} forged the first Mythic item: {item}.',
     worldBoss: '{player} defeated the World Boss {boss}. World Tier {tier} begins: {region} is discovered.',
+    campFounded: '{player} founded the encampment of {region}.',
+    stallBuilt: '{player} built the {stall} in {region} for {gold} gold.',
   };
   // Only verified gameplay facts go in. Text is rendered from the structured record, never stored as fact.
+  // The settlement of each map. Map 0 (the founding lands) always has the village; generated regions get theirs
+  // from the seed with a stream of their own, so region descriptors stay as they were.
+  function settlement(tier) {
+    if (!state.settlements) state.settlements = {};
+    const key = tier > FOUNDING_TIERS ? String(tier) : 'founding';
+    if (!state.settlements[key]) {
+      if (tier <= FOUNDING_TIERS) state.settlements[key] = { kind: 'village', style: 'timber', built: {} };
+      else { const region = regionFor(tier); state.settlements[key] = { ...Settlement.choose(region.biome, tier, seededRandom(state.seed, 'settlement', tier)), built: {} }; }
+      persist();
+    }
+    return state.settlements[key];
+  }
   function record(type, players, data) {
     const entry = { id: state.nextEventId++, at: Date.now(), type, tier: state.worldTier, players: players || [], data: data || {} };
     state.history.push(entry); persist();
@@ -254,7 +269,7 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
       history: state.history.slice(-200), legends: legends(), stats: { ...state.stats, bossKills: undefined, elements: { ...state.stats.elements } },
     };
   }
-  const universe = { state, hooks, identity, summary, founded, record, recordOnce, regionFor, onTierUnlocked: null, layoutRandom: label => seededRandom(state.seed, label) };
+  const universe = { state, hooks, identity, summary, founded, record, recordOnce, regionFor, settlement, onTierUnlocked: null, layoutRandom: label => seededRandom(state.seed, label) };
   return universe;
 }
 

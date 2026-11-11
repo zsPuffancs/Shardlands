@@ -1,7 +1,7 @@
 'use strict';
 
 const { nearby } = require('./spatial-index');
-const { CX, CY, rnd, dist, clampWorld, moveToward, inVillage, placeInVillage, mapOf } = require('./game-world');
+const { CX, CY, rnd, dist, clampWorld, moveToward, inVillage, placeInVillage, mapOf, collideSettlement } = require('./game-world');
 const { CLASSES, playerDmg, rank, passive, gearAttackSpeed, playerMoveSpeed } = require('./characters');
 const { MOBTYPES, STONE_DMG } = require('./monsters');
 
@@ -59,6 +59,7 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
         player.chasingTarget = false;
       }
 
+      const before = { x: player.x, y: player.y };
       if (directionLength > 0.01) {
         player.x += player.dir.x / directionLength * speed * tickSeconds;
         player.y += player.dir.y / directionLength * speed * tickSeconds;
@@ -72,6 +73,7 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
         }
       }
       clampWorld(player, movementMap);
+      collideSettlement(player, before, 11);
       if (!inVillage(player) && target && !target.dead && now >= player.cd && dist(player, target) <= characterClass.range + target.r) {
         player.cd = now + (now < player.buf.rage ? 600 : 800) * (1 - passive(player, 'haste')) * (1 - gearAttackSpeed(player)); ev('atk', player.x, player.y, 0, { tx: Math.round(target.x), ty: Math.round(target.y), s: player.cls, a: player.id });
         hitMob(player, target, playerDmg(player));

@@ -1,7 +1,7 @@
 // Shardlands 3D client UI: HUD, windows (inventory, skills, merchant, blacksmith, settings), tooltips, sound, toasts.
 let BAG = [], EQ = {}, GS = {}, sig = '', cdMax = [2000, 8000, 25000], mergeMode = false, mergeSel = [], smSel = null;
 const RC = ['#d8d8d8', '#4ee26a', '#4da3ff', '#b25cff', '#ff9d2e', '#ff4560'];
-const MERGE_COST = [2, 3, 4, 5, 15], REROLL_COST = [1, 1, 2, 3, 5, 10], NPCWIN = { merchant: 'shopw', smith: 'smithw', mystic: 'mysticw', portal: 'portalw' };
+const MERGE_COST = [2, 3, 4, 5, 15], REROLL_COST = [1, 1, 2, 3, 5, 10], NPCWIN = { merchant: 'shopw', smith: 'smithw', mystic: 'mysticw', portal: 'portalw', camp: 'campw' };
 let SKB = {}, SOULS = 0, mySel = null;
 const SLOTICON = { weapon: '⚔️', helm: '⛑️', armor: '🛡️', boots: '🥾', ring: '💍', amulet: '📿', sword: '⚔️', bow: '🏹', staff: '🪄' };
 const SLOTNAME = { weapon: 'Weapon', helm: 'Helm', armor: 'Armor', boots: 'Boots', ring: 'Ring', amulet: 'Amulet' };
@@ -212,10 +212,10 @@ function hurtFlash(strong) { if (document.body.classList.contains('reduce-motion
 // ---------- windows ----------
 let zTop = 20;
 const isOpen = id => $(id).style.display === 'flex';
-function openWin(id) { const w = $(id); w.style.display = 'flex'; w.style.zIndex = ++zTop; if (id === 'invp') buildInv(); if (id === 'skillp') buildSkills(); if (id === 'shopw') buildShop(); if (id === 'smithw') buildSmith(); if (id === 'mysticw') buildMystic(); if (id === 'chronw') { buildChronicle(); send({ t: 'universe' }); } if (id === 'portalw') { buildPortal(); send({ t: 'portal' }); } if (id === 'teamw') buildTeam(); if (id === 'tradew') buildTrade(); if (id === 'setw') buildSettings(); tip.style.display = 'none'; }
+function openWin(id) { const w = $(id); w.style.display = 'flex'; w.style.zIndex = ++zTop; if (id === 'invp') buildInv(); if (id === 'skillp') buildSkills(); if (id === 'shopw') buildShop(); if (id === 'smithw') buildSmith(); if (id === 'mysticw') buildMystic(); if (id === 'chronw') { buildChronicle(); send({ t: 'universe' }); } if (id === 'portalw') { buildPortal(); send({ t: 'portal' }); } if (id === 'campw') buildCamp(); if (id === 'teamw') buildTeam(); if (id === 'tradew') buildTrade(); if (id === 'setw') buildSettings(); tip.style.display = 'none'; }
 function closeWin(id) { if (id === 'tradew' && TRADE) send({ t: 'trade', op: 'cancel' }); $(id).style.display = 'none'; if (id === 'invp') { mergeMode = false; mergeSel = []; } if (id === 'setw') bindWait = null; tip.style.display = 'none'; }
 function togglePanel(id) { if (isOpen(id)) closeWin(id); else openWin(id); }
-function closeAll() { for (const id of ['invp', 'skillp', 'shopw', 'smithw', 'mysticw', 'portalw', 'chronw', 'teamw', 'tradew', 'setw']) closeWin(id); }
+function closeAll() { for (const id of ['invp', 'skillp', 'shopw', 'smithw', 'mysticw', 'portalw', 'campw', 'chronw', 'teamw', 'tradew', 'setw']) closeWin(id); }
 document.querySelectorAll('.win').forEach(w => {
   const h = w.querySelector('.win-h'); w.addEventListener('mousedown', () => { w.style.zIndex = ++zTop; });
   h.addEventListener('mousedown', e => { if (e.target.closest('button')) return; const r = w.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top;
@@ -223,7 +223,7 @@ document.querySelectorAll('.win').forEach(w => {
     const up = () => { removeEventListener('mousemove', mv); removeEventListener('mouseup', up); }; addEventListener('mousemove', mv); addEventListener('mouseup', up); e.preventDefault(); });
 });
 // NPCs: open the window that belongs to the NPC (game.js calls this when you reach them)
-function openNpc(k) { for (const n in NPCWIN) if (n !== k) closeWin(NPCWIN[n]); openWin(NPCWIN[k] || 'shopw'); if (k !== 'portal' && !isOpen('invp')) openWin('invp'); sfx('click'); }
+function openNpc(k) { for (const n in NPCWIN) if (n !== k) closeWin(NPCWIN[n]); openWin(NPCWIN[k] || 'shopw'); if (k !== 'portal' && k !== 'camp' && !isOpen('invp')) openWin('invp'); sfx('click'); }
 
 // ---------- inventory ----------
 function slotHtml(it, attrs, extra) {
@@ -417,6 +417,7 @@ document.addEventListener('click', e => {
   if (t.id === 'autoMerge2') { send({ t: 'automerge', max: 2 }); return; }
   if (t.id === 'autoMerge3') { send({ t: 'automerge', max: 3 }); return; }
   if (t.id === 'autoMerge4') { send({ t: 'automerge', max: 4 }); return; }
+  if (t.dataset.build) { const k = t.dataset.build, cost = WORLD.settlement.cost[k]; uxConfirm(text('camp.confirm', 'Build the {stall} for {gold} gold? It stays for everyone on this server.', { stall: text('camp.stall.' + k, STALL_NAME[k]), gold: GameText.number(cost) }), text('camp.build', 'Build'), () => send({ t: 'build', k })); return; }
   if (t.dataset.travel) { send({ t: 'travel', map: +t.dataset.travel }); closeWin('portalw'); return; }
   if (t.dataset.my) { mySel = t.dataset.my; buildMystic(); return; }
   if (t.id === 'mygo') { if (mySel) { send({ t: 'reroll', uid: mySel }); $('myres').textContent = '…'; $('myres').style.color = '#ccc'; } return; }
@@ -566,6 +567,15 @@ function buildTrade() {
   $('trstate').innerHTML = esc(text('trade.you', 'You')) + ': ' + tick(t.mine.ok) + ' · ' + esc(t.with) + ': ' + tick(t.theirs.ok);
   $('trok').disabled = t.mine.ok;
 }
+// ---------- encampment ----------
+const STALL_NAME = { merchant: "Merchant's stall", smith: "Blacksmith's forge", mystic: "Soul Mystic's tent" }, STALL_NPC = { merchant: 'npc.merchant', smith: 'npc.smith', mystic: 'npc.mystic' };
+function buildCamp() {
+  const st = WORLD && WORLD.settlement; if (!st || st.kind !== 'camp') { $('campb').innerHTML = ''; return; }
+  const row = k => { const b = st.built[k], cost = st.cost[k];
+    return '<div class="row"><div class="t">' + esc(text('camp.stall.' + k, STALL_NAME[k])) + '<small>' + esc(b ? text('camp.builtBy', 'Built by {name}', { name: b.by }) : text('camp.brings', 'Brings the {npc} to this camp', { npc: text(STALL_NPC[k], k) })) + '</small></div>' +
+      (b ? '<b style="color:#8fd18f">✔</b>' : '<button class="pri" data-build="' + k + '"' + (me.g < cost ? ' disabled' : '') + '>' + GameText.number(cost) + 'g</button>') + '</div>'; };
+  $('campb').innerHTML = '<div class="mu" style="font-size:0.75rem;margin-bottom:6px">' + esc(text('camp.intro', 'This land is too harsh for a village. Fund a stall and its keeper will stay here for every hero on the server. The first stall founds the encampment, and every stall is written in the Chronicle.')) + '</div>' + Object.keys(STALL_NAME).map(row).join('');
+}
 // ---------- world portal ----------
 let PORTAL = null;
 const BIOME_NAME = { volcanic: 'Volcanic', glacier: 'Glacier', voidscar: 'Voidscar', wildwood: 'Wildwood', warfields: 'Warfields', necropolis: 'Necropolis' };
@@ -587,6 +597,7 @@ const CHRONICLE_TEXT = {
   levelMilestone: '{player} was the first to reach level {level}.', bossFirstKill: '{player} was the first to slay {boss}.',
   stoneFirst: '{player} shattered the first stone of {region}.', firstMythic: '{player} forged the first Mythic item: {item}.',
   worldBoss: '{player} defeated the World Boss {boss}. World Tier {tier} begins: {region} is discovered.',
+  campFounded: '{player} founded the encampment of {region}.', stallBuilt: '{player} built the {stall} in {region} for {gold} gold.',
 };
 const zoneKey = name => 'zone.' + String(name).toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '');
 const regionName = region => region.kind === 'founding' ? text(zoneKey(region.name), region.name) : region.name;
@@ -600,7 +611,7 @@ function onUniverse(u) { UNI = u; if (WORLD && WORLD.universe) { WORLD.universe.
 function buildChronicle() {
   const u = UNI; if (!u) { $('chronb').innerHTML = '<div class="mu">…</div>'; return; }
   const f = u.frontier, wb = f.worldBoss;
-  const entryText = e => { const d = Object.assign({}, e.data); if (d.bossType) d.boss = text('monster.' + d.bossType, d.boss); if (d.region && e.type !== 'worldBoss') d.region = text(zoneKey(d.region), d.region); else if (d.region && e.data.tier <= 7) d.region = text(zoneKey(d.region), d.region);
+  const entryText = e => { const d = Object.assign({}, e.data); if (d.stallKey) d.stall = text('camp.stall.' + d.stallKey, d.stall); if (d.gold) d.gold = GameText.number(d.gold); if (d.bossType) d.boss = text('monster.' + d.bossType, d.boss); if (d.region && e.type !== 'worldBoss') d.region = text(zoneKey(d.region), d.region); else if (d.region && e.data.tier <= 7) d.region = text(zoneKey(d.region), d.region);
     return text('chronicle.' + e.type, CHRONICLE_TEXT[e.type] || e.type, Object.assign({ universe: u.name, player: e.players[0] || '' }, d)); };
   const others = e => e.players.length > 1 ? '<small>' + esc(text('chronicle.with', 'Fought alongside: {players}', { players: e.players.slice(1).join(', ') })) + '</small>' : '';
   $('chronb').innerHTML =

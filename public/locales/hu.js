@@ -735,5 +735,22 @@ GameText.addCatalog('hu', {
   "server.storageFull": "Elérted a pénz- vagy fogyóeszköz-készlet biztonsági határát.",
   "server.forgeBusy": "Az automatikus fejlesztésed még folyamatban van.",
   "smith.autoProgress": "Fejlesztés… +{level} · Próbák: {attempts} · Elköltött arany: {gold}",
-  "smith.autoStopped": "Megállt: +{level} · Próbák: {attempts} · Elköltött arany: {gold}"
+  "smith.autoStopped": "Megállt: +{level} · Próbák: {attempts} · Elköltött arany: {gold}",
+  "npc.camp": "🏕 Tábori tábla",
+  "prompt.camp": "A tábor felépítése",
+  "camp.stall.merchant": "kereskedő standja",
+  "camp.stall.smith": "kovács műhelye",
+  "camp.stall.mystic": "lélekmisztikus sátra",
+  "camp.builtBy": "Építette: {name}",
+  "camp.brings": "Ide hozza: {npc}",
+  "camp.build": "Építés",
+  "camp.confirm": "Felépíted ezt: {stall}, {gold} aranyért? A szerver minden hőse számára megmarad.",
+  "camp.intro": "Ez a vidék túl zord egy faluhoz. Fizess egy standért, és a gazdája itt marad a szerver minden hőse számára. Az első stand megalapítja a tábort, és minden stand bekerül a Krónikába.",
+  "chronicle.campFounded": "{player} megalapította {region} táborát.",
+  "chronicle.stallBuilt": "{player} felépítette: {stall} ({region}), {gold} aranyért.",
+  "history.campFounded": "📜 {player} megalapította {region} táborát.",
+  "history.stallBuilt": "📜 {player} felépítette: {stall} ({region}), {gold} aranyért.",
+  "server.campBoardFar": "Az építéshez menj a tábori táblához.",
+  "server.stallBuilt": "Ez a stand már áll.",
+  "server.stallGold": "A felépítése {gold} aranyba kerül."
 }, 'Magyar');
