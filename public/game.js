@@ -874,7 +874,7 @@ async function refreshOnlineCount() {
 async function boot() {
   GameText.init();
   let info; try { info = await (await fetch('/api/info')).json(); } catch (e) { $('srv').textContent = text("login.unreachable", "Server not reachable."); return; }
-  WORLD = info.world; ZT = WORLD.tiers; showUniverseLine(); document.title = info.serverName + ' - Shardlands 3D'; $('srv').textContent = text('login.server', '{server} · private server', { server: info.serverName });
+  WORLD = info.world; ZT = WORLD.tiers; showUniverseLine(); $('srv').textContent = text('login.server', '{server} · private server', { server: info.serverName });
   showOnlineCount(info.online); showInvite(info.invite);
   onlineCountTimer = setTimeout(refreshOnlineCount, ONLINE_COUNT_REFRESH_MS);
   sel = Object.keys(info.classes)[0];
