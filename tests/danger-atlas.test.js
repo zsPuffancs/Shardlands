@@ -128,6 +128,17 @@ test('Atlas reads saved encounter positions and reports corrupted spacing withou
   assert.equal(result.status, 'persisted-plan'); assert.equal(result.validation.valid, false); assert.ok(result.validation.errors.some(error => error.startsWith('spacing:'))); assert.equal(JSON.stringify(universe.state), before);
 });
 
+test('consecutive Atlas dry-run tiers continue the previous preview maximum without persistence', () => {
+  const universe = world('atlas-level-chain');
+  const atlas = createAtlas({ universe }), before = JSON.stringify(universe.state);
+  for (const seed of [universe.state.seed, 'alternative-level-chain']) {
+    const current = atlas.inspect({ tier: 100, preview: true, seed });
+    const next = atlas.inspect({ tier: 101, preview: true, seed });
+    assert.equal(next.descriptor.levels[0], current.descriptor.levels[1]);
+  }
+  assert.equal(JSON.stringify(universe.state), before);
+});
+
 test('Atlas access policy rejects remote, proxy, hostile Host and cross-origin requests', () => {
   const request = (remoteAddress, headers = {}) => ({ socket: { remoteAddress }, headers: { host: 'localhost:3000', ...headers } });
   assert.equal(localRequest(request('127.0.0.1')), true); assert.equal(localRequest(request('::1', { host: '[::1]:3000' })), true);

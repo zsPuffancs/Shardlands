@@ -4,7 +4,7 @@
 // same seed + tier + history snapshot + generator version always gives the same region.
 const crypto = require('node:crypto');
 const { TIERS, MOBTYPES, SPECIAL } = require('./monsters');
-const { LEVEL_RANGE_VERSION, regionLevelRange } = require('./region-levels');
+const { LEVEL_RANGE_VERSION, resolveRegionLevels } = require('./region-levels');
 const { createDangerSpec } = require('./danger-geography');
 
 const GENERATOR_VERSION = 2;
@@ -108,7 +108,7 @@ function generateRegion(seed, tier, historySnapshot, generatorVersion = GENERATO
 function createRegionDescriptor(state, tier, snapshot) {
   const region = generateRegion(state.seed, tier, snapshot, state.generatorVersion);
   if (tier > FOUNDING_TIERS) {
-    region.levels = regionLevelRange(state.seed, tier, state.regions[tier - 1]?.levels?.[1]);
+    region.levels = resolveRegionLevels(state.seed, tier, state.regions);
     region.levelRangeVersion = state.levelRangeVersion || LEVEL_RANGE_VERSION;
     if (state.generatorVersion === 2) region.dangerSpec = createDangerSpec({ seed: state.seed, tier, biome: region.biome, options: state.generationSettings?.danger });
   }

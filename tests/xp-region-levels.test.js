@@ -2,7 +2,7 @@
 const test = require('node:test'), assert = require('node:assert/strict');
 const { createCombat, XP_LEVEL_GAP_LIMIT } = require('../combat');
 const { createProgression, newSk, stats } = require('../characters');
-const { regionLevelRange } = require('../region-levels');
+const { regionLevelRange, resolveRegionLevels } = require('../region-levels');
 const { createUniverse, generateRegion } = require('../universe');
 const noop = () => {};
 function hero(id, level) { const p = { id, name: 'Hero' + id, cls: 'archer', lvl: level, xp: 0, gold: 0, eq: {}, bag: [], inv: {}, sk: newSk(), buf: {}, x: 6000, y: 6000, sp: 0, target: 1 }; stats(p); p.hp = p.maxhp; p.mp = p.maxmp; return p; }
@@ -53,7 +53,30 @@ test('existing v1/v2 region descriptors and spawn plans stay untouched; newly un
 });
 test('level spans stay valid at the existing level ceiling and extreme tiers without loops proportional to tier', () => {
   for (const tier of [1000000, Number.MAX_SAFE_INTEGER]) for (const previous of [undefined, 9999, 10000]) {
-    const [min, max] = regionLevelRange('extreme', tier, previous); assert.ok(min >= 1 && max <= 10000); assert.ok(max - min >= 20 && max - min <= 45);
+    const [min, max] = regionLevelRange('extreme', tier, previous); assert.ok(min >= 1 && max <= 10000); assert.ok(max - min >= 0 && max - min <= 45);
+    assert.equal(min, previous === undefined ? 10000 : previous); assert.equal(max, 10000);
   }
   for (const tier of [0, 7, Infinity, NaN, Number.MAX_SAFE_INTEGER + 1]) assert.throws(() => regionLevelRange('bad', tier), RangeError);
+});
+
+test('missing predecessor ranges continue the seeded chain instead of a fixed tier estimate', () => {
+  const seed = 'continuous-ranges', saved = { 99: { levels: [1900, 1924] } }, before = JSON.stringify(saved);
+  const current = resolveRegionLevels(seed, 100, saved), next = resolveRegionLevels(seed, 101, saved);
+  assert.equal(current[0], 1924); assert.equal(next[0], current[1]);
+  assert.deepEqual(next, resolveRegionLevels(seed, 101, { ...saved, 100: { levels: current } }));
+  assert.equal(JSON.stringify(saved), before);
+  let previousMaximum = 60;
+  for (let tier = 8; tier <= 510; tier++) {
+    const actual = resolveRegionLevels(seed, tier), expected = regionLevelRange(seed, tier, previousMaximum);
+    assert.deepEqual(actual, expected, 'tier ' + tier); previousMaximum = actual[1];
+  }
+});
+
+test('level ceiling never pushes a new region start below the previous maximum', () => {
+  assert.deepEqual(regionLevelRange('ceiling', 400, 9999), [9999, 10000]);
+  assert.deepEqual(regionLevelRange('ceiling', 401, 10000), [10000, 10000]);
+  const tier = 1000, saved = { [tier - 500]: { levels: [1, 1] } };
+  const current = resolveRegionLevels('bounded-chain', tier, saved);
+  assert.equal(current[1], 10000);
+  assert.deepEqual(resolveRegionLevels('bounded-chain', tier + 1, saved), [10000, 10000]);
 });

@@ -45,7 +45,7 @@ Boss and stone records list the killer first, then everyone else who damaged it 
   and the tier change happen in one synchronous step on the single game thread, and the record is
   guarded by a `firsts` key. A second kill, a late kill or a kill of a later boss does nothing.
 - **Bounded difficulty inputs.** Frontier regions get at most three modifiers from a fixed list and
-  a seeded 20-45 level span for newly created descriptors, capped at level 10,000. Saved regions keep their original ranges. At the cap, ranges overlap to preserve their width. The level-range policy is versioned independently of the layout generator.
+  a seeded 20-45 level span for newly created descriptors, capped at level 10,000. Saved regions keep their original ranges. Missing predecessor ranges follow the seeded chain. At the cap, ranges shorten instead of starting below the previous maximum. The level-range policy is versioned independently of the layout generator.
 - **Cheats do not enter history.** Heroes listed in `admins` are not recorded (set
   `recordAdminHistory: true` in `config.json` to change that, for example on a test server).
   Monsters created with `/spawn` never count.

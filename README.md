@@ -175,7 +175,7 @@ Shared server limits live in `safety-limits.js`. Combat stat formulas and equipm
 
 Focused regression cases are prepared in `tests/safety-limits.test.js`. They were not executed during implementation because tests are run only on explicit user request. No automatic test hooks were added.
 
-New frontier descriptors use the independently versioned level-range policy in `region-levels.js`: the seeded span is 20-45 (maximum minus minimum), starting at the previous saved region's maximum. This applies to future regions in existing v1/v2 worlds without reseeding. Saved regions and spawn plans, including the seven founding zones, keep their levels. At the existing level cap of 10,000, the interval shifts down to preserve its width, so later capped regions overlap.
+New frontier descriptors use the independently versioned level-range policy in `region-levels.js`: the seeded span is 20-45 (maximum minus minimum), starting at the previous saved region's maximum. This applies to future regions in existing v1/v2 worlds without reseeding. Saved regions and spawn plans, including the seven founding zones, keep their levels. Missing predecessor ranges are reconstructed as a deterministic chain without creating regions. At the level cap of 10,000, the interval shortens instead of shifting backwards; later capped regions remain at 10,000.
 
 ## Dynamic danger geography and developer World Atlas
 
