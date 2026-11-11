@@ -172,11 +172,11 @@ test('abandoned claims expire without healing, and replacement connections canno
   replaced.combat.hitMob(replaced.roster[0], replaced.monster, 1e9); assert.equal(replacement.xp, 0); assert.equal(old.xp, 0);
 });
 
-test('live combat and simulator use the same gear, Wisdom, server-rate and party caps', () => {
+test('live combat ignores leftover gear XP bonus and matches the simulator for Wisdom, server-rate and party caps', () => {
   for (const size of [1, 2, 5]) for (const bonus of [0, 100, 1e6]) for (const wisdom of [false, true]) for (const rate of [0, 1, 10, 1e6]) {
     const game = setup(size, { rate }); for (const player of game.roster) { player.g.xpb = bonus; player.buf.xp = wisdom ? Date.now() + 10000 : 0; }
     participate(game); game.combat.hitMob(game.roster[0], game.monster, 1e9);
-    for (const player of game.roster) assert.equal(player.xp, xp.calculateEncounterXp({ playerLevel: 100, monsterLevel: 100, members: size, gearBonus: bonus, wisdom, serverRate: rate }));
+    for (const player of game.roster) assert.equal(player.xp, xp.calculateEncounterXp({ playerLevel: 100, monsterLevel: 100, members: size, gearBonus: 0, wisdom, serverRate: rate }));
   }
 });
 

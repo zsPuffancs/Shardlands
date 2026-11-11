@@ -22,7 +22,7 @@ Console commands are defined in `server-console.js`. Give each `Command` a name,
 - Spirit Stones are a real fight: waves of guardians (plus Alpha guardians) as they crack, a shockwave you have to dodge, 4-7 rare+ items, potions, category-budgeted XP and extra gold. Summoned guardians grant no XP.
 - Bosses have signature attacks with their own telegraphs: charge (red lane), fire/frost/void breath (red cone), meteor rain (red circles), summon portal, ground slam.
 - New hero attack effects: sword slashes, arrows with trails, magic bolts, whirlwind, arrow fan, arcane nova.
-- 10 passive skills (up to 10 ranks each): Vitality, Might, Swiftness, Precision (crit chance), Brutality (crit damage), Bloodthirst (lifesteal), Iron Skin (defence), Haste (attack speed), Focus (mana), Fortune (gold find).
+- 10 passive skills (up to 99 ranks each): Vitality, Might, Swiftness, Precision (crit chance), Brutality (crit damage), Bloodthirst (lifesteal), Iron Skin (defence), Haste (attack speed), Focus (mana), Fortune (gold find).
 - Settings window (O or the gear button): master/combat/interface volume, graphics quality, and rebindable keys.
 - The Blacksmith only upgrades equipment you are wearing, and no longer hammers in your ears.
 - Item tooltips always show above windows. The camera fades out trees and roofs between it and your hero.
@@ -80,7 +80,7 @@ Spirit Stones, Alphas and bosses drop 1-5 souls each (purple orb). Souls show ne
 
 ## Skills
 1 point per level. Active skills (keys 1-3) go to rank 5, passives to rank **99**. Open with K and switch tabs.
-Passives give their full bonus per rank up to rank 10. After that each rank adds a little less, and the bonus levels off towards a cap (about 95% of it at rank 99): Vitality / Might / Focus +300%, Swiftness +80%, Precision +30% crit chance, Brutality +400% crit damage, Bloodthirst 15% lifesteal, Iron Skin 60% less damage, Haste 60% faster attacks, Fortune +300% gold.
+Passives give their full bonus per rank up to rank 10. After that each rank adds a little less, and the bonus levels off towards a cap (about 95% of it at rank 99): Vitality / Might / Focus +300%, Swiftness +80%, Precision +30% crit chance, Brutality +400% crit damage, Bloodthirst 15% lifesteal, Iron Skin 60% less damage, Haste 60% faster attacks. Fortune is linear instead: 2% gold find at rank 1, +1% per rank, 100% at rank 99 (the cap).
 
 ## Items
 Hover an item and hold **Shift** to see the lowest and highest value each of its stats could have rolled at that item level and rarity.

@@ -30,7 +30,7 @@ module.exports = { name: 'my_plugin', version: '1.0', init(api) {
 | `trade` | `playerA, playerB, details` | a trade completed (`details.gave`, `details.got`, `goldA`, `goldB`) |
 | `tick` | `dt` | runs 20 times per second, keep it light |
 
-Skill ids on `player.sk`: actives `s1 mend frenzy` (max 5), passives `vit might swift crit critdmg lifesteal guard haste focus fortune` (max 10).
+Skill ids on `player.sk`: actives `s1 mend frenzy` (max 5), passives `vit might swift crit critdmg lifesteal guard haste focus fortune` (max 99).
 
 ## Adding content
 - `api.addMob(id, {name, lvl, hp, dmg, spd, xp, gold:[min,max], r, aggro, color, boss})` then `api.addToTier(tierIndex, id)` (or `addToTier(i, id, true)` for a boss). Tiers: 0 Meadows, 1 Gloomwood, 2 Ashen Barrens, 3 Ember Wastes, 4 Frostfang Peaks, 5 Voidreach, 6 Death Zone.
@@ -38,7 +38,7 @@ Skill ids on `player.sk`: actives `s1 mend frenzy` (max 5), passives `vit might 
 - `api.addClass(id, {name, desc, color, fam:'sword'|'bow'|'staff', range, hp, mp, atk, s1, s1r, s1m, s1c, s1n, s2, s3, model, tint})`.
   `model` picks the 3D hero: `Warrior`, `Ranger`, `Wizard`, `Rogue`, `Cleric` or `Monk`; `tint` is an `[r,g,b]` colour multiplier (see class_berserker.js).
 - `api.genGear(slot|undefined, ilvl, rarity 0-4|undefined, fam)` makes a gear item; `api.giveGear(player, item)` puts it in the bag; `api.dropAt(x, y, {kind:'gear', item, name:item.name, rar:item.rar}, ownerId)` drops it on the ground.
-- Slots: weapon, helm, armor, boots, ring, amulet. Stats: dmg, hp, mp, def, crit, spd, gf (gold find), xpb (xp bonus). Rarities: 0 Common ... 4 Legendary.
+- Slots: weapon, helm, armor, boots, ring, amulet. Stats: dmg, hp, mp, def, crit, spd. (Gear gold find and XP bonus were removed; gold find only comes from the Fortune passive.) Rarities: 0 Common ... 4 Legendary.
 
 ## Rates
 `api.rates` is the live object behind rates.json (xpRate, goldRate, gearDropRate, potionDropRate, rarityBoost, monsterHp, monsterDamage, ...).

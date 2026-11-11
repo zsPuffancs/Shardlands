@@ -39,6 +39,7 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
       ph: passwordHash, data: (savedPlayer && savedPlayer.data) || {},
       x: CX + rnd(-50, 50), y: CY + rnd(30, 95), dir: { x: 0, y: 0 }, dest: null, target: 0, chasingTarget: false, cd: 0, cd1: 0, cd2: 0, cd3: 0, dead: 0 };
     for (const slot of SLOTS) sanitize(player.eq[slot]);
+    for (const item of player.bag || []) sanitize(item);
     if (!player.eq.weapon) player.eq.weapon = inventory.starterWeapon(player, savedPlayer && savedPlayer.w);
     stats(player);
     player.hp = player.maxhp;

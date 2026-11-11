@@ -5,7 +5,7 @@ const MERGE_COST = [2, 3, 4, 5, 15], REROLL_COST = [1, 1, 2, 3, 5, 10], NPCWIN =
 let SKB = {}, SOULS = 0, mySel = null;
 const SLOTICON = { weapon: '⚔️', helm: '⛑️', armor: '🛡️', boots: '🥾', ring: '💍', amulet: '📿', sword: '⚔️', bow: '🏹', staff: '🪄' };
 const SLOTNAME = { weapon: 'Weapon', helm: 'Helm', armor: 'Armor', boots: 'Boots', ring: 'Ring', amulet: 'Amulet' };
-const STATORDER = ['dmg', 'hp', 'mp', 'def', 'crit', 'spd', 'gf', 'xpb'];
+const STATORDER = ['dmg', 'hp', 'mp', 'def', 'crit', 'spd'];
 const BUFFN = { atk: '⚔ Fury', def: '🛡 Iron', spd: '💨 Swift', xp: '📖 Wisdom', rage: '🔥 Rage' };
 const SK = ['s1', 'mend', 'frenzy', 'vit', 'might', 'swift'];
 const CLSICON = { blade: '⚔️', archer: '🏹', mage: '🔮' }, S1ICON = { blade: '🌀', archer: '🎯', mage: '✴️' };
@@ -286,7 +286,7 @@ function buildInv() {
   $('gld').textContent = '💰 ' + GameText.number(me.g);
   $('eqwrap').innerHTML = I.slots.map(s => EQ[s] ? slotHtml(EQ[s], 'data-tip="eq:' + s + '" data-eq="' + s + '"') : '<div class="slot empty" title="' + esc(text('slot.' + s, SLOTNAME[s])) + '">' + slotIcon(s) + '</div>').join('');
   const line = (n, v) => '<div>' + esc(text('inventory.metric.' + n, n)) + '<b>' + v + '</b></div>';
-  $('gst').innerHTML = line('⚔ Damage', me.dmg ?? GS._dmg ?? 0) + line('🎯 Crit', (GS._crit || 12) + '%') + line('❤ Max HP', GS._hp || 0) + line('🛡 Reduction', (GS._dr || 0) + '%') + line('💧 Max MP', GS._mp || 0) + line('💨 Speed', '+' + Math.min(60, GS.spd || 0).toFixed(1) + '%') + line('📖 XP bonus', '+' + (GS.xpb || 0).toFixed(1) + '%') + line('💥 Crit damage', (GS._cdmg || 180) + '%') + line('🩸 Lifesteal', (GS._ls || 0) + '%') + line('⚡ Attack speed', '+' + (GS._haste || 0) + '%') + line('💰 Total gold find', '+' + (GS._gf || 0) + '%');
+  $('gst').innerHTML = line('⚔ Damage', me.dmg ?? GS._dmg ?? 0) + line('🎯 Crit', (GS._crit || 12) + '%') + line('❤ Max HP', GS._hp || 0) + line('🛡 Reduction', (GS._dr || 0) + '%') + line('💧 Max MP', GS._mp || 0) + line('💨 Speed', '+' + Math.min(60, GS.spd || 0).toFixed(1) + '%') + line('💥 Crit damage', (GS._cdmg || 180) + '%') + line('🩸 Lifesteal', (GS._ls || 0) + '%') + line('⚡ Attack speed', '+' + (GS._haste || 0) + '%') + line('💰 Gold find', '+' + (GS._gf || 0) + '%');
   renderBagPage();
   $('bagc').textContent = BAG.length + ' / ' + I.bagMax; $('bagfull').textContent = BAG.length >= I.bagMax ? text("inventory.full", "Bag full - merge or sell items.") : '';
   $('mergeBtn').classList.toggle('on', mergeMode); $('mergebar').style.display = mergeMode ? 'flex' : 'none';
@@ -648,7 +648,7 @@ function onForge(m) {
 
 // ---------- skills ----------
 const SK_ACT = ['s1', 'mend', 'frenzy'], SK_PAS = ['vit', 'might', 'swift', 'crit', 'critdmg', 'lifesteal', 'guard', 'haste', 'focus', 'fortune']; let skTab = 'act';
-const PAS = { vit: ['Vitality', '❤️', 'max HP', 5, '%'], might: ['Might', '💪', 'damage', 5, '%'], swift: ['Swiftness', '💨', 'move speed', 4, '%'], crit: ['Precision', '🎯', 'critical hit chance', 1.5, '%'], critdmg: ['Brutality', '💥', 'critical hit damage', 12, '%'], lifesteal: ['Bloodthirst', '🩸', 'of damage dealt healed (lifesteal)', 0.8, '%'], guard: ['Iron Skin', '🛡️', 'less damage taken', 2.5, '%'], haste: ['Haste', '⚡', 'attack speed', 3.5, '%'], focus: ['Focus', '🔷', 'max MP and +10% MP regen per rank', 5, '%'], fortune: ['Fortune', '💰', 'gold find', 6, '%'] };
+const PAS = { vit: ['Vitality', '❤️', 'max HP', 5, '%'], might: ['Might', '💪', 'damage', 5, '%'], swift: ['Swiftness', '💨', 'move speed', 4, '%'], crit: ['Precision', '🎯', 'critical hit chance', 1.5, '%'], critdmg: ['Brutality', '💥', 'critical hit damage', 12, '%'], lifesteal: ['Bloodthirst', '🩸', 'of damage dealt healed (lifesteal)', 0.8, '%'], guard: ['Iron Skin', '🛡️', 'less damage taken', 2.5, '%'], haste: ['Haste', '⚡', 'attack speed', 3.5, '%'], focus: ['Focus', '🔷', 'max MP and +10% MP regen per rank', 5, '%'], fortune: ['Fortune', '💰', 'gold find', 1, '%'] };
 const passiveTooltipDescriptions = {
   vit: 'Increases base maximum health by {bonus}%.',
   might: 'Increases damage dealt by {bonus}%.',
@@ -664,6 +664,7 @@ const passiveTooltipDescriptions = {
 const maxSkillRank = skill => SK_ACT.includes(skill) ? I.maxRank : (I.pMax || 10);
 // Same curve as the server (characters.js passiveValue): full gain for 10 ranks, then levelling off towards the cap.
 function passiveValue(k, r) {
+  if (k === 'fortune') return r > 0 ? Math.min(100, r + 1) : 0;
   const [step, cap] = I.passiveEffect[k]; if (r <= 10) return step * r;
   const head = step * 10, room = cap - head, curve = Math.min(step / room, 3 / ((I.pMax || 99) - 10));
   return head + room * (1 - Math.exp(-(r - 10) * curve));

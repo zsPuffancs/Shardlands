@@ -16,8 +16,9 @@ const SUFFIX = ['of the Wolf', 'of Embers', 'of the Bear', 'of Storms', 'of the 
 const STATDEF = {
   dmg: { n: 'Damage', f: i => 1.1 * i + 1 }, hp: { n: 'Max HP', f: i => 7 * i + 8 }, mp: { n: 'Max MP', f: i => 3 * i + 3 }, def: { n: 'Defense', f: i => 0.9 * i + 1 },
   crit: { n: 'Crit Chance %', f: i => 1.5 + i * 0.07, pct: 1 }, spd: { n: 'Move Speed %', f: i => 1.5 + i * 0.05, pct: 1 },
-  gf: { n: 'Gold Find %', f: i => 4 + i * 0.3, pct: 1 }, xpb: { n: 'XP Bonus %', f: i => 2 + i * 0.15, pct: 1 },
 };
+// Gear no longer gives XP or gold bonuses. Old items lose these stats when their owner logs in.
+const REMOVED_STATS = ['gf', 'xpb'];
 const PRIMARY = { weapon: { dmg: i => 3 * i + 5 }, helm: { def: i => 1.3 * i + 2 }, armor: { hp: i => 12 * i + 20, def: i => 1.6 * i }, boots: { spd: i => 1.5 + i * 0.08, def: i => 0.8 * i }, ring: { dmg: i => 0.9 * i + 1, crit: i => 1 + i * 0.05 }, amulet: { hp: i => 6 * i + 10, mp: i => 2 * i + 4 } };
 const UP_RATE = [1, .9, .8, .7, .6, .5, .4, .3, .2];
 // Affixes: one bonus stat per weapon, ring or amulet, put on by the Soul Mystic. The affix also names the item.
@@ -49,7 +50,7 @@ function statRanges(item) {
 // What clients get for an item: the item plus its stat ranges (ranges are never stored).
 const itemView = item => item ? { ...item, rg: statRanges(item) } : item;
 
-function sanitize(item) { if (item && NO_DMG[item.slot]) { delete item.stats.dmg; delete item.stats.crit; } if (item && !item.plus) item.plus = 0; return item; }
+function sanitize(item) { if (item && item.stats) for (const key of REMOVED_STATS) delete item.stats[key]; if (item && NO_DMG[item.slot]) { delete item.stats.dmg; delete item.stats.crit; } if (item && !item.plus) item.plus = 0; return item; }
 const plusMul = (item, statKey) => 1 + (item.plus || 0) * (item.slot === 'weapon' && statKey === 'dmg' ? 0.15 : 0.1);
 const sellValue = item => Math.round((3 * item.ilvl + 5) * (1 + RARITY[item.rar].x * RARITY[item.rar].x * 0.6) * (1 + (item.plus || 0) * 0.5));
 const upCostFor = item => item ? Math.round(100 * (item.plus + 1) * (item.plus + 1) * (1 + item.ilvl / 12) * (item.slot === 'weapon' ? 1 : 0.8)) : 0;
@@ -90,4 +91,4 @@ function createEquipment({ rates }) {
   return { rollRarity, genGear, rerollGear, applyAffix };
 }
 
-module.exports = { SLOTS, NO_DMG, RARITY, MYTHIC, PASSIVES, MERGE_COST, REROLL_COST, AFFIXES, AFFIX_SLOTS, AFFIX_COST, MYTHIC_MERGE_COUNT, MYTHIC_MERGE_GOLD, statRanges, itemView, BASES, STATDEF, UP_RATE, sanitize, plusMul, sellValue, upCostFor, createEquipment };
+module.exports = { REMOVED_STATS, SLOTS, NO_DMG, RARITY, MYTHIC, PASSIVES, MERGE_COST, REROLL_COST, AFFIXES, AFFIX_SLOTS, AFFIX_COST, MYTHIC_MERGE_COUNT, MYTHIC_MERGE_GOLD, statRanges, itemView, BASES, STATDEF, UP_RATE, sanitize, plusMul, sellValue, upCostFor, createEquipment };

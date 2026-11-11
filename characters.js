@@ -3,7 +3,7 @@
 const { MAX_SAFE_AMOUNT, LEVEL_UPS_PER_TICK, validAmount, credit } = require('./safety-limits');
 const { localizedText: messageText } = require('./localized-text');
 
-const { SLOTS, NO_DMG, PASSIVES, plusMul } = require('./equipment');
+const { SLOTS, NO_DMG, PASSIVES, REMOVED_STATS, plusMul } = require('./equipment');
 const { MAX_PLAYER_LEVEL, validLevel, xpNeed, applyXpBonuses, finalizeXpAward, encounterLimit } = require('./xp-economy');
 
 const CLASSES = {
@@ -29,7 +29,7 @@ const newSk = () => ({ s1: 1, mend: 0, frenzy: 0, vit: 0, might: 0, swift: 0, cr
 
 function gearSum(player) {
   const g = {}, bonus = {};
-  for (const slot of SLOTS) { const item = player.eq[slot]; if (!item) continue; for (const statKey in item.stats) { if (NO_DMG[slot] && (statKey === 'dmg' || statKey === 'crit')) continue; g[statKey] = (g[statKey] || 0) + item.stats[statKey] * plusMul(item, statKey); }
+  for (const slot of SLOTS) { const item = player.eq[slot]; if (!item) continue; for (const statKey in item.stats) { if (NO_DMG[slot] && (statKey === 'dmg' || statKey === 'crit')) continue; if (REMOVED_STATS.includes(statKey)) continue; g[statKey] = (g[statKey] || 0) + item.stats[statKey] * plusMul(item, statKey); }
     if (item.afx && item.afx.k) g[item.afx.k] = (g[item.afx.k] || 0) + (+item.afx.v || 0);
     if (item.psk) for (const k in item.psk) if (PASSIVES.includes(k)) bonus[k] = (bonus[k] || 0) + (item.psk[k] | 0); }
   player.skb = bonus; return g;
@@ -43,6 +43,8 @@ const rank = (player, k) => Math.min(PMAX + 5, (player.sk[k] || 0) + ((player.sk
 const PASSIVE_EFFECT = { vit: [0.05, 3], might: [0.05, 3], swift: [0.04, 0.8], crit: [0.015, 0.3], critdmg: [0.12, 4], lifesteal: [0.008, 0.15], guard: [0.025, 0.6], haste: [0.035, 0.6], focus: [0.05, 3], fortune: [6, 300] };
 const LINEAR_RANKS = 10;
 function passiveValue(k, r) {
+  // Fortune is simple: 2% gold find at rank 1, +1% per rank, 100% at rank 99 (gear ranks cannot push it higher).
+  if (k === 'fortune') return r > 0 ? Math.min(100, r + 1) : 0;
   const [step, cap] = PASSIVE_EFFECT[k]; if (r <= LINEAR_RANKS) return step * r;
   const head = step * LINEAR_RANKS, room = cap - head;
   const curve = Math.min(step / room, 3 / (PMAX - LINEAR_RANKS));
@@ -66,7 +68,7 @@ function playerMoveSpeed(player, now) {
   return Math.min(MAX_PLAYER_MOVE_SPEED, Math.max(0, speed));
 }
 const defRed = player => { const defense = player.g.def || 0; return 1 - (1 - defense / (defense + 100 + 8 * player.lvl)) * (1 - passive(player, 'guard')); };
-const critCh = player => Math.min(0.8, 0.12 + (player.g.crit || 0) / 100 + passive(player, 'crit')), critMul = player => 1.8 + passive(player, 'critdmg') + (player.g.cdmg || 0) / 100, goldFind = player => (player.g.gf || 0) + passive(player, 'fortune');
+const critCh = player => Math.min(0.8, 0.12 + (player.g.crit || 0) / 100 + passive(player, 'crit')), critMul = player => 1.8 + passive(player, 'critdmg') + (player.g.cdmg || 0) / 100, goldFind = player => passive(player, 'fortune');
 const dmgMul = (player, now) => (1 + passive(player, 'might')) * (now < player.buf.atk ? 1.3 : 1) * (now < player.buf.rage ? 1.2 + 0.05 * player.sk.frenzy : 1);
 const playerDmg = player => ((6 + player.lvl * 2.6) * CLASSES[player.cls].atk + (player.g.dmg || 0)) * dmgMul(player, Date.now());
 
@@ -76,7 +78,7 @@ function createProgression({ fire, ev, say, toast, broadcast, sendInv }) {
   function gainXp(player, xp, context = {}) {
     if (!validLevel(player.lvl) || player.lvl >= MAX_PLAYER_LEVEL || processingAwards.has(player)) return 0;
     const combat = context.source === 'combat', limit = combat ? encounterLimit(player.lvl, context) : MAX_SAFE_AMOUNT;
-    const boosted = applyXpBonuses(xp, { gearBonus: player.g?.xpb, wisdom: Date.now() < player.buf?.xp, serverRate: combat ? context.serverRate : 1, limit });
+    const boosted = applyXpBonuses(xp, { gearBonus: 0, wisdom: Date.now() < player.buf?.xp, serverRate: combat ? context.serverRate : 1, limit });
     if (!boosted) return 0;
     const award = { v: boosted, source: combat ? 'combat' : 'direct' };
     processingAwards.add(player);
