@@ -464,6 +464,8 @@ function onMsg(m) {
     hudInit(); log('*', m.resumed ? text("login.welcomeBack", "Welcome back, ") + m.name + '!' : text("login.welcome", "Welcome, ") + m.name + text("login.welcomeHint", "! Loot drops on the ground - walk over it. Talk to the Merchant and the Blacksmith in the village (click them or press F)."));
   } else if (m.t === 'inv') onInv(m);
   else if (m.t === 'toast') toast(m.text || m.m, m.c); else if (m.t === 'forge') onForge(m); else if (m.t === 'reroll') onReroll(m); else if (m.t === 'universe') onUniverse(m.u); else if (m.t === 'portal') onPortal(m);
+  else if (m.t === 'team') onTeam(m); else if (m.t === 'trade') onTrade(m); else if (m.t === 'mythicMerge') onMythicMerge(m); else if (m.t === 'affix') onAffix(m);
+  else if (m.t === 'teamInvite') showAsk('team', text('team.invitedYou', '{name} invites you to a team.', { name: m.from })); else if (m.t === 'tradeRequest') showAsk('trade', text('trade.requestedYou', '{name} wants to trade with you.', { name: m.from }));
   else if (m.t === 'types') { if (I) { I.types = m.types; I.tl = m.tl; } } else if (m.t === 'map') { setWorld(m.world, m.arrived); if (isOpen('portalw')) send({ t: 'portal' }); }
   else if (m.t === 'chat') log(m.n, m.text || m.m, m.channel); else if (m.t === 'msg') log('*', m.text || m.m);
   else if (m.t === 's') {
@@ -508,7 +510,7 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (k === 'enter') { ci.style.display = 'block'; ci.focus(); keys = {}; e.preventDefault(); return; }
   const act = actionOf(k);
-  if (e.repeat && ['skills', 'inv', 'history', 'settings', 'mute', 'talk', 'gfx', 'fps'].includes(act)) return;
+  if (e.repeat && ['skills', 'inv', 'team', 'history', 'settings', 'mute', 'talk', 'gfx', 'fps'].includes(act)) return;
   if (act === 'attack') {
     if (e.target?.closest('button, select, input, textarea, [contenteditable]')) return;
     e.preventDefault();
@@ -517,7 +519,7 @@ addEventListener('keydown', e => {
   }
   if (act === 'skill1' || act === 'skill2' || act === 'skill3') send({ t: 'skill', n: +act.slice(5) });
   if (act === 'hp' || act === 'mp' || act === 'hp2' || act === 'ret') send({ t: 'use', i: act });
-  if (act === 'skills') togglePanel('skillp'); if (act === 'inv') togglePanel('invp'); if (act === 'history') togglePanel('chronw'); if (act === 'settings') togglePanel('setw'); if (act === 'mute') toggleMute();
+  if (act === 'skills') togglePanel('skillp'); if (act === 'inv') togglePanel('invp'); if (act === 'history') togglePanel('chronw'); if (act === 'team') togglePanel('teamw'); if (act === 'settings') togglePanel('setw'); if (act === 'mute') toggleMute();
   if (act === 'talk' && nearNpcK) openNpc(nearNpcK);
   if (act === 'gfx') { const n = GFX[(GFX.indexOf(GL.Q.mode) + 1) % GFX.length]; GL.setQuality(n); toast(text('settings.qualityChanged', 'Graphics: {quality}', { quality: qualityName(n) })); }
   if (act === 'fps') { const p = $('perf'); p.style.display = p.style.display === 'block' ? 'none' : 'block'; }

@@ -142,3 +142,25 @@ kbd { border: 4px solid transparent; border-image: url(ui/keycap.png) 12 fill / 
 .portal-list { display: flex; flex-direction: column; gap: 4px; max-height: 60vh; overflow: auto; }
 .portal-list .row.here { border-color: rgba(201, 160, 255, .6); background: rgba(120, 80, 200, .12); }
 .portal-list .row small { display: block; }
+
+/* stat ranges (Shift), affixes */
+#tip .rg { color: #9fb4c8; font-size: 0.6875rem; margin-left: 8px; white-space: nowrap; }
+#tip .ln.afx, .itemcard .ln.afx { color: #5fe0d0; }
+.pickgrid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
+.afopts { display: flex; gap: 5px; } .afopts button { flex: 1; padding: 5px 4px; font-size: 0.75rem; display: flex; flex-direction: column; } .afopts button small { font-size: 0.625rem; opacity: .8; }
+/* consumables tab */
+#bag-pages .constab { flex: 2.4; }
+#bag .slot.cons { cursor: pointer; } #bag .slot.cons sub { font-size: 0.6875rem; }
+/* team and trade */
+.teaminv { display: flex; gap: 6px; margin-top: 8px; } .teaminv input { flex: 1; min-width: 0; }
+.bar.teamhp { height: 5px; margin-top: 3px; } .bar.teamhp i { background: #c33; display: block; height: 100%; }
+.trcols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.trgrid { grid-template-columns: repeat(6, 1fr); min-height: 52px; padding: 4px; border: 1px solid rgba(232, 191, 85, .2); border-radius: 4px; }
+.trgrid .trempty { grid-column: 1 / -1; font-size: 0.6875rem; align-self: center; }
+.trgold { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 0.8125rem; } .trgold input { width: 110px; }
+#askbar { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); display: none; gap: 8px; align-items: center; padding: 8px 12px; z-index: 900; font-size: 0.8125rem; }
+
+/* long passive ranks (up to 99) use a bar instead of pips */
+.pips .rankbar { display: inline-block; width: 120px; height: 6px; border-radius: 3px; background: rgba(0, 0, 0, .45); border: 1px solid rgba(232, 191, 85, .35); vertical-align: middle; overflow: hidden; }
+.pips .rankbar i { display: block; height: 100%; background: linear-gradient(90deg, #b8860b, #ffd24a); }
+.win-b > * { flex-shrink: 0; }

@@ -139,7 +139,7 @@ kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1
     <div id="goldl"></div><div id="buffs"></div><div id="sppill"><span data-text="hud.skillPoints">★ Skill points available - press K</span></div></div>
   <div class="panel" id="tgt"><span id="tgtn"></span><div class="bar"><i style="background:linear-gradient(#ff6a5a,#a81e16)"></i><span></span></div></div>
   <div class="panel" id="mapbox"><div id="mapwrap"><canvas id="mini" width="320" height="320"></canvas></div><div id="zname"></div><div id="zinfo"></div>
-    <div id="mapbtns"><button data-open="invp" title="Inventory (I)" data-title-text="panel.inventoryShortcut">🎒</button><button data-open="skillp" title="Skills (K)" data-title-text="panel.skillsShortcut">📜</button><button data-open="chronw" title="Chronicle (H)" data-title-text="panel.chronicleShortcut">🏛️</button><button data-open="setw" title="Settings (O)" data-title-text="panel.settingsShortcut">⚙️</button></div></div>
+    <div id="mapbtns"><button data-open="invp" title="Inventory (I)" data-title-text="panel.inventoryShortcut">🎒</button><button data-open="skillp" title="Skills (K)" data-title-text="panel.skillsShortcut">📜</button><button data-open="teamw" title="Team (Y)" data-title-text="panel.teamShortcut">👥</button><button data-open="chronw" title="Chronicle (H)" data-title-text="panel.chronicleShortcut">🏛️</button><button data-open="setw" title="Settings (O)" data-title-text="panel.settingsShortcut">⚙️</button></div></div>
   <div id="chat">
     <div id="log"></div>
     <div id="chat-tabs" role="group" aria-label="Chat filters" data-label-text="chat.filters">
@@ -169,24 +169,51 @@ kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1
   <div class="hd2"><span data-text="inventory.bag">Bag </span><span id="bagc" class="mu" style="text-transform:none"></span><span><button id="mergeBtn" title="Fuse items of one colour into 1 item of the next colour (item level = average of the merged items): 2 common, 3 uncommon, 4 rare, 5 epic or 15 legendary" data-title-text="inventory.mergeHintCounts"><span data-text="inventory.merge">⚗ Merge</span></button> <button id="autoMerge" title="Merge every common and uncommon set (2 common, 3 uncommon)" data-title-text="inventory.autoGreenHintCounts"><span data-text="inventory.autoGreen">Auto ≤ green</span></button> <button id="autoMerge2" title="Merge every set up to rare (2 common, 3 uncommon, 4 rare)" data-title-text="inventory.autoBlueHintCounts"><span data-text="inventory.autoBlue">Auto ≤ blue</span></button> <button id="autoMerge3" title="Merge every set up to epic - 5 epics become a legendary" data-title-text="inventory.autoPurpleHintCounts"><span data-text="inventory.autoPurple">Auto ≤ purple</span></button> <button id="autoMerge4" title="Merge every set up to legendary - 15 legendaries become a mythic" data-title-text="inventory.autoOrangeHint"><span data-text="inventory.autoOrange">Auto ≤ orange</span></button></span></div>
   <div id="mergebar"><span id="mergeinfo"></span><button id="mergeGo" class="pri" disabled><span data-text="inventory.mergeConfirm">Merge!</span></button></div>
   <div id="bag-pages" class="tabs" role="group" aria-label="Bag pages" data-label-text="inventory.bagPages"></div><div id="bag"></div><div id="bagfull" style="font-size:0.6875rem;margin-top:4px"></div>
-  <div class="hd2"><span data-text="inventory.consumables">Consumables </span><span class="mu" style="text-transform:none"><span data-text="inventory.clickToUse">click to use</span></span></div><div id="inl"></div></div></div>
+</div></div>
 <div class="win panel" id="skillp" style="left:400px;top:120px;width:340px"><div class="win-h"><b><span data-text="panel.skills">Skills</span></b><span><span id="spn" style="font-size:0.75rem;margin-right:8px"></span><button class="x" data-close>✕</button></span></div><div class="win-b" id="skl"></div></div>
 <div class="win panel" id="shopw" style="right:210px;top:120px;width:340px"><div class="win-h"><b><span data-text="npc.merchant">🏪 Merchant</span></b><button class="x" data-close>✕</button></div><div class="win-b">
   <div class="mu" style="font-size:0.75rem;margin-bottom:6px"><span data-text="shop.intro">"Potions, elixirs and scrolls! I also buy your unwanted gear."</span></div><div id="shl"></div>
   <div class="hd2"><span data-text="shop.sellGear">Sell gear</span></div><div class="row"><div class="t"><span data-text="shop.sellCommon">Sell all common &amp; uncommon</span><small><span data-text="shop.sellHint">Or Shift-click / right-click a bag item while I'm open</span></small></div><button id="junk"><span data-text="shop.sellJunk">Sell junk</span></button></div>
   <div class="row"><div class="t"><span data-text="shop.sellRare">Sell everything up to rare</span><small><span data-text="shop.keepRare">Keeps epic &amp; legendary</span></small></div><button id="junk2"><span data-text="shop.sellBlue">Sell ≤ blue</span></button></div></div></div>
 <div class="win panel" id="smithw" style="right:210px;top:120px;width:380px"><div class="win-h"><b><span data-text="npc.smith">⚒ Blacksmith</span></b><button class="x" data-close>✕</button></div><div class="win-b">
+  <div class="tabs" id="smtabs"><button data-smtab="up" class="on"><span data-text="smith.tabUpgrade">Upgrade</span></button><button data-smtab="myth"><span data-text="smith.tabMythic">Mythic merge</span></button></div>
+  <div id="smup">
   <div class="mu" style="font-size:0.75rem;margin-bottom:6px"><span data-text="smith.intro">"Bring me any piece of gear. Every + adds 10% to its stats (weapons +15% damage). From +5 a failure costs a level."</span></div>
   <div class="hd2" style="margin-top:2px"><span data-text="smith.pick">Pick an item</span></div><div id="smpick" style="display:grid;grid-template-columns:repeat(8,1fr);gap:5px"></div>
   <div id="smcard" style="margin-top:10px"></div>
   <div id="smith-actions">
     <button id="smgo" class="pri" disabled><span data-text="smith.upgrade">Upgrade</span></button>
     <button id="smauto" disabled><span data-text="smith.autoUpgrade">Auto Upgrade</span></button>
-  </div><div id="smres" aria-live="polite"></div></div></div>
-<div class="win panel" id="mysticw" style="right:210px;top:120px;width:380px"><div class="win-h"><b><span data-text="npc.mystic">🔮 Soul Mystic</span></b><button class="x" data-close>✕</button></div><div class="win-b">
+  </div><div id="smres" aria-live="polite"></div></div>
+  <div id="smmyth" style="display:none">
+    <div class="mu" style="font-size:0.75rem;margin-bottom:6px"><span data-text="smith.mythicIntro">"Give me three Mythics you don't want and a million gold. I'll melt them into one new Mythic - any slot, at their average item level."</span></div>
+    <div class="hd2"><span data-text="smith.pickMythics">Pick 3 Mythics from your bag</span></div><div id="mmpick" class="pickgrid"></div>
+    <div id="mminfo" class="itemcard" style="margin-top:10px"></div>
+    <button id="mmgo" class="pri" style="width:100%;margin-top:8px" disabled><span data-text="smith.mythicGo">Fuse into a new Mythic</span></button><div id="mmres" aria-live="polite"></div>
+  </div></div></div>
+<div class="win panel" id="mysticw" style="right:210px;top:120px;width:380px"><div class="win-h"><b><span data-text="npc.mystic">🔮 Soul Mystic</span></b><span><span id="mysouls" style="color:#c9a0ff;font-size:0.8125rem;margin-right:8px"></span><button class="x" data-close>✕</button></span></div><div class="win-b">
+  <div class="tabs" id="mytabs"><button data-mytab="re" class="on"><span data-text="mystic.tabReroll">Reroll</span></button><button data-mytab="af"><span data-text="mystic.tabAffix">Affix</span></button></div>
+  <div id="myre">
   <div class="mu" style="font-size:0.75rem;margin-bottom:6px"><span data-text="mystic.intro">"Bring me souls and I will reshape your gear. Every stat is rolled again - for better or worse."</span></div>
-  <div class="hd2" style="margin-top:2px"><span data-text="mystic.pick">Pick an item</span><span id="mysouls" style="text-transform:none;color:#c9a0ff"></span></div><div id="mypick" style="display:grid;grid-template-columns:repeat(8,1fr);gap:5px;max-height:220px;overflow:auto"></div>
-  <div id="mycard" style="margin-top:10px"></div><button id="mygo" class="pri" style="width:100%;margin-top:8px" disabled>Reroll</button><div id="myres"></div></div></div>
+  <div class="hd2" style="margin-top:2px"><span data-text="mystic.pick">Pick an item</span></div><div id="mypick" style="display:grid;grid-template-columns:repeat(8,1fr);gap:5px;max-height:220px;overflow:auto"></div>
+  <div id="mycard" style="margin-top:10px"></div><button id="mygo" class="pri" style="width:100%;margin-top:8px" disabled>Reroll</button><div id="myres"></div></div>
+  <div id="myaf" style="display:none">
+    <div class="mu" style="font-size:0.75rem;margin-bottom:6px"><span data-text="mystic.affixIntro">"A soul bound into a weapon, ring or amulet gives it a lasting gift - and a new name."</span></div>
+    <div class="hd2"><span data-text="mystic.pickAffixItem">Pick a weapon, ring or amulet</span></div><div id="afpick" class="pickgrid"></div>
+    <div class="hd2" style="margin-top:8px"><span data-text="mystic.pickAffix">Pick an affix</span></div><div id="afopts" class="afopts"></div>
+    <div id="afcard" style="margin-top:8px"></div><button id="afgo" class="pri" style="width:100%;margin-top:8px" disabled>Affix</button><div id="afres" aria-live="polite"></div>
+  </div></div></div>
+<div class="win panel" id="teamw" style="left:400px;top:120px;width:320px"><div class="win-h"><b><span data-text="panel.team">👥 Team</span></b><button class="x" data-close>✕</button></div><div class="win-b" id="teamb"></div></div>
+<div class="win panel" id="tradew" style="left:50%;top:80px;width:520px;margin-left:-260px"><div class="win-h"><b><span data-text="panel.trade">🤝 Trade</span></b><button class="x" data-close>✕</button></div><div class="win-b">
+  <div class="mu" id="trwith" style="margin-bottom:6px"></div>
+  <div class="trcols"><div><div class="hd2"><span data-text="trade.yourOffer">Your offer</span></div><div id="trmine" class="pickgrid trgrid"></div><label class="trgold">💰 <input id="trgold" type="number" min="0" step="1" placeholder="0"> <span data-text="trade.gold">gold</span></label></div>
+  <div><div class="hd2"><span data-text="trade.theirOffer">Their offer</span></div><div id="trtheirs" class="pickgrid trgrid"></div><div class="trgold">💰 <b id="trtheirgold">0g</b></div></div></div>
+  <div class="hd2" style="margin-top:8px"><span data-text="trade.yourBag">Your bag - click to offer</span></div><div id="trpick" class="pickgrid" style="max-height:170px;overflow:auto"></div>
+  <div id="trstate" style="margin-top:8px;font-size:0.8125rem"></div>
+  <div style="display:flex;gap:6px;margin-top:8px"><button id="trok" class="pri" style="flex:1"><span data-text="trade.accept">Accept trade</span></button><button id="trcancel"><span data-text="trade.cancel">Cancel</span></button></div>
+  <div class="mu" style="font-size:0.6875rem;margin-top:6px"><span data-text="trade.safety">Any change to an offer takes back both acceptances. Only bag items can be traded.</span></div>
+</div></div>
+<div id="askbar" class="panel"><span id="askmsg"></span><button data-ask="yes" class="pri"><span data-text="ask.accept">Accept</span></button><button data-ask="no"><span data-text="ask.decline">Decline</span></button></div>
 <div class="win panel" id="portalw" style="left:50%;top:90px;width:440px;margin-left:-220px"><div class="win-h"><b><span data-text="npc.portal">🌀 World Portal</span></b><button class="x" data-close>✕</button></div><div class="win-b" id="portalb"></div></div>
 <div class="win panel" id="chronw" style="left:50%;top:70px;width:460px;margin-left:-230px"><div class="win-h"><b><span data-text="panel.chronicle">🏛 Chronicle</span></b><button class="x" data-close>✕</button></div><div class="win-b" id="chronb"></div></div>
 <div class="win panel" id="setw" style="left:50%;top:80px;width:400px;margin-left:-200px"><div class="win-h"><b><span data-text="panel.settings">⚙ Settings</span></b><button class="x" data-close>✕</button></div><div class="win-b">

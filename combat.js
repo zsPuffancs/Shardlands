@@ -4,7 +4,7 @@ const { localizedText: messageText } = require('./localized-text');
 
 const { clampWorld, inVillage, dist, rnd, rint, pick } = require('./game-world');
 const { MOBTYPES, TIERS, SPECIAL } = require('./monsters');
-const { CLASSES, critCh, critMul, defRed, playerDmg, rank } = require('./characters');
+const { CLASSES, critCh, critMul, defRed, playerDmg, rank, passive, gearLifesteal } = require('./characters');
 
 const SUMMON_LIFETIME_MS = 120000;
 
@@ -21,7 +21,8 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     ev('dmg', monster.x, monster.y, damage, {
       c: criticalHit ? 1 : 0, combatPlayerId: player.id, monsterType: monster.ty,
     });
-    if (rank(player, 'lifesteal') && !player.dead) player.hp = Math.min(player.maxhp, player.hp + damage * 0.008 * rank(player, 'lifesteal'));
+    const lifesteal = passive(player, 'lifesteal') + gearLifesteal(player);
+    if (lifesteal > 0 && !player.dead) player.hp = Math.min(player.maxhp, player.hp + damage * lifesteal);
     const template = MOBTYPES[monster.ty];
     monster.awake = true;
     if (!template.stone && !monster.target) monster.target = player.id;

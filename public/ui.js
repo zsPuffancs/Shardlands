@@ -212,10 +212,10 @@ function hurtFlash(strong) { const h = $('hurtfx'); if (!h.classList.contains('l
 // ---------- windows ----------
 let zTop = 20;
 const isOpen = id => $(id).style.display === 'flex';
-function openWin(id) { const w = $(id); w.style.display = 'flex'; w.style.zIndex = ++zTop; if (id === 'invp') buildInv(); if (id === 'skillp') buildSkills(); if (id === 'shopw') buildShop(); if (id === 'smithw') buildSmith(); if (id === 'mysticw') buildMystic(); if (id === 'chronw') { buildChronicle(); send({ t: 'universe' }); } if (id === 'portalw') { buildPortal(); send({ t: 'portal' }); } if (id === 'setw') buildSettings(); tip.style.display = 'none'; }
-function closeWin(id) { $(id).style.display = 'none'; if (id === 'invp') { mergeMode = false; mergeSel = []; } if (id === 'setw') bindWait = null; tip.style.display = 'none'; }
+function openWin(id) { const w = $(id); w.style.display = 'flex'; w.style.zIndex = ++zTop; if (id === 'invp') buildInv(); if (id === 'skillp') buildSkills(); if (id === 'shopw') buildShop(); if (id === 'smithw') buildSmith(); if (id === 'mysticw') buildMystic(); if (id === 'chronw') { buildChronicle(); send({ t: 'universe' }); } if (id === 'portalw') { buildPortal(); send({ t: 'portal' }); } if (id === 'teamw') buildTeam(); if (id === 'tradew') buildTrade(); if (id === 'setw') buildSettings(); tip.style.display = 'none'; }
+function closeWin(id) { if (id === 'tradew' && TRADE) send({ t: 'trade', op: 'cancel' }); $(id).style.display = 'none'; if (id === 'invp') { mergeMode = false; mergeSel = []; } if (id === 'setw') bindWait = null; tip.style.display = 'none'; }
 function togglePanel(id) { if (isOpen(id)) closeWin(id); else openWin(id); }
-function closeAll() { for (const id of ['invp', 'skillp', 'shopw', 'smithw', 'mysticw', 'portalw', 'chronw', 'setw']) closeWin(id); }
+function closeAll() { for (const id of ['invp', 'skillp', 'shopw', 'smithw', 'mysticw', 'portalw', 'chronw', 'teamw', 'tradew', 'setw']) closeWin(id); }
 document.querySelectorAll('.win').forEach(w => {
   const h = w.querySelector('.win-h'); w.addEventListener('mousedown', () => { w.style.zIndex = ++zTop; });
   h.addEventListener('mousedown', e => { if (e.target.closest('button')) return; const r = w.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top;
@@ -229,18 +229,19 @@ function openNpc(k) { for (const n in NPCWIN) if (n !== k) closeWin(NPCWIN[n]); 
 function slotHtml(it, attrs, extra) {
   return '<div class="slot r' + it.rar + (extra || '') + '" ' + attrs + '>' + iconOf(it) + '<sup>' + it.ilvl + '</sup>' + (it.plus ? '<sub>+' + it.plus + '</sub>' : '') + '</div>';
 }
-function onInv(m) { BAG = m.bag; EQ = m.eq; GS = m.gs; SKB = m.skb || {}; SOULS = m.souls || 0; mergeSel = mergeSel.filter(u => BAG.some(i => i.uid === u)); if (isOpen('invp')) buildInv(); if (isOpen('smithw')) buildSmith(); if (isOpen('mysticw')) buildMystic(); if (isOpen('skillp')) buildSkills(); }
+function onInv(m) { BAG = m.bag; EQ = m.eq; GS = m.gs; SKB = m.skb || {}; SOULS = m.souls || 0; mergeSel = mergeSel.filter(u => BAG.some(i => i.uid === u)); if (isOpen('invp')) buildInv(); if (isOpen('smithw')) buildSmith(); if (isOpen('mysticw')) buildMystic(); if (isOpen('skillp')) buildSkills(); if (isOpen('tradew')) buildTrade(); }
 let bagPage = 0;
 
 function renderBagPage() {
   const pageSize = I.bagPageSize || 30;
   const pageCount = Math.ceil(I.bagMax / pageSize);
-  bagPage = Math.max(0, Math.min(bagPage, pageCount - 1));
 
   const pageBar = $('bag-pages');
-  const tabCount = pageCount > 1 ? pageCount : 0;
-  if (pageBar.children.length !== tabCount) {
-    const tabs = Array.from({ length: tabCount }, (_, page) => {
+  const consumables = bagPage === 'cons';
+  if (!consumables) bagPage = Math.max(0, Math.min(bagPage, pageCount - 1));
+  // One tab per bag page, then a tab for consumables.
+  if (pageBar.children.length !== pageCount + 1) {
+    const tabs = Array.from({ length: pageCount }, (_, page) => {
       const tab = document.createElement('button');
       tab.type = 'button';
       tab.dataset.bagPage = page;
@@ -248,15 +249,24 @@ function renderBagPage() {
       tab.setAttribute('aria-controls', 'bag');
       return tab;
     });
+    const consTab = document.createElement('button'); consTab.type = 'button'; consTab.dataset.bagPage = 'cons'; consTab.className = 'constab'; consTab.setAttribute('aria-controls', 'bag');
+    tabs.push(consTab);
     pageBar.replaceChildren(...tabs);
   }
   for (const tab of pageBar.children) {
-    const page = Number(tab.dataset.bagPage);
+    const isCons = tab.dataset.bagPage === 'cons', page = isCons ? 'cons' : Number(tab.dataset.bagPage);
     const isActive = page === bagPage;
     tab.classList.toggle('on', isActive);
     tab.setAttribute('aria-pressed', String(isActive));
-    tab.setAttribute('aria-label', text('inventory.bagPage', 'Bag page {page}', { page: page + 1 }));
+    if (isCons) { tab.textContent = text('inventory.consumablesTab', '🧪 Consumables'); tab.setAttribute('aria-label', text('inventory.consumables', 'Consumables')); }
+    else tab.setAttribute('aria-label', text('inventory.bagPage', 'Bag page {page}', { page: page + 1 }));
   }
+  if (consumables) {
+    const list = Object.keys(I.items).filter(k => me.inv[k] > 0);
+    $('bag').innerHTML = list.length ? list.map(k => '<div class="slot cons" data-use="' + k + '" data-tip="cons:' + k + '">' + consIcon(k) + '<sub>×' + me.inv[k] + '</sub></div>').join('') : '<div class="mu" style="grid-column:1/-1;font-size:0.75rem">' + esc(text("inventory.noConsumables", "Nothing yet. Monsters drop potions and scrolls.")) + '</div>';
+    $('bag').classList.add('consview'); return;
+  }
+  $('bag').classList.remove('consview');
 
   const start = bagPage * pageSize;
   const end = Math.min(start + pageSize, I.bagMax);
@@ -283,13 +293,16 @@ function buildInv() {
     $('mergeinfo').innerHTML = !it.length ? esc(text("inventory.mergePromptCounts", "Pick items of one colour: 2 Common, 3 Uncommon, 4 Rare, 5 Epic or 15 Legendary make 1 item of the next colour.")) : it.length + '/' + need + ' <b style="color:' + RC[r] + '">' + esc(text('rarity.' + (r), I.rarity[r])) + '</b> → <b style="color:' + RC[r + 1] + '">' + esc(text('rarity.' + (r + 1), I.rarity[r + 1])) + ' ' + esc(text('slot.' + it[0].slot, SLOTNAME[it[0].slot])) + '</b> · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + avg;
     $('mergeGo').disabled = !need || it.length !== need; }
   const list = Object.keys(I.items).filter(k => me.inv[k] > 0);
-  $('inl').innerHTML = list.length ? list.map(k => '<div class="chip" data-use="' + k + '" data-tip="cons:' + k + '">' + consIcon(k) + esc(itemName(k, I.items[k].n)) + ' ×' + me.inv[k] + '</div>').join('') : '<span class="mu" style="font-size:0.75rem">' + esc(text("inventory.noConsumables", "Nothing yet. Monsters drop potions and scrolls.")) + '</span>';
+  if ($('inl')) $('inl').innerHTML = list.length ? list.map(k => '<div class="chip" data-use="' + k + '" data-tip="cons:' + k + '">' + consIcon(k) + esc(itemName(k, I.items[k].n)) + ' ×' + me.inv[k] + '</div>').join('') : '<span class="mu" style="font-size:0.75rem">' + esc(text("inventory.noConsumables", "Nothing yet. Monsters drop potions and scrolls.")) + '</span>';
 }
 function tipItem(it, cmp, plusOverride) {
   const pl = plusOverride === undefined ? it.plus || 0 : plusOverride;
   let h = '<b class="nm" style="color:' + RC[it.rar] + '">' + esc(gearName(it.name)) + (pl ? ' +' + pl : '') + '</b><div class="mu">' + esc(text('rarity.' + (it.rar), I.rarity[it.rar])) + ' ' + (it.slot === 'weapon' ? esc(text('weapon.' + it.fam, { sword: 'Sword', bow: 'Bow', staff: 'Staff' }[it.fam] || 'Weapon')) : esc(text('slot.' + it.slot, SLOTNAME[it.slot]))) + ' · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + it.ilvl + '</div><div style="margin:5px 0">';
-  for (const k of STATORDER) if (k in it.stats) { const v = eff(it, k, pl); let d = ''; if (cmp && cmp.uid !== it.uid) { const df = v - (k in cmp.stats ? eff(cmp, k) : 0); if (Math.abs(df) > 0.049) d = '<span class="' + (df > 0 ? 'up' : 'dn') + '">' + (df > 0 ? '▲' : '▼') + fmtS(k, Math.abs(df)) + '</span>'; } h += '<div class="ln"><span>+' + fmtS(k, v) + ' ' + esc(text('stat.' + k, I.stat[k].n)) + '</span>' + d + '</div>'; }
+  for (const k of STATORDER) if (k in it.stats) { const v = eff(it, k, pl); let d = ''; if (cmp && cmp.uid !== it.uid) { const df = v - (k in cmp.stats ? eff(cmp, k) : 0); if (Math.abs(df) > 0.049) d = '<span class="' + (df > 0 ? 'up' : 'dn') + '">' + (df > 0 ? '▲' : '▼') + fmtS(k, Math.abs(df)) + '</span>'; } h += '<div class="ln"><span>+' + fmtS(k, v) + ' ' + esc(text('stat.' + k, I.stat[k].n)) + '</span>' + (SHIFT && it.rg && it.rg[k] ? '<span class="rg">' + fmtS(k, it.rg[k][0] * eff({ stats: { [k]: 1 }, slot: it.slot, plus: pl }, k)) + '–' + fmtS(k, it.rg[k][1] * eff({ stats: { [k]: 1 }, slot: it.slot, plus: pl }, k)) + '</span>' : '') + d + '</div>'; }
   if (cmp && cmp.uid !== it.uid) for (const k of STATORDER) if (k in cmp.stats && !(k in it.stats)) h += '<div class="ln dn"><span>-' + fmtS(k, eff(cmp, k)) + ' ' + esc(text('stat.' + k, I.stat[k].n)) + '</span><span>▼</span></div>';
+  if (it.afx && I.affixes[it.afx.k]) h += '<div class="ln afx"><span>+' + (+it.afx.v).toFixed(1) + ' ' + esc(text('affix.' + it.afx.k, I.affixes[it.afx.k].n)) + '</span>' + (SHIFT && it.rg && it.rg['afx:' + it.afx.k] ? '<span class="rg">' + it.rg['afx:' + it.afx.k][0].toFixed(1) + '–' + it.rg['afx:' + it.afx.k][1].toFixed(1) + '</span>' : '') + '</div>';
+  if (SHIFT && it.rg) h += '<div class="mu" style="font-size:0.6875rem">' + esc(text('inventory.rangeHint', 'Possible values for this item level and rarity') + (pl ? ' (+' + pl + ')' : '')) + '</div>';
+  else if (it.rg) h += '<div class="mu" style="font-size:0.6875rem">' + esc(text('inventory.shiftForRanges', 'Hold Shift: possible values')) + '</div>';
   if (it.psk) h += '<div class="ln" style="color:#ff8a9a;margin-top:2px"><span>' + esc(text('inventory.mythicPassives', 'Mythic: passive skill ranks')) + '</span></div>' + Object.keys(it.psk).map(k => '<div class="ln" style="color:#ff6a80"><span>+' + it.psk[k] + ' ' + esc(text('passive.' + k, PAS[k] ? PAS[k][0] : k)) + '</span></div>').join('');
   h += '</div><div class="' + (me.l < it.req ? 'dn' : 'mu') + '">' + esc(text('inventory.requiresLevel', 'Requires level {level}', { level: it.req })) + '</div>';
   if (isOpen('shopw')) h += '<div class="mu">' + esc(text('shop.sellPrice', 'Merchant pays {gold}g', { gold: sellValue(it) })) + '</div>';
@@ -340,14 +353,22 @@ document.addEventListener('mouseover', e => {
     updateSkillTooltip(e.shiftKey);
     return;
   }
-  const el = e.target.closest && e.target.closest('[data-tip]'); if (!el || !I || !me) { tip.style.display = 'none'; return; }
+  const el = e.target.closest && e.target.closest('[data-tip]'); tipEl = el; showTip(el);
+});
+// Item tooltips are rebuilt when Shift goes down or up, to show or hide the possible stat values.
+let SHIFT = false, tipEl = null;
+for (const event of ['keydown', 'keyup']) document.addEventListener(event, e => { if (e.key !== 'Shift' || e.repeat) return; SHIFT = e.type === 'keydown'; if (tipEl && tipEl.isConnected && tip.style.display === 'block') showTip(tipEl); });
+addEventListener('blur', () => { SHIFT = false; });
+function showTip(el) {
+  if (!el || !I || !me) { tip.style.display = 'none'; return; }
   const [kind, id] = el.dataset.tip.split(':'); let h = '';
   if (kind === 'bag') { const it = BAG.find(x => x.uid === id); if (it) h = tipItem(it, EQ[it.slot]) + '<div class="mu" style="margin-top:4px">' + (mergeMode ? text("inventory.selectForMerge", "Click: select for merging") : text("inventory.clickEquip", "Click: equip") + (isOpen('shopw') ? text("inventory.shiftSell", " · Shift/right-click: sell") : '')) + '</div>'; }
   else if (kind === 'eq') { const it = EQ[id]; if (it) h = tipItem(it) + '<div class="mu" style="margin-top:4px">' + esc(text("inventory.clickUnequip", "Click: unequip")) + '</div>'; }
-  else if (kind === 'sm' || kind === 'my') { const it = findItem(id); if (it) h = tipItem(it); }
+  else if (kind === 'sm' || kind === 'my' || kind === 'af' || kind === 'mm' || kind === 'tr') { const it = findItem(id); if (it) h = tipItem(it); }
+  else if (kind === 'to') { const it = TRADE && TRADE.theirs.items.find(x => x.uid === id); if (it) h = tipItem(it, EQ[it.slot]); }
   else if (kind === 'cons') { const it = I.items[id]; h = '<b class="nm" style="color:' + (it.color || '#fff') + '">' + esc(itemName(id, it.n)) + '</b><div>' + esc(itemDescription(id, it.d)) + '</div><div class="mu">' + esc(text('shop.buyPrice', 'Merchant price {gold}g', { gold: it.price })) + '</div>'; }
   if (!h) { tip.style.display = 'none'; return; } tip.innerHTML = h; tip.style.display = 'block';
-});
+}
 document.addEventListener('mousemove', e => { if (!hoveredSkillElement && tip.style.display === 'block') { const w = tip.offsetWidth, hh = tip.offsetHeight; tip.style.left = Math.min(innerWidth - w - 8, e.clientX + 16) + 'px'; tip.style.top = Math.min(innerHeight - hh - 8, e.clientY + 12) + 'px'; } });
 document.addEventListener('mouseout', e => {
   if (hoveredSkillElement) {
@@ -360,16 +381,29 @@ document.addEventListener('mouseout', e => {
 });
 const findItem = uid => BAG.find(i => i.uid === uid) || Object.values(EQ).find(i => i && i.uid === uid);
 document.addEventListener('click', e => {
-  const t = e.target.closest('button,[data-bag],[data-eq],[data-use],[data-sm],[data-my]'); if (!t) return; sfx('click');
+  const t = e.target.closest('button,[data-bag],[data-eq],[data-use],[data-sm],[data-my],[data-af],[data-mm],[data-tr],[data-afx]'); if (!t) return; sfx('click');
   if (t.dataset.close !== undefined) { closeWin(t.closest('.win').id); return; }
   if (t.dataset.open) { togglePanel(t.dataset.open); return; }
   if (t.dataset.bagPage !== undefined) {
-    bagPage = Number(t.dataset.bagPage);
+    bagPage = t.dataset.bagPage === 'cons' ? 'cons' : Number(t.dataset.bagPage);
     tip.style.display = 'none';
     renderBagPage();
     return;
   }
   if (t.dataset.sm) { smSel = t.dataset.sm; buildSmith(); return; }
+  if (t.dataset.smtab) { smTab = t.dataset.smtab; buildSmith(); return; }
+  if (t.dataset.mytab) { myTab = t.dataset.mytab; buildMystic(); return; }
+  if (t.dataset.mm) { const k = mmSel.indexOf(t.dataset.mm); if (k >= 0) mmSel.splice(k, 1); else if (mmSel.length < I.mythicMerge.count) mmSel.push(t.dataset.mm); buildSmith(); return; }
+  if (t.id === 'mmgo') { if (mmSel.length === I.mythicMerge.count) { send({ t: 'mythicMerge', uids: mmSel.slice() }); $('mmres').textContent = '…'; } return; }
+  if (t.dataset.af) { afSel = t.dataset.af; buildMystic(); return; }
+  if (t.dataset.afx) { afKey = t.dataset.afx; buildMystic(); return; }
+  if (t.id === 'afgo') { if (afSel && afKey) { send({ t: 'affix', uid: afSel, k: afKey }); $('afres').textContent = '…'; } return; }
+  if (t.dataset.tr) { if (!TRADE) return; const u = t.dataset.tr, list = TRADE.mine.uids.slice(), k = list.indexOf(u); if (k >= 0) list.splice(k, 1); else list.push(u); send({ t: 'trade', op: 'offer', uids: list, gold: +$('trgold').value || 0 }); return; }
+  if (t.id === 'trok') { send({ t: 'trade', op: 'confirm' }); return; }
+  if (t.id === 'trcancel') { send({ t: 'trade', op: 'cancel' }); return; }
+  if (t.dataset.teamop) { const op = t.dataset.teamop; if (op === 'invite') { const n = $('teamname').value.trim(); if (n) send({ t: 'team', op: 'invite', name: n }); $('teamname').value = ''; } else send({ t: 'team', op, name: t.dataset.name }); return; }
+  if (t.dataset.trwith) { send({ t: 'trade', op: 'request', name: t.dataset.trwith }); return; }
+  if (t.dataset.ask) { const a = ASK; hideAsk(); if (a) send({ t: a.kind, op: t.dataset.ask === 'yes' ? 'accept' : 'decline' }); return; }
   if (t.dataset.bag && mergeMode) { const id = t.dataset.bag, it = BAG.find(i => i.uid === id), k = mergeSel.indexOf(id); if (!it) return;
     if (k >= 0) mergeSel.splice(k, 1); else if (it.rar < MERGE_COST.length) { const f = BAG.find(i => i.uid === mergeSel[0]); if (f && f.rar !== it.rar) mergeSel = []; if (mergeSel.length < MERGE_COST[it.rar]) mergeSel.push(id); } else toast(text('inventory.mythicNoMerge', 'Mythic items cannot be merged.'), '#ff4560'); buildInv(); return; }
   if (t.id === 'mergeBtn') { mergeMode = !mergeMode; mergeSel = []; buildInv(); return; }
@@ -428,8 +462,12 @@ smithAutoDialog.addEventListener('close', () => {
   if (smithAutoDialog.returnValue === 'confirm' && uid) submitUpgrade(uid, true);
 });
 
+let smTab = 'up', mmSel = [];
 function buildSmith() {
   if (!I || !me) return;
+  for (const b of document.querySelectorAll('#smtabs [data-smtab]')) b.classList.toggle('on', b.dataset.smtab === smTab);
+  $('smup').style.display = smTab === 'up' ? '' : 'none'; $('smmyth').style.display = smTab === 'myth' ? '' : 'none';
+  if (smTab === 'myth') return buildMythicMerge();
   const all = I.slots.map(s => EQ[s]).filter(Boolean);
   const it = all.find(item => item.uid === smSel) || all[0];
   smSel = it?.uid ?? null;
@@ -445,8 +483,13 @@ function buildSmith() {
   $('smauto').disabled = me.g < c;
   $('smgo').disabled = me.g < c; $('smgo').textContent = text("smith.upgradeFor", "Upgrade for {cost}g", { cost: GameText.number(c) });
 }
+let myTab = 're', afSel = null, afKey = null;
 function buildMystic() {
   if (!I || !me) return;
+  for (const b of document.querySelectorAll('#mytabs [data-mytab]')) b.classList.toggle('on', b.dataset.mytab === myTab);
+  $('myre').style.display = myTab === 're' ? '' : 'none'; $('myaf').style.display = myTab === 'af' ? '' : 'none';
+  $('mysouls').innerHTML = uiImg('item-souls', 'soulico') + ' ' + GameText.number(SOULS);
+  if (myTab === 'af') return buildAffix();
   const worn = I.slots.map(s => EQ[s]).filter(Boolean), all = worn.concat(BAG);
   if (mySel && !findItem(mySel)) mySel = null; if (!mySel && worn.length) mySel = worn[0].uid;
   $('mysouls').innerHTML = uiImg('item-souls', 'soulico') + ' ' + GameText.number(SOULS);
@@ -458,6 +501,64 @@ function buildMystic() {
   $('mygo').disabled = SOULS < c; $('mygo').textContent = text('mystic.rerollFor', 'Reroll for {cost} souls', { cost: c });
 }
 function onReroll() { const r = $('myres'); r.textContent = text('mystic.done', '✦ The souls reshape the item.'); r.style.color = '#c9a0ff'; sfx('lvl'); }
+const fmtTime = ms => { const s = Math.ceil(ms / 1000); return s >= 60 ? Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : s + 's'; };
+// ---------- Blacksmith: Mythic merge ----------
+function buildMythicMerge() {
+  const need = I.mythicMerge.count, price = I.mythicMerge.gold, mythics = BAG.filter(it => it.rar === 5);
+  mmSel = mmSel.filter(uid => mythics.some(it => it.uid === uid));
+  $('mmpick').innerHTML = mythics.length ? mythics.map(it => slotHtml(it, 'data-mm="' + it.uid + '" data-tip="mm:' + it.uid + '"', mmSel.includes(it.uid) ? ' sel' : '')).join('') : '<div class="mu" style="grid-column:1/-1;font-size:0.75rem">' + esc(text('smith.noMythics', 'No Mythic items in your bag.')) + '</div>';
+  const picked = mmSel.map(uid => BAG.find(it => it.uid === uid)), avg = picked.length ? Math.max(1, Math.round(picked.reduce((s, it) => s + it.ilvl, 0) / picked.length)) : 0;
+  $('mminfo').innerHTML = '<div class="ln"><span>' + esc(text('smith.mythicPicked', 'Mythics picked')) + '</span><b>' + picked.length + ' / ' + need + '</b></div>' +
+    '<div class="ln"><span>' + esc(text('smith.mythicResult', 'Result')) + '</span><b style="color:' + RC[5] + '">' + esc(picked.length === need ? text('smith.mythicResultLevel', 'Random Mythic · iLvl {level}', { level: avg }) : '–') + '</b></div>' +
+    '<div class="ln"><span>' + esc(text('smith.cost', 'Cost')) + '</span><b style="color:' + (me.g >= price ? '#ffd77a' : '#ff7a6a') + '">' + GameText.number(price) + 'g</b></div>';
+  $('mmgo').disabled = picked.length !== need || me.g < price;
+}
+function onMythicMerge(m) { const r = $('mmres'); r.textContent = m.text || (typeof m.m === 'string' ? m.m : ''); GameText.present(r, { message: m.text || m.m, color: m.ok ? RC[5] : '#ff7a6a' }); if (m.ok) { mmSel = []; sfx('lvl'); } }
+// ---------- Soul Mystic: affixes ----------
+function buildAffix() {
+  const ok = it => I.affixSlots.includes(it.slot), worn = I.slots.map(s => EQ[s]).filter(Boolean).filter(ok), all = worn.concat(BAG.filter(ok));
+  if (afSel && !all.some(it => it.uid === afSel)) afSel = null; if (!afSel && all.length) afSel = all[0].uid;
+  $('afpick').innerHTML = all.length ? all.map(it => slotHtml(it, 'data-af="' + it.uid + '" data-tip="af:' + it.uid + '"', afSel === it.uid ? ' pick' : '')).join('') : '<div class="mu" style="grid-column:1/-1;font-size:0.75rem">' + esc(text('mystic.noAffixItems', 'Bring a weapon, ring or amulet.')) + '</div>';
+  const it = afSel && findItem(afSel);
+  if (!afKey || !I.affixes[afKey]) afKey = Object.keys(I.affixes)[0];
+  $('afopts').innerHTML = Object.keys(I.affixes).map(k => '<button data-afx="' + k + '" class="' + (afKey === k ? 'on' : '') + '">' + esc(text('affix.' + k + '.prefix', I.affixes[k].prefix)) + '<small>' + esc(text('affix.' + k, I.affixes[k].n)) + '</small></button>').join('');
+  if (!it) { $('afcard').innerHTML = ''; $('afgo').disabled = true; return; }
+  const c = I.affixCost[it.rar] || 2;
+  $('afcard').innerHTML = '<div class="itemcard">' + tipItem(it) + '<div class="ln" style="margin-top:6px"><span>' + esc(text('mystic.cost', 'Cost')) + '</span><b style="color:' + (SOULS >= c ? '#c9a0ff' : '#ff7a6a') + '">' + c + ' ' + esc(text('mystic.souls', 'souls')) + '</b></div>' +
+    '<div class="mu" style="margin-top:4px">' + esc(it.afx ? text('mystic.affixReplace', 'Replaces the current affix. The value is rolled for the item level and rarity.') : text('mystic.affixNew', 'Adds one affix. The value is rolled for the item level and rarity.')) + '</div></div>';
+  $('afgo').disabled = SOULS < c; $('afgo').textContent = text('mystic.affixFor', 'Add {affix} for {cost} souls', { affix: text('affix.' + afKey + '.prefix', I.affixes[afKey].prefix), cost: c });
+}
+function onAffix(m) { const r = $('afres'); GameText.present(r, { message: m.text || m.m, color: m.ok ? '#5fe0d0' : '#ff7a6a' }); if (m.ok) sfx('lvl'); }
+// ---------- teams and trading ----------
+let TEAM = null, TRADE = null, ASK = null;
+function onTeam(m) { TEAM = m.team; if (isOpen('teamw')) buildTeam(); }
+function buildTeam() {
+  const t = TEAM, mine = t && I && t.leader === I.id;
+  const members = t ? t.members.map(p => '<div class="row"><div class="t"><b>' + (p.id === t.leader ? '👑 ' : '') + esc(p.n) + '</b> <span class="mu">' + esc(text('team.memberInfo', 'Lv {level} · {where}', { level: p.l, where: p.map ? text('portal.regionShort', 'Region {index}', { index: p.map }) : text('portal.founding', 'The Founding Lands') })) + '</span><div class="bar teamhp"><i style="width:' + Math.round(p.hp / Math.max(1, p.mh) * 100) + '%"></i></div></div>' +
+    (p.id === I.id ? '' : '<button data-trwith="' + esc(p.n) + '">' + esc(text('team.trade', 'Trade')) + '</button>' + (mine ? ' <button data-teamop="kick" data-name="' + esc(p.n) + '">✕</button>' : '')) + '</div>').join('') : '<div class="mu">' + esc(text('team.none', 'You are not in a team. Invite a hero by name - only team members can trade with each other.')) + '</div>';
+  $('teamb').innerHTML = members + '<div class="teaminv"><input id="teamname" maxlength="14" placeholder="' + esc(text('team.namePlaceholder', 'Hero name')) + '"><button data-teamop="invite" class="pri">' + esc(text('team.invite', 'Invite')) + '</button></div>' +
+    (t ? '<button data-teamop="leave" style="width:100%;margin-top:6px">' + esc(text('team.leave', 'Leave team')) + '</button>' : '') +
+    '<div class="mu" style="font-size:0.6875rem;margin-top:6px">' + esc(text('team.chatHint', 'Team chat: /t message')) + '</div>';
+}
+function showAsk(kind, message) { ASK = { kind }; $('askmsg').textContent = message; $('askbar').style.display = 'flex'; sfx('click'); clearTimeout(showAsk.timer); showAsk.timer = setTimeout(hideAsk, 60000); }
+function hideAsk() { ASK = null; $('askbar').style.display = 'none'; }
+function onTrade(m) {
+  if (!m.open) { TRADE = null; if (isOpen('tradew')) { $('tradew').style.display = 'none'; } if (m.done) sfx('coin'); if (isOpen('invp')) buildInv(); return; }
+  TRADE = m; if (!isOpen('tradew')) { openWin('tradew'); if (!isOpen('invp')) openWin('invp'); } else buildTrade();
+}
+function buildTrade() {
+  const t = TRADE; if (!t) return;
+  $('trwith').textContent = text('trade.with', 'Trading with {name}', { name: t.with });
+  const offered = t.mine.uids.map(uid => BAG.find(it => it.uid === uid)).filter(Boolean);
+  $('trmine').innerHTML = offered.map(it => slotHtml(it, 'data-tr="' + it.uid + '" data-tip="tr:' + it.uid + '"')).join('') || '<div class="mu trempty">' + esc(text('trade.pickHint', 'Click items below to offer them.')) + '</div>';
+  $('trtheirs').innerHTML = t.theirs.items.map(it => slotHtml(it, 'data-tip="to:' + it.uid + '"')).join('') || '<div class="mu trempty">' + esc(text('trade.nothing', 'Nothing yet.')) + '</div>';
+  $('trpick').innerHTML = BAG.filter(it => !t.mine.uids.includes(it.uid)).map(it => slotHtml(it, 'data-tr="' + it.uid + '" data-tip="tr:' + it.uid + '"')).join('');
+  if (document.activeElement !== $('trgold')) $('trgold').value = t.mine.gold || '';
+  $('trtheirgold').textContent = GameText.number(t.theirs.gold || 0) + 'g';
+  const tick = ok => ok ? '<b style="color:#8fd18f">✔ ' + esc(text('trade.accepted', 'accepted')) + '</b>' : '<span class="mu">' + esc(text('trade.waiting', 'not accepted yet')) + '</span>';
+  $('trstate').innerHTML = esc(text('trade.you', 'You')) + ': ' + tick(t.mine.ok) + ' · ' + esc(t.with) + ': ' + tick(t.theirs.ok);
+  $('trok').disabled = t.mine.ok;
+}
 // ---------- world portal ----------
 let PORTAL = null;
 const BIOME_NAME = { volcanic: 'Volcanic', glacier: 'Glacier', voidscar: 'Voidscar', wildwood: 'Wildwood', warfields: 'Warfields', necropolis: 'Necropolis' };
@@ -539,14 +640,21 @@ const passiveTooltipDescriptions = {
   fortune: 'Increases gold dropped by monsters by {bonus}%.',
 };
 const maxSkillRank = skill => SK_ACT.includes(skill) ? I.maxRank : (I.pMax || 10);
+// Same curve as the server (characters.js passiveValue): full gain for 10 ranks, then levelling off towards the cap.
+function passiveValue(k, r) {
+  const [step, cap] = I.passiveEffect[k]; if (r <= 10) return step * r;
+  const head = step * 10, room = cap - head, curve = Math.min(step / room, 3 / ((I.pMax || 99) - 10));
+  return head + room * (1 - Math.exp(-(r - 10) * curve));
+}
+const passivePercent = (k, r) => Math.round((k === 'fortune' ? 1 : 100) * passiveValue(k, r) * 10) / 10;
 const effectivePassiveRank = skill => Math.min(maxSkillRank(skill) + 5, (me.sk[skill] || 0) + (SKB[skill] || 0));
 
 function passiveTooltipDescription(skill) {
   const rank = effectivePassiveRank(skill) || 1;
-  const bonus = Math.round(PAS[skill][3] * rank * 10) / 10;
+  const bonus = passivePercent(skill, rank);
   return text('passive.' + skill + '.tooltip', passiveTooltipDescriptions[skill], {
     bonus: GameText.number(bonus),
-    regen: GameText.number(10 * rank),
+    regen: GameText.number(Math.round(bonus * 2 * 10) / 10),
   });
 }
 function skillInfo(k) {
@@ -563,7 +671,7 @@ function skillInfo(k) {
     case 'frenzy': return [text('class.' + I.cls + '.s3', c.s3), '3', skillIcon('frenzy'),
       text('skill.rageDescription', '+{damage}% damage & faster attacks for {seconds}s · 30 MP', { damage: Math.round(20 + 5 * n), seconds: 6 + 2 * n })];
   }
-  const p = PAS[k], gb = SKB[k] || 0, re = effectivePassiveRank(k); return [text('passive.' + k, p[0]) + (gb ? ' (+' + gb + ' ' + text('skill.fromGear', 'from gear') + ')' : ''), '', skillIcon(k), (re ? '+' + Math.round(p[3] * re * 10) / 10 + '% ' + text('passive.' + k + '.effect', p[2]) + ' · ' : '') + text('skill.nextRank', 'next rank +{bonus}%', { bonus: p[3] })];
+  const p = PAS[k], gb = SKB[k] || 0, re = effectivePassiveRank(k); return [text('passive.' + k, p[0]) + (gb ? ' (+' + gb + ' ' + text('skill.fromGear', 'from gear') + ')' : ''), '', skillIcon(k), (re ? '+' + passivePercent(k, re) + '% ' + text('passive.' + k + '.effect', p[2]) + ' · ' : '') + ((me.sk[k] || 0) >= maxSkillRank(k) ? text('skill.maxRank', 'maximum rank') : text('skill.nextRank', 'next rank +{bonus}%', { bonus: Math.round((passivePercent(k, re + 1) - passivePercent(k, re)) * 100) / 100 }))];
 }
 function buildSkills() {
   if (!I || !me) return; $('spn').textContent = me.sp ? text("skill.points", "★ Points: {count}", { count: me.sp }) : text("skill.noPoints", "no points"); $('spn').style.color = me.sp ? '#ffe97a' : '';
@@ -573,7 +681,7 @@ function buildSkills() {
   const restoreTooltip = hoveredPassive && tip.style.display === 'block';
   $('skl').innerHTML = '<div class="tabs"><button data-sktab="act" class="' + (skTab === 'act' ? 'on' : '') + '">' + esc(text("skills.active", "Active skills")) + '</button><button data-sktab="pas" class="' + (skTab === 'pas' ? 'on' : '') + '">' + esc(text("skills.passive", "Passive skills")) + '</button></div>' +
     (passiveTab ? '<div class="mu">' + esc(text('skill.passiveTooltipHint', 'Hover a passive skill and hold Shift for details.')) + '</div>' : '') +
-    list.map(k => { const [n, key, ic, d] = skillInfo(k), r = me.sk[k] || 0, M_ = maxSkillRank(k); return '<div class="row"' + (passiveTab ? ' data-passive-skill="' + k + '"' : '') + '><div class="ico">' + ic + '</div><div class="t"><b>' + esc(n) + '</b>' + (key ? ' <kbd>' + (BINDS['skill' + key] || key).toUpperCase() + '</kbd>' : '') + ' <span class="mu" style="font-size:0.6875rem">' + r + '/' + M_ + '</span><span class="pips">' + Array.from({ length: M_ }, (_, i) => '<i class="' + (i < r ? 'on' : '') + '"' + (M_ > 5 ? ' style="width:6px"' : '') + '></i>').join('') + '</span><small>' + esc(r || k === 's1' || !key ? d : text("skill.notLearned", "Not learned")) + '</small></div><button data-learn="' + k + '"' + (me.sp > 0 && r < M_ ? '' : ' disabled') + '>+</button></div>'; }).join('') +
+    list.map(k => { const [n, key, ic, d] = skillInfo(k), r = me.sk[k] || 0, M_ = maxSkillRank(k); return '<div class="row"' + (passiveTab ? ' data-passive-skill="' + k + '"' : '') + '><div class="ico">' + ic + '</div><div class="t"><b>' + esc(n) + '</b>' + (key ? ' <kbd>' + (BINDS['skill' + key] || key).toUpperCase() + '</kbd>' : '') + ' <span class="mu" style="font-size:0.6875rem">' + r + '/' + M_ + '</span><span class="pips">' + (M_ > 10 ? '<span class="rankbar"><i style="width:' + Math.round(r / M_ * 100) + '%"></i></span>' : Array.from({ length: M_ }, (_, i) => '<i class="' + (i < r ? 'on' : '') + '"' + (M_ > 5 ? ' style="width:6px"' : '') + '></i>').join('')) + '</span><small>' + esc(r || k === 's1' || !key ? d : text("skill.notLearned", "Not learned")) + '</small></div><button data-learn="' + k + '"' + (me.sp > 0 && r < M_ ? '' : ' disabled') + '>+</button></div>'; }).join('') +
     '<div class="mu" style="font-size:0.6875rem;margin-top:6px">' + esc(text('skill.summary', '1 point per level. Actives max {active}, passives max {passive}. A Skill Reset Scroll (Merchant) refunds everything.', { active: I.maxRank, passive: I.pMax || 10 })) + '</div>';
   if (hoveredPassive) {
     hoveredSkillElement = $('skl').querySelector('[data-passive-skill]:hover');
@@ -583,8 +691,8 @@ function buildSkills() {
 }
 document.addEventListener('click', e => { const t = e.target.closest('[data-sktab]'); if (t) { skTab = t.dataset.sktab; buildSkills(); } });
 // ---------- settings & key bindings ----------
-const BIND_DEF = { skill1: '1', skill2: '2', skill3: '3', hp: 'q', mp: 'e', hp2: 'r', ret: 't', talk: 'f', inv: 'i', skills: 'k', history: 'h', settings: 'o', mute: 'm', gfx: 'g', fps: 'p', attack: ' ' };
-const BIND_NAME = { skill1: 'Skill 1', skill2: 'Skill 2', skill3: 'Skill 3', hp: 'Health potion', mp: 'Mana potion', hp2: 'Greater health potion', ret: 'Return scroll', talk: 'Talk to NPC', inv: 'Inventory', skills: 'Skills window', history: 'Chronicle', settings: 'Settings', mute: 'Mute', gfx: 'Cycle graphics quality', fps: 'FPS counter', attack: 'Attack nearest monster' };
+const BIND_DEF = { skill1: '1', skill2: '2', skill3: '3', hp: 'q', mp: 'e', hp2: 'r', ret: 't', talk: 'f', inv: 'i', skills: 'k', team: 'y', history: 'h', settings: 'o', mute: 'm', gfx: 'g', fps: 'p', attack: ' ' };
+const BIND_NAME = { skill1: 'Skill 1', skill2: 'Skill 2', skill3: 'Skill 3', hp: 'Health potion', mp: 'Mana potion', hp2: 'Greater health potion', ret: 'Return scroll', talk: 'Talk to NPC', inv: 'Inventory', skills: 'Skills window', team: 'Team', history: 'Chronicle', settings: 'Settings', mute: 'Mute', gfx: 'Cycle graphics quality', fps: 'FPS counter', attack: 'Attack nearest monster' };
 let BINDS = Object.assign({}, BIND_DEF); try { Object.assign(BINDS, JSON.parse(localStorage.getItem('sl_keys') || '{}')); } catch (e) {}
 for (const [action, defaultKey] of Object.entries(BIND_DEF)) {
   if (BINDS[action] === 'shift') BINDS[action] = actionOf(defaultKey) ? '' : defaultKey;
@@ -659,7 +767,7 @@ function hud() {
   setT('plvl', me.l); setBar('hp', me.hp, me.mh, me.hp + ' / ' + me.mh); setBar('mp', me.mp, me.mm, me.mp + ' / ' + me.mm);
   setBar('xpbar', me.xp, me.xn, text("zone.levelShort", "Lv ") + me.l + ' · ' + Math.floor(me.xp / me.xn * 1000) / 10 + '%');
   setT('goldl', '💰 ' + GameText.number(me.g) + '   🔮 ' + GameText.number(me.so || 0) + '   🎒 ' + me.bag + '/' + I.bagMax); setD('sppill', me.sp > 0 ? 'block' : 'none');
-  setH('buffs', Object.keys(me.buf).map(k => '<span class="bf">'  + esc(text('buff.' + k, BUFFN[k] || k)) + ' ' + Math.ceil(me.buf[k] / 1000) + 's</span>').join(''));
+  setH('buffs', Object.keys(me.buf).map(k => '<span class="bf">'  + esc(text('buff.' + k, BUFFN[k] || k)) + ' ' + fmtTime(me.buf[k]) + '</span>').join(''));
   if (!_hot) _hot = { sk: [...document.querySelectorAll('#hotbar [data-sk]')].map(el => ({ el, rk: el.querySelector('.rk'), u: el.querySelector('u') })), it: [...document.querySelectorAll('#hotbar [data-it]')].map(el => ({ el, em: el.querySelector('em'), k: el.dataset.it })) };
   _hot.sk.forEach((h, i) => { const r = me.sk[['s1', 'mend', 'frenzy'][i]], c = [me.c1, me.c2, me.c3][i]; if (c > cdMax[i]) cdMax[i] = c; const cd = Math.round(Math.min(100, c / cdMax[i] * 100)); if (h.r !== r) { h.r = r; h.el.classList.toggle('lock', r < 1); h.rk.textContent = r ? 'R' + r : ''; } if (h.cd !== cd) { h.cd = cd; h.u.style.setProperty('--p', cd); } });
   _hot.it.forEach(h => { const n = me.inv[h.k] || 0; if (h.n !== n) { h.n = n; h.em.textContent = n; h.el.classList.toggle('lock', !n); } });
@@ -673,3 +781,6 @@ function hud() {
   if (s !== sig) { sig = s; if (isOpen('skillp')) buildSkills(); if (isOpen('invp')) buildInv(); if (isOpen('smithw')) buildSmith(); }
   else if (damageChanged && isOpen('invp')) buildInv();
 }
+
+// Gold offered in a trade is sent when the field changes.
+$('trgold').addEventListener('change', () => { if (TRADE) send({ t: 'trade', op: 'offer', uids: TRADE.mine.uids, gold: Math.max(0, Math.floor(+$('trgold').value || 0)) }); });

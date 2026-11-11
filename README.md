@@ -62,7 +62,8 @@ Details and design notes: `docs/UNIVERSE.md`.
 ## Village NPCs (click them or press F when close)
 - **Merchant** - potions, elixirs, scrolls (incl. Skill Reset). Buys your gear (Shift/right-click a bag item, or "Sell junk").
 - **Blacksmith** - upgrades the equipment you are wearing +0 to +9. Each + adds 10% to the item's stats (weapons +15% damage). From +5 a failure drops it one level.
-- **Soul Mystic** - rerolls every stat of a worn or bag item for souls (1 common/uncommon, 2 rare, 3 epic, 5 legendary, 10 mythic). Name, colour, item level and + upgrades stay.
+- **Blacksmith** has two tabs. **Mythic merge**: three Mythics from your bag + 1,000,000 gold = one new random Mythic (any slot) at the three items' average item level.
+- **Soul Mystic** has two tabs. **Reroll**: rerolls every stat of a worn or bag item for souls (1 common/uncommon, 2 rare, 3 epic, 5 legendary, 10 mythic); name, colour, item level and + upgrades stay. **Affix**: puts one affix on a weapon, ring or amulet - *Vampiric* (Lifesteal %), *Brutal* (Crit Damage %) or *Swift* (Attack Speed %) - for souls (2/2/3/5/8/15 by rarity). The affix names the item, and a new one replaces the old. Gear totals are capped at 15% lifesteal and 40% attack speed.
 
 ## Gear & merging
 6 slots, 6 colours (common, uncommon, rare, epic, legendary, **mythic**). Helmets, armor and boots never roll damage or crit.
@@ -75,7 +76,16 @@ whose item level is the average of the merged items (slot of the first item, bes
 Spirit Stones, Alphas and bosses drop 1-5 souls each (purple orb). Souls show next to your gold and are spent at the Soul Mystic.
 
 ## Skills
-1 point per level. Active skills (keys 1-3) go to rank 5, passives to rank 10. Open with K and switch tabs.
+1 point per level. Active skills (keys 1-3) go to rank 5, passives to rank **99**. Open with K and switch tabs.
+Passives give their full bonus per rank up to rank 10. After that each rank adds a little less, and the bonus levels off towards a cap (about 95% of it at rank 99): Vitality / Might / Focus +300%, Swiftness +80%, Precision +30% crit chance, Brutality +400% crit damage, Bloodthirst 15% lifesteal, Iron Skin 60% less damage, Haste 60% faster attacks, Fortune +300% gold.
+
+## Items
+Hover an item and hold **Shift** to see the lowest and highest value each of its stats could have rolled at that item level and rarity.
+**Consumables** have their own tab in the inventory. Elixirs and scrolls stack: each one adds its time, up to 5 minutes left.
+
+## Teams and trading
+Press **Y** (or the 👥 button) to open the Team window. Invite a hero by name (or `/invite name`, `/accept`, `/leave`); up to 5 heroes, team chat with `/t message`.
+Only team members can trade. Press **Trade** next to a member (or `/trade name`). Both put bag items and gold on the table; when both press **Accept trade** the swap happens at once. Any change to an offer takes back both acceptances, so nobody can switch items after you accepted. Leaving the team or the game cancels the trade.
 
 ## Language and text size
 
@@ -83,7 +93,7 @@ Choose English or Hungarian on the login screen or in Settings → Graphics. Tex
 
 ## Controls (all rebindable in Settings → Key bindings, except movement)
 Click: move / attack / loot / talk · Space: attack the selected monster in reach or pick the nearest one in reach · WASD walk · right-drag or ←→ camera · wheel zoom · 1-3 skills · Q/E/R/T potions & return scroll
-F talk · I inventory · K skills · O settings · G graphics quality · P fps · M mute · Enter chat (/help) · Esc close windows.
+F talk · I inventory · K skills · Y team · H chronicle · O settings · G graphics quality · P fps · M mute · Enter chat (/help) · Esc close windows.
 WASD and ground clicks stop chasing and keep your target selected. Auto-attacks continue while the target is in reach.
 Windows can be dragged by their title bar.
 

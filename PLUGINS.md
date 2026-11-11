@@ -23,7 +23,11 @@ module.exports = { name: 'my_plugin', version: '1.0', init(api) {
 | `death` | `player, mob` | |
 | `xp` | `player, o` | change `o.v` to alter XP before bonuses |
 | `levelup` | `player` | |
-| `merge` | `player, newItem, usedItems` | fired after 3 items are merged; you may modify `newItem` |
+| `merge` | `player, newItem, usedItems` | fired after items are merged (also the Blacksmith's Mythic merge); you may modify `newItem` |
+| `reroll` | `player, item` | the Soul Mystic rerolled an item |
+| `affix` | `player, item` | the Soul Mystic put an affix on an item (`item.afx = { k, v }`) |
+| `teamJoin` | `player, team` | a hero joined a team |
+| `trade` | `playerA, playerB, details` | a trade completed (`details.gave`, `details.got`, `goldA`, `goldB`) |
 | `tick` | `dt` | runs 20 times per second, keep it light |
 
 Skill ids on `player.sk`: actives `s1 mend frenzy` (max 5), passives `vit might swift crit critdmg lifesteal guard haste focus fortune` (max 10).

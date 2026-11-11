@@ -7,6 +7,7 @@ const { openJsonStore, createGameSaves } = require('./persistence');
 const { W, H, CX, CY, rnd, rint, pick, attachUniverse, clampWorld, maps } = require('./game-world');
 const { createUniverse, newSeed } = require('./universe');
 const { createRegions } = require('./regions');
+const { createTeams } = require('./teams');
 const { TIERS, MOBTYPES, createMonsterSpawner } = require('./monsters');
 const { createEquipment } = require('./equipment');
 const { createInventory } = require('./inventory');
@@ -66,7 +67,9 @@ const { spawnMob, populateMonsters, populateZone, respawnMonster } = createMonst
 const regions = createRegions({ ...notifications, universe, players, populateZone, refreshMobTypes });
 universe.onTierUnlocked = regions.unlock;
 const equipment = createEquipment({ rates });
-const inventory = createInventory({ ...notifications, genGear: equipment.genGear, rerollGear: equipment.rerollGear });
+const inventory = createInventory({ ...notifications, genGear: equipment.genGear, rerollGear: equipment.rerollGear, applyAffix: equipment.applyAffix });
+const teams = createTeams({ ...notifications, players, afterGearChange: inventory.afterGearChange });
+setInterval(() => teams.tick(Date.now()), 1000).unref();
 const { gainXp, learnSkill } = createProgression({ ...notifications, sendInv: inventory.sendInv });
 const lootService = createLoot({
   ...notifications, ...equipment, addGear: inventory.addGear, players, loot, rates, allocateId,
@@ -90,7 +93,7 @@ const pluginHost = createPluginHost({
 });
 const sessions = createPlayerSessions({
   ...notifications, inventory, config, players, mobs, saves: saveStore.data, allocateId,
-  refreshMobTypes, universe, regions, commands: pluginHost.commands, skill: combat.skill, learnSkill, savePlayer,
+  refreshMobTypes, universe, regions, teams, commands: pluginHost.commands, skill: combat.skill, learnSkill, savePlayer,
 });
 const { server, transport } = createWebServer({
   publicDirectory: path.join(__dirname, 'public'), config, players, clientScripts: pluginHost.clientScripts,
@@ -101,6 +104,7 @@ const { server, transport } = createWebServer({
 console.log('\n  ' + config.serverName.toUpperCase());
 console.log('  Universe: ' + universe.state.name + ' (seed ' + universe.state.seed + ', World Tier ' + universe.state.worldTier + ')' + (universe.founded ? ' - newly founded' : ''));
 pluginHost.loadPlugins();
+for (const [name, command] of Object.entries(teams.chatCommands)) if (!pluginHost.commands[name]) pluginHost.commands[name] = { fn: command.fn, admin: false, help: command.help };
 populateMonsters(universe.layoutRandom('spawns'));
 regions.openUnlockedRegions();
 if (maps.length > 1) console.log('  World Portal open: ' + (maps.length - 1) + ' region(s) beyond the founding lands');

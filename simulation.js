@@ -1,7 +1,7 @@
 'use strict';
 
 const { CX, CY, rnd, dist, clampWorld, moveToward, inVillage, placeInVillage } = require('./game-world');
-const { CLASSES, playerDmg, rank } = require('./characters');
+const { CLASSES, playerDmg, rank, passive, gearAttackSpeed } = require('./characters');
 const { MOBTYPES, STONE_DMG } = require('./monsters');
 
 function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, hurtPlayer, startCast, resolveCast, pickupTick, ev, fire, publishSnapshots, getTransportStats }) {
@@ -37,7 +37,7 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
       }
 
       const characterClass = CLASSES[player.cls];
-      const speed = 190 * (1 + 0.04 * rank(player, 'swift')) * (now < player.buf.spd ? 1.35 : 1) *
+      const speed = 190 * (1 + passive(player, 'swift')) * (now < player.buf.spd ? 1.35 : 1) *
         (1 + Math.min(60, player.g.spd || 0) / 100);
       player.spdNow = speed;
       const directionLength = Math.hypot(player.dir.x, player.dir.y);
@@ -61,10 +61,10 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
       }
       clampWorld(player);
       if (!inVillage(player) && target && !target.dead && now >= player.cd && dist(player, target) <= characterClass.range + target.r) {
-        player.cd = now + (now < player.buf.rage ? 600 : 800) * (1 - 0.035 * rank(player, 'haste')); ev('atk', player.x, player.y, 0, { tx: Math.round(target.x), ty: Math.round(target.y), s: player.cls, a: player.id });
+        player.cd = now + (now < player.buf.rage ? 600 : 800) * (1 - passive(player, 'haste')) * (1 - gearAttackSpeed(player)); ev('atk', player.x, player.y, 0, { tx: Math.round(target.x), ty: Math.round(target.y), s: player.cls, a: player.id });
         hitMob(player, target, playerDmg(player));
       }
-      player.hp = Math.min(player.maxhp, player.hp + player.maxhp * (inVillage(player) ? 0.05 : 0.006) * tickSeconds); player.mp = Math.min(player.maxmp, player.mp + (2 + player.lvl * 0.2) * (1 + 0.1 * rank(player, 'focus')) * tickSeconds);
+      player.hp = Math.min(player.maxhp, player.hp + player.maxhp * (inVillage(player) ? 0.05 : 0.006) * tickSeconds); player.mp = Math.min(player.maxmp, player.mp + (2 + player.lvl * 0.2) * (1 + 2 * passive(player, 'focus')) * tickSeconds);
     }
   }
 

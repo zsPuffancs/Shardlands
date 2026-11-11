@@ -3,15 +3,19 @@
 const { localizedText: messageText, gearText, isLocalizedText } = require('./localized-text');
 
 const { NPCS, CX, CY, nearNpc, inVillage, rnd, placeInVillage, npcPosition, mapOf } = require('./game-world');
-const { BASES, SLOTS, RARITY, MYTHIC, MERGE_COST, REROLL_COST, UP_RATE, upCostFor, sellValue } = require('./equipment');
+const { BASES, SLOTS, RARITY, MYTHIC, MERGE_COST, REROLL_COST, AFFIXES, AFFIX_SLOTS, AFFIX_COST, MYTHIC_MERGE_COUNT, MYTHIC_MERGE_GOLD, itemView, UP_RATE, upCostFor, sellValue } = require('./equipment');
+// Elixirs and scrolls stack: each one adds its duration, up to this much time left.
+const BUFF_CAP_MS = 5 * 60 * 1000;
+const BUFF_DURATION = { atk: 60000, def: 60000, spd: 60000, xp: 300000 };
 const RARITY_COLOR = ['#d8d8d8', '#4ee26a', '#4da3ff', '#b25cff', '#ff9d2e', '#ff4560'];
-const { CLASSES, ITEMS, SKILLS, newSk, stats, defRed, critCh, critMul, goldFind, playerDmg, rank } = require('./characters');
+const { CLASSES, ITEMS, SKILLS, newSk, stats, defRed, critCh, critMul, goldFind, playerDmg, rank, passive, gearLifesteal, gearAttackSpeed } = require('./characters');
 
 const BAG_PAGE_SIZE = 30;
 const BAGMAX = BAG_PAGE_SIZE * 3;
 
-function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerollGear }) {
-  function sendInv(player) { send(player.c, { t: 'inv', bag: player.bag, eq: player.eq, skb: player.skb || {}, souls: player.souls || 0, gs: Object.assign({}, player.g, { _dmg: Math.round(playerDmg(player)), _dr: Math.round(defRed(player) * 100), _hp: player.maxhp, _mp: player.maxmp, _crit: Math.round(critCh(player) * 100), _cdmg: Math.round(critMul(player) * 100), _ls: Math.round(0.8 * rank(player, 'lifesteal') * 10) / 10, _haste: Math.round(3.5 * rank(player, 'haste')), _gf: Math.round(goldFind(player)) }) }); }
+function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerollGear, applyAffix }) {
+  function sendInv(player) { const eq = {}; for (const slot of SLOTS) eq[slot] = itemView(player.eq[slot]);
+    send(player.c, { t: 'inv', bag: player.bag.map(itemView), eq, skb: player.skb || {}, souls: player.souls || 0, gs: Object.assign({}, player.g, { _dmg: Math.round(playerDmg(player)), _dr: Math.round(defRed(player) * 100), _hp: player.maxhp, _mp: player.maxmp, _crit: Math.round(critCh(player) * 100), _cdmg: Math.round(critMul(player) * 100), _ls: Math.round((passive(player, 'lifesteal') + gearLifesteal(player)) * 1000) / 10, _haste: Math.round((1 - (1 - passive(player, 'haste')) * (1 - gearAttackSpeed(player))) * 100), _gf: Math.round(goldFind(player)) }) }); }
   function afterGearChange(player) {
     stats(player);
     player.hp = Math.min(player.hp, player.maxhp);
@@ -29,6 +33,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     if (typeof item.use === 'function') { let r; try { r = item.use(player); } catch (e) { return say(player, messageText("server.itemError", "Item error: {error}", { error: e.message })); } if (r === false) return; player.inv[itemKey]--; if (typeof r === 'string' || isLocalizedText(r)) say(player, r); return; }
     if (isPotion) { if (now < player.potCd) return; if (itemKey === 'mp' ? player.mp >= player.maxmp : player.hp >= player.maxhp) return; }
     if (itemKey === 'ret' && inVillage(player)) return say(player, messageText("server.inVillage", "You are already in the village."));
+    if (BUFF_DURATION[itemKey] && (player.buf[itemKey] || 0) - now > BUFF_CAP_MS - 1000) return say(player, messageText('server.buffFull', '{item} is already at the 5 minute maximum.', { item: messageText('item.' + itemKey + '.name', item.n) }));
     if (itemKey === 'reset' && SKILLS.every(slot => player.sk[slot] === (slot === 's1' ? 1 : 0))) return say(player, messageText("server.nothingToReset", "Nothing to reset."));
     player.inv[itemKey]--; if (isPotion) player.potCd = now + 1000;
     if (itemKey === 'hp' || itemKey === 'hp2') {
@@ -43,8 +48,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
       player.mp += restoredMana;
       ev('mana', player.x, player.y, '+' + Math.round(restoredMana));
     }
-    else if (itemKey === 'atk' || itemKey === 'def' || itemKey === 'spd') { player.buf[itemKey] = now + 60000; ev('fx', player.x, player.y, 50, { s: 'buff', a: player.id }); }
-    else if (itemKey === 'xp') { player.buf.xp = now + 300000; ev('fx', player.x, player.y, 50, { s: 'buff', a: player.id }); }
+    else if (BUFF_DURATION[itemKey]) { player.buf[itemKey] = Math.min(now + BUFF_CAP_MS, Math.max(now, player.buf[itemKey] || 0) + BUFF_DURATION[itemKey]); ev('fx', player.x, player.y, 50, { s: 'buff', a: player.id }); }
     else if (itemKey === 'ret') { ev('fx', player.x, player.y, 60, { s: 'buff', a: player.id }); placeInVillage(player); player.dest = null; player.target = 0; player.chasingTarget = false; ev('fx', player.x, player.y, 60, { s: 'buff', a: player.id }); }
     else if (itemKey === 'reset') { player.sk = newSk(); player.sp = player.lvl; stats(player); player.hp = Math.min(player.hp, player.maxhp); say(player, messageText("server.skillRefund", "Skill points refunded: {count} available.", { count: player.sp })); sendInv(player); }
     if (!isPotion && itemKey !== 'ret' && itemKey !== 'reset') say(player, messageText("server.itemUsed", "{item} used.", { item: messageText('item.' + itemKey + '.name', item.n) }));
@@ -138,6 +142,41 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     afterGearChange(player);
   }
 
+  // Blacksmith: three unwanted Mythics from the bag become one random Mythic at their average item level.
+  function mergeMythics(player, uids) {
+    const reply = (message, extra) => send(player.c, { t: 'mythicMerge', m: message, ...extra });
+    if (player.dead || !Array.isArray(uids) || uids.length !== MYTHIC_MERGE_COUNT || new Set(uids).size !== uids.length) return;
+    if (!nearNpc(player, 'smith')) return reply(messageText('server.mythicMergeAtSmith', 'Only the Blacksmith can fuse Mythic items.'));
+    const items = uids.map(uid => player.bag.find(item => item.uid === uid));
+    if (items.some(item => !item || item.rar !== MYTHIC)) return reply(messageText('server.mythicMergeOnly', 'Pick {count} Mythic items from your bag.', { count: MYTHIC_MERGE_COUNT }));
+    if (player.gold < MYTHIC_MERGE_GOLD) return reply(messageText('server.mythicMergeGold', 'Fusing Mythics costs {gold} gold.', { gold: MYTHIC_MERGE_GOLD }));
+    player.gold -= MYTHIC_MERGE_GOLD;
+    const itemLevel = Math.max(1, Math.round(items.reduce((sum, item) => sum + (item.ilvl || 1), 0) / items.length));
+    const slot = SLOTS[Math.floor(Math.random() * SLOTS.length)];
+    const result = genGear(slot, itemLevel, MYTHIC, CLASSES[player.cls].fam); result.plus = Math.max(...items.map(item => item.plus || 0));
+    const index = player.bag.indexOf(items[0]); player.bag = player.bag.filter(item => !items.includes(item)); player.bag.splice(Math.min(index, player.bag.length), 0, result);
+    fire('merge', player, result, items);
+    const smith = npcPosition(mapOf(player), 'smith'); ev('fx', smith.x, smith.y, 70, { s: 'lvl' });
+    reply(messageText('server.mythicMergeDone', 'The Blacksmith fused a new Mythic: {item}.', { item: gearText(result.name) }), { ok: 1, uid: result.uid });
+    broadcast({ t: 'chat', n: '*', channel: 'loot', m: messageText('server.playerMythicMerged', '{player} fused three Mythics into {item}!', { player: player.name, item: gearText(result.name) }) });
+    afterGearChange(player);
+  }
+  // Soul Mystic: put (or replace) the affix on a weapon, ring or amulet.
+  function affixItem(player, uid, key) {
+    const reply = (message, extra) => send(player.c, { t: 'affix', m: message, ...extra });
+    if (player.dead) return;
+    if (!nearNpc(player, 'mystic')) return reply(messageText('server.affixAtMystic', 'Talk to the Soul Mystic in a village to add affixes.'));
+    let item = player.bag.find(i => i.uid === uid) || null; for (const slot of SLOTS) if (!item && player.eq[slot] && player.eq[slot].uid === uid) item = player.eq[slot];
+    if (!item || !Object.hasOwn(AFFIXES, key)) return;
+    if (!AFFIX_SLOTS[item.slot]) return reply(messageText('server.affixSlots', 'Affixes go on weapons, rings and amulets.'));
+    const cost = AFFIX_COST[item.rar] || 2;
+    if ((player.souls || 0) < cost) return reply(messageText('server.rerollCost', 'The Soul Mystic wants {souls} souls.', { souls: cost }));
+    player.souls -= cost; applyAffix(item, key); fire('affix', player, item);
+    const mystic = npcPosition(mapOf(player), 'mystic'); ev('fx', mystic.x, mystic.y, 55, { s: 'summon' });
+    reply(messageText('server.affixDone', '{item} now carries {affix}.', { item: gearText(item.name), affix: messageText('affix.' + key, AFFIXES[key].n) }), { ok: 1, uid: item.uid });
+    afterGearChange(player);
+  }
+
   function equipItem(player, itemId) {
     if (player.dead) return;
     const index = player.bag.findIndex(item => item.uid === itemId);
@@ -198,7 +237,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     say(player, messageText("server.bought", "Bought {count} x {item}.", { count, item: messageText('item.' + itemKey + '.name', item.n) }));
   }
 
-  return { rerollItem, equipItem, unequipItem, sellItem, sellByRarity, buyItem, sendInv, afterGearChange, starterWeapon, addGear, useItem, doMerge, autoMerge, upgradeItem };
+  return { mergeMythics, affixItem, rerollItem, equipItem, unequipItem, sellItem, sellByRarity, buyItem, sendInv, afterGearChange, starterWeapon, addGear, useItem, doMerge, autoMerge, upgradeItem };
 }
 
 module.exports = { BAGMAX, BAG_PAGE_SIZE, createInventory };

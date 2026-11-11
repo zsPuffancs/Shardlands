@@ -20,6 +20,34 @@ const STATDEF = {
 };
 const PRIMARY = { weapon: { dmg: i => 3 * i + 5 }, helm: { def: i => 1.3 * i + 2 }, armor: { hp: i => 12 * i + 20, def: i => 1.6 * i }, boots: { spd: i => 1.5 + i * 0.08, def: i => 0.8 * i }, ring: { dmg: i => 0.9 * i + 1, crit: i => 1 + i * 0.05 }, amulet: { hp: i => 6 * i + 10, mp: i => 2 * i + 4 } };
 const UP_RATE = [1, .9, .8, .7, .6, .5, .4, .3, .2];
+// Affixes: one bonus stat per weapon, ring or amulet, put on by the Soul Mystic. The affix also names the item.
+const AFFIX_SLOTS = { weapon: 1, ring: 1, amulet: 1 };
+const AFFIXES = {
+  ls:   { n: 'Lifesteal %',     prefix: 'Vampiric', f: i => 0.5 + i * 0.03 },
+  cdmg: { n: 'Crit Damage %',   prefix: 'Brutal',   f: i => 5 + i * 0.5 },
+  aspd: { n: 'Attack Speed %',  prefix: 'Swift',    f: i => 2 + i * 0.08 },
+};
+// souls the Soul Mystic asks to put an affix on an item, by rarity
+const AFFIX_COST = [2, 2, 3, 5, 8, 15];
+// three unwanted Mythics become one random Mythic at the Blacksmith
+const MYTHIC_MERGE_COUNT = 3, MYTHIC_MERGE_GOLD = 1000000;
+const PRIMARY_SPREAD = [0.9, 1.1], EXTRA_SPREAD = [0.85, 1.15], AFFIX_SPREAD = [0.85, 1.15];
+const extraFactor = rarity => 0.6 + 0.4 * RARITY[rarity].m;
+// Lowest and highest value each stat of this item could have rolled (before + upgrades).
+function statRanges(item) {
+  const ranges = {}, rarity = RARITY[item.rar] ? item.rar : 0;
+  for (const key in item.stats) {
+    const primary = PRIMARY[item.slot] && PRIMARY[item.slot][key];
+    const base = primary ? primary(item.ilvl) * RARITY[rarity].m : STATDEF[key] ? STATDEF[key].f(item.ilvl) * extraFactor(rarity) : null;
+    if (base === null) continue;
+    const spread = primary ? PRIMARY_SPREAD : EXTRA_SPREAD;
+    ranges[key] = [base * spread[0], base * spread[1]];
+  }
+  if (item.afx && AFFIXES[item.afx.k]) { const base = AFFIXES[item.afx.k].f(item.ilvl) * extraFactor(rarity); ranges['afx:' + item.afx.k] = [base * AFFIX_SPREAD[0], base * AFFIX_SPREAD[1]]; }
+  return ranges;
+}
+// What clients get for an item: the item plus its stat ranges (ranges are never stored).
+const itemView = item => item ? { ...item, rg: statRanges(item) } : item;
 
 function sanitize(item) { if (item && NO_DMG[item.slot]) { delete item.stats.dmg; delete item.stats.crit; } if (item && !item.plus) item.plus = 0; return item; }
 const plusMul = (item, statKey) => 1 + (item.plus || 0) * (item.slot === 'weapon' && statKey === 'dmg' ? 0.15 : 0.1);
@@ -37,13 +65,21 @@ function createEquipment({ rates }) {
   function rollPassives() { const pool = PASSIVES.slice(), out = {}; for (let i = rint(2, 3); i > 0; i--) out[pool.splice(rint(0, pool.length - 1), 1)[0]] = rint(1, 3); return out; }
   // new random stats (and passive bonuses) for an existing item; keeps its name, level, rarity and upgrades
   function rerollGear(item) { const fresh = genGear(item.slot, item.ilvl, item.rar, item.fam); item.stats = fresh.stats; if (fresh.psk) item.psk = fresh.psk; else delete item.psk; return item; }
+  // Put a new affix on an item (replacing the old one, and its name prefix).
+  function applyAffix(item, key) {
+    const affix = AFFIXES[key]; if (!affix || !AFFIX_SLOTS[item.slot]) return false;
+    if (item.afx && AFFIXES[item.afx.k] && item.name.startsWith(AFFIXES[item.afx.k].prefix + ' ')) item.name = item.name.slice(AFFIXES[item.afx.k].prefix.length + 1);
+    item.afx = { k: key, v: Math.round(affix.f(item.ilvl) * extraFactor(item.rar) * rnd(AFFIX_SPREAD[0], AFFIX_SPREAD[1]) * 10) / 10 };
+    item.name = affix.prefix + ' ' + item.name;
+    return true;
+  }
   const roundStat = (statKey, value) => (STATDEF[statKey] && STATDEF[statKey].pct) ? Math.round(value * 10) / 10 : Math.round(value);
   function genGear(slot, itemLevel, rarity, weaponFamily) {
     slot = SLOTS.includes(slot) ? slot : pick(SLOTS); itemLevel = Math.max(1, itemLevel | 0); rarity = rarity === undefined || rarity === null ? rollRarity(0) : Math.max(0, Math.min(MYTHIC, rarity | 0));
     const rarityDefinition = RARITY[rarity], stats = {};
-    for (const statKey in PRIMARY[slot]) stats[statKey] = roundStat(statKey, PRIMARY[slot][statKey](itemLevel) * rarityDefinition.m * rnd(0.9, 1.1));
+    for (const statKey in PRIMARY[slot]) stats[statKey] = roundStat(statKey, PRIMARY[slot][statKey](itemLevel) * rarityDefinition.m * rnd(PRIMARY_SPREAD[0], PRIMARY_SPREAD[1]));
     const pool = Object.keys(STATDEF).filter(statKey => !(statKey in stats) && !(NO_DMG[slot] && (statKey === 'dmg' || statKey === 'crit')));
-    for (let i = 0; i < rarityDefinition.x && pool.length; i++) { const statKey = pool.splice(rint(0, pool.length - 1), 1)[0]; stats[statKey] = roundStat(statKey, STATDEF[statKey].f(itemLevel) * (0.6 + 0.4 * rarityDefinition.m) * rnd(0.85, 1.15)); }
+    for (let i = 0; i < rarityDefinition.x && pool.length; i++) { const statKey = pool.splice(rint(0, pool.length - 1), 1)[0]; stats[statKey] = roundStat(statKey, STATDEF[statKey].f(itemLevel) * extraFactor(rarity) * rnd(EXTRA_SPREAD[0], EXTRA_SPREAD[1])); }
     let base; if (slot === 'weapon') { weaponFamily = BASES.weapon[weaponFamily] ? weaponFamily : pick(Object.keys(BASES.weapon)); base = BASES.weapon[weaponFamily]; } else { base = pick(BASES[slot]); weaponFamily = undefined; }
     const name = MATS[Math.min(MATS.length - 1, Math.floor((itemLevel - 1) / 7))] + ' ' + base + (rarity >= 2 ? ' ' + pick(SUFFIX) : '');
     const item = { uid: newUid(), slot, fam: weaponFamily, name, rar: rarity, ilvl: itemLevel, req: Math.max(1, itemLevel - 3), stats, plus: 0 };
@@ -51,7 +87,7 @@ function createEquipment({ rates }) {
     return item;
   }
 
-  return { rollRarity, genGear, rerollGear };
+  return { rollRarity, genGear, rerollGear, applyAffix };
 }
 
-module.exports = { SLOTS, NO_DMG, RARITY, MYTHIC, PASSIVES, MERGE_COST, REROLL_COST, BASES, STATDEF, UP_RATE, sanitize, plusMul, sellValue, upCostFor, createEquipment };
+module.exports = { SLOTS, NO_DMG, RARITY, MYTHIC, PASSIVES, MERGE_COST, REROLL_COST, AFFIXES, AFFIX_SLOTS, AFFIX_COST, MYTHIC_MERGE_COUNT, MYTHIC_MERGE_GOLD, statRanges, itemView, BASES, STATDEF, UP_RATE, sanitize, plusMul, sellValue, upCostFor, createEquipment };
