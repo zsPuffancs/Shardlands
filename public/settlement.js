@@ -25,6 +25,11 @@
     wallThickness: 10,
   });
   const SAFE_RADIUS = { village: DIM.wallR + 10, camp: 170, none: 95 };
+  // Styles drawn with the dark-fantasy village kit (public/village-kit.js). Their bigger pieces are solid too:
+  // the portal's two monoliths, the full vendor station around each cart, and the gate towers beside each road.
+  const KIT_STYLES = ['dark'];
+  const KIT_STATION = Object.freeze({ w: 82, d: 26 });
+  const KIT_PORTAL_FEET = Object.freeze([{ x: -46, y: 0, r: 13 }, { x: 46, y: 0, r: 13 }]);
   // Kept for compatibility: the classic circular wall description.
   const WALL = { r: DIM.wallR, thickness: DIM.wallThickness, gateHalfWidth: DIM.gateHalfWidth };
   const GATES = [0, Math.PI / 2, Math.PI, Math.PI * 1.5];        // east, south, west, north: the world's four roads
@@ -113,7 +118,8 @@
       lay.npcSpots[key] = { x: n.x, y: n.y, yaw: faceCentre(n.x, n.y), angle: a };
       const cart = { key, type: 'rect', x: c.x, y: c.y, w: DIM.cart.w, d: DIM.cart.d, yaw: faceCentre(c.x, c.y) };
       lay.carts.push(cart); lay.obstacles.push(cart); lay.npcs[key] = true;
-      reserved.push({ type: 'circle', x: n.x, y: n.y, r: 18 }, { ...cart, w: cart.w + 10, d: cart.d + 10 });
+      // the whole vendor station (cart plus workstation either side, see KIT_STATION) stays clear in every style
+      reserved.push({ type: 'circle', x: n.x, y: n.y, r: 18 }, { ...cart, w: KIT_STATION.w + 8, d: cart.d + 10 });
     }
     // furthest point of the shape from the centre must stay inside the wall
     const reach = o => o.type === 'circle' ? Math.hypot(o.x, o.y) + o.r : Math.max(...corners(o).map(p => Math.hypot(p.x, p.y)));
@@ -324,6 +330,17 @@
   // kind: 'village' | 'camp' | 'none'; style: 'timber' | 'snow' | 'sandstone' | 'dark' | 'ember' | 'void';
   // built: stalls on a camp; layoutId: one of LAYOUT_IDS for a village (default grand).
   const cache = new Map();
+  // The kit's extra solid pieces, added to a copy of the layout's obstacles.
+  function kitObstacles(base) {
+    const out = base.obstacles.map(o => base.carts.includes(o) ? { ...o, w: KIT_STATION.w, d: KIT_STATION.d } : o);
+    for (const f of KIT_PORTAL_FEET) out.push({ type: 'circle', x: f.x, y: f.y, r: f.r });
+    const W = base.wall;
+    for (let k = 0; k < 4; k++) {
+      const a = GATES[k], half = Math.max(W.gateHalfWidth, base.roads[k].half + 8), px = Math.cos(a), py = Math.sin(a);
+      for (const sgn of [-1, 1]) out.push({ type: 'rect', x: px * W.inner - py * sgn * (half + 13), y: py * W.inner + px * sgn * (half + 13), w: 26, d: 26, yaw: Math.PI / 2 - a });
+    }
+    return out;
+  }
   function layout(kind, style, built, layoutId) {
     built = built || {};
     let out;
@@ -332,6 +349,7 @@
       if (!cache.has(id)) cache.set(id, LAYOUTS[id]());
       const base = cache.get(id);
       out = { ...base, style, npcs: { ...base.npcs } };
+      if (KIT_STYLES.includes(style)) out.obstacles = kitObstacles(base);
     } else if (kind === 'camp') out = { ...campLayout(built), style };
     else out = { ...noneLayout(), style };
     // Quick reject for collision: nothing to bump into beyond this distance from the centre.
@@ -408,7 +426,7 @@
   // Compatibility: the founding village's NPC spots (Grand Circle).
   const NPC_OFFSETS = Object.fromEntries(VENDORS.map(k => { const s = layout('village', 'timber', {}, 'grand').npcSpots[k]; return [k, { x: s.x, y: s.y }]; }));
 
-  return { VILLAGE_SCALE, DIM, NPC_OFFSETS, PORTAL, PORTAL_OFFSET, CAMP_BOARD, STALL_COST, STALL_NAMES, SAFE_RADIUS, WALL, GATES, VENDORS, LAYOUT_IDS, LAYOUT_NAMES, LAYOUT_WEIGHTS,
+  return { KIT_STYLES, KIT_STATION, KIT_PORTAL_FEET, VILLAGE_SCALE, DIM, NPC_OFFSETS, PORTAL, PORTAL_OFFSET, CAMP_BOARD, STALL_COST, STALL_NAMES, SAFE_RADIUS, WALL, GATES, VENDORS, LAYOUT_IDS, LAYOUT_NAMES, LAYOUT_WEIGHTS,
     debugLayout: id => { DEBUG = true; try { return LAYOUTS[id](); } finally { DEBUG = false; } },
     layout, chooseLayout, arrivalPoint, collide, choose, overlaps, faceCentre, gateOpen, buildWall };
 }));

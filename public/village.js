@@ -31,6 +31,13 @@ function settlementPalette(lay) {
   if (lay.layout === 'haven') { st.wall = mix(st.trim, st.wall, .45); st.fence = 'hedge'; }
   return st;
 }
+// Props the kit does not replace (flat ground work).
+const KIT_LEAVES = new Set(['stairs', 'arch', 'pond']);
+function useVillageKit(lay) {
+  if (typeof VillageKit === 'undefined' || typeof GL === 'undefined' || !GL.meshFromArray) return false;
+  let preview = false; try { preview = /[?&]villagekit=1/.test(location.search) || localStorage.getItem('sl_villagekit') === '1'; } catch (e) {}
+  return Settlement.KIT_STYLES.includes(lay.style) || preview;
+}
 // A point on a cart in world coordinates (lx along its width, lz towards its front / the portal).
 function cartPoint(key, lx, lz) {
   const lay = settlementLayout(), cart = lay.carts.find(c => c.key === key) || (lay.stalls || []).find(s => s.key === key);
@@ -161,8 +168,13 @@ function bakeSettlement(B, R) {
     for (let k = 0; k < 8; k++) { const a = Math.PI / 8 + k * Math.PI / 4, x = CX + Math.cos(a) * 47, z = CY + Math.sin(a) * 47; B(M.box, x, 9, z, 6, 18, 6, Math.PI / 2 - a, 0, st.stone); B(M.octa, x, 22, z, 2.6, 4.4, 2.6, a, 0, glow || [.7, .5, 1], .9); }
   }
 
+  if (typeof VillageKit !== 'undefined') VillageKit.clear();
+  // Dark-fantasy kit styles (Settlement.KIT_STYLES, or ?villagekit=1 to preview any style): the kit draws the
+  // buildings, portal, vendor stations, walls and decoration as instanced assets; this file keeps the ground work.
+  const kit = lay.kind === 'village' && useVillageKit(lay) && VillageKit.place(lay, CX, CY, lay.style);
   if (lay.kind === 'village') {
-    portalPlaza(lay.plazaR);
+    if (kit) { B(M.cyl, CX, -0.4, CY, lay.plazaR, 1, lay.plazaR, 0, 0, st.pave); B(M.ring, CX, .7, CY, lay.plazaR, 1, lay.plazaR, 0, 0, dark(st.pave, .2)); B(M.ring, CX, .75, CY, lay.plazaR * .78, 1, lay.plazaR * .78, 0, 0, dark(st.pave, .12)); }
+    else portalPlaza(lay.plazaR);
     // paved streets from the plaza to the gates, with kerbs (stepping stones instead in the Wildwood Haven)
     if (!lay.steppingStones) for (const road of lay.roads) {
       const L = lay.wall.r + 14 - lay.plazaR, tiles = Math.ceil(L / 22), ca = Math.cos(road.angle), sa = Math.sin(road.angle);
@@ -175,14 +187,14 @@ function bakeSettlement(B, R) {
       const n = Math.max(24, Math.round(t.r1 / 9)), mid = (t.r0 + t.r1) / 2, width = t.r1 - t.r0;
       for (let k = 0; k < n; k++) { const a = (k + .5) / n * 6.2832, x = CX + Math.cos(a) * mid, z = CY + Math.sin(a) * mid, seg = 6.2832 * t.r1 / n + 2; if (lay.roads.some(r => Math.abs(((a - r.angle) % 6.2832 + 9.4248) % 6.2832 - 3.1416) * mid < r.half + 4)) continue; B(M.box, x, t.h / 2, z, seg, t.h, width, Math.PI / 2 - a, 0, mix(st.pave, st.base, .35)); const e = [CX + Math.cos(a) * t.r0, CY + Math.sin(a) * t.r0]; B(M.box, e[0], t.h / 2 + 1, e[1], seg * t.r0 / t.r1, t.h + 2, 3, Math.PI / 2 - a, 0, st.stone); }
     }
-    lay.houses.forEach(building);
-    lay.props.forEach(prop);
-    lay.carts.forEach(cart);
+    if (!kit) { lay.houses.forEach(building); lay.carts.forEach(cart); }
+    lay.props.forEach((p, i) => { if (!kit || KIT_LEAVES.has(p.type)) prop(p, i); });
     // curved paths (Crescent) and stepping stones (Wildwood Haven)
     for (const path of lay.paths || []) for (let a = path.from; a < path.to; a += 14 / path.r) B(M.cyl, CX + Math.cos(a) * path.r, -.2, CY + Math.sin(a) * path.r, 7, 1, 5, a, 0, st.pave);
     if (lay.steppingStones) for (const road of lay.roads) for (let d = lay.plazaR + 8; d < lay.wall.inner; d += 13) for (const sd of [-.45, .45]) { const x = CX + Math.cos(road.angle) * d - Math.sin(road.angle) * sd * road.half, z = CY + Math.sin(road.angle) * d + Math.cos(road.angle) * sd * road.half; B(M.cyl, x, -.1, z, 5 + (d % 3), 1, 4.5, d, 0, st.stone); }
     // the wall, built along its segments: palisade, stone wall with towers, or a living hedge of trees
     const W8 = lay.wall;
+    if (!kit) {
     for (const s of W8.segments) {
       const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1), ang = Math.atan2(s.y2 - s.y1, s.x2 - s.x1), yaw = -ang;
       if (st.fence === 'palisade') { for (let t = 0; t < len; t += 7.6) { const x = CX + s.x1 + Math.cos(ang) * t, z = CY + s.y1 + Math.sin(ang) * t, h = 25 + R() * 6; B(M.trunk, x, 0, z, 3.6, h, 3.6, ang, 0, mix(wood, [.5, .4, .3], R() * .3)); B(M.cone, x, h, z, 3.6, 5, 3.6, 0, 0, wood); if (st.snow && R() < .7) B(M.ball, x, h + 1, z, 3, 1.6, 3, 0, 0, st.snow); }
@@ -197,6 +209,7 @@ function bakeSettlement(B, R) {
       for (const sgn of [-1, 1]) { const x = CX + px * (W8.inner + 8) - pz * sgn * (half - 4), z = CY + pz * (W8.inner + 8) + px * sgn * (half - 4);
         if (st.fence === 'stone') { B(M.box, x, 22, z, 17, 44, 17, Math.PI / 2 - a, 0, st.stone); B(M.box, x, 45.5, z, 20, 3, 20, Math.PI / 2 - a, 0, st.base); }
         B(M.trunk, x, 0, z, 2.4, 62, 2.4, 0, 0, wood); B(M.box, x, 46, z, 1.2, 26, 13, -a, 0, k % 2 ? [.75, .15, .15] : [.85, .68, .2], .1); B(M.octa, x, 65, z, 2.2, 3, 2.2, 0, 0, [.95, .8, .3], .4); } }
+    }
   } else if (lay.kind === 'camp') {
     portalPlaza(70);
     lay.tents.forEach((t, i) => { const [x, z] = P(t.x, t.y), c = st.cloth[i % st.cloth.length]; B(M.cone6, x, 0, z, 26 * t.s, 36 * t.s, 26 * t.s, i, 0, c); B(M.trunk, x, 0, z, 1.4, 44 * t.s, 1.4, 0, 0, [.25, .18, .12]); B(M.box, x, 46 * t.s, z, 6, 4, .4, i, 0, st.cloth[(i + 1) % 3]); });

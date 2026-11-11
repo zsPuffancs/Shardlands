@@ -45,7 +45,7 @@ function setWorld(world, arrived) {
 }
 // The anvil on the Blacksmith's cart (village) or forge stall (encampment), behind the smith.
 function smithAnvilPosition() {
-  const anvil = typeof cartPoint === 'function' && cartPoint('smith', -10, 0);
+  const anvil = typeof cartPoint === 'function' && cartPoint('smith', typeof VillageKit !== 'undefined' && VillageKit.isActive() ? -30 : -10, typeof VillageKit !== 'undefined' && VillageKit.isActive() ? 4 : 0);
   if (anvil) return anvil;
   const smith = WORLD.npcs.smith || { x: WORLD.CX, y: WORLD.CY };
   return { x: smith.x, z: smith.y };
@@ -323,7 +323,8 @@ function drawWorld(now) {
   if (Math.random() < .3) for (const l of lava) if (Math.abs(l.x - cam.x) < 700 && Math.abs(l.z - cam.z) < 700 && Math.random() < .12) { const a = Math.random() * 6.28, d = Math.random() * l.r * .8; burst(l.x + Math.cos(a) * d, 2, l.z + Math.sin(a) * d, 1, [1, .5, .1], 30, 1.6, 2, 1, -40); }
   if (Math.abs(CX - cam.x) > 1800 || Math.abs(CY - cam.z) > 1800) return;
   // the coals on the Blacksmith's cart glow and smoke (only where the smith is)
-  const coals = WORLD.npcs.smith && cartPoint('smith', 10, 0); if (coals) { const f = Math.sin(now / 70); D(M.ball, coals.x, 21 + f * .5, coals.z, 4 + f * .3, 4 + f * .5, 4 + f * .3, 0, 0, [1, .5, .1], 1); if (Math.random() < .25) burst(coals.x, 24, coals.z, 1, [1, .6, .15], 26, 1.3, 1.3, 1, -70); if (Math.random() < .15) burst(coals.x, 30, coals.z, 1, [.35, .33, .33], 18, 2.4, 3, 0, -50); }
+  const kitOn = typeof VillageKit !== 'undefined' && VillageKit.isActive(); if (kitOn) VillageKit.draw(now, cam, !!WORLD.npcs.portal);
+  const coals = !kitOn && WORLD.npcs.smith && cartPoint('smith', 10, 0); if (coals) { const f = Math.sin(now / 70); D(M.ball, coals.x, 21 + f * .5, coals.z, 4 + f * .3, 4 + f * .5, 4 + f * .3, 0, 0, [1, .5, .1], 1); if (Math.random() < .25) burst(coals.x, 24, coals.z, 1, [1, .6, .15], 26, 1.3, 1.3, 1, -70); if (Math.random() < .15) burst(coals.x, 30, coals.z, 1, [.35, .33, .33], 18, 2.4, 3, 0, -50); }
   // every NPC faces the portal (the yaw comes from the shared layout via the server)
   for (const key of ['merchant', 'smith', 'mystic']) if (WORLD.npcs[key] && Number.isFinite(WORLD.npcs[key].yaw)) NPCE[key].yaw = WORLD.npcs[key].yaw;
   const mN = WORLD.npcs.merchant, sN = WORLD.npcs.smith, me_ = NPCE.merchant, sm = NPCE.smith;
@@ -334,7 +335,8 @@ function drawWorld(now) {
   }, 260); }
   if (sN && !drawChar(sm, 'Monk', { h: 68, tint: [1, .92, .85] }, now)) human(sm, { sc: 1.08, kind: 'smith', body: hex('#7a5a3a'), leg: hex('#3a2e24'), skin: hex('#d9a27a'), arm: hex('#d9a27a'), wide: 11, pad: 0 });
   { const cN = WORLD.npcs.camp; if (cN && Math.hypot(cam.x - cN.x, cam.z - cN.y) < 650) label('npc5', esc(text('npc.camp', NPCNAME.camp)) + (nearNpcK === 'camp' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', cN.x, 50, cN.y, 0, 150); }
-  { const pN = WORLD.npcs.portal; if (pN) { const pu = .9 + Math.sin(now / 260) * .1; D(M.disc, pN.x, 1.2, pN.y, 34, 1, 34, 0, 0, [.12, .05, .25], .6); D(M.ring, pN.x, 2, pN.y, 37 * pu, 1, 37 * pu, -now / 500, 0, [.75, .6, 1], 1);
+  { const pN = WORLD.npcs.portal; if (pN && kitOn) { if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc4', esc(text('npc.portal', NPCNAME.portal)) + (nearNpcK === 'portal' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', pN.x, 215, pN.y, 0, 150); }
+    else if (pN) { const pu = .9 + Math.sin(now / 260) * .1; D(M.disc, pN.x, 1.2, pN.y, 34, 1, 34, 0, 0, [.12, .05, .25], .6); D(M.ring, pN.x, 2, pN.y, 37 * pu, 1, 37 * pu, -now / 500, 0, [.75, .6, 1], 1);
     for (let i = 0; i < 4; i++) { const k = (now / 1100 + i / 4) % 1, r = 31 * (1 - k * .6); D(M.ring, pN.x, 5 + k * 78, pN.y, r, 1, r, now / 300 + i, 0, [.55, .4, 1], 1, (1 - k) * .9); }
     if (Math.random() < .4) burst(pN.x + (Math.random() - .5) * 44, 6, pN.y + (Math.random() - .5) * 44, 1, [.6, .45, 1], 30, 1.4, 1.5, 1, -70);
     if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc4', esc(text('npc.portal', NPCNAME.portal)) + (nearNpcK === 'portal' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', pN.x, 104, pN.y, 0, 150); } }

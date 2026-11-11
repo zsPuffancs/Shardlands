@@ -9,12 +9,12 @@ const world = require('../game-world');
 const STYLES = ['timber', 'snow', 'sandstone', 'dark', 'ember', 'void'];
 const unit = (x, y) => { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
 const facing = yaw => [Math.sin(yaw), Math.cos(yaw)]; // the direction a yaw looks at (+v of a rect, a model's front)
-const villages = () => Settlement.LAYOUT_IDS.map(id => [id, Settlement.layout('village', 'timber', {}, id)]);
+const villages = (styles = ['timber', 'dark']) => styles.flatMap(style => Settlement.LAYOUT_IDS.map(id => [id + (style === 'timber' ? '' : ':' + style), Settlement.layout('village', style, {}, id)]));
 
 test('there are eight distinct layouts, each a walled village with all three vendors', () => {
   assert.deepEqual(Settlement.LAYOUT_IDS, ['grand', 'avenue', 'fortress', 'crescent', 'terraces', 'market', 'haven', 'citadel']);
   const signatures = new Set();
-  for (const [id, lay] of villages()) {
+  for (const [id, lay] of villages(['timber'])) {
     assert.equal(lay.kind, 'village'); assert.equal(lay.layout, id);
     for (const key of Settlement.VENDORS) assert.ok(lay.npcs[key] && lay.npcSpots[key], id + ' ' + key);
     assert.ok(lay.houses.length >= 7, id + ' has ' + lay.houses.length + ' buildings'); // the Fortress has fewer, larger buildings
@@ -27,7 +27,10 @@ test('there are eight distinct layouts, each a walled village with all three ven
 test('the portal is at the exact centre, on a clear plaza, for every kind of settlement', () => {
   for (const [id, lay] of villages()) {
     assert.deepEqual(lay.portal, { x: 0, y: 0 }, id);
-    for (const o of lay.obstacles) assert.ok(!Settlement.overlaps({ type: 'circle', x: 0, y: 0, r: 52 }, o), id + ': nothing solid on the portal dais');
+    // only the kit portal's own two monoliths stand on the dais
+    const feet = Settlement.KIT_STYLES.includes(lay.style) ? Settlement.KIT_PORTAL_FEET : [];
+    for (const o of lay.obstacles) if (!feet.some(f => o.type === 'circle' && o.x === f.x && o.y === f.y)) assert.ok(!Settlement.overlaps({ type: 'circle', x: 0, y: 0, r: 52 }, o), id + ': nothing solid on the portal dais');
+    for (const f of feet) assert.ok(Math.abs(f.y) < 1e-9 && Math.abs(Math.abs(f.x) - 46) < 1e-9, 'monoliths flank the portal east and west');
   }
   for (const kind of ['camp', 'none']) assert.deepEqual(Settlement.layout(kind, 'ember', { merchant: { by: 'a' } }).portal, { x: 0, y: 0 });
   const map = world.addMap(3, { tier: 9, regionTier: 10 });
@@ -64,9 +67,10 @@ test('nothing overlaps: buildings, carts, solid props, NPCs, roads and the porta
       assert.ok(!Settlement.overlaps(solids[i], solids[j], -0.5), id + ' overlap ' + JSON.stringify([solids[i], solids[j]]));
     }
     for (const key of Settlement.VENDORS) { const n = lay.npcSpots[key]; for (const o of solids) assert.ok(!Settlement.overlaps({ type: 'circle', x: n.x, y: n.y, r: 12 }, o), id + ' NPC ' + key + ' blocked'); }
-    for (const road of lay.roads) for (const o of solids) assert.ok(!Settlement.overlaps(road, o), id + ' road blocked by ' + JSON.stringify(o));
+    // roads beyond the plaza (inside the plaza the portal monoliths of the kit stand on the axis; players walk around them)
+    for (const road of lay.roads) { const len = road.d - lay.plazaR, mid = lay.plazaR + len / 2, part = { ...road, x: Math.cos(road.angle) * mid, y: Math.sin(road.angle) * mid, d: len }; for (const o of solids) assert.ok(!Settlement.overlaps(part, o), id + ' road blocked by ' + JSON.stringify(o)); }
     const wallReach = Math.max(...lay.wall.segments.flatMap(s => [Math.hypot(s.x1, s.y1), Math.hypot(s.x2, s.y2)]));
-    for (const o of solids) { const r = o.type === 'circle' ? Math.hypot(o.x, o.y) + o.r : Math.hypot(o.x, o.y) + Math.hypot(o.w, o.d) / 2; assert.ok(r <= wallReach + 1, id + ' inside the wall'); }
+    for (const o of solids) { if (o.w === 26 && o.d === 26) continue; /* kit gate towers straddle the wall line */ const r = o.type === 'circle' ? Math.hypot(o.x, o.y) + o.r : Math.hypot(o.x, o.y) + Math.hypot(o.w, o.d) / 2; assert.ok(r <= wallReach + 1, id + ' inside the wall'); }
   }
 });
 
@@ -102,8 +106,9 @@ test('buildings and walls block movement; the gates and roads stay open', () => 
 
 test('NPCs can be reached from the plaza and the arrival spot; arrivals land clear on the plaza', () => {
   const map = world.addMap(4, { tier: 10, regionTier: 11 });
-  for (const id of Settlement.LAYOUT_IDS) {
-    world.setSettlement(map, { kind: 'village', style: 'timber', built: {}, layout: id });
+  for (const style of ['timber', 'dark']) for (const layoutId of Settlement.LAYOUT_IDS) {
+    const id = layoutId + ':' + style;
+    world.setSettlement(map, { kind: 'village', style, built: {}, layout: layoutId });
     const lay = world.layoutOf(map);
     for (let n = 0; n < 40; n++) {
       const hero = { x: 0, y: 0 }; world.placeInVillage(hero, map);
