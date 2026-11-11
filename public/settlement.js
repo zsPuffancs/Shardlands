@@ -27,7 +27,7 @@
   const SAFE_RADIUS = { village: DIM.wallR + 10, camp: 170, none: 95 };
   // Styles drawn with the dark-fantasy village kit (public/village-kit.js). Their bigger pieces are solid too:
   // the portal's two monoliths, the full vendor station around each cart, and the gate towers beside each road.
-  const KIT_STYLES = ['dark'];
+  const KIT_STYLES = ['timber', 'snow', 'sandstone', 'dark', 'ember', 'void']; // drawn by the village kit (public/village-kit.js), with its extra collision
   const KIT_STATION = Object.freeze({ w: 82, d: 26 });
   const KIT_PORTAL_FEET = Object.freeze([{ x: -46, y: 0, r: 13 }, { x: 46, y: 0, r: 13 }, { x: 0, y: -40, r: 12 }, { x: 0, y: 40, r: 12 }]); // two crossed gates
   // Kept for compatibility: the classic circular wall description.

@@ -59,10 +59,11 @@ test('palettes: every style defines every material the kit uses, glow is control
   for (const style of ['timber', 'snow', 'sandstone', 'dark', 'ember', 'void']) assert.ok(kit.KIT_PALETTES[style], style + ' palette prepared');
 });
 
-test('placement follows the shared layout: portal at the centre, NPC -> cart order, every building and wall piece', () => {
-  for (const id of Settlement.LAYOUT_IDS) {
-    const { kit } = loadKit(), lay = Settlement.layout('village', 'dark', {}, id), CX = 2500, CY = 2500;
-    assert.equal(kit.place(lay, CX, CY, 'dark'), true);
+const STYLES = ['timber', 'snow', 'sandstone', 'dark', 'ember', 'void'];
+test('placement follows the shared layout in all 48 style x layout combinations: portal, NPC -> cart order, every building and wall piece', () => {
+  for (const style of STYLES) for (const lid of Settlement.LAYOUT_IDS) {
+    const id = lid + ':' + style, { kit } = loadKit(), lay = Settlement.layout('village', style, {}, lid), CX = 2500, CY = 2500;
+    assert.equal(kit.place(lay, CX, CY, style), true);
     const log = kit.placements();
     const portal = log.filter(p => p.key === 'portal'); assert.equal(portal.length, 1); assert.deepEqual([portal[0].x, portal[0].z], [CX, CY]);
     for (const key of Settlement.VENDORS) {
@@ -85,11 +86,11 @@ test('placement follows the shared layout: portal at the centre, NPC -> cart ord
   }
 });
 
-test('decoration stays off roads, doorsteps, the plaza, NPC areas and anything solid', () => {
-  const DECOR = new Set(['barrels', 'crates', 'supplies', 'fence', 'bones', 'wreck', 'sign', 'bush', 'rock', 'deadTreeB']);
-  for (const id of Settlement.LAYOUT_IDS) {
-    const { kit } = loadKit(), lay = Settlement.layout('village', 'dark', {}, id), CX = 0, CY = 0;
-    kit.place(lay, CX, CY, 'dark');
+test('decoration stays off roads, doorsteps, the plaza, NPC areas and anything solid, in every style', () => {
+  for (const style of STYLES) for (const lid of Settlement.LAYOUT_IDS) {
+    const id = lid + ':' + style, { kit } = loadKit(), lay = Settlement.layout('village', style, {}, lid), CX = 0, CY = 0;
+    const DECOR = new Set(kit.KIT_STYLE[style].details.map(d => d[0]));
+    kit.place(lay, CX, CY, style);
     const fromLayout = new Set(lay.props.map(p => Math.round(p.x) + ',' + Math.round(p.y)));
     const scatter = kit.placements().filter(p => DECOR.has(p.key) && !fromLayout.has(Math.round(p.x) + ',' + Math.round(p.z)));
     assert.ok(scatter.length >= 10, id + ' has ' + scatter.length + ' details');
@@ -114,3 +115,37 @@ test('repeated decoration is instanced: many copies, few draw calls, identical a
   // non-village settlements are left to the base renderer
   assert.equal(a.kit.place(Settlement.layout('camp', 'dark', {}), 0, 0, 'dark'), false); assert.equal(a.kit.isActive(), false);
 });
+
+test('every biome has its own identity on the same layouts', () => {
+  const { kit } = loadKit(), sig = {};
+  for (const style of STYLES) {
+    const S = kit.KIT_STYLE[style];
+    assert.ok(S && S.trees.length === 2 && S.garden && S.bush && S.details.length >= 8, style);
+    for (const k of [...S.trees, S.garden, S.bush, ...S.details.map(d => d[0])]) assert.ok(kit.RECIPES[k], style + ' uses ' + k);
+    kit.place(Settlement.layout('village', style, {}, 'grand'), 0, 0, style);
+    const keys = new Set(kit.placements().map(p => p.key));
+    for (const t of S.trees) assert.ok(keys.has(t) || !Settlement.layout('village', style, {}, 'grand').props.some(p => p.type === 'tree'), style + ' places its trees');
+    sig[style] = [S.roof, S.wall, S.trees.join(), S.garden].join('|');
+  }
+  assert.equal(new Set(Object.values(sig)).size, 6, 'six distinct treatments: ' + JSON.stringify(sig));
+  // the same recipe looks different per style: other geometry, not only other colours
+  const geo = style => { const b = kit.build(style); return ['houseCottage', 'houseStone', 'houseTown', 'houseTower', 'houseChapel', 'wall', 'tower'].map(k => b[k].meshes.reduce((n, m) => n + m.tris, 0)).join(); };
+  const geos = STYLES.map(geo); assert.equal(new Set(geos).size, 6, 'six different building sets ' + geos.join(' / '));
+  // style materials only where they belong
+  const mats = style => new Set(Object.values(kit.build(style)).flatMap(a => a.meshes.map(m => m.mat)));
+  assert.ok(mats('snow').has('snow') && mats('snow').has('ice') && !mats('dark').has('snow'));
+  assert.ok(mats('ember').has('lava') && !mats('timber').has('lava'));
+  assert.ok(mats('sandstone').has('clay') && mats('timber').has('straw'));
+  // the live portal energy takes the style's colour
+  assert.notDeepEqual(kit.KIT_STYLE.ember.energy, kit.KIT_STYLE.dark.energy);
+});
+
+test('the approved dark (Necropolis) village is unchanged: same geometry and placement as before the biome styles', () => {
+  const crypto = require('node:crypto'), { kit } = loadKit(), b = kit.build('dark');
+  const geo = crypto.createHash('md5'); for (const k of Object.keys(b).sort()) for (const m of b[k].meshes) { geo.update(k + m.mat); geo.update(Buffer.from(new Float32Array(m.mesh.arr).buffer)); }
+  const place = crypto.createHash('md5');
+  for (const id of Settlement.LAYOUT_IDS) { kit.place(Settlement.layout('village', 'dark', {}, id), 1000, 2000, 'dark'); place.update(JSON.stringify(kit.placements().map(p => [p.key, +p.x.toFixed(3), +p.z.toFixed(3), +p.yaw.toFixed(4), +p.sx.toFixed(4), +p.sy.toFixed(4), +p.sz.toFixed(4)]))); }
+  assert.deepEqual([Object.keys(b).length, geo.digest('hex'), place.digest('hex')], DARK_FINGERPRINT);
+});
+// measured on the dark kit as approved (commit 6dde9bd), before the biome styles were added
+const DARK_FINGERPRINT = [38, "39a39e86c5576e1d4cc0b83824f9c116", "6815e785fc2200e1c39f2918cbd26d18"];

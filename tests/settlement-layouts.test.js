@@ -9,7 +9,8 @@ const world = require('../game-world');
 const STYLES = ['timber', 'snow', 'sandstone', 'dark', 'ember', 'void'];
 const unit = (x, y) => { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
 const facing = yaw => [Math.sin(yaw), Math.cos(yaw)]; // the direction a yaw looks at (+v of a rect, a model's front)
-const villages = (styles = ['timber', 'dark']) => styles.flatMap(style => Settlement.LAYOUT_IDS.map(id => [id + (style === 'timber' ? '' : ':' + style), Settlement.layout('village', style, {}, id)]));
+const ALL_STYLES = ['timber', 'snow', 'sandstone', 'dark', 'ember', 'void'];
+const villages = (styles = ALL_STYLES) => styles.flatMap(style => Settlement.LAYOUT_IDS.map(id => [id + (style === 'timber' ? '' : ':' + style), Settlement.layout('village', style, {}, id)]));
 
 test('there are eight distinct layouts, each a walled village with all three vendors', () => {
   assert.deepEqual(Settlement.LAYOUT_IDS, ['grand', 'avenue', 'fortress', 'crescent', 'terraces', 'market', 'haven', 'citadel']);
@@ -106,7 +107,7 @@ test('buildings and walls block movement; the gates and roads stay open', () => 
 
 test('NPCs can be reached from the plaza and the arrival spot; arrivals land clear on the plaza', () => {
   const map = world.addMap(4, { tier: 10, regionTier: 11 });
-  for (const style of ['timber', 'dark']) for (const layoutId of Settlement.LAYOUT_IDS) {
+  for (const style of ALL_STYLES) for (const layoutId of Settlement.LAYOUT_IDS) {
     const id = layoutId + ':' + style;
     world.setSettlement(map, { kind: 'village', style, built: {}, layout: layoutId });
     const lay = world.layoutOf(map);
@@ -140,6 +141,13 @@ test('server and client agree: the client rebuilds the same layout from what the
       assert.equal(info.npcs[key].yaw, client.npcSpots[key].yaw);
     }
     assert.equal(info.npcs.portal ? info.npcs.portal.x : info.CX, info.CX);
+    // every biome style x layout: the client's layout (collision included) is exactly the server's
+    for (const style of ALL_STYLES) for (const layoutId of Settlement.LAYOUT_IDS) {
+      world.setSettlement(map, { kind: 'village', style, built: {}, layout: layoutId });
+      const sent = world.worldInfo(map).settlement, mine = Settlement.layout(sent.kind, sent.style, sent.built, sent.layout, sent.stalls);
+      assert.equal(sent.style, style); assert.equal(sent.layout, layoutId);
+      assert.equal(JSON.stringify(mine), JSON.stringify(world.layoutOf(map)), layoutId + ':' + style + ' client layout = server layout');
+    }
   } finally { if (saved) TIERS[11] = saved; else { delete TIERS[11]; TIERS.length = length; } }
   // the founding village (map 0) is the Grand Circle, and NPCS still points at it
   world.setSettlement(world.maps[0], { kind: 'village', style: 'timber', built: {}, layout: 'grand' });

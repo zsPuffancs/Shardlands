@@ -15,6 +15,7 @@ SETTLEMENT_STYLE.timber.cloth = [[.62, .3, .18], [.4, .45, .3], [.7, .55, .3]];
 SETTLEMENT_STYLE.snow.cloth = [[.5, .3, .25], [.3, .35, .45], [.6, .55, .5]];
 SETTLEMENT_STYLE.sandstone.cloth = [[.85, .6, .3], [.6, .35, .2], [.9, .8, .55]];
 SETTLEMENT_STYLE.dark.cloth = [[.3, .25, .3], [.2, .2, .25], [.4, .3, .35]];
+SETTLEMENT_STYLE.ember.pond = [[1, .38, .08], 1]; SETTLEMENT_STYLE.void.pond = [[.55, .22, .75], .6]; // lava and a violet pool instead of water
 const VENDOR_COLOR = { merchant: [.85, .7, .2], smith: [.42, .42, .46], mystic: [.5, .3, .8] };
 
 // The layout of this map, made on demand (the login screen bakes the world before setWorld runs).
@@ -142,7 +143,7 @@ function bakeSettlement(B, R) {
         B(M.box, x, 26.5, z, p.w + 4, 1.2, p.d + 4, yaw, .18, c); if (st.snow) B(M.box, x, 27.6, z, p.w + 3, .8, p.d + 3, yaw, .18, st.snow);
         for (let k = -1; k <= 1; k++) { const q = at(k * p.w / 3.4, 0); B(M.ball, q[0], 13.5, q[1], 2.4, 2, 2.4, 0, 0, [[.9, .3, .25], [.95, .8, .3], [.5, .85, .4]][(k + 1 + i) % 3]); } break; }
       case 'fountain': { B(M.cyl, x, 0, z, 22, 6, 22, 0, 0, st.base); B(M.disc, x, 5.5, z, 19, 1, 19, 0, 0, st.ice || [.25, .55, .9], .35); B(M.cyl, x, 0, z, 4, 18, 4, 0, 0, st.stone); B(M.cyl, x, 18, z, 9, 2, 9, 0, 0, st.stone); B(M.cone, x, 20, z, 3, 8, 3, 0, 0, [.6, .85, 1], .5); break; }
-      case 'pond': B(M.disc, x, .9, z, p.r, 1, p.r * .85, 0, 0, st.snow ? st.ice : [.22, .45, .7], .3); for (let k = 0; k < 10; k++) { const a = k / 10 * 6.283; B(M.rock, x + Math.cos(a) * p.r, 1.5, z + Math.sin(a) * p.r * .85, 6, 3, 5, a, 0, st.stone); } break;
+      case 'pond': B(M.disc, x, .9, z, p.r, 1, p.r * .85, 0, 0, st.pond ? st.pond[0] : st.snow ? st.ice : [.22, .45, .7], st.pond ? st.pond[1] : .3); for (let k = 0; k < 10; k++) { const a = k / 10 * 6.283; B(M.rock, x + Math.cos(a) * p.r, 1.5, z + Math.sin(a) * p.r * .85, 6, 3, 5, a, 0, st.stone); } break;
       case 'planter': B(M.box, x, 3, z, 20, 6, 20, 0, 0, st.base); B(M.ball, x, 11, z, 9, 7, 9, 0, 0, st.snow || st.leaf); break;
       case 'stairs': { for (let k = 0; k < 3; k++) { const q = at(0, -6 + k * 6); B(M.box, q[0], (3 - k) * 1.4, q[1], p.w, (3 - k) * 2.8, 6, yaw, 0, mix(st.pave, st.stone, k / 3)); } break; }
       case 'arch': { for (const sd of [-1, 1]) { const q = at(sd * p.w / 2, 0); B(M.box, q[0], 30, q[1], 14, 60, 14, yaw, 0, st.stone); B(M.box, q[0], 62, q[1], 18, 4, 18, yaw, 0, st.base); } B(M.box, x, 66, z, p.w + 18, 12, 14, yaw, 0, st.stone); B(M.box, x, 74, z, p.w * .5, 6, 12, yaw, 0, st.base); B(M.box, x, 52, z, 2, 16, 12, yaw, 0, [.8, .2, .2]); break; }

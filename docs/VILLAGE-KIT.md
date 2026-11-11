@@ -1,8 +1,29 @@
-# Village kit (dark-fantasy prototype)
+# Village kit
 
-`public/village-kit.js` draws villages of the **Dark** style (necropolis lands) with a cohesive set of low-poly
-dark-fantasy assets: weathered stone, dark timber, slate roofs, muted colours and controlled violet / ember glow.
-Other styles still use the original renderer (`public/village.js`) until they are switched on (see below).
+`public/village-kit.js` draws every village, in all six biome styles (`Settlement.KIT_STYLES`), with one cohesive set
+of low-poly dark-fantasy assets. The approved **Dark** (Necropolis) style is the reference: weathered stone, dark
+timber, slate roofs, muted colours and controlled glow. The original renderer (`public/village.js`) still draws the
+ground work (plaza, streets, terraces, stairs, ponds), encampments and portal sites.
+
+## Layout and biome stay separate
+
+The layout (`public/settlement.js`) decides placement, roads, walls and gates, the plaza, the vendors and all
+collision; it is the same for every style. The biome style only decides how the pieces look:
+
+| Style | Roofs | Walls | Trees / gardens / beds | Scatter | Portal light |
+|---|---|---|---|---|---|
+| Dark | slate | stone | dead trees, graves, bushes | bones, wrecks, dead trees | violet |
+| Timber | thick thatch with eave bands and a ridge roll; flower boxes | log palisade, log watchtowers, timber gate frames | oaks and birches, vegetable plots, flower beds | hay, log piles, flowers | green-gold |
+| Snow | slate under snow caps, icicles; snowdrifts at the walls | stone with snow on walks and merlons | snowy pines, covered woodpiles, snowy shrubs | log piles, drifts, ice spires | ice blue |
+| Sandstone | flat roofs with parapets, beam ends and domes; awnings and pots | sandstone, domed towers | palms, pot gardens, potted plants | pots, awning stalls | gold |
+| Ember | black iron with glowing seams; lava cracks up the walls | basalt with lava seams | charred trees, lava pools, obsidian | obsidian, lava vents, bones | fire orange |
+| Void | corrupted slate with crystals breaking through; rune veins and floating shards | violet stone with veins, shards over the towers | crystal trees and beds | shards, floating stones | magenta |
+
+Each style is a descriptor in `KIT_STYLE` (roof, wall, cracks, snowCap, awnings, shards, trees, garden, bush, details,
+energy) plus a palette in `KIT_PALETTES` (the same material names everywhere). The shared recipes read the descriptor
+through small treatments (`roofGable`, `roofHip`, `roofCone`, `flatRoof`, `dome`, `decorHouse`, `decorStone`,
+`watchTower`). Assets are built per style, only when first placed, so a map builds only its own style. The Dark
+style takes exactly the plain path: its geometry, seeds and placement are unchanged (a test checks a fingerprint).
 
 ## How it fits the engine
 
@@ -51,16 +72,13 @@ Collision for the kit's larger solid pieces lives in `settlement.js` (so server 
 the four portal monoliths, the full vendor station (82 x 26) and the gate towers. The station's space is reserved in
 every style, so a layout is the same whatever its style.
 
-## Adding the other biome styles
+## Adding or changing a biome style
 
-1. Tune that style's palette in `KIT_PALETTES` (timber, snow, sandstone, ember and void are already sketched with the
-   same keys). Use the same material names; add new names only together with geometry that uses them.
-2. Add the style to `Settlement.KIT_STYLES` in `public/settlement.js`. This switches on the kit's extra collision for
-   that style on the server and the client together.
-3. For style-specific shapes (snow on roofs, ember cracks, void fragments), add variant recipes (for example
-   `houseCottageSnow`) and pick them in `HOUSE_FOR` / `place()` by style; the layouts stay untouched.
-4. Preview any style with the kit before switching it on: open the game with `?villagekit=1` (or set
-   `localStorage.sl_villagekit = '1'`). Preview is visual only; the kit's extra collision applies only to `KIT_STYLES`.
+1. Palette: `KIT_PALETTES[style]` (start from `...DARK`, keep the material names).
+2. Treatment: `KIT_STYLE[style]`. New roof or wall kinds go in the treatment helpers, never in the layouts.
+3. Biome-only assets (trees, gardens, scatter) go in `R` and in `BIOME_ONLY`, and are named in the descriptor.
+4. `Settlement.KIT_STYLES` lists the styles drawn by the kit; it also switches on the kit's extra collision on the
+   server and the client together. All six are on.
 
 ## Adding village layouts
 
@@ -69,8 +87,9 @@ Layouts live in `public/settlement.js` (`LAYOUTS`). Building types are mapped in
 
 ## Limitations of this prototype
 
-- Only the Dark style uses the kit in play. The other palettes are first drafts, and other styles still use the
-  original renderer.
+- Ember and Void villages are drawn and tested, but the volcanic and voidscar biomes always generate encampments
+  (`Settlement.choose`), so they do not appear in play unless that rule changes.
+- The Avenue's ceremonial arch, terraces and stairs come from the base renderer in the style's ground colours.
 - The base layouts were made for the original, smaller houses, so some kit houses are scaled down to fit tight
   footprints. Chapels stand in for cathedrals, palaces and gothic halls; tower houses for keeps.
 - Scattered details have no collision, by design (they stay out of walking paths), so a hero can brush through a barrel.
