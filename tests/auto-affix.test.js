@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test'), assert = require('node:assert/strict');
 const { estimate, rollValue } = require('../public/affix-math');
-const { affixRange, AFFIXES, AFFIX_COST, RARITY, createEquipment } = require('../equipment');
+const { affixRange, AFFIXES, AFFIX_COST, RARITY, createEquipment, effectiveStatLevel } = require('../equipment');
 const { createAutoAffixJobs } = require('../auto-affix-jobs');
 const { AUTO_AFFIX_LIMITS } = require('../safety-limits');
 const { createInventory } = require('../inventory');
@@ -25,7 +25,7 @@ function setup({ roll = productionRoll(), reserved = () => false } = {}) {
 
 test('shared rounding and ranges exactly match existing affix production formula', () => {
   for (const key of Object.keys(AFFIXES)) for (const level of [1, 10, 100, 9999, 10000]) for (let rarity = 0; rarity < RARITY.length; rarity++) {
-    const target = item('x', { ilvl: level, rar: rarity }), range = affixRange(target, key), base = AFFIXES[key].f(level) * (.6 + .4 * RARITY[rarity].m);
+    const target = item('x', { ilvl: level, rar: rarity }), range = affixRange(target, key), base = AFFIXES[key].f(effectiveStatLevel(level)) * (.6 + .4 * RARITY[rarity].m);
     assert.equal(range.base, base); assert.equal(range.low, base * .85); assert.equal(range.high, base * 1.15);
     for (const unit of [0, .1, .5, .99, 1 - Number.EPSILON / 2]) {
       const expected = Math.round(base * (.85 + unit * (1.15 - .85)) * 10) / 10;
