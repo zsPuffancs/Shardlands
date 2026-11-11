@@ -227,8 +227,11 @@ function openNpc(k) { for (const n in NPCWIN) if (n !== k) closeWin(NPCWIN[n]); 
 
 // ---------- inventory ----------
 function slotHtml(it, attrs, extra) {
-  // The rarity letter (for colour-blind players, see Settings) and the lock mark sit in the top corners.
-  return '<div class="slot r' + it.rar + (it.lk ? ' locked' : '') + (extra || '') + '" ' + attrs + '>' + iconOf(it) + '<sup>' + it.ilvl + '</sup>' + (it.plus ? '<sub>+' + it.plus + '</sub>' : '') + '<b class="rmark">' + esc(text('rarity.' + it.rar + '.short', 'CURELM'[it.rar] || '')) + '</b>' + (it.lk ? '<i class="lockmark">🔒</i>' : '') + '</div>';
+  // Item level sits in the top-right corner, green/red against the equipped item of the same slot (▲/▼ for colour-blind players).
+  // The +upgrade is top-left; the rarity letter (see Settings) and the lock mark sit bottom-left.
+  const worn = typeof EQ !== 'undefined' && EQ[it.slot], diff = worn && worn.uid !== it.uid ? it.ilvl - worn.ilvl : 0;
+  const ilv = '<sup class="ilv' + (diff > 0 ? ' up' : diff < 0 ? ' dn' : '') + '">' + (diff > 0 ? '▲' : diff < 0 ? '▼' : '') + it.ilvl + '</sup>';
+  return '<div class="slot r' + it.rar + (it.lk ? ' locked' : '') + (extra || '') + '" ' + attrs + '>' + iconOf(it) + ilv + (it.plus ? '<sub>+' + it.plus + '</sub>' : '') + '<b class="rmark">' + esc(text('rarity.' + it.rar + '.short', 'CURELM'[it.rar] || '')) + '</b>' + (it.lk ? '<i class="lockmark">🔒</i>' : '') + '</div>';
 }
 function onInv(m) { BAG = m.bag; EQ = m.eq; GS = m.gs; SKB = m.skb || {}; SOULS = m.souls || 0; mergeSel = mergeSel.filter(u => BAG.some(i => i.uid === u)); if (isOpen('invp')) buildInv(); if (isOpen('smithw')) buildSmith(); if (isOpen('mysticw')) buildMystic(); if (isOpen('skillp')) buildSkills(); if (isOpen('tradew')) buildTrade(); }
 let bagPage = 0;
@@ -296,9 +299,16 @@ function buildInv() {
   const list = Object.keys(I.items).filter(k => me.inv[k] > 0);
   if ($('inl')) $('inl').innerHTML = list.length ? list.map(k => '<div class="chip" data-use="' + k + '" data-tip="cons:' + k + '">' + consIcon(k) + esc(itemName(k, I.items[k].n)) + ' ×' + me.inv[k] + '</div>').join('') : '<span class="mu" style="font-size:0.75rem">' + esc(text("inventory.noConsumables", "Nothing yet. Monsters drop potions and scrolls.")) + '</span>';
 }
+// "(▲ +7 vs equipped)" next to the item level when the tooltip compares against worn gear.
+function ilvlCompare(it, cmp) {
+  if (!cmp || cmp.uid === it.uid) return '';
+  const d = it.ilvl - cmp.ilvl;
+  if (!d) return ' <span class="mu">(' + esc(text('inventory.ilvlSame', 'same as equipped')) + ')</span>';
+  return ' <span class="' + (d > 0 ? 'up' : 'dn') + '">(' + (d > 0 ? '▲ +' : '▼ ') + d + ' ' + esc(text('inventory.ilvlVsEquipped', 'vs equipped {level}', { level: cmp.ilvl })) + ')</span>';
+}
 function tipItem(it, cmp, plusOverride) {
   const pl = plusOverride === undefined ? it.plus || 0 : plusOverride;
-  let h = '<b class="nm" style="color:' + RC[it.rar] + '">' + esc(gearName(it.name)) + (pl ? ' +' + pl : '') + '</b><div class="mu">' + esc(text('rarity.' + (it.rar), I.rarity[it.rar])) + ' ' + (it.slot === 'weapon' ? esc(text('weapon.' + it.fam, { sword: 'Sword', bow: 'Bow', staff: 'Staff' }[it.fam] || 'Weapon')) : esc(text('slot.' + it.slot, SLOTNAME[it.slot]))) + ' · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + it.ilvl + '</div><div style="margin:5px 0">';
+  let h = '<b class="nm" style="color:' + RC[it.rar] + '">' + esc(gearName(it.name)) + (pl ? ' +' + pl : '') + '</b><div class="mu">' + esc(text('rarity.' + (it.rar), I.rarity[it.rar])) + ' ' + (it.slot === 'weapon' ? esc(text('weapon.' + it.fam, { sword: 'Sword', bow: 'Bow', staff: 'Staff' }[it.fam] || 'Weapon')) : esc(text('slot.' + it.slot, SLOTNAME[it.slot]))) + ' · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + it.ilvl + ilvlCompare(it, cmp) + '</div><div style="margin:5px 0">';
   // Without Shift the tooltip stays short: stats plus a one-line verdict. Shift adds each stat's change and its possible range.
   let better = 0, worse = 0;
   for (const k of STATORDER) if (k in it.stats) { const v = eff(it, k, pl); let d = ''; if (cmp && cmp.uid !== it.uid) { const df = v - (k in cmp.stats ? eff(cmp, k) : 0); if (df > 0.049) better++; else if (df < -0.049) worse++; if (SHIFT && Math.abs(df) > 0.049) d = '<span class="' + (df > 0 ? 'up' : 'dn') + '">' + (df > 0 ? '▲' : '▼') + fmtS(k, Math.abs(df)) + '</span>'; } h += '<div class="ln"><span>+' + fmtS(k, v) + ' ' + esc(text('stat.' + k, I.stat[k].n)) + '</span>' + (SHIFT && it.rg && it.rg[k] ? '<span class="rg">' + fmtS(k, it.rg[k][0] * eff({ stats: { [k]: 1 }, slot: it.slot, plus: pl }, k)) + '–' + fmtS(k, it.rg[k][1] * eff({ stats: { [k]: 1 }, slot: it.slot, plus: pl }, k)) + '</span>' : '') + d + '</div>'; }

@@ -188,6 +188,8 @@ GameText.addCatalog('hu', {
   "inventory.full": "Megtelt a táska – egyesíts vagy adj el tárgyakat.",
   "inventory.inBag": "A táskában",
   "inventory.itemLevelShort": "Tárgysz.",
+  "inventory.ilvlSame": "ugyanaz, mint a viselt",
+  "inventory.ilvlVsEquipped": "a viselt {level}-hez képest",
   "inventory.merge": "⚗ Egyesítés",
   "inventory.mergeConfirm": "Egyesítés!",
   "inventory.mergeHint": "Egyesíts három azonos ritkaságú tárgyat egy ritkább tárggyá (tárgyszint = az egyesített tárgyak átlaga).",

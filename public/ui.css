@@ -174,9 +174,9 @@ kbd { border: 4px solid transparent; border-image: url(ui/keycap.png) 12 fill / 
 
 /* ---------- UX layer (ux.js) ---------- */
 /* item slots: rarity letter and lock */
-.slot .rmark { display: none; position: absolute; left: 3px; top: 1px; font-size: 0.625rem; font-weight: 800; color: #fff; text-shadow: 0 0 2px #000, 0 1px 2px #000; pointer-events: none; }
+.slot .rmark { display: none; position: absolute; left: 3px; bottom: 1px; font-size: 0.625rem; font-weight: 800; color: #fff; text-shadow: 0 0 2px #000, 0 1px 2px #000; pointer-events: none; }
 body.rarity-marks .slot .rmark { display: block; }
-.slot .lockmark { position: absolute; right: 2px; top: 1px; font-size: 0.625rem; font-style: normal; pointer-events: none; }
+.slot .lockmark { position: absolute; left: 14px; bottom: 1px; font-size: 0.625rem; font-style: normal; pointer-events: none; }
 .slot.locked { box-shadow: inset 0 0 0 2px rgba(255, 176, 74, .55); }
 #tip .cmpsum { margin-top: 4px; font-size: 0.75rem; display: flex; gap: 6px; flex-wrap: wrap; }
 #tip { max-height: calc(100vh - 16px); overflow: hidden; }
