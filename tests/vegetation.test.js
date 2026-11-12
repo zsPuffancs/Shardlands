@@ -1,24 +1,31 @@
 'use strict';
 // Vegetation distribution (public/vegetation.js) as baked by the client (public/world.js bakeDecor), headless.
-// Gloomwood (look 1) uses the new groves-and-clearings distribution; every other look must be untouched.
+// Meadows (look 0) and Gloomwood (look 1) use the new distribution; every other look must be untouched.
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path');
 const Vegetation = require('../public/vegetation');
 const { bake, stats } = require('./helpers/vegetation-sim');
 const { fingerprint } = require('../scripts/vegetation-fingerprint');
 
-const GLOOM = 1;
+const MEADOWS = 0, GLOOM = 1;
 // measured with the uniform scatter (commit a57e0bc) by scripts/vegetation-report.js
 const BEFORE = { founding: { perKm2: 118.2, nnMean: 46, open150: 0 }, region: { perKm2: 113.5, nnMean: 47, open150: 0 } };
 const founding = bake({ kind: 'founding' }), region = bake({ kind: 'region', look: GLOOM }, 1337, 3);
 
-test('only Gloomwood changes: every other biome, the farmland and the random stream after the bake are identical', () => {
+test('only the planned biomes change: approved ones are frozen, every other biome, the farmland and the random stream are identical', () => {
   const now = fingerprint(), base = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/vegetation-baseline.json'), 'utf8'));
+  const approved = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/vegetation-approved.json'), 'utf8')); // playtested looks (Gloomwood)
+  const planned = new Set(Vegetation.LOOKS.map(String));
   for (const [k, v] of Object.entries(base)) {
-    if (k === 'founding:1' || k === 'region:1') { assert.notEqual(now[k], v, k + ' uses the new distribution'); continue; }
-    assert.equal(now[k], v, k + ' unchanged');
+    const look = k.split(':')[1];
+    if (approved[k]) assert.equal(now[k], approved[k], k + ' is approved and must not change');
+    else if (planned.has(look) && !k.endsWith('streamAfter')) assert.notEqual(now[k], v, k + ' uses the new distribution');
+    else assert.equal(now[k], v, k + ' unchanged');
   }
-  assert.deepEqual(Vegetation.LOOKS, [GLOOM]);
+  assert.deepEqual(Vegetation.LOOKS, [MEADOWS, GLOOM]);
+  // the farmland outside the village is placed exactly as before
+  const farm = r => JSON.stringify(r.placed.filter(p => /^(Wheat|Corn)/.test(p.name)).map(p => [p.name, +p.x.toFixed(2), +p.z.toFixed(2)]));
+  assert.equal(farm(founding), farm(bake({ kind: 'founding' }, 1337, 0, { vegetation: false })));
 });
 
 test('Gloomwood has far fewer big trees than before, never more than its budget', () => {
@@ -102,4 +109,57 @@ test('deterministic and order-free: same seed, same forest; another seed, anothe
 test('bake cost stays small', () => {
   let best = 1e9; for (let i = 0; i < 3; i++) best = Math.min(best, bake({ kind: 'region', look: GLOOM }, 1337, 3).ms);
   assert.ok(best < 400, 'whole-region vegetation bake ' + best.toFixed(0) + ' ms in Node');
+});
+
+// ---------- Meadows (look 0, the founding ring round the village) ----------
+const SEEDS = [1337, 7, 99, 2024, 31337, 555, 8080, 123456];
+const meadowRuns = SEEDS.map(seed => [seed, seed === 1337 ? founding : bake({ kind: 'founding' }, seed)]);
+const MEADOWS_BEFORE = { perKm2: 96.9, open150: 0.02 }; // uniform scatter, seed 1337 (102.6 trees/km2 on average over these seeds)
+
+test('Meadows: few large trees, far fewer than before, on every seed', () => {
+  const all = meadowRuns.map(([seed, run]) => ({ seed, ...stats(run, MEADOWS) }));
+  for (const s of all) {
+    assert.ok(s.perKm2 >= 5 && s.perKm2 <= 20, 'seed ' + s.seed + ': ' + s.perKm2 + ' trees/km2');
+    assert.ok(s.perKm2 <= MEADOWS_BEFORE.perKm2 * 0.25, 'seed ' + s.seed + ' at most a quarter of before');
+    assert.ok(s.perKm2 <= Vegetation.RECIPES[MEADOWS].budget + 1, 'within the budget');
+  }
+  const avg = all.reduce((a, s) => a + s.perKm2, 0) / all.length; assert.ok(avg >= 9 && avg <= 18, 'average ' + avg.toFixed(1) + ' trees/km2');
+});
+
+test('Meadows: large open areas dominate, trees stand alone or in groups of two or three', () => {
+  const NAT = require('./helpers/vegetation-sim').natDims();
+  for (const [seed, run] of meadowRuns) {
+    const s = stats(run, MEADOWS); assert.ok(s.open150 >= 0.35, seed + ': ' + Math.round(s.open150 * 100) + '% of the ground has no tree within 150 (before 1-2%)');
+    assert.ok(s.open250 >= 0.12, seed + ': ' + Math.round(s.open250 * 100) + '% has none within 250');
+    assert.ok(s.nnMean >= 130, seed + ': mean distance to the next tree ' + s.nnMean);
+    const T = run.placed.filter(p => p.cat === 0 && run.zoneOf(p.x, p.z) === MEADOWS);
+    for (const t of T) { // no grove: at most 3 trees within 160 of any tree (itself included)
+      const near = T.filter(o => Math.hypot(o.x - t.x, o.z - t.z) < 160).length; assert.ok(near <= 3, seed + ': ' + near + ' trees together at ' + t.x.toFixed(0) + ',' + t.z.toFixed(0));
+      assert.ok(!run.onRoad(t.x, t.z, 60), seed + ' trunk near a road');
+      assert.ok(Math.hypot(t.x - run.CX, t.z - run.CY) >= run.V + 240, seed + ' tree in the village approach');
+      assert.ok(!run.onRoad(t.x, t.z, 60 + 0.8 * t.size * NAT[t.name].w / NAT[t.name].h / 2), seed + ' canopy over a road');
+    }
+  }
+});
+
+test('Meadows: grass, flower meadows and bare ground in patches; bushes, rocks and logs here and there, never on roads', () => {
+  for (const [seed, run] of meadowRuns) {
+    const inM = p => run.zoneOf(p.x, p.z) === MEADOWS && Math.hypot(p.x - run.CX, p.z - run.CY) > run.V + 200;
+    const ground = run.placed.filter(p => p.cat === 2 && inM(p) && !/^(Wheat|Corn)/.test(p.name)), mid = run.placed.filter(p => p.cat === 1 && inM(p) && !/^(Wheat|Corn)/.test(p.name));
+    for (const p of [...ground, ...mid]) assert.ok(!run.onRoad(p.x, p.z, 25), 'nothing on a road');
+    assert.ok(ground.some(p => p.name === 'Flowers') && mid.some(p => /^Bush/.test(p.name)) && mid.some(p => /^Rock_Moss/.test(p.name)) && mid.some(p => /^(WoodLog|TreeStump)/.test(p.name)), seed + ' variety');
+    // patchy cover: on a 100-unit grid some cells are bare, some lush
+    const cells = new Map(); for (const p of ground) { const k = Math.floor(p.x / 100) + ',' + Math.floor(p.z / 100); cells.set(k, (cells.get(k) || 0) + 1); }
+    let n = 0, bare = 0, lush = 0; for (let x = 50; x < run.W; x += 100) for (let z = 50; z < run.H; z += 100) { if (!inM({ x, z }) || run.onRoad(x, z, 60)) continue; n++; const c = cells.get(Math.floor(x / 100) + ',' + Math.floor(z / 100)) || 0; if (!c) bare++; if (c >= 8) lush++; }
+    assert.ok(bare / n > 0.2 && lush / n > 0.08, seed + ': ' + Math.round(bare / n * 100) + '% bare, ' + Math.round(lush / n * 100) + '% lush cells');
+    // flower meadows: flowers gather (most flowers have another flower within 40)
+    const F = ground.filter(p => p.name === 'Flowers'); const grouped = F.filter(f => F.some(o => o !== f && Math.hypot(o.x - f.x, o.z - f.z) < 40)).length;
+    assert.ok(grouped / F.length > 0.6, seed + ' flowers grow in patches ' + (grouped / F.length).toFixed(2));
+  }
+});
+
+test('Meadows: deterministic per seed, different between seeds', () => {
+  const sig = r => JSON.stringify(r.placed.filter(p => r.zoneOf(p.x, p.z) === MEADOWS).map(p => [p.name, +p.x.toFixed(2), +p.z.toFixed(2), +p.size.toFixed(2)]));
+  assert.equal(sig(bake({ kind: 'founding' }, 7)), sig(meadowRuns[1][1]));
+  assert.notEqual(sig(meadowRuns[1][1]), sig(founding));
 });

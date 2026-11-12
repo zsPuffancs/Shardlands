@@ -38,6 +38,44 @@
   // ---------- recipes (per biome look; index = the zone look used by world.js) ----------
   const GLOOM_TINT = [.75, .85, .8], GLOOM_GRASS = [.72, .82, .78];
   const RECIPES = {
+    0: { // Whispering Meadows: wide open grassland, lone trees and the odd copse, flower meadows, patches of bare ground
+      name: 'Meadows',
+      budget: 17,
+      trees: [
+        { models: seq('CommonTree', 5), w: 5, size: [115, 170] },
+        { models: seq('BirchTree', 5), w: 2.5, size: [120, 165] },
+        { models: seq('q1_Tree', 10), w: 2, size: [100, 145] },
+      ],
+      spacing: { trunk: 40, canopy: 1.25, group: .8, apart: 170 }, // lone trees and copses keep well apart; copse trees may touch
+      field: { scale: 760, fine: 300, grove: .58, open: .4 },
+      chance: { grove: .6, open: .24, thin: 0 },            // below 'open' the land is tree-free
+      cell: 80,
+      clearings: null,
+      copses: { cell: 520, chance: .6, count: [2, 3], r: [55, 95] },
+      roads: { clearance: 60, edge: 220, edgeChance: .2 },
+      village: 240,
+      understory: { chance: { grove: .55, open: .45, thin: .4 }, count: [1, 2], ring: [.55, 1.2], items: [
+        { models: ['Bush_1', 'Bush_2'], w: 3, size: [24, 36] },
+        { models: ['BushBerries_1', 'BushBerries_2'], w: 1.6, size: [24, 34] },
+        { models: seq('Plant', 5), w: 2, size: [14, 22] },
+      ] },
+      groundProps: { cell: 175, chance: .3, groveSkip: 0, items: [
+        { models: ['Bush_1', 'Bush_2'], w: 3, size: [22, 34] },
+        { models: ['BushBerries_1', 'BushBerries_2'], w: 1.8, size: [22, 32] },
+        { models: seq('Rock_Moss', 7), w: 1.6, size: [10, 24], bySize: true },
+        { models: ['WoodLog'], w: .7, size: [38, 54], bySize: true },
+        { models: ['TreeStump'], w: .7, size: [13, 17] },
+      ] },
+      outcrops: { cell: 560, chance: .3, count: [2, 4], r: [12, 30], models: seq('Rock_Moss', 7), size: [12, 30] },
+      grass: { cell: 105, chance: { clearing: .7, thin: .66, open: .6, grove: .42 }, count: [8, 22], r: [26, 72], items: [
+        { models: ['Grass_Short'], w: 6, size: [9, 14] },
+        { models: ['Grass', 'Grass_2'], w: 4, size: [10, 15] },
+        { models: seq('Plant', 5), w: .5, size: [12, 18] },
+        { models: ['Flowers'], w: .45, size: [10, 14] },
+      ],
+      flowers: { scale: 520, above: .63, items: [{ models: ['Flowers'], w: 5, size: [10, 14] }, { models: ['Grass_Short'], w: 3, size: [9, 13] }, { models: ['Grass'], w: 1, size: [10, 14] }] },
+      bare: { scale: 760, below: .34, factor: .12 } },
+    },
     1: { // Gloomwood / wildwood: dark mixed forest of pines and willows, autumn accents
       name: 'Gloomwood',
       budget: 52,                      // big trees per km2 (the uniform scatter had ~118)
@@ -89,8 +127,8 @@
     const field = (x, z) => .72 * noise(seed, x, z, F.scale, 1) + .28 * noise(seed, x, z, F.fine, 2);
 
     // deliberate clearings, one candidate per large cell
-    const clearings = [], C = R.clearings;
-    for (let gx = 0; gx * C.cell < W; gx++) for (let gz = 0; gz * C.cell < H; gz++) {
+    const clearings = [], C = R.clearings || { cell: 1000, chance: 0, r: [0, 0] }; // a recipe without clearings (open meadows)
+    if (R.clearings) for (let gx = 0; gx * C.cell < W; gx++) for (let gz = 0; gz * C.cell < H; gz++) {
       if (hash(seed, gx, gz, 11) > C.chance) continue;
       const x = (gx + .15 + .7 * hash(seed, gx, gz, 12)) * C.cell, z = (gz + .15 + .7 * hash(seed, gx, gz, 13)) * C.cell;
       if (inLook(x, z)) clearings.push({ x, z, r: C.r[0] + hash(seed, gx, gz, 14) * (C.r[1] - C.r[0]) });
@@ -114,10 +152,24 @@
       if (onRoad(x, z, R.roads.clearance + r * .8) || inClearing(x, z, r * .5)) continue; // canopy off the road and out of clearings
       cand.push({ name, x, z, size, r, yaw: hash(seed, gx, gz, 27) * 6.2832, band: b, young: !!kind.young, pr: hash(seed, gx, gz, 28) + (b === 'grove' ? .45 : b === 'open' ? .2 : 0) }); // groves fill first, thin woodland last
     }
+    // copses (optional): small groups of 2-3 trees round a point; they go first, and stand a little closer to each other
+    const K = R.copses;
+    if (K) for (let gx = 0; gx * K.cell < W; gx++) for (let gz = 0; gz * K.cell < H; gz++) {
+      const h = s => hash(seed, gx, gz, 140 + s), cx = (gx + .1 + .8 * h(1)) * K.cell, cz = (gz + .1 + .8 * h(2)) * K.cell;
+      if (h(0) > K.chance || !inLook(cx, cz) || nearVillage(cx, cz, R.village) || field(cx, cz) < F.open) continue;
+      const n = K.count[0] + Math.floor(h(3) * (K.count[1] - K.count[0] + 1)), kind = pick(R.trees.filter(t => !t.young), h(4)), group = gx * 4096 + gz + 1;
+      for (let k = 0; k < n; k++) {
+        const hk = s => hash(seed, gx * 16 + k, gz, 160 + s), a = hk(1) * 6.2832, d = k ? K.r[0] + hk(2) * (K.r[1] - K.r[0]) : 0, x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d;
+        const name = kind.models[Math.floor(hk(3) * kind.models.length)], dm = dims(name); if (!dm || !inLook(x, z) || nearVillage(x, z, R.village)) continue;
+        const size = (kind.size[0] + hk(4) * (kind.size[1] - kind.size[0])) * (k ? .82 : 1), r = size * dm.w / dm.h / 2;
+        if (onRoad(x, z, R.roads.clearance + r * .8)) continue;
+        cand.push({ name, x, z, size, r, yaw: hk(5) * 6.2832, band: 'grove', young: false, group, pr: 2 + h(6) });
+      }
+    }
     const area = cells * R.cell * R.cell / 1e6, budget = Math.round(R.budget * area);
     cand.sort((a, b) => b.pr - a.pr || a.x - b.x || a.z - b.z);
     const SG = 120, grid = new Map(), gKey = (x, z) => Math.floor(x / SG) + ',' + Math.floor(z / SG), trees = [];
-    const fits = c => { const kx = Math.floor(c.x / SG), kz = Math.floor(c.z / SG); for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) for (const o of grid.get((kx + a) + ',' + (kz + b)) || []) { const need = Math.max(R.spacing.trunk, R.spacing.canopy * (c.r + o.r)); if (Math.hypot(c.x - o.x, c.z - o.z) < need) return false; } return true; };
+    const fits = c => { const kx = Math.floor(c.x / SG), kz = Math.floor(c.z / SG); for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) for (const o of grid.get((kx + a) + ',' + (kz + b)) || []) { const same = c.group && c.group === o.group, need = same ? Math.max(R.spacing.trunk, R.spacing.group * (c.r + o.r)) : Math.max(R.spacing.trunk, R.spacing.apart || 0, R.spacing.canopy * (c.r + o.r)); if (Math.hypot(c.x - o.x, c.z - o.z) < need) return false; } return true; };
     for (const c of cand) { if (trees.length >= budget) break; if (!fits(c)) continue; trees.push(c); const k = gKey(c.x, c.z); (grid.get(k) || grid.set(k, []).get(k)).push(c); }
     for (const t of trees) items.push({ name: t.name, x: t.x, z: t.z, size: t.size, yaw: t.yaw, tint: null, cat: 0, bySize: false, r: t.r });
 
@@ -135,7 +187,7 @@
     const GP = R.groundProps;
     for (let gx = 0; gx * GP.cell < W; gx++) for (let gz = 0; gz * GP.cell < H; gz++) {
       const h = s => hash(seed, gx, gz, 60 + s), x = (gx + h(5)) * GP.cell, z = (gz + h(6)) * GP.cell;
-      if (h(0) > GP.chance || !freeGround(x, z, 44)) continue; const b = band(x, z); if (b === 'grove' && h(7) < .6) continue;
+      if (h(0) > GP.chance || !freeGround(x, z, 44)) continue; const b = band(x, z); if (b === 'grove' && h(7) < (GP.groveSkip === undefined ? .6 : GP.groveSkip)) continue;
       piece(GP.items, x, z, h, 1);
     }
     // rock outcrops at the edges of clearings and in thin woodland
@@ -152,13 +204,15 @@
     for (let gx = 0; gx * G.cell < W; gx++) for (let gz = 0; gz * G.cell < H; gz++) {
       const h = s => hash(seed, gx, gz, 100 + s), x = (gx + h(1)) * G.cell, z = (gz + h(2)) * G.cell;
       if (!inLook(x, z) || nearVillage(x, z, 30)) continue; const b = band(x, z);
-      if (h(0) > G.chance[b]) continue;
+      let chance = G.chance[b]; if (G.bare && noise(seed, x, z, G.bare.scale, 5) < G.bare.below) chance *= G.bare.factor; // bare ground
+      if (h(0) > chance) continue;
+      const flowery = G.flowers && noise(seed, x, z, G.flowers.scale, 6) > G.flowers.above; // flower meadows
       const n = G.count[0] + Math.floor(h(3) * (G.count[1] - G.count[0] + 1)), rad = G.r[0] + h(4) * (G.r[1] - G.r[0]), stretch = .55 + h(5) * .9, rot = h(6) * 6.2832;
       for (let k = 0; k < n; k++) {
         const hk = s => hash(seed, gx * 64 + k, gz, 120 + s), a = hk(1) * 6.2832, d = Math.sqrt(hk(2)) * rad, lx = Math.cos(a) * d * stretch, lz = Math.sin(a) * d;
         const px = x + lx * Math.cos(rot) - lz * Math.sin(rot), pz = z + lx * Math.sin(rot) + lz * Math.cos(rot);
         if (!freeGround(px, pz, 26)) continue;
-        const list = b === 'clearing' ? G.items : G.items.filter(e => !e.clearingOnly);
+        const list = flowery ? G.flowers.items : b === 'clearing' ? G.items : G.items.filter(e => !e.clearingOnly);
         piece(list, px, pz, hk, 2);
       }
     }

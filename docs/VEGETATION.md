@@ -9,7 +9,9 @@ Two placement systems exist side by side:
 - **Uniform scatter** (the original): random points over the map, a model picked by the zone's table (`ZDEC`).
   Still used by every biome look except Gloomwood.
 - **Distribution recipes** (`public/vegetation.js`): groves, open woodland and clearings. Used by the looks listed in
-  `Vegetation.LOOKS`; today only look 1, **Gloomwood** (the founding ring and the wildwood regions).
+  `Vegetation.LOOKS`: look 1, **Gloomwood** (the founding ring and the wildwood regions; playtested and approved, its
+  output is frozen by `tests/fixtures/vegetation-approved.json`), and look 0, **Meadows** (the founding ring round the
+  village).
 
 For a planned look, the uniform passes still draw their random numbers and place nothing, so every other look, the
 farmland and everything baked after the vegetation (zone specials, lava and ice pools) stays exactly as it was.
@@ -35,13 +37,26 @@ farmland and everything baked after the vegetation (zone specials, lava and ice 
 Every decision is a hash of (universe seed + map, cell, salt): all clients build the same forest, independent of call
 order and of the shared random stream.
 
+## Meadows
+
+Open grassland: the recipe has no groves and no clearings. Below a noise threshold the land is tree-free; elsewhere
+lone trees (CommonTree, BirchTree, q1_Tree) stand at least 170 units from any other tree, and copses of 2 to 3 trees
+(one per 520-unit cell at most, 60% chance) may stand closer to each other. Budget 17 per km2; in practice 8 to 11 per
+km2 of the whole zone (12 to 16 on the land where trees may grow, outside the village ring and the road bands).
+The ground layer uses two more noise fields: **flower meadows** (patches of Flowers with short grass) and **bare
+ground** (grass chance cut to 12%), on top of grass patches of 8 to 22 tufts. Bushes, berry bushes, small mossy
+rocks, logs and stumps are scattered on a 175-unit grid, small rock groups on a 560-unit grid. The farmland round the
+village is untouched.
+
 ## Tools
 
 - `node scripts/vegetation-report.js`: trees per km2, mid and ground pieces, nearest-tree distance, share of ground
   with no tree within 150 / 250 units, model variety and bake time, per look (founding map and generated regions).
 - `node scripts/vegetation-fingerprint.js [file]`: fingerprints per look (used to prove untouched looks are unchanged).
+- `node scripts/vegetation-load.js <look>`: instances, vertices and shadow-casting trees in view, before and after.
 - `tests/vegetation.test.js`: budget and reduction, local density, canopy spacing, clearings spread through the forest,
-  roads and village approach clear, forest floor, determinism, bake cost.
+  roads and village approach clear, forest floor, determinism, bake cost; for Meadows the same over eight seeds, groups
+  of at most three trees, open ground, patchy grass, flower meadows and bare ground.
 
 ## Adding a biome
 

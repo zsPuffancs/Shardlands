@@ -2,7 +2,7 @@
 'use strict';
 // Rendering load of the vegetation around points in a biome, by the same rules as drawDecor (public/world.js) at high
 // quality: instances inside the draw radii (trees 1450, mid layer 1000, ground cover 620), their vertex count, and the
-// trees casting shadows (within 900). Compares the new distribution with the uniform scatter (vegetation.js off).
+// trees casting shadows (within 900). Compares the look's new distribution with the uniform scatter for that look.
 // Usage: node scripts/vegetation-load.js [look=1]
 const fs = require('fs'), path = require('path');
 const { bake } = require('../tests/helpers/vegetation-sim');
@@ -19,7 +19,8 @@ function load(run) {
   for (const k in acc) acc[k] = Math.round(acc[k] / pts.length);
   return { points: pts.length, ...acc, farStandIns: run.far.length };
 }
-const t = (label, map) => { const before = load(bake(map, 1337, 3, { vegetation: false })), after = load(bake(map, 1337, 3)); console.log(label); for (const k of Object.keys(after)) console.log('  ' + k.padEnd(12) + String(before[k]).padStart(10) + String(after[k]).padStart(10) + (k !== 'points' ? ('   ' + ((after[k] / before[k] - 1) * 100).toFixed(0) + '%').padStart(8) : '')); };
+const others = () => require('../public/vegetation').LOOKS.filter(l => l !== look); // before = this look on the uniform scatter, the others as they are now
+const t = (label, map) => { const before = load(bake(map, 1337, 3, { looks: others() })), after = load(bake(map, 1337, 3)); console.log(label); for (const k of Object.keys(after)) console.log('  ' + k.padEnd(12) + String(before[k]).padStart(10) + String(after[k]).padStart(10) + (k !== 'points' ? ('   ' + ((after[k] / before[k] - 1) * 100).toFixed(0) + '%').padStart(8) : '')); };
 console.log('average per camera position (before = uniform scatter, after = vegetation.js)       before     after');
-t('Founding map, Gloomwood ring', { kind: 'founding' });
-t('Wildwood region', { kind: 'region', look });
+t('Founding map, look ' + look + ' ring', { kind: 'founding' });
+if (look !== 0) t('Generated region of look ' + look, { kind: 'region', look });

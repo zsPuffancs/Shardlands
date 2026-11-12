@@ -22,7 +22,10 @@ function loadWorld(files) {
   ctx.self = ctx;
   vm.createContext(ctx);
   const src = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
-  if (files.vegetation !== false && fs.existsSync(path.join(ROOT, 'public/vegetation.js'))) vm.runInContext(src('public/vegetation.js'), ctx);
+  if (files.vegetation !== false && fs.existsSync(path.join(ROOT, 'public/vegetation.js'))) {
+    vm.runInContext(src('public/vegetation.js'), ctx);
+    if (files.looks) ctx.Vegetation = { ...ctx.Vegetation, LOOKS: files.looks }; // plant only these looks (comparisons)
+  }
   vm.runInContext(src('public/world.js').split('\n// ---------------- characters')[0] + '\nthis.__bake = bakeDecor; this.__setNat = v => { NAT = v; };', ctx);
   vm.runInContext('const __np = natPlace; natPlace = function (n, x, z, s, y, t, c, b) { __hook(n, x, z, s, y, t, c, b); return __np(n, x, z, s, y, t, c, b); }', Object.assign(ctx, { __hook: (name, x, z, size, yaw, tint, cat) => placed.push({ name, x, z, size, yaw, cat }) }));
   ctx.__setNat(natDims());
