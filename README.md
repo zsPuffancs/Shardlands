@@ -204,3 +204,5 @@ Open **Soul Mystic → Affix → Auto Affix** for a separate draggable window wi
 ## Adventurer's journal and party equipment
 
 Open **📖** below the minimap for the discovered-enemy bestiary and daily village contracts. Team leaders can enable round-robin equipment ownership. Boss frames now show cast/phase/enrage/recovery state, and affix details distinguish raw values from effective gear caps. Character and world saves share a recoverable checkpoint so settlement funding and wallet deductions stay consistent. See [Adventure and recovery](docs/ADVENTURE.md) for controls, reward rules, limits and save recovery.
+
+The client also has a [compact phone/tablet layout](docs/MOBILE-UI.md), with viewport-sized windows, smaller HUD/nameplates, safe-area spacing and keyboard-aware sizing.

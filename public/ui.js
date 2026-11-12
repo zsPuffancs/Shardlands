@@ -218,12 +218,12 @@ function togglePanel(id) { if (isOpen(id)) closeWin(id); else openWin(id); }
 function closeAll() { for (const id of ['invp', 'skillp', 'shopw', 'smithw', 'mysticw', 'portalw', 'campw', 'chronw', 'teamw', 'tradew', 'setw']) closeWin(id); }
 document.querySelectorAll('.win').forEach(w => {
   const h = w.querySelector('.win-h'); w.addEventListener('mousedown', () => { w.style.zIndex = ++zTop; });
-  h.addEventListener('mousedown', e => { if (e.target.closest('button')) return; const r = w.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top;
+  h.addEventListener('mousedown', e => { if (e.target.closest('button') || window.ResponsiveUI?.compact()) return; const r = w.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top;
     const mv = ev => { w.style.left = Math.max(0, Math.min(innerWidth - 60, ev.clientX - ox)) + 'px'; w.style.top = Math.max(0, Math.min(innerHeight - 40, ev.clientY - oy)) + 'px'; w.style.right = 'auto'; w.style.marginLeft = 0; };
     const up = () => { removeEventListener('mousemove', mv); removeEventListener('mouseup', up); }; addEventListener('mousemove', mv); addEventListener('mouseup', up); e.preventDefault(); });
 });
 // NPCs: open the window that belongs to the NPC (game.js calls this when you reach them)
-function openNpc(k) { for (const n in NPCWIN) if (n !== k) closeWin(NPCWIN[n]); openWin(NPCWIN[k] || 'shopw'); if (k !== 'portal' && k !== 'camp' && !isOpen('invp')) openWin('invp'); sfx('click'); }
+function openNpc(k) { for (const n in NPCWIN) if (n !== k) closeWin(NPCWIN[n]); openWin(NPCWIN[k] || 'shopw'); if (k !== 'portal' && k !== 'camp' && !isOpen('invp') && !window.ResponsiveUI?.compact()) openWin('invp'); sfx('click'); }
 
 // ---------- inventory ----------
 function slotHtml(it, attrs, extra) {

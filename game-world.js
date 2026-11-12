@@ -64,7 +64,7 @@ function nearNpc(p, k) {
 const boardPosition = map => { const b = layoutOf(map).board || Settlement.CAMP_BOARD; return { x: map.cx + b.x, y: map.cy + b.y }; };
 const inVillage = entity => { const map = mapOf(entity); return Math.hypot(entity.x - map.cx, entity.y - map.cy) < layoutOf(map).safe; };
 // Keep players and monsters out of houses, stalls and the village wall. prev is where the entity was before moving.
-const collideSettlement = (entity, prev, radius) => { const map = mapOf(entity); return Settlement.collide(entity, layoutOf(map), map.cx, map.cy, radius, prev); };
+const collideSettlement = (entity, prev, radius) => { const map = mapOf(prev || entity); return Settlement.moveWithCollision(entity, layoutOf(map), map.cx, map.cy, radius, prev); };
 const clampWorld = (entity, map = mapOf(entity)) => { entity.x = Math.max(map.x0 + 20, Math.min(map.x0 + map.w - 20, entity.x)); entity.y = Math.max(map.y0 + 20, Math.min(map.y0 + map.h - 20, entity.y)); };
 // Put an entity on the arrival spot of a village (its own map's village unless another map is given).
 // Arrival spots are on the portal plaza, just south of the portal and clear of everything (settlement.js arrivalPoint).

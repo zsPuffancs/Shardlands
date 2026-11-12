@@ -1,0 +1,184 @@
+/* Compact HUD dimensions, rather than a transform of the desktop UI.
+   Keep this breakpoint synchronized with responsive-ui.js. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+:root {
+  --viewport-width: 100vw;
+  --viewport-height: 100vh;
+  --viewport-top: 0px;
+  --viewport-left: 0px;
+  --viewport-right: 0px;
+  --viewport-bottom: 0px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+@supports (height: 100dvh) { :root { --viewport-height: 100dvh; } }
+
+@media (max-width: 760px), (pointer: coarse) and (max-width: 1100px), (max-height: 480px) and (max-width: 1100px) {
+  :root {
+    font-size: calc(16px * var(--ui-text-scale));
+    --mobile-map: clamp(96px, 27vw, 132px);
+    --mobile-frame: min(260px, calc(var(--viewport-width) - var(--safe-left) - var(--safe-right) - var(--mobile-map) - 24px));
+    --mobile-slot: clamp(28px, calc((var(--viewport-width) - var(--safe-left) - var(--safe-right) - 60px) / 7), 44px);
+    --mobile-window: min(480px, calc(var(--viewport-width) - var(--safe-left) - var(--safe-right) - 16px));
+  }
+  /* The panel filter would make fixed navigation relative to the minimap instead of the viewport. */
+  #pframe, #mapbox, #actionbar, #chat { transform: none; filter: none; }
+  #pframe {
+    left: calc(var(--viewport-left) + var(--safe-left) + 6px);
+    top: calc(var(--viewport-top) + var(--safe-top) + 6px);
+    width: var(--mobile-frame); min-height: 0; padding: 5px 5px 5px 39px;
+    border-width: 7px; border-image-width: 7px;
+  }
+  #portrait { width: 28px; height: 28px; left: 4px; top: 8px; font-size: 18px; }
+  #portrait::after { width: 38px; height: 38px; left: -5px; top: -5px; }
+  #plvl { left: 16px; top: 30px; width: 26px; height: 20px; line-height: 20px; font-size: 9px; }
+  #who { font-size: .6875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #pframe .bar { height: 14px; margin: 3px 0; border-image-width: 5px; }
+  #pframe .bar span { line-height: 12px; font-size: 9px; }
+  #goldl { font-size: .5625rem; line-height: 1.3; overflow-wrap: anywhere; }
+  #buffs { gap: 2px; margin-top: 2px; max-height: 32px; overflow: hidden; }
+  .bf { font-size: 9px; padding: 0 3px; }
+  #sppill { font-size: 9px; line-height: 1.2; }
+  #mapbox {
+    left: auto; right: calc(var(--viewport-right) + var(--safe-right) + 6px);
+    top: calc(var(--viewport-top) + var(--safe-top) + 6px);
+    width: var(--mobile-map); padding: 2px 3px 4px;
+    border-width: 6px; border-image-width: 6px;
+  }
+  #mapwrap { width: 100%; margin-top: 0; }
+  #mapwrap #mini { inset: 5%; width: 90%; height: 90%; }
+  #zname { font-size: .625rem; line-height: 1.2; margin-top: 3px; white-space: nowrap; }
+  #zinfo { font-size: .5625rem; line-height: 1.2; }
+  #maplegend-btn { width: 28px; height: 28px; min-width: 28px; padding: 0; font-size: 12px; }
+  #maplegend { position: fixed; right: calc(var(--viewport-right) + var(--safe-right) + 6px); top: calc(var(--viewport-top) + var(--safe-top) + var(--mobile-map) + 42px); width: min(240px, calc(var(--viewport-width) - 20px)); max-height: calc(var(--viewport-height) - var(--mobile-map) - 80px); overflow-y: auto; margin: 0; padding: 8px; background: #171109f5; border: 1px solid #9a763a; font-size: 11px; z-index: 22; }
+  #mapbtns {
+    position: fixed; left: calc(var(--viewport-left) + var(--safe-left) + 8px);
+    right: calc(var(--viewport-right) + var(--safe-right) + 8px);
+    bottom: calc(var(--viewport-bottom) + var(--safe-bottom) + var(--mobile-slot) + 54px);
+    width: auto; margin: 0; padding: 3px; gap: 4px; z-index: 21;
+    background: linear-gradient(90deg, transparent, #130e08dd 15% 85%, transparent);
+  }
+  #mapbtns button { width: 34px; height: 34px; padding: 0; font-size: 16px; flex: 0 0 34px; }
+  #actionbar {
+    left: calc(var(--viewport-left) + (var(--viewport-width) + var(--safe-left) - var(--safe-right)) / 2);
+    bottom: calc(var(--viewport-bottom) + var(--safe-bottom) + 4px);
+    transform: translateX(-50%); padding: 4px 6px; border-width: 6px; border-image-width: 6px;
+    max-width: calc(var(--viewport-width) - var(--safe-left) - var(--safe-right) - 8px);
+  }
+  #hotbar { display: grid; grid-template-columns: repeat(7, var(--mobile-slot)); gap: 4px; }
+  #hotbar .gap { display: none; }
+  #hotbar .sk { width: var(--mobile-slot); height: var(--mobile-slot); font-size: 20px; }
+  #hotbar .sk .key { display: none; }
+  #hotbar .sk .nm { bottom: -12px; left: -2px; right: -2px; font-size: 8px; }
+  #hotbar .sk em { font-size: 9px; }
+  #hotbar .sk .rk { font-size: 8px; }
+  #xpbar { height: 10px; margin-top: 14px; }
+  #xpbar span { font-size: 8px; line-height: 8px; }
+  #chat {
+    left: calc(var(--viewport-left) + var(--safe-left) + 6px);
+    bottom: calc(var(--viewport-bottom) + var(--safe-bottom) + var(--mobile-slot) + 102px);
+    width: min(330px, calc(var(--viewport-width) - var(--safe-left) - var(--safe-right) - 12px));
+  }
+  #log { height: clamp(32px, 9vh, 70px); font-size: 11px; line-height: 1.3; padding: 3px 4px; }
+  #chat-tabs { flex-wrap: nowrap; overflow-x: auto; padding: 0; gap: 2px; }
+  #chat-tabs button { flex: 0 0 auto; font-size: 10px; min-height: 28px; padding: 3px 7px; }
+  #chatin { margin-top: 3px; }
+  #tgt {
+    top: calc(var(--hud-player-bottom, 104px) + 6px);
+    left: calc(var(--viewport-left) + var(--safe-left) + 6px); transform: none;
+    width: var(--mobile-frame); padding: 3px 5px; border-width: 6px; border-image-width: 6px;
+    font-size: 11px;
+  }
+  #tgtn { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #tgt .bar { height: 14px; border-image-width: 5px; }
+  #tgt .bar span { font-size: 9px; line-height: 12px; }
+  #tgtmods, #bossdetail { font-size: 10px; line-height: 1.3; }
+  #bossdetail .boss-enrage { float: none; display: block; }
+  #castwarn, #bossnotice {
+    left: calc(var(--viewport-left) + var(--viewport-width) / 2);
+    top: calc(var(--hud-target-bottom, 210px) + 6px);
+    width: max-content; max-width: calc(var(--viewport-width) - var(--safe-left) - var(--safe-right) - 20px);
+    font-size: 11px; white-space: normal; padding: 4px 7px;
+  }
+  #bossnotice { top: calc(var(--hud-target-bottom, 210px) + 46px); }
+  #toasts {
+    left: calc(var(--viewport-left) + var(--viewport-width) / 2);
+    top: calc(var(--hud-target-bottom, 104px) + 82px);
+    width: calc(var(--viewport-width) - var(--safe-left) - var(--safe-right) - 20px); gap: 3px;
+  }
+  .toast { font-size: 11px; padding: 2px 6px; border-width: 7px; border-image-width: 7px; text-align: center; }
+  #prompt { bottom: calc(var(--viewport-bottom) + var(--safe-bottom) + var(--mobile-slot) + 96px); max-width: calc(var(--viewport-width) - 24px); font-size: 11px; text-align: center; }
+  #zone { top: calc(var(--viewport-top) + var(--viewport-height) * .28); }
+  #zone b { font-size: clamp(18px, 5vw, 28px); letter-spacing: 2px; }
+  #zone span { font-size: 11px; letter-spacing: 1px; }
+  .lb { font-size: calc(10px * var(--ui-text-scale)); }
+  .lb.npc, .lb.boss { font-size: calc(11px * var(--ui-text-scale)); }
+  .lb.loot, .lb .mob-level { font-size: calc(9px * var(--ui-text-scale)); }
+  .lb .hb { width: 38px; height: 4px; }
+  .lb.boss .hb { width: 62px; height: 5px; }
+  .lb.alpha .hb { width: 48px; height: 4px; }
+  .lb.pl.me .n { font-size: calc(clamp(9px, 2.6vmin, 11px) * var(--ui-text-scale)); gap: .25em; padding: .06em .3em; max-width: min(190px, 60vw); }
+  .hero-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .hero-level { flex: 0 0 auto; padding: .1em .15em; border-width: .25em .65em; border-image-width: .25em .65em; }
+  .ft { font-size: calc(12px * var(--ui-text-scale)); }
+  .ft--level { font-size: calc(18px * var(--ui-text-scale)); }
+  .ft--damage { font-size: calc(clamp(14px, 3vmin, 20px) * var(--ui-text-scale)); }
+  .ft--critical { font-size: calc(clamp(18px, 4vmin, 28px) * var(--ui-text-scale)); }
+  .ft--other { font-size: calc(clamp(12px, 2.5vmin, 17px) * var(--ui-text-scale)) !important; }
+  #perf { left: calc(var(--viewport-left) + var(--viewport-width) / 2); top: calc(var(--viewport-top) + var(--safe-top) + 6px); font-size: 9px; max-width: 50vw; overflow: hidden; }
+
+  /* Ignore remembered desktop placement on a phone. Scroll inside a fitted window. */
+  .win.panel:is(.win, #autoaffixw, #journalw) {
+    width: var(--mobile-window) !important; max-width: var(--mobile-window) !important;
+    left: calc(var(--viewport-left) + var(--safe-left) + (var(--viewport-width) - var(--safe-left) - var(--safe-right) - var(--mobile-window)) / 2) !important;
+    top: calc(var(--viewport-top) + var(--safe-top) + 6px) !important; right: auto !important;
+    margin: 0 !important; transform: none !important;
+    max-height: calc(var(--viewport-height) - var(--safe-top) - var(--safe-bottom) - 12px) !important;
+    border-width: 12px; border-image-width: 12px;
+  }
+  .win-h { margin: -3px -2px 0; cursor: default; flex: 0 0 auto; }
+  .win-h b { height: 36px; font-size: .75rem; letter-spacing: 1px; border-width: 0 16px; border-image-width: 0 16px; }
+  .win-h .x { width: 38px; height: 38px; }
+  .win-b { min-height: 0; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 5px 2px; }
+  .win-b button { min-height: 34px; }
+  .win .tabs { flex-wrap: wrap; }
+  .win .tabs button { flex: 1 1 65px; }
+  #myopts, #afopts { flex-wrap: wrap; }
+  #afpick, #mypick, #mmpick, #smpick { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
+  #gst, .aa-fields { grid-template-columns: 1fr; }
+  #tip { min-width: 0; max-width: min(300px, calc(var(--viewport-width) - 16px)); border-width: 14px; border-image-width: 14px; font-size: 12px; }
+  input:not([type=checkbox]):not([type=range]), select { font-size: max(16px, 1rem) !important; }
+  .win input[type=checkbox] { width: 22px !important; height: 22px !important; }
+  .win input[type=range] { height: 18px; }
+  button, .sk, .slot { touch-action: manipulation; }
+  #login { padding: calc(var(--viewport-top) + var(--safe-top) + 8px) calc(var(--safe-right) + 8px) calc(var(--viewport-bottom) + var(--safe-bottom) + 8px) calc(var(--safe-left) + 8px); }
+  #login .box { width: min(420px, 100%); max-height: calc(var(--viewport-height) - var(--safe-top) - var(--safe-bottom) - 16px); overflow-y: auto; padding: 8px; border-width: 14px; border-image-width: 14px; }
+  #login h1 { font-size: clamp(22px, 6vw, 34px); letter-spacing: 2px; }
+  #login .sub { margin-bottom: 10px; }
+  .cls button { min-height: 42px; padding: 6px 4px; }
+  #tutorial, #uxconfirm > .panel, #smith-auto-dialog, #bag-destroy-dialog {
+    width: min(420px, calc(var(--viewport-width) - var(--safe-left) - var(--safe-right) - 16px));
+    max-height: calc(var(--viewport-height) - var(--safe-top) - var(--safe-bottom) - 16px);
+    overflow-y: auto; border-width: 12px; border-image-width: 12px; font-size: 12px;
+  }
+  #tutorial { left: calc(var(--viewport-left) + var(--viewport-width) / 2); top: calc(var(--viewport-top) + var(--viewport-height) / 2); bottom: auto; transform: translate(-50%, -50%); }
+  #uxconfirm { top: var(--viewport-top); left: var(--viewport-left); right: auto; bottom: auto; width: var(--viewport-width); height: var(--viewport-height); padding: 8px; }
+  #smith-auto-dialog, #bag-destroy-dialog { position: fixed; inset: auto; left: calc(var(--viewport-left) + var(--viewport-width) / 2); top: calc(var(--viewport-top) + var(--safe-top) + 8px); margin: 0; transform: translateX(-50%); }
+  #uxconfirm .row2, .smith-dialog-actions, .bag-dialog-actions { flex-wrap: wrap; }
+  #uxconfirm button, dialog button { min-height: 36px; }
+  #dead { font-size: 28px; }
+  #dead small { font-size: 14px; }
+}
+
+@media (orientation: landscape) and (min-width: 640px) and (max-height: 480px) and (max-width: 1100px) {
+  :root { --mobile-map: 96px; --mobile-frame: min(220px, calc(var(--viewport-width) - var(--safe-left) - var(--safe-right) - 140px)); --mobile-slot: 36px; }
+  #tgt { top: calc(var(--viewport-top) + var(--safe-top) + 6px); left: calc(var(--viewport-left) + var(--viewport-width) / 2); transform: translateX(-50%); width: min(280px, calc(var(--viewport-width) - var(--safe-left) - var(--safe-right) - 380px)); }
+  #castwarn { top: max(calc(var(--hud-target-bottom, 98px) + 6px), calc(var(--viewport-top) + var(--safe-top) + 104px)); }
+  #bossnotice { top: max(calc(var(--hud-target-bottom, 98px) + 40px), calc(var(--viewport-top) + var(--safe-top) + 138px)); }
+  #toasts { top: max(calc(var(--hud-target-bottom, 98px) + 74px), calc(var(--viewport-top) + var(--safe-top) + 172px)); }
+  #chat { width: min(250px, 30vw); bottom: calc(var(--viewport-bottom) + var(--safe-bottom) + 6px); }
+  #log { height: 36px; }
+  #zone b { font-size: 22px; }
+}

@@ -438,6 +438,37 @@
     return moved;
   }
 
+  // Moving bodies must test the path, not only its endpoint: nearest-face depenetration can
+  // otherwise eject a fast step through a narrow obstacle. Consume blocked motion instead
+  // of catching up to the original endpoint on the following substep.
+  function moveWithCollision(entity, lay, cx, cy, radius, prev) {
+    if (!lay || !prev) return collide(entity, lay, cx, cy, radius, prev);
+    if (![prev.x, prev.y].every(Number.isFinite)) return false;
+    if (![entity.x, entity.y].every(Number.isFinite)) { entity.x = prev.x; entity.y = prev.y; return true; }
+    radius = Number.isFinite(radius) && radius > 0 ? radius : 10;
+    const fromX = prev.x - cx, fromY = prev.y - cy, toX = entity.x - cx, toY = entity.y - cy;
+    // A path wholly outside the settlement's bounding square needs no substeps.
+    const reach = lay.reach + radius;
+    if (Math.min(fromX, toX) > reach || Math.max(fromX, toX) < -reach || Math.min(fromY, toY) > reach || Math.max(fromY, toY) < -reach) return false;
+    const start = { x: prev.x, y: prev.y };
+    // Newly built scenery may occupy the old position. Resolve that separately from walking.
+    if (collide(start, lay, cx, cy, radius, prev) && Math.hypot(start.x - prev.x, start.y - prev.y) > 1e-6) { entity.x = start.x; entity.y = start.y; return true; }
+    const dx = entity.x - prev.x, dy = entity.y - prev.y, distance = Math.hypot(dx, dy), stepSize = Math.max(1, radius / 2);
+    if (!Number.isFinite(distance)) { entity.x = prev.x; entity.y = prev.y; return true; }
+    if (!distance) return false;
+    const maxDistance = stepSize * 64, travel = Math.min(distance, maxDistance), steps = Math.max(1, Math.ceil(travel / stepSize));
+    const stepX = dx / distance * travel / steps, stepY = dy / distance * travel / steps, allowance = 2 * travel / steps + 1e-6;
+    entity.x = prev.x; entity.y = prev.y; let blocked = distance > maxDistance;
+    for (let index = 0; index < steps; index++) {
+      const before = { x: entity.x, y: entity.y };
+      entity.x += stepX; entity.y += stepY;
+      blocked = collide(entity, lay, cx, cy, radius, before) || blocked;
+      // Intersecting inflated obstacles must not turn a small walk into a large push.
+      if (Math.hypot(entity.x - before.x, entity.y - before.y) > allowance) { entity.x = before.x; entity.y = before.y; return true; }
+    }
+    return blocked;
+  }
+
   // Which settlement a generated region gets. Fire and void lands only allow an encampment that players build;
   // other lands get a village, or sometimes nothing but the portal (never the first region beyond the founding lands).
   // (The village layout is chosen separately, see chooseLayout, so these rolls stay as they were.)
@@ -452,5 +483,5 @@
 
   return { UNSTAFFED_VILLAGE_CHANCE, KIT_STYLES, KIT_STATION, KIT_PORTAL_FEET, VILLAGE_SCALE, DIM, NPC_OFFSETS, PORTAL, PORTAL_OFFSET, CAMP_BOARD, STALL_COST, STALL_NAMES, SAFE_RADIUS, WALL, GATES, VENDORS, LAYOUT_IDS, LAYOUT_NAMES, LAYOUT_WEIGHTS,
     debugLayout: id => { DEBUG = true; try { return LAYOUTS[id](); } finally { DEBUG = false; } },
-    layout, chooseLayout, arrivalPoint, collide, choose, overlaps, faceCentre, gateOpen, buildWall };
+    layout, chooseLayout, arrivalPoint, collide, moveWithCollision, choose, overlaps, faceCentre, gateOpen, buildWall };
 }));

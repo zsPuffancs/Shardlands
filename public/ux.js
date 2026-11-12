@@ -38,7 +38,7 @@ addEventListener('resize', () => { for (const w of document.querySelectorAll('.w
 for (const w of document.querySelectorAll('.win')) {
   const head = w.querySelector('.win-h'); if (!head) continue;
   head.addEventListener('mousedown', e => {
-    if (e.target.closest('button')) return;
+    if (e.target.closest('button') || window.ResponsiveUI?.compact()) return;
     const done = () => { removeEventListener('mouseup', done); const r = w.getBoundingClientRect(); uxPrefs.winpos[w.id] = { left: Math.round(r.left), top: Math.round(r.top) }; saveUxPrefs(); fitWindow(w); };
     addEventListener('mouseup', done);
   });

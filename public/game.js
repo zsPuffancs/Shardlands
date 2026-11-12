@@ -680,12 +680,20 @@ function updateSelf(d) { // client-side prediction: our own hero reacts instantl
   if (me.dead) intent = null;
   if (!me.dead) { const w = wantDir(); if (w[0] || w[1]) { vx = w[0] * me.spd; vz = w[1] * me.spd; intent = null; } else if (intent) { const dx = intent.x - S.rx, dz = intent.y - S.ry, l = Math.hypot(dx, dz); if (l > 8) { vx = dx / l * me.spd; vz = dz / l * me.spd; } else intent = null; } }
   const ex = me.x - S.rx, ez = me.y - S.ry;
-  if (Math.hypot(ex, ez) > 230) { S.rx = me.x; S.ry = me.y; }
+  const authoritativeReset = Math.hypot(ex, ez) > 230;
+  if (authoritativeReset) { S.rx = me.x; S.ry = me.y; }
   else if (vx || vz) { S.rx += vx * d; S.ry += vz * d; const k = Math.min(1, d * 2.2); S.rx += (me.x - S.rx) * k; S.ry += (me.y - S.ry) * k; }
   else { const k = 1 - Math.pow(0.00003, d); S.rx += ex * k; S.ry += ez * k; }
   S.rx = Math.max(20, Math.min(WORLD.W - 20, S.rx)); S.ry = Math.max(20, Math.min(WORLD.H - 20, S.ry));
   // Same collision as the server, so walking into a house or the wall does not rubber-band.
-  if (WORLD.layout) { const e = { x: S.rx, y: S.ry }; if (Settlement.collide(e, WORLD.layout, WORLD.CX, WORLD.CY, 11, { x: ox, y: oy })) { S.rx = e.x; S.ry = e.y; } }
+  if (WORLD.layout) {
+    const e = { x: S.rx, y: S.ry };
+    // An explicit server correction is a new baseline, not a predicted walk through scenery.
+    const blocked = authoritativeReset
+      ? Settlement.collide(e, WORLD.layout, WORLD.CX, WORLD.CY, 11)
+      : Settlement.moveWithCollision(e, WORLD.layout, WORLD.CX, WORLD.CY, 11, { x: ox, y: oy });
+    if (blocked) { S.rx = e.x; S.ry = e.y; }
+  }
   animate(S, S.rx - ox, S.ry - oy, d);
 }
 let nextFrameAt = 0, wasHidden = false;
