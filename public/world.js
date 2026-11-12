@@ -62,16 +62,28 @@ const ZDEC = [
 ];
 const FARC = [[.2, .5, .22], [.12, .32, .22], [.26, .22, .2], [.12, .08, .08], [.85, .9, .95], [.22, .14, .3], [.1, .05, .05]];
 function pickW(list, r) { let t = 0; for (const e of list) t += e[1]; let k = r * t; for (const e of list) { k -= e[1]; if (k <= 0) return e; } return list[list.length - 1]; }
+const vegetationStats = {};
 function bakeDecor(onRoad, zoneOf, R) {
-  DECOR.clear(); if (!NAT) return false;
+  DECOR.clear(); if (!NAT) return false; for (const k in vegetationStats) delete vegetationStats[k];
   const { W, H, CX, CY, V } = WORLD, area = W * H / 25e6;
-  const put = (cat, x, z, zn) => { const L = ZDEC[Math.min(zn, ZDEC.length - 1)][cat === 0 ? 'big' : cat === 1 ? 'mid' : 'small']; if (!L || !L.length) return; const e = pickW(L, R()), name = e[0][Math.floor(R() * e[0].length)], size = e[2][0] + R() * (e[2][1] - e[2][0]), yaw = R() * 6.283;
-    if (natPlace(name, x, z, size, yaw, e[3], cat, e[4]) && cat === 0) { // cheap stand-in shown beyond the detail radius
+  // Looks with a distribution recipe (public/vegetation.js) are planted by it; the uniform scatter below still draws its
+  // random numbers for them (and places nothing), so every other look and everything baked after stays the same.
+  const planned = new Set(typeof Vegetation !== 'undefined' ? Vegetation.LOOKS : []);
+  const place = (name, x, z, size, yaw, tint, cat, bySize, zn) => {
+    if (natPlace(name, x, z, size, yaw, tint, cat, bySize) && cat === 0) { // cheap stand-in shown beyond the detail radius
       const c = FARC[Math.min(zn, 6)], s = size / 150, dead = zn === 2 || zn === 3 || zn >= 5;
       GL.bakeAdd(M.trunk, x, 0, z, 4 * s, (dead ? 120 : 55) * s, 4 * s, yaw, 0, [.3, .22, .15], 0, 0, true);
       if (!dead) { GL.bakeAdd(M.cone6, x, 35 * s, z, 42 * s, 90 * s, 42 * s, yaw, 0, c, 0, 0, true); GL.bakeAdd(M.cone6, x, 85 * s, z, 28 * s, 60 * s, 28 * s, yaw, 0, [c[0] * 1.15, c[1] * 1.15, c[2] * 1.15], 0, 0, true); } } };
+  const put = (cat, x, z, zn) => { const L = ZDEC[Math.min(zn, ZDEC.length - 1)][cat === 0 ? 'big' : cat === 1 ? 'mid' : 'small']; if (!L || !L.length) return; const e = pickW(L, R()), name = e[0][Math.floor(R() * e[0].length)], size = e[2][0] + R() * (e[2][1] - e[2][0]), yaw = R() * 6.283;
+    if (!planned.has(zn)) place(name, x, z, size, yaw, e[3], cat, e[4], zn); };
   const pass = (n, cat, minD, skipRoadW) => { for (let i = 0; i < n; i++) { const x = R() * W, z = R() * H, d = Math.hypot(x - CX, z - CY); if (d < minD || onRoad(x, z, skipRoadW)) { R(); R(); R(); R(); continue; } const zn = zoneOf(x, z); if (zn < 0) { R(); R(); R(); R(); continue; } if (zn === 3 && R() < .5) { R(); R(); R(); continue; } if (zn === 6 && R() < .35) { R(); R(); R(); continue; } put(cat, x, z, zn); } };
   pass(Math.round(3000 * area), 0, V + 110, 52); pass(Math.round(2600 * area), 1, V + 70, 40); pass(Math.round(9000 * area), 2, V + 30, 26);
+  const vseed = (((WORLD.universe && WORLD.universe.seedNumber) || 1337) + (WORLD.map || 0) * 7919) >>> 0;
+  for (const look of planned) {
+    const t0 = performance.now(), plan = Vegetation.plan({ look, seed: vseed, W, H, CX, CY, V, zoneOf, onRoad, dims: n => NAT[n] && { h: NAT[n].h, w: NAT[n].w } });
+    for (const p of plan.items) place(p.name, p.x, p.z, p.size, p.yaw, p.tint, p.cat, p.bySize, look);
+    if (plan.stats && plan.stats.trees) vegetationStats[look] = { ...plan.stats, ms: +(performance.now() - t0).toFixed(1) };
+  }
   // farmland just outside the village fence
   if (!WORLD.settlement || WORLD.settlement.kind === 'village') for (let i = 0; i < 520; i++) { const a = (i % 2 ? .45 : 3.6) + R() * 1.1, d = V + 40 + R() * 130, x = CX + Math.cos(a) * d, z = CY + Math.sin(a) * d; if (onRoad(x, z, 50)) continue; natPlace(R() < .6 ? 'Wheat' : (R() < .5 ? 'Corn_1' : 'Corn_2'), x, z, 22 + R() * 10, R() * 6.28, null, 1); }
   return true;
