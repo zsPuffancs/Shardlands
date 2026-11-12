@@ -37,6 +37,7 @@
   const PORTAL_OFFSET = PORTAL;
   // On an encampment the stalls are built by players. The board stands near the fire.
   const CAMP_BOARD = { x: 62, y: -48 };
+  // Legacy API only. Live construction prices are server-snapshotted in world.settlement.cost.
   const STALL_COST = { merchant: 250000, smith: 400000, mystic: 400000 };
   // Chance that a generated village starts without its vendors: the Merchant, Blacksmith and Soul Mystic then
   // come only when heroes buy their stalls at the village board (the encampment stall system, same prices).

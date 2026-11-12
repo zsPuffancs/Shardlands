@@ -211,8 +211,8 @@ function hurtFlash(strong) { if (document.body.classList.contains('reduce-motion
 // ---------- windows ----------
 let zTop = 20;
 const isOpen = id => $(id).style.display === 'flex';
-function openWin(id) { const w = $(id); w.style.display = 'flex'; w.style.zIndex = ++zTop; if (id === 'invp') buildInv(); if (id === 'skillp') buildSkills(); if (id === 'shopw') buildShop(); if (id === 'smithw') buildSmith(); if (id === 'mysticw') buildMystic(); if (id === 'chronw') { buildChronicle(); send({ t: 'universe' }); } if (id === 'portalw') { buildPortal(); send({ t: 'portal' }); } if (id === 'campw') buildCamp(); if (id === 'teamw') buildTeam(); if (id === 'tradew') buildTrade(); if (id === 'setw') buildSettings(); tip.style.display = 'none'; }
-function closeWin(id) { if (id === 'tradew' && TRADE) send({ t: 'trade', op: 'cancel' }); $(id).style.display = 'none'; if (id === 'invp') { mergeMode = false; mergeSel = []; } if (id === 'setw') bindWait = null; tip.style.display = 'none'; }
+function openWin(id) { const w = $(id); w.style.display = 'flex'; w.style.zIndex = ++zTop; if (id === 'invp') buildInv(); if (id === 'skillp') buildSkills(); if (id === 'shopw') buildShop(); if (id === 'smithw') buildSmith(); if (id === 'mysticw') buildMystic(); if (id === 'chronw') { buildChronicle(); send({ t: 'universe' }); } if (id === 'portalw') window.PortalUI?.open(); if (id === 'campw') buildCamp(); if (id === 'teamw') buildTeam(); if (id === 'tradew') buildTrade(); if (id === 'setw') buildSettings(); tip.style.display = 'none'; }
+function closeWin(id) { if (id === 'tradew' && TRADE) send({ t: 'trade', op: 'cancel' }); if (id === 'portalw') window.PortalUI?.close(); $(id).style.display = 'none'; if (id === 'invp') { mergeMode = false; mergeSel = []; } if (id === 'setw') bindWait = null; tip.style.display = 'none'; }
 function togglePanel(id) { if (isOpen(id)) closeWin(id); else openWin(id); }
 function closeAll() { for (const id of ['invp', 'skillp', 'shopw', 'smithw', 'mysticw', 'portalw', 'campw', 'chronw', 'teamw', 'tradew', 'setw']) closeWin(id); }
 document.querySelectorAll('.win').forEach(w => {
@@ -429,7 +429,6 @@ document.addEventListener('click', e => {
   if (t.dataset.build) { const k = t.dataset.build, st = WORLD.settlement, raised = Object.values((st.funds && st.funds[k]) || {}).reduce((s, v) => s + v, 0), left = st.cost[k] - raised; uxConfirm(text('camp.confirm', 'Build the {stall} for {gold} gold? It stays for everyone on this server.', { stall: text('camp.stall.' + k, STALL_NAME[k]), gold: GameText.number(left) }), text('camp.build', 'Build'), () => send({ t: 'build', k, amount: left })); return; }
   if (t.dataset.donate) { const k = t.dataset.donate, field = $('campamt-' + k), amount = Math.floor(+(field && field.value) || 0); if (amount < 1) return;
     uxConfirm(text('camp.donateConfirm', 'Give {gold} gold towards the {stall}? Gold given is not returned. The biggest contributor gets the deed.', { gold: GameText.number(Math.min(amount, me.g)), stall: text('camp.stall.' + k, STALL_NAME[k]) }), text('camp.give', 'Give'), () => send({ t: 'build', k, amount })); return; }
-  if (t.dataset.travel) { send({ t: 'travel', map: +t.dataset.travel }); closeWin('portalw'); return; }
   if (t.dataset.my) { mySel = t.dataset.my; buildMystic(); return; }
   if (t.id === 'mygo') { if (mySel) { send({ t: 'reroll', uid: mySel }); $('myres').textContent = '…'; $('myres').style.color = '#ccc'; } return; }
   if (t.id === 'junk') { send({ t: 'sellall', rar: 1 }); sfx('sell'); return; }
@@ -604,20 +603,6 @@ function buildCamp() {
           '<button data-build="' + k + '"' + (me.g < left || left < 1 ? ' disabled' : '') + '>' + esc(text('camp.payRest', 'Pay the rest ({gold}g)', { gold: GameText.number(left) })) + '</button>' +
         '</div></div></div>'; };
   $('campb').innerHTML = '<div class="mu" style="font-size:0.75rem;margin-bottom:6px">' + esc(village ? text('camp.villageIntro', 'This village has no traders yet. Fund a stall and its keeper will stay here for every hero on the server. Heroes can pool their gold: whoever gives the most gets the deed, and every stall is written in the Chronicle.') : text('camp.intro', 'This land is too harsh for a village. Fund a stall and its keeper will stay here for every hero on the server. Heroes can pool their gold: whoever gives the most gets the deed. The first stall founds the encampment, and every stall is written in the Chronicle.')) + '</div>' + Object.keys(STALL_NAME).map(row).join('');
-}
-// ---------- world portal ----------
-let PORTAL = null;
-const BIOME_NAME = { volcanic: 'Volcanic', glacier: 'Glacier', voidscar: 'Voidscar', wildwood: 'Wildwood', warfields: 'Warfields', necropolis: 'Necropolis' };
-function onPortal(m) { PORTAL = m; if (isOpen('portalw')) buildPortal(); }
-function buildPortal() {
-  const p = PORTAL; if (!p) { $('portalb').innerHTML = '<div class="mu">…</div>'; return; }
-  const row = m => {
-    const here = m.index === p.here, title = m.founding ? text('portal.founding', 'The Founding Lands') : m.name;
-    const info = m.founding ? text('portal.foundingInfo', 'World Tiers 1-7 · Levels {min}-{max}', { min: m.levels[0], max: m.levels[1] }) : text('portal.regionInfo', 'World Tier {tier} · {biome} · Levels {min}-{max}', { tier: m.tier, biome: text('biome.' + m.biome, BIOME_NAME[m.biome] || m.biome), min: m.levels[0], max: m.levels[1] });
-    const boss = m.founding ? '' : '<small>' + esc(text('universe.worldBoss', 'World Boss')) + ': <b style="color:' + (m.defeated ? '#8fd18f' : '#ffd24a') + '">' + esc(m.boss) + '</b> · ' + esc(m.defeated ? text('portal.defeated', 'defeated') : text('portal.undefeated', 'undefeated')) + '</small>';
-    return '<div class="row' + (here ? ' here' : '') + '"><div class="t">' + esc(title) + '<small>' + esc(info) + '</small>' + boss + '<small>' + esc(text('portal.heroes', 'Heroes there now: {count}', { count: m.players })) + '</small></div><button' + (here ? ' disabled' : ' class="pri" data-travel="' + m.index + '"') + '>' + esc(here ? text('portal.here', 'You are here') : text('portal.travel', 'Travel')) + '</button></div>';
-  };
-  $('portalb').innerHTML = '<div class="mu" style="font-size:0.75rem;margin-bottom:6px">' + esc(text('portal.unlocked', 'Maps unlocked on this server: {count} · World Tier {tier}', { count: p.maps.length, tier: p.tier })) + '</div><div class="portal-list">' + p.maps.map(row).join('') + '</div><div class="mu" style="font-size:0.6875rem;margin-top:8px">' + esc(text('portal.hint', 'Defeat the World Boss of the newest region to unlock the next map.')) + '</div>';
 }
 // ---------- universe chronicle ----------
 let UNI = null;

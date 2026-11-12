@@ -29,6 +29,7 @@ function setWorld(world, arrived) {
   const st = world.settlement || { kind: 'village', style: 'timber', built: {} };
   world.layout = Settlement.layout(st.kind, st.style, st.built, st.layout, st.stalls);
   WORLD = world; ZT = world.tiers;
+  window.PortalUI?.worldChanged(world);
   // A stall was built on this map: redraw the settlement, keep everything else.
   if (rebuilt) { bakeWorld(); buildGround(); if (isOpen('campw')) buildCamp(); }
   // Only the donations changed: refresh the board, the 3D settlement stays as it is.
@@ -513,12 +514,12 @@ function onMsg(m) {
   } else if (m.t === 'inv') onInv(m);
   else if (m.t === 'destroyPreview' || m.t === 'destroyResult') onDestroyMessage(m);
   else if (m.t === 'autoAffixPreview' || m.t === 'autoAffixStatus') onAutoAffixMessage(m);
-  else if (m.t === 'toast') toast(m.text || m.m, m.c); else if (m.t === 'forge') onForge(m); else if (m.t === 'reroll') onReroll(m); else if (m.t === 'universe') onUniverse(m.u); else if (m.t === 'portal') onPortal(m);
+  else if (m.t === 'toast') toast(m.text || m.m, m.c); else if (m.t === 'forge') onForge(m); else if (m.t === 'reroll') onReroll(m); else if (m.t === 'universe') onUniverse(m.u); else if (m.t === 'portal') window.PortalUI?.receive(m);
   else if (m.t === 'team') onTeam(m); else if (m.t === 'trade') onTrade(m); else if (m.t === 'mythicMerge') onMythicMerge(m); else if (m.t === 'affix') onAffix(m);
   else if (m.t === 'teamInvite') showAsk('team', text('team.invitedYou', '{name} invites you to a team.', { name: m.from })); else if (m.t === 'tradeRequest') showAsk('trade', text('trade.requestedYou', '{name} wants to trade with you.', { name: m.from }));
   else if (m.t === 'affixCaps') { if (I) I.affixCaps = m.caps; }
   else if (m.t === 'adventure' || m.t === 'adventureUpdate') onAdventureMessage(m);
-  else if (m.t === 'types') { if (I) { I.types = m.types; I.tl = m.tl; } } else if (m.t === 'map') { setWorld(m.world, m.arrived); if (isOpen('portalw')) send({ t: 'portal' }); if (isOpen('journalw')) send({ t: 'adventure', op: 'inspect' }); }
+  else if (m.t === 'types') { if (I) { I.types = m.types; I.tl = m.tl; } } else if (m.t === 'map') { setWorld(m.world, m.arrived); if (isOpen('journalw')) send({ t: 'adventure', op: 'inspect' }); }
   else if (m.t === 'chat') log(m.n, m.text || m.m, m.channel); else if (m.t === 'msg') log('*', m.text || m.m);
   else if (m.t === 's') {
     const nextMe = applyOwnSnapshot(me, m);

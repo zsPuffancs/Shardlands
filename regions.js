@@ -6,14 +6,18 @@ const { createEncounterRuntime } = require('./encounter-runtime');
 const { MOBTYPES, TIERS, SPECIAL, WORLD_BOSS_SIZE } = require('./monsters');
 const { maps, addMap, mapOf, nearNpc, npcPosition, placeInVillage, worldInfo, REGION_SAFE_RADIUS, setSettlement, boardPosition } = require('./game-world');
 const Settlement = require('./public/settlement');
+const { settlementConstructionCosts } = require('./settlement-economy');
+const { MAX_CURRENCY, validAmount } = require('./safety-limits');
 const { localizedText: messageText } = require('./localized-text');
 const { mobTypesForClient } = require('./snapshots');
+const { createPortalDirectory } = require('./portal-directory');
 
 const FOUNDING_TIERS = TIERS.length;
 // Which founding zone a biome borrows its scenery from on the client.
 const LOOK_FOR = { volcanic: 3, glacier: 4, voidscar: 5, wildwood: 1, warfields: 2, necropolis: 6 };
 
 function createRegions({ universe, players, mobs, spawnMob, config = {}, populateZone, refreshMobTypes, send, say, ev }) {
+  const portalDirectory = createPortalDirectory({ maps, regions: universe.state.regions, players, worldTier: () => universe.state.worldTier, mapOf, foundingTiers: FOUNDING_TIERS });
   const version2 = universe.state.generatorVersion === 2;
   const runtime = version2 ? createEncounterRuntime({ players, mobs, spawnMob, ...(config.worldGeneration?.activation || {}) }) : null;
   function registerPlan(tier, zone, map, record) {
@@ -46,6 +50,7 @@ function createRegions({ universe, players, mobs, spawnMob, config = {}, populat
     if (runtime) registerPlan(tier, TIERS[zoneIndex], map, region);
     else populateZone(zoneIndex, universe.layoutRandom('spawns:' + tier));
     region.playable = true;
+    portalDirectory.register(map, region);
     return map;
   }
   function openUnlockedRegions() {
@@ -64,26 +69,17 @@ function createRegions({ universe, players, mobs, spawnMob, config = {}, populat
   }
   function unlock(tier) { if (openRegion(tier)) announce(); }
 
-  function portalList(player) {
-    const population = new Map(); for (const other of players.values()) { const index = mapOf(other).index; population.set(index, (population.get(index) || 0) + 1); }
-    return {
-      t: 'portal', here: mapOf(player).index, tier: universe.state.worldTier,
-      maps: maps.map(map => {
-        if (map.index === 0) return { index: 0, founding: true, levels: [1, 60], players: population.get(0) || 0 };
-        const region = universe.regionFor(map.regionTier);
-        return { index: map.index, tier: map.regionTier, name: region.name, biome: region.biome, levels: region.levels, boss: region.worldBoss.name, defeated: map.regionTier < universe.state.worldTier, players: population.get(map.index) || 0 };
-      }),
-    };
-  }
+  const portalList = (player, message = {}) => portalDirectory.list(player, message);
   function travel(player, index) {
     const destination = maps[index];
-    if (player.dead || !Number.isInteger(index) || !destination) return;
-    if (!nearNpc(player, 'portal')) return say(player, messageText('server.travelAtPortal', 'Stand at the World Portal in a village to travel.'));
-    if (destination === mapOf(player)) return;
+    if (player.dead || !destination || !portalDirectory.canTravel(index)) return false;
+    if (!nearNpc(player, 'portal')) { say(player, messageText('server.travelAtPortal', 'Stand at the World Portal in a village to travel.')); return false; }
+    if (destination === mapOf(player)) return false;
     ev('fx', player.x, player.y, 70, { s: 'summon' });
     placeInVillage(player, destination);
     player.dest = null; player.dir = { x: 0, y: 0 }; player.target = 0; player.chasingTarget = false;
     const portal = npcPosition(destination, 'portal'); ev('fx', portal.x, portal.y, 70, { s: 'summon' });
+    return true;
   }
   // Encampments: on fire and void maps players pay for each stall; the first one founds the camp.
   // Villages that spawned without vendors (record.stalls) use the same stalls, prices and funding.
@@ -94,13 +90,16 @@ function createRegions({ universe, players, mobs, spawnMob, config = {}, populat
     if (player.dead || !record || !(record.kind === 'camp' || (record.kind === 'village' && record.stalls)) || !Object.hasOwn(Settlement.STALL_COST, key)) return;
     if (!nearNpc(player, 'camp')) return say(player, messageText('server.campBoardFar', 'Walk up to the encampment board to build.'));
     if (record.built[key]) return say(player, messageText('server.stallBuilt', 'That stall is already built.'));
-    const cost = Settlement.STALL_COST[key];
+    const cost = settlementConstructionCosts(record)[key];
     if (!record.funds) record.funds = {};
     const fund = record.funds[key] || (record.funds[key] = { donors: {}, reached: {} });
     // Saved objects regain Object.prototype after JSON parsing; normalize on every mutation.
     fund.donors = Object.assign(Object.create(null), fund.donors);
     fund.reached = Object.assign(Object.create(null), fund.reached);
-    const raised = Object.values(fund.donors).reduce((sum, value) => sum + value, 0), remaining = Math.max(0, cost - raised);
+    // Preserve malformed legacy data without spending against it; never overflow a donor pool.
+    const contributions = Object.values(fund.donors);
+    if (!contributions.every(validAmount)) return;
+    const raised = contributions.reduce((sum, value) => sum + Math.min(value, MAX_CURRENCY - sum), 0), remaining = Math.max(0, cost - raised);
     // No amount means "pay whatever is left"; never take more than the player has or the stall still needs.
     const wanted = requested === undefined || requested === null ? remaining : requested;
     if (!Number.isSafeInteger(wanted) || wanted < 1 || !Number.isSafeInteger(player.gold) || player.gold < 0) return;

@@ -15,6 +15,7 @@ const RENOWN = { campFounded: 4, stallBuilt: 2, stallFunded: 2, worldBoss: 5, bo
 // ---------- deterministic randomness ----------
 const { hashString, seededRandom } = require('./deterministic-random');
 const Settlement = require('./public/settlement');
+const { snapshotConstructionCosts } = require('./settlement-economy');
 const SEED_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function newSeed() {
   const bytes = crypto.randomBytes(8);
@@ -152,6 +153,12 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
   if (state.levelRangeVersion === undefined) state.levelRangeVersion = LEVEL_RANGE_VERSION;
   if (state.levelRangeVersion !== LEVEL_RANGE_VERSION) throw new RangeError('Unsupported level-range version: ' + state.levelRangeVersion);
   const persist = () => store.save().catch(error => console.error(error));
+  // Existing projects predate tier pricing: pin their original prices without touching donations.
+  let settlementCostsMigrated = false;
+  for (const savedSettlement of Object.values(state.settlements || {})) {
+    if (snapshotConstructionCosts(savedSettlement, undefined, { legacy: true })) settlementCostsMigrated = true;
+  }
+  if (settlementCostsMigrated) persist();
   const historySnapshot = () => generationSnapshot(state);
   // A region is generated once, when it becomes known, and stored with the snapshot it was generated from.
   function regionFor(tier) {
@@ -191,10 +198,12 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
         if (record.kind === 'village') record.stalls = seededRandom(state.seed, 'settlement-vendors', tier)() < Settlement.UNSTAFFED_VILLAGE_CHANCE;
         state.settlements[key] = record;
       }
+      snapshotConstructionCosts(state.settlements[key], tier, { legacy: tier <= FOUNDING_TIERS });
       persist();
     }
     // Villages keep the layout they were given (older saves get one now, from a stream of their own).
     const record = state.settlements[key];
+    if (snapshotConstructionCosts(record, tier, { legacy: true })) persist();
     // Villages saved before the vendor roll existed keep their vendors, and so does the founding village.
     if (record.kind === 'village' && record.stalls === undefined) { record.stalls = false; persist(); }
     if (record.kind === 'village' && !Settlement.LAYOUT_IDS.includes(record.layout)) {

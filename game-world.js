@@ -4,6 +4,7 @@ const { TIERS, WORLD_BOSS_SIZE } = require('./monsters');
 const { ENEMY_SCALING, worldFactor } = require('./enemy-scaling');
 const { XP_BALANCE } = require('./xp-economy');
 const Settlement = require('./public/settlement');
+const { settlementConstructionCosts } = require('./settlement-economy');
 
 const W = 10600, H = 10600, CX = 5300, CY = 5300, VILLAGE = Settlement.SAFE_RADIUS.village;
 // The founding village (map 0) uses the Grand Circle layout. Other maps place their NPCs by their own layout.
@@ -84,7 +85,7 @@ function worldInfo(map) {
   const local = key => { const npc = npcPosition(map, key); return { x: npc.x - map.x0, y: npc.y - map.y0, name: npc.name, yaw: npc.yaw }; };
   const npcs = {}; for (const key in NPCS) if (npcAvailable(map, key)) npcs[key] = local(key); if (portalOpen()) npcs.portal = local('portal');
   if (npcAvailable(map, 'camp')) { const b = boardPosition(map); npcs.camp = { x: b.x - map.x0, y: b.y - map.y0, name: layoutOf(map).kind === 'camp' ? 'Encampment board' : 'Village board' }; }
-  const settlement = { kind: layoutOf(map).kind, style: layoutOf(map).style, layout: layoutOf(map).layout, stalls: !!(map.settlement && map.settlement.stalls), built: (map.settlement && map.settlement.built) || {}, cost: Settlement.STALL_COST,
+  const settlement = { kind: layoutOf(map).kind, style: layoutOf(map).style, layout: layoutOf(map).layout, stalls: !!(map.settlement && map.settlement.stalls), built: (map.settlement && map.settlement.built) || {}, cost: settlementConstructionCosts(map.settlement),
     funds: Object.fromEntries(Object.entries((map.settlement && map.settlement.funds) || {}).map(([key, fund]) => [key, fund.donors])) };
   const zones = map.index === 0 ? TIERS.filter(t => !t.generated).map(t => ({ name: t.name, min: t.min, max: t.max, lv: t.lv, outer: !!t.outer }))
     : [{ name: TIERS[map.tier].name, min: REGION_SAFE_RADIUS, max: 99999, lv: TIERS[map.tier].lv, outer: false, look: map.look, generated: true }];

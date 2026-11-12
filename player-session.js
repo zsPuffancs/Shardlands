@@ -41,7 +41,13 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
       x: CX + rnd(-50, 50), y: CY + rnd(30, 95), dir: { x: 0, y: 0 }, dest: null, target: 0, chasingTarget: false, cd: 0, cd1: 0, cd2: 0, cd3: 0, dead: 0 };
     for (const slot of SLOTS) sanitize(player.eq[slot]);
     for (const item of player.bag || []) sanitize(item);
-    if (!player.eq.weapon) player.eq.weapon = inventory.starterWeapon(player, savedPlayer && savedPlayer.w);
+    // Modern saves may deliberately have an empty weapon slot. Never mint gear on reconnect.
+    // Pre-equipment saves used only `w`; restore those once, then normal saving records `eq`.
+    const legacyWeaponSave = savedPlayer && !Object.hasOwn(savedPlayer, 'eq');
+    if (!savedPlayer || (legacyWeaponSave && !player.eq.weapon && !player.bag.some(item => item.slot === 'weapon'))) {
+      const legacyUpgrade = Number.isInteger(savedPlayer?.w) ? Math.max(0, Math.min(9, savedPlayer.w)) : 0;
+      player.eq.weapon = inventory.starterWeapon(player, legacyUpgrade);
+    }
     stats(player);
     player.hp = player.maxhp;
     player.mp = player.maxmp;
@@ -151,8 +157,11 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
       times[message.channel] = now; resyncUi?.(player.c, message.channel);
     },
     universe: player => send(player.c, { t: 'universe', u: universe.summary() }),
-    portal: player => send(player.c, regions.portalList(player)),
-    travel: (player, message) => regions.travel(player, message.map),
+    portal: (player, message) => send(player.c, regions.portalList(player, message)),
+    travel: (player, message) => {
+      const moved = regions.travel(player, message.map) === true;
+      if (Number.isSafeInteger(message.requestId) && message.requestId >= 0) send(player.c, { t: 'portal', op: 'travel', requestId: message.requestId, ok: moved, ...(moved ? { map: message.map } : {}) });
+    },
     team: (player, message) => teams.handlers.team(player, message),
     trade: (player, message) => teams.handlers.trade(player, message),
     build: (player, message) => regions.buildStall(player, String(message.k || ''), message.amount),

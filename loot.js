@@ -17,6 +17,8 @@ function createLoot({ loot, players, allocateId, rates, ev, say, toast, broadcas
   }
   // sharers: team members who split the gold (the killer first). Everything else goes to the killer.
   function dropLoot(player, monster, sharers) {
+    // Guardians and boss adds never generate drops or direct party gold payouts.
+    if (monster.summoned) return;
     const dropMonster = (x, y, details, owner) => dropAt(x, y, { ...details, source: MOBTYPES[monster.ty]?.archetype || monster.ty }, owner);
     sharers = sharers && sharers.length ? sharers : [player];
     sharers = [...new Map(sharers.map(hero => [hero.id, hero])).values()];

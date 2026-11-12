@@ -105,9 +105,15 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     if (!isPotion && itemKey !== 'ret' && itemKey !== 'reset') say(player, messageText("server.itemUsed", "{item} used.", { item: messageText('item.' + itemKey + '.name', item.n) }));
   }
 
+  function mergeUpgradeLevel(items, result) {
+    // Only preserve upgrades whose donor has no cheaper level/slot pricing than the result.
+    // This also covers random-slot Mythic fusion; input order cannot launder cheap upgrades.
+    return items.reduce((highest, item) => item.slot === result.slot && Number.isSafeInteger(item.ilvl) && item.ilvl >= result.ilvl &&
+      Number.isInteger(item.plus) && item.plus > highest && item.plus <= 9 ? item.plus : highest, 0);
+  }
   function mergeItems(player, items) {
     const rarity = items[0].rar, first = items[0], itemLevel = Math.max(1, Math.round(items.reduce((sum, i) => sum + (i.ilvl || 1), 0) / items.length));
-    const result = genGear(first.slot, itemLevel, Math.min(MYTHIC, rarity + 1), first.fam); result.plus = Math.max(...items.map(i => i.plus || 0));
+    const result = genGear(first.slot, itemLevel, Math.min(MYTHIC, rarity + 1), first.fam); result.plus = mergeUpgradeLevel(items, result);
     const firstItemIndex = player.bag.indexOf(first); player.bag = player.bag.filter(i => !items.includes(i)); player.bag.splice(Math.min(firstItemIndex, player.bag.length), 0, result);
     fire('merge', player, result, items); return result;
   }
@@ -240,7 +246,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     player.gold -= MYTHIC_MERGE_GOLD;
     const itemLevel = Math.max(1, Math.round(items.reduce((sum, item) => sum + (item.ilvl || 1), 0) / items.length));
     const slot = SLOTS[Math.floor(Math.random() * SLOTS.length)];
-    const result = genGear(slot, itemLevel, MYTHIC, CLASSES[player.cls].fam); result.plus = Math.max(...items.map(item => item.plus || 0));
+    const result = genGear(slot, itemLevel, MYTHIC, CLASSES[player.cls].fam); result.plus = mergeUpgradeLevel(items, result);
     const index = player.bag.indexOf(items[0]); player.bag = player.bag.filter(item => !items.includes(item)); player.bag.splice(Math.min(index, player.bag.length), 0, result);
     fire('merge', player, result, items);
     const smith = npcPosition(mapOf(player), 'smith'); ev('fx', smith.x, smith.y, 70, { s: 'lvl' });

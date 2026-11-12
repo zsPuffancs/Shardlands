@@ -83,7 +83,8 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     }
     dropLoot(player, monster, sharers); ev('die', monster.x, monster.y, monster.ty, { b: monster.alpha ? 1 : 0 });
     if (template.boss) { broadcast({ t: 'chat', n: '*', m: messageText("server.bossSlain", "{player} has slain {monster}!", { player: player.name, monster: messageText('monster.' + monster.ty, template.name) }) }); broadcast({ t: 'toast', m: messageText("server.bossSlain", "{player} has slain {monster}!", { player: player.name, monster: messageText('monster.' + monster.ty, template.name) }), c: '#ffd24a' }); }
-    fire('kill', player, monster);
+    // Reward hooks (including direct plugin item grants) only run for nonsummoned enemies.
+    if (!monster.summoned) fire('kill', player, monster);
     if (monster.summoned) mobs.delete(monster.id);
   }
   function hurtPlayer(player, monster, damage, now) {
