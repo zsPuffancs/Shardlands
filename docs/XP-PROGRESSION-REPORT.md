@@ -1,6 +1,6 @@
 # XP Penalty 2.0 — production before/after simulation
 
-Baseline: `25a1d0a2a39ad65d9571381d927d503a77ed88f2`. Before executes the historical production `xp-economy.js` from Git. After executes current production functions. Region plans use the production generator with the legacy policy disabled/enabled; geometry and encounter identities are identical. No saves are read or written.
+Baseline: `25a1d0a2a39ad65d9571381d927d503a77ed88f2`. Before executes the historical production `src/progression/xp-economy.js` from Git. After executes current production functions. Region plans use the production generator with the legacy policy disabled/enabled; geometry and encounter identities are identical. No saves are read or written.
 
 Reference assumptions (not measured kill times): normal 5 s, Alpha 15 s, Spirit Stone 60 s, boss 120 s, World Boss 300 s; no travel, deaths, contention, skills or AoE. The tables isolate reward policy. Fixed kill times deliberately do not predict underlevel combat survivability or high-level TTK. Rate 1, no Wisdom or other bonus. Party time uses production HP scaling / member count and assumes equal DPS plus valid participation from every member. Actual guardian waves may lengthen stone fights.
 

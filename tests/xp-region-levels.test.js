@@ -1,10 +1,10 @@
 'use strict';
 const test = require('node:test'), assert = require('node:assert/strict');
-const { createCombat, XP_LEVEL_GAP_LIMIT } = require('../combat');
-const { createProgression, newSk, stats } = require('../characters');
-const { calculateEncounterXp } = require('../xp-economy');
-const { regionLevelRange, resolveRegionLevels } = require('../region-levels');
-const { createUniverse, generateRegion } = require('../universe');
+const { createCombat, XP_LEVEL_GAP_LIMIT } = require('../src/combat/combat');
+const { createProgression, newSk, stats } = require('../src/player/characters');
+const { calculateEncounterXp } = require('../src/progression/xp-economy');
+const { regionLevelRange, resolveRegionLevels } = require('../src/world/region-levels');
+const { createUniverse, generateRegion } = require('../src/world/universe');
 const noop = () => {};
 function hero(id, level) { const p = { id, name: 'Hero' + id, cls: 'archer', lvl: level, xp: 0, gold: 0, eq: {}, bag: [], inv: {}, sk: newSk(), buf: {}, x: 6000, y: 6000, sp: 0, target: 1 }; stats(p); p.hp = p.maxhp; p.mp = p.maxmp; return p; }
 function kill(type, killer, members = [killer], rate = 1) {

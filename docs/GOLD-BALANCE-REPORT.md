@@ -1,6 +1,6 @@
 # Monster gold rebalance — production formula report
 
-Historical monster baseline: `9d3866c7f7405c0ef07657997913266becf16617`. All OLD gold ranges/multipliers come from the actual historical monster spawner. The unchanged legacy/founding calculation in `gold-rewards.js` evaluates those values; regression cases lock it against the original formula. NEW uses the same production module as loot payouts. No character balances, prices, world saves or region descriptors are modified.
+Historical monster baseline: `9d3866c7f7405c0ef07657997913266becf16617`. All OLD gold ranges/multipliers come from the actual historical monster spawner. The unchanged legacy/founding calculation in `src/economy/gold-rewards.js` evaluates those values; regression cases lock it against the original formula. NEW uses the same production module as loot payouts. No character balances, prices, world saves or region descriptors are modified.
 
 Assumptions: equal-level reference archer with a rare +0 weapon at the midpoint of real damage stat ranges and level-budgeted Might/Haste/Precision/Brutality passives. Actual player damage, crit and auto-attack timing formulas are reused from the XP simulator. Solo monster HP uses the actual spawner with monsterHp=1.6. Active uptime is normal 85%, Alpha 80%, stone 65%, boss 60%, World Boss 55%. No skill burst, AoE, travel, deaths, competition, gear selling or guardian-gold income is modeled. These are explicit reference assumptions, not observed kill times. OLD and NEW use identical kill times and combat/XP data.
 

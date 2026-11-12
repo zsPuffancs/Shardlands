@@ -7,10 +7,14 @@ const { inventory } = require('../scripts/module-map');
 const manifest = require('../docs/module-domains.json');
 const root = path.resolve(__dirname, '..');
 
-test('legacy backend imports expose the same singleton exports as domain implementations', () => {
+test('backend implementations are canonical and retired root module paths are absent', () => {
   for (const [domain, names] of Object.entries(manifest.domains)) {
-    for (const name of names) assert.strictEqual(require('../' + name), require('../src/' + domain + '/' + name), name);
+    for (const name of names) {
+      assert.equal(fs.existsSync(path.join(root, name + '.js')), false, name);
+      assert.ok(require('../src/' + domain + '/' + name), name);
+    }
   }
+  for (const entry of ['server.js', 'local-server.js']) assert.ok(fs.existsSync(path.join(root, entry)), entry);
 });
 
 test('source-only dependency inventory is reproducible and audit groups resolve to real implementations', () => {
@@ -25,4 +29,5 @@ test('source-only dependency inventory is reproducible and audit groups resolve 
     assert.ok(edge.to.startsWith('src/') || edge.to.startsWith('public/'), JSON.stringify(edge));
   }
   assert.ok(first.edges.some(edge => edge.from === 'public/index.html' && edge.kind === 'browser-script' && edge.to === 'public/forge-math.js'));
+  assert.ok(first.edges.some(edge => edge.from === 'public/resource-bars.js' && edge.kind === 'generated-from' && edge.to === 'src/shared/typed/resources.ts'));
 });

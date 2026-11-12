@@ -7,13 +7,13 @@ how that foundation works, why it is built this way, and what is deliberately le
 
 | Part | Where | What it does |
 |---|---|---|
-| World seed | `universe.js`, `universe.json` | Created once, on the first start. Set `worldSeed` in `config.json` before the first start to choose it. |
+| World seed | `src/world/universe.js`, `universe.json` | Created once, on the first start. Set `worldSeed` in `config.json` before the first start to choose it. |
 | Universe name | `universeName(seed)` | Derived from the seed, e.g. "The Verdant Throne". |
-| Seeded geography | `monsters.js` `populateMonsters(random)`, `public/game.js` `bakeWorld` | Camps, stones, alphas and bosses are placed from the seed. Trees, rocks and plants on the client are baked from the same seed. Two servers with different seeds have different maps; one server always rebuilds the same map. |
+| Seeded geography | `src/combat/monsters.js` `populateMonsters(random)`, `public/game.js` `bakeWorld` | Camps, stones, alphas and bosses are placed from the seed. Trees, rocks and plants on the client are baked from the same seed. Two servers with different seeds have different maps; one server always rebuilds the same map. |
 | World Tier | `state.worldTier` | Starts at 1. Rises by one when the current tier's World Boss is defeated in its own region. |
 | World Boss | `generateRegion(...).worldBoss` | One boss per region, chosen by the seed. Servers differ in which boss is the gatekeeper. |
 | Region generator | `generateRegion(seed, tier, historySnapshot, generatorVersion)` | Pure function. Tiers 1-7 describe the seven hand-built zones. Tier 8 and above return a generated region description: name, biome, levels, monster families, stone count, modifiers and a named World Boss. |
-| Generated maps and World Portal | `regions.js`, `game-world.js` | Each tier from 8 up is a playable map with its own village. The portal lists the unlocked maps and moves players between them. |
+| Generated maps and World Portal | `src/world/regions.js`, `src/world/game-world.js` | Each tier from 8 up is a playable map with its own village. The portal lists the unlocked maps and moves players between them. |
 | Chronicle | `state.history` | Permanent list of verified events, each with a type, a time, the World Tier, the players involved and structured data. |
 | Legends | `summary().legends` | Ranking computed from the chronicle. Nothing is stored that the chronicle does not prove. |
 | Client | Chronicle window (H or the 🏛 button), login screen line | Shows the universe name, seed, World Tier, frontier region, World Boss, chronicle and legends. |
@@ -54,12 +54,12 @@ Boss and stone records list the killer first, then everyone else who damaged it 
 
 ## Maps beyond the founding lands
 
-From World Tier 8, every tier is its own generated map (`regions.js`).
+From World Tier 8, every tier is its own generated map (`src/world/regions.js`).
 
 - **When:** the moment the current World Boss dies, the next region is generated, its map is built
   and filled, and only then is the victory announced. On a restart, every map up to the current
   World Tier is rebuilt from the seed, so layouts are the same as before.
-- **One coordinate plane.** Each map occupies its own square, 16000 units apart (`game-world.js`).
+- **One coordinate plane.** Each map occupies its own square, 16000 units apart (`src/world/game-world.js`).
   Distance checks, aggro, skills and loot need no map checks because other maps are simply far away.
   Only `mapAt`, `clampWorld`, `inVillage`, `nearNpc`, `tierOf` and `placeInVillage` know about maps.
 - **Clients only see local coordinates.** Snapshots, events and the world description are shifted by

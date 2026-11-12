@@ -14,15 +14,15 @@ The original Economy 2.0 update changed XP rewards and party combat scaling. The
 
 | File | Responsibility |
 |---|---|
-| `xp-economy.js` | Pure reward, category, level-gap, bonus, cap and party-allocation functions; all balance constants |
-| `encounter-participation.js` | Fixed roster, bounded contribution records, session identity and one-time pristine HP scaling |
-| `combat.js` | Effective damage participation, category/share calculation, exactly-once death rewards, separate party damage multiplier |
-| `characters.js` | Existing level-requirement export, post-bonus plugin hook, safe XP credit, preserved pending XP and maximum level |
-| `monsters.js` | Centralized base XP metadata and encounter-state reset on respawn; ordinary HP/damage formulas unchanged |
-| `teams.js` | Shared balance constants, linear HP compatibility accessor and versioned scaling metadata |
-| `simulation.js` | Independent party damage scale for normal attacks/stone pulses and clearing participation after normal recovery |
-| `encounter-runtime.js` | Save/restore independent party damage scale alongside the existing HP multiplier/fraction |
-| `summons.js` | Summoned monsters explicitly advertise zero XP and are also excluded by the reward-category policy |
+| `src/progression/xp-economy.js` | Pure reward, category, level-gap, bonus, cap and party-allocation functions; all balance constants |
+| `src/combat/encounter-participation.js` | Fixed roster, bounded contribution records, session identity and one-time pristine HP scaling |
+| `src/combat/combat.js` | Effective damage participation, category/share calculation, exactly-once death rewards, separate party damage multiplier |
+| `src/player/characters.js` | Existing level-requirement export, post-bonus plugin hook, safe XP credit, preserved pending XP and maximum level |
+| `src/combat/monsters.js` | Centralized base XP metadata and encounter-state reset on respawn; ordinary HP/damage formulas unchanged |
+| `src/multiplayer/teams.js` | Shared balance constants, linear HP compatibility accessor and versioned scaling metadata |
+| `src/combat/simulation.js` | Independent party damage scale for normal attacks/stone pulses and clearing participation after normal recovery |
+| `src/world/encounter-runtime.js` | Save/restore independent party damage scale alongside the existing HP multiplier/fraction |
+| `src/combat/summons.js` | Summoned monsters explicitly advertise zero XP and are also excluded by the reward-category policy |
 | `tests/xp-region-levels.test.js` | Existing cutoff/drop/region tests extended to use real participation and the new production rewards |
 | `tests/xp-economy.test.js` | XP, participation, scaling, reconnect, plugin, numerical and save-state regression cases |
 | `scripts/xp-balance.js` | Actual historical-production BEFORE runner and current-production AFTER simulator |
@@ -110,7 +110,7 @@ Optional complete machine-readable rows:
 
     node scripts/xp-balance.js --json xp-balance.json
 
-BEFORE executes historical `monsters.js`, `combat.js` and `characters.js` loaded from the specified Git commit, default `f374228585ae6b3d9e973389a2c0eab9410e80f3`. It does not silently replace missing historical code with an approximation: shallow clones need the baseline commit available or `--baseline <commit>`. AFTER calls the real production reward functions and real monster spawner. The regression suite compares live combat rewards to those functions across categories, party sizes, gear/Wisdom combinations and server rates.
+BEFORE executes historical `src/combat/monsters.js`, `src/combat/combat.js` and `src/player/characters.js` loaded from the specified Git commit, default `f374228585ae6b3d9e973389a2c0eab9410e80f3`. It does not silently replace missing historical code with an approximation: shallow clones need the baseline commit available or `--baseline <commit>`. AFTER calls the real production reward functions and real monster spawner. The regression suite compares live combat rewards to those functions across categories, party sizes, gear/Wisdom combinations and server rates.
 
 The report covers 38,620 scenarios: all requested character levels and World Tiers; normal/Alpha/stone/boss/World Boss/summoned/anomaly categories; solo and groups 2-5; gear bonuses 0/100/1000; Wisdom off/on; rates 1/2/10 and an extreme 1000000 case; both overlevel cutoff sides, underlevel windows, mixed-DPS groups, disabled sharing, powerleveling and current seeded 20-45-level region chains. Region samples use minimum/midpoint/maximum levels, with 9999 included next to the 10000 ceiling. No saved regions are regenerated or rewritten.
 

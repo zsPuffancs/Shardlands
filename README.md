@@ -13,7 +13,7 @@ Set a password when creating a hero to protect it. Passwordless heroes are share
 ## Local server console
 Start the game with `start.bat` or `start.sh`. Type `help` for the command list or `help restart` for details. Use `status` to inspect the server, `save` to save immediately, `restart` to save and start a fresh server process, or `stop` to save and shut down. Restart disconnects players, who can refresh to reconnect.
 
-Console commands are defined in `server-console.js`. Give each `Command` a name, description and handler. The command registry handles parsing, usage and errors. For unattended hosting, use `node server.js` and manage restarts from your hosting platform.
+Console commands are defined in `src/server/server-console.js`. Give each `Command` a name, description and handler. The command registry handles parsing, usage and errors. For unattended hosting, use `node server.js` and manage restarts from your hosting platform.
 
 ## What's new in v0.5
 - Real 3D models: Quaternius CC0 characters (animated heroes, NPCs, bandits, goblins, orcs, void knights) and nature packs (forests, farms, rocks, flowers per zone).
@@ -47,7 +47,7 @@ Details and design notes: `docs/UNIVERSE.md`.
 - **rates.json** - XP, gold, drops and difficulty. Edit and save while the server runs; changes apply within ~2 seconds.
   `xpRate`, `goldRate`, `gearDropRate`, `potionDropRate`, `rarityBoost` (0 normal, 1 = more rare/epic/legendary, 3 = loot shower),
   `monsterHp` (default 1.6), `monsterDamage` (default 1.4), `deathZoneMonsters` (default 1800, restart needed), `deathGoldLoss`, `deathGoldKillCap`, `respawnSeconds`.
-  Death Gold Penalty 2.0 loses the smaller of `floor(gold * deathGoldLoss)` and `floor(deathGoldKillCap * frontierAverageGold(playerLevel, 'normal'))`. Defaults and hard maxima are 5% and 12 normal kills. The reference reuses `gold-rewards.js`, without drop randomness, Gold Find or server gold-rate bonuses. Both settings can be lowered; either set to 0 disables gold loss. Legacy `deathGoldLoss` settings above 0.05 are capped; an omitted kill cap defaults to 12. Existing balances, respawn timing and death messages are preserved.
+  Death Gold Penalty 2.0 loses the smaller of `floor(gold * deathGoldLoss)` and `floor(deathGoldKillCap * frontierAverageGold(playerLevel, 'normal'))`. Defaults and hard maxima are 5% and 12 normal kills. The reference reuses `src/economy/gold-rewards.js`, without drop randomness, Gold Find or server gold-rate bonuses. Both settings can be lowered; either set to 0 disables gold loss. Legacy `deathGoldLoss` settings above 0.05 are capped; an omitted kill cap defaults to 12. Existing balances, respawn timing and death messages are preserved.
   **Upgrading from v0.4?** Your old rates.json keeps its old values. Delete it to get the new, harder defaults (the server rewrites it on start).
 - **config.json** - server name, message of the day, port, `admins` (hero names allowed to use admin commands), `disabledPlugins`.
 
@@ -61,7 +61,7 @@ Details and design notes: `docs/UNIVERSE.md`.
 | Frostfang Peaks | 30-40 | Frost Fang, Yeti, Ice Golem | Frost Wyrm (breath), Yeti King (charge) | Frost Stone |
 | Voidreach | 40-50 | Shade, Void Weaver, Void Knight | Void Lord (meteors), Abyssal Wyrm (breath) | Void Stone |
 | **Death Zone** (map border) | 50-60 | ~1800 of everything, scaled up | 4x Lord of Death + Void Lord, Abyssal Wyrm, Frost Wyrm, Yeti King | Doom Stone |
-- **Monster strength** (`enemy-scaling.js`, details in `docs/ENEMY-SCALING.md`): every monster's health and damage come from a level budget built on a reference hero with gear of its own level: an on-level normal monster takes a Rare +3 hero about 5 seconds to kill and needs about 14 hits to kill them (gentler during the first 25 levels). Each monster type keeps its character (Golems are tanky, Wraiths hit hard). Every world after the founding lands adds a little more health and more damage (World Tier 8 and on).
+- **Monster strength** (`src/combat/enemy-scaling.js`, details in `docs/ENEMY-SCALING.md`): every monster's health and damage come from a level budget built on a reference hero with gear of its own level: an on-level normal monster takes a Rare +3 hero about 5 seconds to kill and needs about 14 hits to kill them (gentler during the first 25 levels). Each monster type keeps its character (Golems are tanky, Wraiths hit hard). Every world after the founding lands adds a little more health and more damage (World Tier 8 and on).
 - **Alpha** monsters (orange name + aura): 3x HP and 1.5x damage of a normal monster, notice you from further away, a larger XP budget, guaranteed loot, 90 s respawn. All enemy categories give smoothly reduced XP to heroes more than 5 levels above them and zero XP at a gap of 25 or more. Extreme underlevel rewards are also reduced; gold and drops are unchanged. New v2 frontier regions distribute ordinary monsters and Spirit Stones across progression bands, with validated accessible XP sources throughout their level range. Existing saved regions are preserved. See [XP progression policy and Atlas coverage](docs/XP-PROGRESSION.md).
 - **Bosses** (gold name): 8-12x HP (rising with the zone) and 1.8x damage. Every special attack is telegraphed in red on the ground - get out of it. After each one the boss recovers for a moment: it cannot hit back and takes 25% more damage. Below 60% health it becomes enraged and below 30% desperate: special attacks come faster and hit harder. 3 min respawn, best loot.
 - **World Bosses** (👑): the one boss per zone, chosen by the seed, that unlocks the next World Tier. 1.5x bigger, 15-20x HP (rising with the World Tier), 2x damage, and after 2 minutes of fighting they hit faster and harder. They drop 7 items (Epic or better, 5 levels above the boss) and 5-10 souls.
@@ -71,7 +71,7 @@ Details and design notes: `docs/UNIVERSE.md`.
 
 **World Portal 2.0:** browse compact, server-paginated destination cards, search by Tier/name/biome, jump directly to a Tier, and keep local favorites/recent destinations. Select a card and use the footer Travel button; the Founding Lands have a dedicated shortcut. Refresh clients after updating the server. See [Portal navigation and protocol](docs/WORLD-PORTAL.md).
 
-New generated settlements snapshot tier-scaled construction prices: `round(baseCost * (1 + 0.06 * max(0, tier-8)^0.7))`, starting from 250,000 gold for the Merchant and 400,000 each for the Blacksmith and Soul Mystic. Both encampments and villages without traders use the saved server prices. Existing settlements and their donations keep the historical fixed prices. Tune future projects in `settlement-economy-config.js`; see [Settlement construction economy](docs/SETTLEMENT-ECONOMY.md).
+New generated settlements snapshot tier-scaled construction prices: `round(baseCost * (1 + 0.06 * max(0, tier-8)^0.7))`, starting from 250,000 gold for the Merchant and 400,000 each for the Blacksmith and Soul Mystic. Both encampments and villages without traders use the saved server prices. Existing settlements and their donations keep the historical fixed prices. Tune future projects in `src/economy/settlement-economy-config.js`; see [Settlement construction economy](docs/SETTLEMENT-ECONOMY.md).
 
 Forge Economy 2.0 uses `round(100 * (plus + 1)^1.3 * (1 + itemLevel/12) * slotMultiplier)`, with a 0.8 multiplier for non-weapons. The server and UI share `public/forge-math.js`; success chances from +0 through +8 are 100%, 95%, 90%, 80%, 70%, 60%, 50%, 40%, 30%. Every attempt consumes gold. Failure below +5 keeps the upgrade level; failure at +5 or higher drops exactly one level. Equipment is never destroyed and +9 remains the maximum. Automatic forging retains its existing confirmation, cancellation and per-tick limits.
 - **Merchant** - potions, elixirs, scrolls (incl. Skill Reset). Buys your gear (Shift/right-click a bag item, or "Sell junk").
@@ -138,12 +138,12 @@ Very old GPUs that can't do skinned characters fall back to the classic block mo
 
 ## Server modules
 
-- `server.js` connects the modules. `server-lifecycle.js` starts the server and handles autosave, shutdown and restart.
-- `simulation.js` advances the game world. `combat.js`, `monsters.js` and `loot.js` handle fights, spawns and rewards.
-- `characters.js`, `equipment.js` and `inventory.js` handle character progression, item generation and shop actions.
-- `player-session.js` authenticates players and dispatches game messages. `snapshots.js` builds the state updates sent to clients.
-- `universe.js` holds the world seed, World Tier, region generator and chronicle. `regions.js` builds the generated maps and runs the World Portal.
-- `plugin-host.js` registers plugins and their hooks. `web-server.js` serves the client and connects WebSocket transport.
+- `server.js` connects the modules. `src/server/server-lifecycle.js` starts the server and handles autosave, shutdown and restart.
+- `src/combat/simulation.js` advances the game world. `src/combat/combat.js`, `src/combat/monsters.js` and `src/economy/loot.js` handle fights, spawns and rewards.
+- `src/player/characters.js`, `src/economy/equipment.js` and `src/economy/inventory.js` handle character progression, item generation and shop actions.
+- `src/player/player-session.js` authenticates players and dispatches game messages. `src/multiplayer/snapshots.js` builds the state updates sent to clients.
+- `src/world/universe.js` holds the world seed, World Tier, region generator and chronicle. `src/world/regions.js` builds the generated maps and runs the World Portal.
+- `src/server/plugin-host.js` registers plugins and their hooks. `src/server/web-server.js` serves the client and connects WebSocket transport.
 
 ## Plugins
 See PLUGINS.md. Drop files into `plugins/`, restart.
@@ -178,7 +178,7 @@ The receiver applies patches atomically to its own baseline before calling the e
 New universes use generator v2: area-correct annulus sampling, bounded encounter placement and lazy player-driven activation. Existing universes remain on generator v1 without layout migration. See `docs/PROCEDURAL-GENERATION.md` for the mathematical audit, compatibility guarantees, deployment budgets, test commands and remaining runtime limits.
 
 ## Operational safety limits
-Shared server limits live in `safety-limits.js`. Combat stat formulas and equipment/passive bonus caps are unchanged by this work.
+Shared server limits live in `src/shared/safety-limits.js`. Combat stat formulas and equipment/passive bonus caps are unchanged by this work.
 
 - Equipment drops: at most 10 per kill, including high-tier stones and extreme gear-drop rates.
 - Temporary summons: at most 512 globally, 128 on one map and 64 from one source. Bosses, stone guardians and the plugin API's temporary spawns share these quotas. Existing summons expire normally; reaching a limit suppresses additional summons.
@@ -190,7 +190,7 @@ Shared server limits live in `safety-limits.js`. Combat stat formulas and equipm
 
 Focused regression cases are prepared in `tests/safety-limits.test.js`. They were not executed during implementation because tests are run only on explicit user request. No automatic test hooks were added.
 
-New frontier descriptors use the independently versioned level-range policy in `region-levels.js`: the seeded span is 20-45 (maximum minus minimum), starting at the previous saved region's maximum. This applies to future regions in existing v1/v2 worlds without reseeding. Saved regions and spawn plans, including the seven founding zones, keep their levels. Missing predecessor ranges are reconstructed as a deterministic chain without creating regions. At the level cap of 10,000, the interval shortens instead of shifting backwards; later capped regions remain at 10,000.
+New frontier descriptors use the independently versioned level-range policy in `src/world/region-levels.js`: the seeded span is 20-45 (maximum minus minimum), starting at the previous saved region's maximum. This applies to future regions in existing v1/v2 worlds without reseeding. Saved regions and spawn plans, including the seven founding zones, keep their levels. Missing predecessor ranges are reconstructed as a deterministic chain without creating regions. At the level cap of 10,000, the interval shortens instead of shifting backwards; later capped regions remain at 10,000.
 
 ## Dynamic danger geography and developer World Atlas
 

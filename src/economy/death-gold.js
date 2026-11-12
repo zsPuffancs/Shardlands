@@ -1,8 +1,9 @@
 'use strict';
 const { frontierAverageGold, GOLD_BALANCE } = require('./gold-rewards');
 const { DEATH_GOLD_LIMITS, validAmount } = require('../shared/safety-limits');
+const { BASE_RATES } = require('../balance/base');
 
-const DEFAULT_DEATH_GOLD_RATES = Object.freeze({ deathGoldLoss: DEATH_GOLD_LIMITS.maxFraction, deathGoldKillCap: DEATH_GOLD_LIMITS.maxNormalKills });
+const DEFAULT_DEATH_GOLD_RATES = Object.freeze({ deathGoldLoss: BASE_RATES.deathGoldLoss, deathGoldKillCap: BASE_RATES.deathGoldKillCap });
 const MAX_FRACTION_DIVISOR = 1 / DEATH_GOLD_LIMITS.maxFraction;
 const bounded = (value, maximum) => Number.isFinite(value) ? Math.max(0, Math.min(maximum, value)) : maximum;
 

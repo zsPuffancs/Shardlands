@@ -2,12 +2,12 @@
 // Prepared for explicit execution on user request; no automatic test runner is installed.
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), vm = require('node:vm');
-const { MAX_CURRENCY, MAX_ITEM_STACK, MAX_SUMMONS_GLOBAL, MAX_SUMMONS_PER_MAP, MAX_SUMMONS_PER_SOURCE, credit, boundedRateSettings, commandAllowed } = require('../safety-limits');
-const { createLoot } = require('../loot');
-const { createInventory } = require('../inventory');
-const { createSummons } = require('../summons');
-const { newSk, stats, createProgression } = require('../characters');
-const { NPCS, addMap } = require('../game-world');
+const { MAX_CURRENCY, MAX_ITEM_STACK, MAX_SUMMONS_GLOBAL, MAX_SUMMONS_PER_MAP, MAX_SUMMONS_PER_SOURCE, credit, boundedRateSettings, commandAllowed } = require('../src/shared/safety-limits');
+const { createLoot } = require('../src/economy/loot');
+const { createInventory } = require('../src/economy/inventory');
+const { createSummons } = require('../src/combat/summons');
+const { newSk, stats, createProgression } = require('../src/player/characters');
+const { NPCS, addMap } = require('../src/world/game-world');
 const noop = () => {};
 function hero(npc = 'merchant') { const p = { id: 1, c: {}, cls: 'archer', lvl: 1, xp: 0, sp: 0, eq: {}, bag: [], sk: newSk(), buf: {}, inv: { hp: 1 }, souls: 0, gold: 1000000, x: NPCS[npc].x, y: NPCS[npc].y }; stats(p); p.hp = p.maxhp; p.mp = p.maxmp; return p; }
 function inventory(extra = {}) { return createInventory({ send: noop, say: noop, toast: noop, broadcast: noop, ev: noop, fire: noop, genGear: noop, rerollGear: noop, ...extra }); }

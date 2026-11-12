@@ -38,9 +38,9 @@ Inventory updates clear disappeared UIDs from merge/mythic selections and smith/
 | `public/index.html`, `public/ui.css` | Compact controls, item menu and native confirmation modal in the existing style |
 | `public/game.js` | Dispatch new destroy preview/result messages to the inventory UI |
 | `public/locales/hu.js` | Hungarian translations; English uses existing inline fallback convention |
-| `inventory.js` | Authoritative prepare/confirm/destruction and protection checks |
-| `player-session.js` | Authenticated/throttled destruction message handlers |
-| `teams.js` | Read-only item-reservation query; existing trading semantics preserved |
+| `src/economy/inventory.js` | Authoritative prepare/confirm/destruction and protection checks |
+| `src/player/player-session.js` | Authenticated/throttled destruction message handlers |
+| `src/multiplayer/teams.js` | Read-only item-reservation query; existing trading semantics preserved |
 | `server.js` | Wire trade reservation and normal cached-save callback into inventory |
 | `tests/inventory-qol.test.js` | Pure view, server authorization, safety, persistence and UID interaction regression cases |
 | `tests/inventory-qol-client.test.js` | Client render/event integration with offline DOM fixtures; localization coverage |

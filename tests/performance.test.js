@@ -1,13 +1,13 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { IndexedEntities, nearby } = require('../spatial-index');
-const { playerStateDelta, snapshotMobs, createSnapshotPublisher } = require('../snapshots');
-const { createLoot } = require('../loot');
-const { createSimulation } = require('../simulation');
-const { createCombat } = require('../combat');
-const { newSk, stats, CLASSES } = require('../characters');
-const { MOBTYPES } = require('../monsters');
+const { IndexedEntities, nearby } = require('../src/shared/spatial-index');
+const { playerStateDelta, snapshotMobs, createSnapshotPublisher } = require('../src/multiplayer/snapshots');
+const { createLoot } = require('../src/economy/loot');
+const { createSimulation } = require('../src/combat/simulation');
+const { createCombat } = require('../src/combat/combat');
+const { newSk, stats, CLASSES } = require('../src/player/characters');
+const { MOBTYPES } = require('../src/combat/monsters');
 const noop = () => {};
 function hero(id = 1, x = 6000, y = 6000) {
   const player = { id, name: 'Hero' + id, c: {}, cls: 'archer', lvl: 10, eq: {}, bag: [], cd1: 0, cd2: 0, cd3: 0, sk: newSk(), buf: {}, inv: { hp: 1 }, sp: 1, xp: 0, gold: 0, x, y, dir: { x: 0, y: 0 }, target: 0, cd: 0 };

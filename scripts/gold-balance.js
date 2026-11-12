@@ -1,17 +1,19 @@
 'use strict';
 const fs = require('node:fs'), path = require('node:path'), Module = require('node:module');
 const { execFileSync } = require('node:child_process');
-const monsters = require('../monsters'), gold = require('../gold-rewards');
-const { upCostFor } = require('../equipment');
-const { goldFind } = require('../characters');
-const { resolveRegionLevels } = require('../region-levels');
+const { createHistoricalRequire } = require('./historical-imports');
+const monsters = require('../src/combat/monsters'), gold = require('../src/economy/gold-rewards');
+const { upCostFor } = require('../src/economy/equipment');
+const { goldFind } = require('../src/player/characters');
+const { resolveRegionLevels } = require('../src/world/region-levels');
 const { referenceHero, referenceDps } = require('./xp-balance');
-const { partyHpScale } = require('../xp-economy');
+const { partyHpScale } = require('../src/progression/xp-economy');
 const BASELINE = '9d3866c7f7405c0ef07657997913266becf16617';
 const LEVELS = [1, 10, 50, 100, 500, 1000, 5000, 10000], CATEGORIES = ['normal', 'alpha', 'stone', 'boss', 'worldBoss'];
 function legacyMonsters(reference = BASELINE) {
   const filename = path.join(__dirname, '..', 'monsters.js');
   const module = new Module(filename); module.filename = filename; module.paths = Module._nodeModulePaths(path.dirname(filename));
+  module.require = createHistoricalRequire(module);
   try { module._compile(execFileSync('git', ['show', reference + ':monsters.js'], { cwd: path.dirname(filename), encoding: 'utf8' }), filename); }
   catch (error) { throw new Error('Historical gold baseline unavailable: ' + reference + '. Fetch the commit or pass --baseline; no estimated baseline is substituted.', { cause: error }); }
   return module.exports;

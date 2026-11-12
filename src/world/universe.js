@@ -1,4 +1,5 @@
 'use strict';
+const { worldBossIdentity, worldBossId, canAdvanceWorldTier } = require('../shared/generated/entities');
 // A server is one persistent universe: a world seed, a progression tier and a permanent
 // chronicle of verified events. Everything derived from the seed is deterministic, so the
 // same seed + tier + history snapshot + generator version always gives the same region.
@@ -73,7 +74,7 @@ function generateRegionLegacy(seed, tier, historySnapshot, generatorVersion) {
     families: shuffled(biome.families, random).slice(0, 3),
     stones: Math.min(40, 24 + depth * 2), modifiers,
     // The World Boss is its own monster type (wb<tier>) built on an existing boss archetype.
-    worldBoss: { type: 'wb' + tier, archetype, name: properName(random) + ' ' + random.pick(BOSS_TITLES[biome.element]), signature: SPECIAL[archetype] || 'slam' },
+    worldBoss: worldBossIdentity(tier, archetype, properName(random) + ' ' + random.pick(BOSS_TITLES[biome.element]), SPECIAL[archetype] || 'slam'),
     generatorVersion,
   };
 }
@@ -100,7 +101,7 @@ function generateRegion(seed, tier, historySnapshot, generatorVersion = GENERATO
     name: properName(nameRandom) + ' ' + nameRandom.pick(biome.places),
     levels: [Math.min(10000, 60 + (levelDepth - 1) * 10), Math.min(10000, 60 + levelDepth * 10)],
     families: shuffled(biome.families, stream(seed, tier, 2, 'families')).slice(0, 3), stones: 32, modifiers,
-    worldBoss: { type: 'wb' + tier, archetype, name: properName(bossRandom) + ' ' + bossRandom.pick(BOSS_TITLES[biome.element]), signature: SPECIAL[archetype] || 'slam' },
+    worldBoss: worldBossIdentity(tier, archetype, properName(bossRandom) + ' ' + bossRandom.pick(BOSS_TITLES[biome.element]), SPECIAL[archetype] || 'slam'),
     difficulty: { worldAffixes: modifiers.slice(), encounterAffixes: [], combatAffixes: [], anomalies: { budget: 1, enabled: false } },
     generatorVersion: 2,
   };
@@ -123,7 +124,7 @@ function createRegionDescriptor(state, tier, snapshot) {
 const generationSnapshot = state => ({ elements: state.generatorVersion === 1 ? { ...state.stats.elements } : Object.fromEntries(Object.keys(BOSS_TITLES).map(element => [element, state.stats.elements[element] || 0])), ...(state.generatorVersion === 1 ? { bossKills: { ...state.stats.bossKills } } : {}), stones: state.stats.stones, deaths: state.stats.deaths, mythics: state.stats.mythics, events: state.history.length });
 
 // ---------- persistent universe ----------
-function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
+function createUniverse({ store, config, broadcast, messageText, isAdmin, constructionEconomy }) {
   const state = store.data;
   let founded = false;
   if (!state.seed) {
@@ -166,7 +167,7 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
       state.regions[tier] = createRegionDescriptor(state, tier, historySnapshot());
     }
     const region = state.regions[tier];
-    if (region.kind === 'frontier' && !region.worldBoss.archetype) { region.worldBoss.archetype = region.worldBoss.type; region.worldBoss.type = 'wb' + tier; }
+    if (region.kind === 'frontier' && !region.worldBoss.archetype) { region.worldBoss.archetype = region.worldBoss.type; region.worldBoss.type = worldBossId(tier); }
     return region;
   }
   for (let tier = 1; tier <= (state.generatorVersion === 1 ? Math.max(state.worldTier, FOUNDING_TIERS) : FOUNDING_TIERS); tier++) regionFor(tier);
@@ -198,7 +199,7 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
         if (record.kind === 'village') record.stalls = seededRandom(state.seed, 'settlement-vendors', tier)() < Settlement.UNSTAFFED_VILLAGE_CHANCE;
         state.settlements[key] = record;
       }
-      snapshotConstructionCosts(state.settlements[key], tier, { legacy: tier <= FOUNDING_TIERS });
+      snapshotConstructionCosts(state.settlements[key], tier, { legacy: tier <= FOUNDING_TIERS, ...(constructionEconomy ? { config: constructionEconomy } : {}) });
       persist();
     }
     // Villages keep the layout they were given (older saves get one now, from a stream of their own).
@@ -266,7 +267,7 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin }) {
       // World progression: only the current tier's World Boss, in its own region, advances the universe.
       // The check and the tier change happen in one synchronous step, so a tier can never unlock twice.
       const frontier = regionFor(state.worldTier);
-      if (state.worldTier < Number.MAX_SAFE_INTEGER && frontier.playable && frontier.worldBoss.type === monster.ty && monster.tier === state.worldTier - 1) {
+      if (canAdvanceWorldTier(state.worldTier, frontier, monster)) {
         const beaten = state.worldTier; state.worldTier = beaten + 1;
         const next = regionFor(state.worldTier);
         // Tiers beyond the founding lands get their map built before the victory is announced.

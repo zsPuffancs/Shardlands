@@ -1,6 +1,19 @@
 {
   "schemaVersion": 1,
-  "entryPoints": ["server.js", "local-server.js", "public/index.html"],
+  "entryPoints": ["server.js", "local-server.js", "public/index.html", "scripts/simulate-balance.js"],
+  "balanceModules": {
+    "registry": "src/balance/index.js",
+    "typedSource": "src/balance/typed/registry.ts",
+    "defaults": "src/balance/typed/base.ts",
+    "types": "src/balance/typed/types.ts",
+    "simulation": "src/balance/simulation/index.js",
+    "forgeModel": "src/balance/simulation/forge.js"
+  },
+  "typedShared": {
+    "resources": "src/shared/typed/resources.ts",
+    "entities": "src/shared/typed/entities.ts",
+    "browserResources": "public/resource-bars.js"
+  },
   "domains": {
     "server": ["server-config", "server-console", "server-lifecycle", "web-server", "plugin-host", "persistence", "tunnel"],
     "world": ["game-world", "universe", "regions", "region-levels", "region-blueprint", "world-generation", "danger-geography", "progression-generation", "encounter-runtime", "world-atlas", "portal-directory"],
@@ -12,10 +25,10 @@
     "shared": ["deterministic-random", "localized-text", "spatial-index", "safety-limits"]
   },
   "inspectTogether": {
-    "player-and-monster-scaling": ["characters", "equipment", "enemy-scaling", "monsters", "combat", "simulation", "encounter-participation", "summons", "safety-limits"],
+    "player-and-monster-scaling": ["characters", "equipment", "enemy-scaling", "monsters", "combat", "simulation", "encounter-participation", "summons", "safety-limits", "src/balance/index.js", "src/shared/typed/resources.ts", "src/shared/typed/entities.ts"],
     "xp-and-progression": ["xp-economy", "characters", "combat", "encounter-participation", "teams", "stone-rewards", "adventure", "region-levels", "progression-generation", "region-blueprint", "encounter-runtime"],
-    "equipment-and-forging": ["equipment", "inventory", "auto-affix-jobs", "characters", "teams", "public/forge-math.js", "public/affix-math.js", "public/affix-usage.js", "public/bag-view.js"],
-    "gold-and-loot-economy": ["gold-rewards", "stone-rewards", "loot", "death-gold", "inventory", "teams", "server-config", "safety-limits", "settlement-economy-config", "settlement-economy", "regions", "persistence", "adventure"],
-    "world-generation-and-difficulty": ["deterministic-random", "universe", "region-levels", "world-generation", "danger-geography", "progression-generation", "region-blueprint", "regions", "encounter-runtime", "game-world", "public/settlement.js", "world-atlas", "portal-directory", "monsters"]
+    "equipment-and-forging": ["equipment", "inventory", "auto-affix-jobs", "characters", "teams", "public/forge-math.js", "public/affix-math.js", "public/affix-usage.js", "public/bag-view.js", "src/balance/simulation/forge.js"],
+    "gold-and-loot-economy": ["gold-rewards", "stone-rewards", "loot", "death-gold", "inventory", "teams", "server-config", "safety-limits", "settlement-economy-config", "settlement-economy", "regions", "persistence", "adventure", "src/economy/loot-math.js", "src/balance/index.js"],
+    "world-generation-and-difficulty": ["deterministic-random", "universe", "region-levels", "world-generation", "danger-geography", "progression-generation", "region-blueprint", "regions", "encounter-runtime", "game-world", "public/settlement.js", "world-atlas", "portal-directory", "monsters", "src/balance/typed/registry.ts"]
   }
 }

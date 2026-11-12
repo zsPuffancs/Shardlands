@@ -2,6 +2,10 @@
 
 Audit baseline: develop at `88c8345` (2026-11-12). This document is a plan;
 implementation status is recorded separately in DEVELOPMENT-AND-TESTING.md.
+The plan below records the original phase sequence; consult MODERNIZATION-STATUS.md
+for implemented Registry/TypeScript/simulation scope and subsequent domain refactors.
+Its temporary root-wrapper compatibility strategy has since been superseded by
+ROOT-WRAPPER-REMOVAL.md; current imports use src/ and root shims are retired.
 
 ## Baseline architecture
 

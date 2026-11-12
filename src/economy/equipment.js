@@ -71,10 +71,16 @@ function sanitize(item) { if (item && item.stats) for (const key of REMOVED_STAT
 const plusMul = (item, statKey) => 1 + (item.plus || 0) * (item.slot === 'weapon' && statKey === 'dmg' ? 0.15 : 0.1);
 const sellValue = item => Math.round((3 * item.ilvl + 5) * (1 + RARITY[item.rar].x * RARITY[item.rar].x * 0.6) * (1 + (item.plus || 0) * 0.5));
 
-function createEquipment({ rates }) {
+const rarityWeights = (bonus = 0, rarityBoost = 0) => RARITY.map((roll, i) => roll.w * (1 + ((bonus || 0) + rarityBoost) * i * 1.5));
+function rarityProbabilities(bonus = 0, rarityBoost = 0, minimumRarity = 0) {
+  const weights = rarityWeights(bonus, rarityBoost), total = weights.reduce((sum, value) => sum + value, 0), probabilities = weights.map(() => 0);
+  weights.forEach((weight, index) => { probabilities[Math.max(index, minimumRarity)] += weight / total; });
+  return probabilities;
+}
+function createEquipment({ rates, random = () => Math.random() }) {
   let nextItemNumber = 0; const newUid = () => Date.now().toString(36) + '-' + (nextItemNumber++).toString(36);
   function rollRarity(bonus, minimumRarity) {
-    const rarityBonus = (bonus || 0) + rates.rarityBoost, weights = RARITY.map((roll, i) => roll.w * (1 + rarityBonus * i * 1.5)); let roll = Math.random() * weights.reduce((a, c) => a + c, 0), selectedRarity = 0;
+    const weights = rarityWeights(bonus, rates.rarityBoost); let roll = random() * weights.reduce((a, c) => a + c, 0), selectedRarity = 0;
     for (let i = 0; i < weights.length; i++) { roll -= weights[i]; if (roll <= 0) { selectedRarity = i; break; } }
     return Math.max(selectedRarity, minimumRarity || 0);
   }
@@ -107,4 +113,4 @@ function createEquipment({ rates }) {
   return { rollRarity, genGear, rerollGear, applyAffix };
 }
 
-module.exports = { PRIMARY, ITEM_STAT_SOFT_CAP_START, ITEM_STAT_SOFT_CAP_SCALE, effectiveStatLevel, affixRange, REMOVED_STATS, SLOTS, NO_DMG, RARITY, MYTHIC, PASSIVES, MERGE_COST, REROLL_COST, AFFIXES, AFFIX_SLOTS, AFFIX_COST, MYTHIC_MERGE_COUNT, MYTHIC_MERGE_GOLD, statRanges, itemView, BASES, STATDEF, UP_RATE, sanitize, plusMul, sellValue, upCostFor, createEquipment };
+module.exports = { rarityWeights, rarityProbabilities, PRIMARY, ITEM_STAT_SOFT_CAP_START, ITEM_STAT_SOFT_CAP_SCALE, effectiveStatLevel, affixRange, REMOVED_STATS, SLOTS, NO_DMG, RARITY, MYTHIC, PASSIVES, MERGE_COST, REROLL_COST, AFFIXES, AFFIX_SLOTS, AFFIX_COST, MYTHIC_MERGE_COUNT, MYTHIC_MERGE_GOLD, statRanges, itemView, BASES, STATDEF, UP_RATE, sanitize, plusMul, sellValue, upCostFor, createEquipment };

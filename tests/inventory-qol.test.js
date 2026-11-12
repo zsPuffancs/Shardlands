@@ -1,12 +1,12 @@
 'use strict';
 const test = require('node:test'), assert = require('node:assert/strict');
 const BagView = require('../public/bag-view');
-const { createInventory } = require('../inventory');
-const { createTeams } = require('../teams');
-const { createPlayerSessions } = require('../player-session');
-const { newSk, stats } = require('../characters');
-const { createGameSaves } = require('../persistence');
-const { NPCS } = require('../game-world');
+const { createInventory } = require('../src/economy/inventory');
+const { createTeams } = require('../src/multiplayer/teams');
+const { createPlayerSessions } = require('../src/player/player-session');
+const { newSk, stats } = require('../src/player/characters');
+const { createGameSaves } = require('../src/server/persistence');
+const { NPCS } = require('../src/world/game-world');
 const noop = () => {};
 const item = (uid, extra = {}) => ({ uid, name: 'Iron Sword', slot: 'weapon', fam: 'sword', rar: 0, ilvl: 10, plus: 0, req: 1, stats: { dmg: 10 }, ...extra });
 function hero(id = 1) { const player = { id, name: 'Hero' + id, c: {}, cls: 'archer', lvl: 100, xp: 123, sp: 5, gold: 10000, souls: 99, eq: {}, bag: [], inv: { hp: 3 }, sk: newSk(), buf: {}, x: NPCS.merchant.x, y: NPCS.merchant.y }; stats(player); player.hp = player.maxhp; player.mp = player.maxmp; return player; }

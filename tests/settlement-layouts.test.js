@@ -4,7 +4,7 @@
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const Settlement = require('../public/settlement');
-const world = require('../game-world');
+const world = require('../src/world/game-world');
 
 const STYLES = ['timber', 'snow', 'sandstone', 'dark', 'ember', 'void'];
 const unit = (x, y) => { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
@@ -131,7 +131,7 @@ test('server and client agree: the client rebuilds the same layout from what the
   const map = world.addMap(5, { tier: 11, regionTier: 12 });
   world.setSettlement(map, { kind: 'village', style: 'sandstone', built: {}, layout: 'market' });
   // worldInfo needs a zone for this map
-  const { TIERS } = require('../monsters'), length = TIERS.length, saved = TIERS[11]; TIERS[11] = { name: 'Test', lv: [100, 130] };
+  const { TIERS } = require('../src/combat/monsters'), length = TIERS.length, saved = TIERS[11]; TIERS[11] = { name: 'Test', lv: [100, 130] };
   try {
     const info = world.worldInfo(map);
     assert.equal(info.settlement.layout, 'market'); assert.equal(info.V, Settlement.SAFE_RADIUS.village);
@@ -179,7 +179,7 @@ test('layout selection is deterministic, prefers the biome, keeps old settlement
   assert.deepEqual(Settlement.choose('glacier', 9, () => 0.1), { kind: 'none', style: 'snow' });
   assert.deepEqual(Settlement.choose('glacier', 9, () => 0.5), { kind: 'village', style: 'snow' });
   // universe: the founding village is the Grand Circle; an old save without a layout gets a lasting one
-  const { createUniverse } = require('../universe');
+  const { createUniverse } = require('../src/world/universe');
   const universe = createUniverse({ store: { data: {}, save: async () => {} }, config: { worldSeed: 'LAYOUT-TEST', generatorVersion: 2 }, broadcast: () => {}, messageText: () => '', isAdmin: () => false });
   universe.state.worldTier = 40; universe.state.settlements = { founding: { kind: 'village', style: 'timber', built: {} } }; // an old save, no layout yet
   {
@@ -261,7 +261,7 @@ test('server: a village without vendors offers the board, NPCs appear only when 
   assert.equal(world.npcAvailable(normal, 'camp'), false);
   { const a = world.npcPosition(map, 'smith'), b = world.npcPosition(normal, 'smith'); assert.ok(Math.abs(a.x - map.cx - (b.x - normal.cx)) < 1e-6 && Math.abs(a.y - map.cy - (b.y - normal.cy)) < 1e-6, 'normal position'); }
   // universe: new villages roll about 25% without vendors, deterministic and stored; old saves and the founding village keep theirs
-  const { createUniverse } = require('../universe');
+  const { createUniverse } = require('../src/world/universe');
   const universe = createUniverse({ store: { data: {}, save: async () => {} }, config: { worldSeed: 'VENDOR-TEST', generatorVersion: 2 }, broadcast: () => {}, messageText: () => '', isAdmin: () => false });
   universe.state.worldTier = 400;
   let villages = 0, empty = 0;

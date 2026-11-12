@@ -1,4 +1,5 @@
 'use strict';
+const { dropSpecification } = require('./loot-math');
 
 const { MAX_CURRENCY, MAX_ITEM_STACK, MAX_GEAR_DROPS, positiveAmount, credit } = require('../shared/safety-limits');
 const { nearby } = require('../shared/spatial-index');
@@ -42,20 +43,21 @@ function createLoot({ loot, players, allocateId, rates, ev, say, toast, broadcas
     if (guardian) {
       if (reward.soulChance && Math.random() < reward.soulChance) dropMonster(monster.x + rnd(-30, 30), monster.y + rnd(-30, 30), { kind: 'souls', v: reward.souls, name: reward.souls + (reward.souls === 1 ? ' soul' : ' souls') }, player.id);
     } else if (stone || boss || alpha) { const souls = worldBoss ? rint(5, 10) : stone ? rint(...STONE_REWARDS.completion.souls) : rint(1, 5); dropMonster(monster.x + rnd(-30, 30), monster.y + rnd(-30, 30), { kind: 'souls', v: souls, name: souls + (souls === 1 ? ' soul' : ' souls') }, player.id); }
-    const consumableCount = stone ? 4 : boss ? 4 : alpha ? 2 : (Math.random() < Math.min(1, 0.16 * rates.potionDropRate * reward.loot) ? 1 : 0);
+    const specification = dropSpecification(monster, template, rates, reward);
+    const consumableCount = specification.potionCount || (Math.random() < specification.potionChance ? 1 : 0);
     for (let i = 0; i < consumableCount; i++) {
       const pool = Object.keys(ITEMS).filter(k => ITEMS[k].w > 0 && (k !== 'hp2' || monster.tier >= 1));
       let r = Math.random() * pool.reduce((s, k) => s + ITEMS[k].w, 0), pk = pool[0]; for (const k of pool) { r -= ITEMS[k].w; if (r <= 0) { pk = k; break; } }
       dropMonster(monster.x + rnd(-45, 45), monster.y + rnd(-45, 45), { kind: 'item', k: pk, n: 1, name: ITEMS[pk].n }, player.id);
     }
-    const gearChance = (0.14 + 0.02 * Math.min(monster.tier, 6)) * rates.gearDropRate * reward.loot;
+    const gearChance = specification.gearChance;
     // World Bosses are milestones: more gear, at least Epic, a little above their level.
-    let gearCount = stone ? 4 + STONE_REWARDS.completion.extraGear + Math.floor(monster.tier / 2) : worldBoss ? 7 : boss ? 5 : alpha ? 2 : 0; if (!stone && !boss && !alpha) { gearCount = Math.floor(gearChance); if (Math.random() < gearChance - gearCount) gearCount++; }
+    let gearCount = specification.fixedGearCount ?? 0; if (!stone && !boss && !alpha) { gearCount = Math.floor(gearChance); if (Math.random() < gearChance - gearCount) gearCount++; }
     gearCount = Math.min(reward.maxGear ?? MAX_GEAR_DROPS, positiveAmount(gearCount));
     for (let i = 0; i < gearCount; i++) {
-      const ilvl = Math.max(1, monster.lvl + rint(-1, 2) + (worldBoss ? 5 : boss ? 3 : 0) + (stone || alpha ? 1 : 0)), minR = worldBoss ? 3 : stone ? STONE_REWARDS.completion.minimumRarity : boss ? 2 : alpha ? 1 : 0;
+      const ilvl = Math.max(1, monster.lvl + rint(-1, 2) + (worldBoss ? 5 : boss ? 3 : 0) + (stone || alpha ? 1 : 0)), minR = specification.minimumRarity;
       const recipient = gearRecipient(player, monster);
-      const item = genGear(pick(SLOTS), ilvl, rollRarity((boss ? 3 : stone ? 2.2 : alpha ? 1.2 : 0) + monster.tier * 0.15, minR), CLASSES[recipient.cls].fam);
+      const item = genGear(pick(SLOTS), ilvl, rollRarity(specification.rarityBonus, minR), CLASSES[recipient.cls].fam);
       dropMonster(monster.x + rnd(-50, 50), monster.y + rnd(-50, 50), { kind: 'gear', item: item, name: item.name, rar: item.rar }, recipient.id);
       if (item.rar >= 3) broadcast({ t: 'chat', n: '*', channel: 'loot', m: messageText("server.playerLoot", "{player} found {rarity} {item}!", { player: recipient.name, rarity: messageText('rarity.' + item.rar, RARITY[item.rar].n), item: gearText(item.name) }) });
     }

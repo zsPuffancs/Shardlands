@@ -8,7 +8,7 @@ multiplier = 1 + scalingCoefficient * depth ** scalingExponent;
 cost = Math.round(baseCost * multiplier);
 ```
 
-Tune `SETTLEMENT_ECONOMY` in `settlement-economy-config.js`: merchant 250,000 gold, smith 400,000, mystic 400,000; starting Tier 8, coefficient .06, exponent .7. The pure `constructionCostsForTier(tier, config)` accepts the same configuration shape for future Rulesets / Balance Registry integration. No framework, dependency or runtime ruleset registry is added. Restart after changing the module; new settings apply only to settlements initialized afterward.
+Tune `SETTLEMENT_ECONOMY` in `src/economy/settlement-economy-config.js`: merchant 250,000 gold, smith 400,000, mystic 400,000; starting Tier 8, coefficient .06, exponent .7. The pure `constructionCostsForTier(tier, config)` accepts the same configuration shape for future Rulesets / Balance Registry integration. No framework, dependency or runtime ruleset registry is added. Restart after changing the module; new settings apply only to settlements initialized afterward.
 
 The inputs are the settlement's own World Tier and configuration, never the visiting player or the currently unlocked maximum tier. Both encampments and unstaffed villages use the same system. Founding settlement prices retain their historical fixed values. Shared geometry and NPC placement are unchanged.
 

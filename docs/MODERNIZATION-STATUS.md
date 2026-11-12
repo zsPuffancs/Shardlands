@@ -1,7 +1,73 @@
 # Modernization checkpoint: 2026-11-12
 
-Base: develop / 88c8345, Node v26.13.0, Windows PowerShell.
-No commit/push performed. No real saves/configuration regenerated or copied.
+Initial base: develop / 88c8345, Node v26.13.0, Windows PowerShell.
+Phase 1 was committed and pushed as 142ecac. Subsequent work described below is
+local until separately committed. No real saves/configuration regenerated or copied.
+
+## Current implementation and verification
+
+Root-wrapper cleanup: all 44 temporary compatibility files have now been removed.
+131 static imports across 22 files and the vegetation helper were migrated to
+src/. Historical Git reports use an isolated per-module resolver. Root entry points
+server.js/local-server.js and the documented plugin init(api) contract remain.
+Full audit/path map and external direct-import caveat: ROOT-WRAPPER-REMOVAL.md.
+Latest full suite: **263 tests, 254 passed, same 9 baseline failures**, compared
+against the verified 260/251/9 modernization checkpoint. Build/typecheck/shared UI
+artifact passed; deterministic tests 25/25 and integration checks 4/4 passed.
+Normal/Custom simulation JSON matches that pre-removal baseline exactly. The
+tables below retain the previous modernization checkpoint for comparison.
+
+- Typed immutable Registry with Normal/Hardcore/Accelerated/Custom resolution;
+  configurable rates/settlement/worldGeneration, strict validation, classification
+  and legacy numeric rate adapter. Other mathematical policies are explicitly
+  read-only production catalog entries, not silently ignored override knobs.
+- Strict TS defaults/contracts/validator and shared resource/entity components.
+  Committed generated CommonJS/browser outputs keep build-free launch working.
+  TypeScript 5.9.3 is the only development dependency; no runtime framework added.
+- Deterministic reusable simulation with real production helpers, actual Tier
+  ranges, forge Markov model, reward/party/drop projections, Stone lifecycle
+  ceilings, generation validation and JSON/CSV/Markdown exports.
+- Shared HP/mana/XP presenter for HUD, target, team and entity nameplates. Existing
+  CSS/transitions/rounding remain; zero/invalid display values clamp safely.
+  Authoritative resource arithmetic preserves negative overkill and fractions.
+- Shared World Boss identity/template/category/progression helpers with unchanged
+  RNG draw order, identifiers, proper names and v1/v2 serialized fixtures from
+  commit 142ecac. Differing summon/anomaly reward rules stay separate.
+- Updated agent/dependency/developer guides and scoped remaining TS/UI roadmap.
+
+| Final check | Actual result |
+|---|---|
+| npm ci --ignore-scripts --no-audit --no-fund | Passed after enabling Windows system CA trust on this Node 26 environment |
+| npm run build / npm run typecheck / npm run check:shared-ui | Passed |
+| npm run test:unit | 25/25 passed |
+| npm run test:integration | 4/4 passed, including actual server/local launcher, plugins, save/restart, Rulesets and pinned projects/generation |
+| npm run test:balance | 49/49 passed |
+| npm run test:determinism | 25/25 passed |
+| Full suite after Registry/simulator | 251 total, 242 passed, same 9 baseline failures |
+| Full suite after resource/World Boss refactor | 260 total, 251 passed, same 9 baseline failures |
+| Component VM tests | Actual generated UMD and HUD function executed against instrumented DOM; no manual screenshot/interactive visual claim |
+| Deterministic before/after fixtures | v1/v2 descriptor/name/ID/geometry fixtures at Tiers 8, 100, 10000 match 142ecac |
+| Default unified simulation | 73 PASS, 2 WARN, 0 FAIL; warnings are documented telemetry/absent-defense limitations |
+| Alternative presets/custom exports | Hardcore range and Custom override example ran; JSON/CSV/Markdown emitted; no failed invariants |
+
+Full logs and generated analytical reports are local ignored files in reports/.
+Old baseline failures below are unchanged and remain blockers to a wholly green
+full suite. No test assertions/golden fixtures were weakened or old failures hidden.
+
+## Remaining scope and risks
+
+- Registry policy overrides for XP/forge/equipment/combat coefficients are not
+  implemented; only the explicitly supported configuration domains accept patches.
+  Future policy migration must wire all real consumers before accepting a knob.
+- No wholesale TS/client conversion or abstract entity inheritance hierarchy.
+  Inventory cells/tooltips/status effects/notifications and typed snapshot/service
+  boundaries remain scoped roadmap items (DOMAIN-REFACTOR-PLAN.md, TYPESCRIPT-ROADMAP.md).
+- Simulator income is an analytical single-target projection, not measured live
+  farming/clearing income. Economic preference thresholds were not invented.
+- Legacy historical gold report still has its pre-existing combat/XP reference
+  assertion failure; the new simulator does not fabricate OLD/NEW comparisons.
+
+## Historical phase-1 checkpoint
 
 ## Implemented
 
@@ -18,7 +84,7 @@ No commit/push performed. No real saves/configuration regenerated or copied.
   backend dependency boundaries; isolated integration startup/plugin/save/restart
   test using temporary stores.
 
-## Actual verification
+## Historical phase-1 verification
 
 | Check | Result |
 |---|---|
@@ -82,19 +148,6 @@ These observations are not a claim that every failing test is incorrect or every
 live gameplay path is bug-free. Resolve fixture/policy discrepancies separately;
 do not silently weaken assertions or change rewards in an architecture migration.
 
-## Pending: not implemented
-
-Phases 2–7 remain beyond this verified relocation checkpoint:
-
-- Typed Balance Registry and production-consumed configuration resolution.
-- Normal/Hardcore/Accelerated/Custom Rulesets, validation and rates adapter.
-- Live/restart/generation-locked/save-sensitive enforcement.
-- Strict TypeScript build/typecheck and shared contracts.
-- Unified deterministic simulation, forge Markov model, actual-Tier scenarios,
-  configurable overrides, JSON/CSV/Markdown exports and explicit status policies.
-- New Registry/simulation/statistical tests and final verification of those phases.
-
-The approved implementation plan remains in MODERNIZATION-PLAN.md. The full
-modernization is **not complete**. This checkpoint avoids mixing a large config/
-typing/simulation rewrite into the already verified relocation, and preserves
-baseline failures rather than concealing them.
+The original phase plan remains in MODERNIZATION-PLAN.md. Current implemented
+scope and remaining migration items are recorded at the top of this document;
+the historical phase-1 table is retained to make regression comparisons explicit.

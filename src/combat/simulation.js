@@ -1,4 +1,5 @@
 'use strict';
+const { restoreResource } = require('../shared/generated/resources');
 
 const { nearby } = require('../shared/spatial-index');
 const { CX, CY, rnd, dist, clampWorld, moveToward, inVillage, placeInVillage, mapOf, collideSettlement } = require('../world/game-world');
@@ -79,7 +80,7 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
         player.cd = now + (now < player.buf.rage ? 600 : 800) * (1 - passive(player, 'haste')) * (1 - gearAttackSpeed(player)); ev('atk', player.x, player.y, 0, { tx: Math.round(target.x), ty: Math.round(target.y), s: player.cls, a: player.id });
         hitMob(player, target, playerDmg(player));
       }
-      player.hp = Math.min(player.maxhp, player.hp + player.maxhp * (inVillage(player) ? 0.05 : 0.006) * tickSeconds); player.mp = Math.min(player.maxmp, player.mp + (2 + player.lvl * 0.2) * (1 + 2 * passive(player, 'focus')) * tickSeconds);
+      player.hp = restoreResource(player.hp, player.maxhp, player.maxhp * (inVillage(player) ? 0.05 : 0.006) * tickSeconds); player.mp = restoreResource(player.mp, player.maxmp, (2 + player.lvl * 0.2) * (1 + 2 * passive(player, 'focus')) * tickSeconds);
     }
   }
 
@@ -130,7 +131,7 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
             monster.hx = home.x;
             monster.hy = home.y;
           }
-          if (monster.hp < monster.mh) monster.hp = Math.min(monster.mh, monster.hp + monster.mh * 0.05 * tickSeconds);
+          if (monster.hp < monster.mh) monster.hp = restoreResource(monster.hp, monster.mh, monster.mh * 0.05 * tickSeconds);
           // Back home and healed: a monster made tougher by a team goes back to normal.
           else if (monster.ps > 1 || monster.combatActive) { monster.mh = Math.max(1, Math.round(monster.mh / (monster.ps || 1))); monster.hp = monster.mh; monster.ps = 1; monster.phase = 0; monster.fightStart = 0; resetEncounter(monster); }
         }
@@ -145,7 +146,7 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
 
   function updateSpiritStone(monster, activePlayers, now) {
     const recovery = monster.stoneStep < 5 ? 0 : monster.mh * 0.004 * tickSeconds;
-    monster.hp = Math.min(monster.mh, monster.hp + recovery);
+    monster.hp = restoreResource(monster.hp, monster.mh, recovery);
     if (monster.cast && now >= monster.cast.at) {
       const radius = monster.cast.r;
       ev('slam', monster.x, monster.y, radius, { s: 'pulse' });

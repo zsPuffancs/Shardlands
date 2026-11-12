@@ -1,4 +1,5 @@
 'use strict';
+const { rewardCategory } = require('../shared/generated/entities');
 const { STONE_REWARDS } = require('../economy/stone-rewards');
 // Shared production XP mathematics. This module never reads time, players, saves or World Tier.
 const MAX_PLAYER_LEVEL = 10000;
@@ -27,7 +28,7 @@ function partyAllocation(members = 1, healthScale = partyHpScale(members)) {
   return pool / partySize(members);
 }
 function encounterCategory(monster = {}, template = {}) {
-  return monster.summoned ? 'summoned' : monster.anomaly || template.anomaly ? 'anomaly' : template.stone ? 'stone' : template.worldBoss ? 'worldBoss' : template.boss ? 'boss' : monster.alpha ? 'alpha' : 'normal';
+  return rewardCategory(monster, template);
 }
 function categoryFraction(category, level) {
   if (!Object.hasOwn(XP_BALANCE.fractions, category) || !validLevel(level)) return 0;

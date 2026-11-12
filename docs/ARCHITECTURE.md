@@ -1,8 +1,8 @@
 # Implemented architecture
 
-Status: backend relocation and AI-agent navigation checkpoint, 2026-11-12.
-Balance Registry, Rulesets, TypeScript and a unified simulation engine are planned,
-not implemented. See MODERNIZATION-PLAN.md and DEVELOPMENT-AND-TESTING.md.
+Status: backend domains, typed Balance Registry, Rulesets, deterministic balance
+simulations and shared typed health/World Boss components, 2026-11-12.
+See MODERNIZATION-STATUS.md for actual checks and remaining migration scope.
 
 ## Runtime and directory responsibilities
 
@@ -18,15 +18,20 @@ not implemented. See MODERNIZATION-PLAN.md and DEVELOPMENT-AND-TESTING.md.
 | src/progression/ | XP policy and adventure/contracts/bestiary |
 | src/multiplayer/ | Parties/trades, WebSocket framing, snapshots/deltas |
 | src/shared/ | RNG, localized payloads, spatial index and technical safety limits |
+| src/balance/ | Typed defaults/validation/Rulesets, immutable resolution, production formula catalog and offline simulations |
+| src/shared/typed/ | Reusable typed resource arithmetic/presenter and encounter/World Boss contracts; generated/ contains CommonJS outputs |
 | public/ | Global browser scripts, Three/WebGL client, UI, localization, shared UMD math/geometry |
 | dev-atlas/ | Developer map frontend; local-only endpoints in world-atlas.js |
 | plugins/ | CommonJS plugins loaded at runtime; PLUGINS.md describes API |
 | scripts/ / tests/ | Existing balance/art reports, dependency generator, native tests/fixtures |
 
-The old root module names re-export their src/ implementation. Consumers at either
-path share the same exports/cache identity. New backend imports use src/ directly;
-do not edit compatibility wrappers when changing implementation behavior.
-docs/module-domains.json provides the exact legacy-to-domain relocation map.
+src/ is the canonical backend module location. All 44 temporary root compatibility
+wrappers were retired after migrating internal consumers. server.js/local-server.js
+remain intentional root entry points. docs/module-domains.json preserves the
+legacy-to-domain relocation map as migration metadata; it does not declare legacy
+paths to be loadable. ROOT-WRAPPER-REMOVAL.md records the full audit and compatibility
+boundary. Offline historical reports use a scoped virtual-module import adapter;
+normal runtime/plugin resolution is not patched.
 
 ## Main flows and dependencies
 
@@ -82,10 +87,13 @@ For the five requested audit workflows, use `inspectTogether` in
 docs/module-domains.json, or `node scripts/module-map.js --group <name>`.
 These groups intentionally include payout/state consumers, not just formula files.
 
-There is currently no src/balance/ registry. Constants live in their production
-domains (XP_BALANCE, ENEMY_SCALING, GOLD_BALANCE, STONE_REWARDS, forge UMD constants,
-SETTLEMENT_ECONOMY, region/generation parameters). Registry extraction must preserve
-these exact results. Ruleset labels cannot authorize new balance values.
+Registry entry: src/balance/index.js. Typed defaults/validation/contracts live in
+src/balance/typed/, with committed generated/ CommonJS/declarations. Configurable
+domains are rates, settlement and worldGeneration. Other existing policy constants
+(XP_BALANCE, ENEMY_SCALING, GOLD_BALANCE, STONE_REWARDS, forge rates, rarity and region
+parameters) remain in production domains and are exposed by a read-only formulaCatalog().
+Unsupported policy overrides throw rather than being silently ignored. This is an
+incremental Registry boundary, not a claim that every gameplay coefficient is tunable.
 
 ## Configuration precedence and persistence
 
@@ -96,10 +104,15 @@ every 1.5 seconds; omitted/invalid keys retain previous values. Rate effects dif
 some apply immediately, monster HP applies at spawn and population settings need
 restart. Read server-config.js before assuming a knob is fully live.
 
-Planned, not implemented: Base -> Ruleset -> server-specific overrides -> validated
-effective Balance. Future settings must explicitly classify live/restart/generation-
-locked/save-sensitive behavior. Persisted generation/settlement snapshots take
-precedence over newly configured defaults for already-created content.
+Implemented: Base -> Ruleset -> config.json balance.overrides -> validated effective
+Balance. Named presets Normal/Hardcore/Accelerated/Custom currently have empty patches
+and preserve defaults. Legacy rates.json then adapts numeric values using existing
+clamp/retain semantics; effectiveBalance() returns an immutable snapshot of that
+runtime state. Registry live updates reject restart/generation/save-sensitive knobs.
+Population requires restart; monsterHp remains live-on-respawn as before. Generation
+snapshots in an existing universe override newly configured generation defaults;
+existing settlement prices/donations stay pinned, while new projects use resolved
+settlement configuration. The Registry does not rewrite saves.
 
 Root stores: saves.json, plugin-data.json, universe.json; save-journal.json is
 coordinated recovery state. persistence.js handles queued writes and recovery;
@@ -116,6 +129,13 @@ Do not silently recompute regions, settlement prices, donations or guardian budg
 Use real descriptor ranges when comparing World Tiers; player level and item level
 are distinct. Atlas endpoints must retain loopback/Host/origin/proxy restrictions.
 
-No TypeScript tooling or module-system changes exist at this checkpoint. Shared
-UMD modules work both through CommonJS require and browser globals; moving them
-or adding frontend compilation is outside the relocation phase.
+Strict TypeScript is used for Registry and shared resource/entity contracts.
+Generated CommonJS is committed, preserving node server.js without installation.
+The only browser-generated artifact is public/resource-bars.js, a UMD wrapper of
+the same dependency-free TS resource module. Existing client scripts remain globals.
+ResourceBar encapsulates DOM caching and accessibility; configuration preserves
+HUD/nameplate rounding and existing CSS transitions. Pure server arithmetic retains
+overkill/death semantics, while display clamping is separate. Composed service
+factories remain appropriate for combat/rewards; no artificial entity inheritance
+tree or saved class instances are introduced. World Boss factories preserve IDs,
+proper names, unknown template fields, serialized shape and seeded RNG draw order.

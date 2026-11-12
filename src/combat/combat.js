@@ -1,4 +1,5 @@
 'use strict';
+const { restoreResource, subtractResource } = require('../shared/generated/resources');
 
 const { nearby } = require('../shared/spatial-index');
 const { localizedText: messageText } = require('../shared/localized-text');
@@ -36,7 +37,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
       participation.begin(player, monster);
       participation.record(player, monster, Math.min(monster.hp, damage), Date.now());
       adventure?.observe(player, monster);
-      monster.hp -= damage;
+      monster.hp = subtractResource(monster.hp, damage);
       // Bosses grow more dangerous below 60% and 30% health. Everyone nearby sees the change.
       if (monster.boss && monster.hp > 0) { const phase = bossPhase(monster); if (phase > (monster.phase || 0)) { monster.phase = phase; ev('phase', monster.x, monster.y, phase, { a: monster.id, s: 'enrage', monsterType: monster.ty }); ev('fx', monster.x, monster.y, 90, { s: 'rage', a: monster.id }); } }
       ev('dmg', monster.x, monster.y, damage, {
@@ -45,7 +46,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
       // Lifesteal heals a share of the character's Damage stat on every hit, not of the damage dealt
       // (crits, skill multipliers and the hit's random spread do not change the heal).
       const lifesteal = passive(player, 'lifesteal') + gearLifesteal(player);
-      if (lifesteal > 0 && !player.dead) player.hp = Math.min(player.maxhp, player.hp + playerDmg(player) * lifesteal);
+      if (lifesteal > 0 && !player.dead) player.hp = restoreResource(player.hp, player.maxhp, playerDmg(player) * lifesteal);
       const template = MOBTYPES[monster.ty];
       monster.awake = true;
       if (!template.stone && !monster.target) monster.target = player.id;
@@ -96,7 +97,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     fire('hurt', player, monster, hit);
     damage = Math.max(0, Math.round(hit.v));
     if (!damage) return;
-    player.hp -= damage; ev('hurt', player.x, player.y, damage, { a: monster.id, combatPlayerId: player.id, monsterType: monster.ty });
+    player.hp = subtractResource(player.hp, damage); ev('hurt', player.x, player.y, damage, { a: monster.id, combatPlayerId: player.id, monsterType: monster.ty });
     if (player.hp <= 0) {
       player.hp = 0; player.dead = now + 5000; player.target = 0; player.chasingTarget = false;
       const loss = deathGoldPenalty(player, rates);
@@ -160,7 +161,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
       const rank = player.sk.mend; if (rank < 1 || now < player.cd2 || player.mp < 20) return;
       player.mp -= 20; player.cd2 = now + 8000 - 500 * rank; const healAmount = Math.floor(player.maxhp * (0.2 + 0.08 * rank));
       const previousHealth = player.hp;
-      player.hp = Math.min(player.maxhp, player.hp + healAmount);
+      player.hp = restoreResource(player.hp, player.maxhp, healAmount);
       const restoredHealth = Math.round(player.hp - previousHealth);
       if (restoredHealth > 0) ev('heal', player.x, player.y, '+' + restoredHealth, { combatPlayerId: player.id, restoredHealth });
       ev('fx', player.x, player.y, 50, { s: 'heal', a: player.id });

@@ -1,13 +1,13 @@
 'use strict';
 const test = require('node:test'), assert = require('node:assert/strict');
 const { performance } = require('node:perf_hooks');
-const { createUniverse, createRegionDescriptor, generationSnapshot, generateRegion } = require('../universe');
-const { buildRegionPlan, regionGeometry } = require('../region-blueprint');
-const { createDangerSpec, materializeDanger, dangerAt, PROFILES, placementAllowed, validateRoutes, buildRoutes, sampleHeatmap } = require('../danger-geography');
-const { validateSpawnPlan, generateSpawnPlan, stream } = require('../world-generation');
-const { createAtlas, localRequest } = require('../world-atlas');
-const { createWebServer } = require('../web-server');
-const { attachUniverse } = require('../game-world');
+const { createUniverse, createRegionDescriptor, generationSnapshot, generateRegion } = require('../src/world/universe');
+const { buildRegionPlan, regionGeometry } = require('../src/world/region-blueprint');
+const { createDangerSpec, materializeDanger, dangerAt, PROFILES, placementAllowed, validateRoutes, buildRoutes, sampleHeatmap } = require('../src/world/danger-geography');
+const { validateSpawnPlan, generateSpawnPlan, stream } = require('../src/world/world-generation');
+const { createAtlas, localRequest } = require('../src/world/world-atlas');
+const { createWebServer } = require('../src/server/web-server');
+const { attachUniverse } = require('../src/world/game-world');
 const noop = () => {};
 function world(seed = 'danger-test', version = 2) { return createUniverse({ store: { data: {}, save: async () => {} }, config: { worldSeed: seed, generatorVersion: version }, broadcast: noop, messageText: () => '', isAdmin: () => false }); }
 function region(seed, tier = 8, biome) {

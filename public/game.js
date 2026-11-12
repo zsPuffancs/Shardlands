@@ -668,7 +668,7 @@ function label(id, html, cls, x, y, z, hpv, wd, color) {
   if (L.transform !== transform) { L.transform = transform; L.el.style.transform = transform; }
   if (L.wd !== w) { L.wd = w; L.el.style.width = w + 'px'; }
   const hh = html + '|' + (color || ''); if (L.h !== hh) { L.h = hh; L.n.innerHTML = html; if (color) L.el.style.color = color; }
-  const pc = Math.round(hpv * 100); if (pc !== L.w) { L.w = pc; L.i.style.width = pc + '%'; }
+  SharedResources.updateResourceBar(L.i.parentElement, hpv, 1, undefined, { step: 1, label: L.n.textContent });
 }
 
 // ---------- main loop ----------

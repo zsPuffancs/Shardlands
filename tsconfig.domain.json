@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src/shared/typed",
+    "outDir": "src/shared/generated",
+    "noImplicitOverride": true
+  },
+  "include": ["src/shared/typed/**/*.ts"]
+}

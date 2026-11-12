@@ -1,9 +1,9 @@
 'use strict';
 const fs = require('node:fs');
 const { performance } = require('node:perf_hooks');
-const { generateRegion } = require('../universe');
-const { TIERS } = require('../monsters');
-const { stream, generateSpawnPlan, validateSpawnPlan } = require('../world-generation');
+const { generateRegion } = require('../src/world/universe');
+const { TIERS } = require('../src/combat/monsters');
+const { stream, generateSpawnPlan, validateSpawnPlan } = require('../src/world/world-generation');
 const count = Number(process.argv[2] || 10000);
 if (!Number.isInteger(count) || count < 1 || count > 1000000) throw Error('Count must be 1..1000000');
 const output = process.argv[3];
@@ -37,7 +37,7 @@ for (let i = 0; i < count; i++) {
 }
 const end = performance.now(); if (global.gc) global.gc(); const after = process.memoryUsage(); times.sort((a, b) => a - b);
 // Independent iid annulus samples: KS statistic for normalized r^2 and angular chi-square.
-const n = 100000, random = stream('audit-statistics', 1, 2, 'annulus'), values = [], angular = Array(12).fill(0), { sampleAnnulus } = require('../world-generation');
+const n = 100000, random = stream('audit-statistics', 1, 2, 'annulus'), values = [], angular = Array(12).fill(0), { sampleAnnulus } = require('../src/world/world-generation');
 for (let i = 0; i < n; i++) { const p = sampleAnnulus(random, 0, 0, 400, 1250); values.push((p.x * p.x + p.y * p.y - 400 ** 2) / (1250 ** 2 - 400 ** 2)); angular[Math.min(11, Math.floor((Math.atan2(p.y, p.x) + Math.PI) / (2 * Math.PI) * 12))]++; }
 values.sort((a, b) => a - b); let ks = 0; values.forEach((value, i) => { ks = Math.max(ks, (i + 1) / n - value, value - i / n); });
 const chi2 = angular.reduce((sum, value) => sum + (value - n / 12) ** 2 / (n / 12), 0);

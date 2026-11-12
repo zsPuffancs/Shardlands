@@ -1,0 +1,22 @@
+{
+  "name": "shardlands",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shardlands — Infinite Worlds",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node local-server.js",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.domain.json && node scripts/build-shared-ui.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.domain.json --noEmit",
+    "check:shared-ui": "node scripts/build-shared-ui.js --check",
+    "test": "node scripts/test.js all",
+    "test:unit": "node scripts/test.js unit",
+    "test:integration": "node scripts/test.js integration",
+    "test:balance": "node scripts/test.js balance",
+    "test:determinism": "node scripts/test.js determinism",
+    "simulate:balance": "node scripts/simulate-balance.js",
+    "modules": "node scripts/module-map.js"
+  },
+  "devDependencies": { "typescript": "5.9.3" }
+}

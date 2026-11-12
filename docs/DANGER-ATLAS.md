@@ -16,7 +16,7 @@ The seven founding zones and existing old regions do not acquire a fictional dan
 
 ## Authority and compatibility
 
-`region-blueprint.js` supplies the local geometry, frontier zone definition and `buildRegionPlan` to both `regions.js` and `world-atlas.js`. Region size and portal position come from `game-world.js`; level rules/content come from the existing monster tables. The Atlas client renders these server descriptors and sampled values; it has no second generator implementation.
+`src/world/region-blueprint.js` supplies the local geometry, frontier zone definition and `buildRegionPlan` to both `src/world/regions.js` and `src/world/world-atlas.js`. Region size and portal position come from `src/world/game-world.js`; level rules/content come from the existing monster tables. The Atlas client renders these server descriptors and sampled values; it has no second generator implementation.
 
 The current gameplay terrain is flat and walkable inside the square map edge. Trees and rocks rendered in the game are decorative and do not define server collision. The Atlas therefore shows biome ground, the actual boundary, protected settlement, spawn definitions and paths; it does not invent mountains, collision meshes or unreachable valleys. Adding solid terrain later must extend the same shared navigability predicate and graph validator.
 

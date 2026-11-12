@@ -1,203 +1,254 @@
-# Development and testing
+# Development, tests and balance simulations
 
-## Checkpoint status and prerequisites
+## Prerequisites and build/runtime boundary
 
-2026-11-12: architecture audit, 44-module backend relocation, compatibility
-entry points, dependency tooling and AI-agent documentation are implemented.
-This is a verified phase-1 checkpoint, **not the completed modernization**.
-Balance Registry/Rulesets, TypeScript, unified simulations and CSV export are
-still pending. See MODERNIZATION-PLAN.md for the approved remaining phases and
-MODERNIZATION-STATUS.md for actual checks and pre-existing failures.
+Node.js 18+ (verified here: v26.13.0), npm and Git. TypeScript 5.9.3 is the only
+development dependency. There are no runtime npm dependencies and no UI framework.
+Run commands from the repository root. Existing node server.js/local launchers work
+without a build or installation because generated CommonJS and browser artifacts
+are committed. After editing TypeScript, build and commit the corresponding outputs.
 
-README's runtime requirement is Node.js 18+. This checkpoint was tested with
-Node.js v26.13.0 on Windows. No package.json, npm dependencies, TypeScript
-compiler or build step is currently required. Git and the historical baseline
-commits are required for OLD/NEW XP and gold comparison scripts. Do not npm install
-or assume npm run scripts exist. Optional cloudflared is only for the invite
-tunnel, not game startup, tests or reports. Art/rig tools may require assets;
-they are separate from balance simulations.
-
-All commands below run from the repository root, e.g.:
+PowerShell:
 
 ```powershell
 Set-Location D:\git\Shardlands
+npm ci --ignore-scripts --no-audit --no-fund
+npm run build
+npm run typecheck
+npm run check:shared-ui
 ```
+
+CMD:
 
 ```bat
 cd /d D:\git\Shardlands
+npm ci --ignore-scripts --no-audit --no-fund
+npm run build
+npm run typecheck
+npm run check:shared-ui
 ```
 
-On Linux use `cd /path/to/Shardlands`. All `node ...` commands below are identical
-in PowerShell, CMD and Linux shells. No shell-specific environment assignments
-are necessary. Run tests/builds only when the current task authorizes them.
+Linux: use `cd /path/to/Shardlands`; the npm/node commands are identical.
+This machine initially failed npm certificate validation. On this Node 26 Windows
+setup, enabling the OS trust store for the install fixed it:
+PowerShell `$env:NODE_USE_SYSTEM_CA = '1'`; CMD `set NODE_USE_SYSTEM_CA=1`.
+This flag needs a Node version supporting system CA loading; otherwise install the
+appropriate organization CA. Do not disable certificate verification.
 
-## Run and stop the game
+Authored TypeScript lives in src/balance/typed/ and src/shared/typed/. Builds emit
+CommonJS/declarations to their generated/ siblings. The build then wraps the
+shared resource implementation as public/resource-bars.js for the global-script
+browser client. check:shared-ui detects stale browser output. Neither generated/
+nor the browser artifact is a place to hand-edit code. Existing JavaScript remains
+CommonJS or browser globals; strict checking does not cover the entire legacy app.
+
+## Running and stopping
 
 ```text
-node local-server.js
+npm run dev
 ```
 
-This is the development/local wrapper with interactive restart support.
-Windows users can also run `start.bat`; Linux users can run `sh start.sh`.
-The Windows launcher opens the browser. For the production-compatible direct
-entry point, with no compilation step:
+Runs local-server.js, with the interactive console and restart wrapper. Windows
+also supports start.bat; Linux supports `sh start.sh`. For production-compatible
+startup, after a clean build when TS source changed:
 
 ```text
-node server.js
+npm start
 ```
 
-Open http://localhost:3000 (or the configured port). Run `help` in an interactive
-server console for available commands; Ctrl+C initiates the save/shutdown path.
-Restart is available through the local wrapper. Back up saves before operational
-changes. Starting these commands in the actual repository uses its real stores;
-for automated startup checks use the isolated integration test below instead.
+Equivalent direct commands: `node local-server.js` and `node server.js`.
+Open http://localhost:3000 or the configured port. `help` lists console commands;
+`stop` or Ctrl+C requests saving and shutdown. The local wrapper also supports
+`restart`. Optional cloudflared is only needed for invite tunnels.
+
+Starting in the real repository uses its actual stores. Automated startup checks
+instead copy code to a temporary directory, start the actual server and local
+wrapper, load plugins, save, restart and verify seed/regions. They never copy real
+player saves. Starting the server from an arbitrary cwd must not relocate storage.
 
 ## Tests
 
-Full suite:
+The following commands are identical on PowerShell, CMD and Linux:
 
 ```text
-node --test tests/*.test.js
+npm test
+npm run test:unit
+npm run test:integration
+npm run test:balance
+npm run test:determinism
+npm run typecheck
+npm run check:shared-ui
 ```
 
-Focused architecture unit tests:
+The native node:test wrapper enumerates filenames itself, avoiding shell wildcard
+behavior differences. Unit tests cover Registry, mathematical models and typed
+resource/entity components, retired-root import checks and scoped historical
+resolution. Integration tests use real temporary files/processes.
+Balance tests include production scaling, soft caps, XP ranges and deterministic
+statistical samples. Determinism tests cover generation, saved fixtures and Atlas.
+
+For a focused component run:
 
 ```text
-node --test tests/architecture.test.js
+node --test tests/resources.test.js tests/entities.test.js
 ```
 
-Isolated integration/startup/plugins/save/restart check:
+The old full-suite failures are recorded in MODERNIZATION-STATUS.md. Do not present
+a nonzero full-suite exit as success, weaken assertions, change balance or rewrite
+golden fixtures to hide them. Compare failing names and values with the baseline.
+The new domain-baseline.json fixture was generated from 142ecac source with a
+synthetic seed, before applying shared World Boss helpers; no real world data used.
+
+## Server Rulesets and overrides
+
+src/balance/index.js resolves Base -> named Ruleset -> server overrides -> runtime
+validation. All named presets currently preserve the same values: Normal,
+Hardcore, Accelerated, Custom. A preset name does not imply an approved rebalance.
+
+Optional config.json fragment (merge into existing configuration; do not replace
+admins, port or other unrelated fields):
+
+```json
+{
+  "balance": {
+    "ruleset": "Custom",
+    "overrides": {
+      "rates": { "xpRate": 2 },
+      "settlement": { "scalingCoefficient": 0.06 },
+      "worldGeneration": { "budgets": { "monsters": 260 } }
+    }
+  }
+}
+```
+
+Supported configurable domains are rates, settlement and worldGeneration. Rates
+use existing technical ceilings. Settlement validates its costs, coefficient,
+exponent, Tier and fixed schema version. Generation validates known budget/spacing/
+danger keys. Unknown keys, nonfinite and unsafe values fail before opening saves.
+The formulaCatalog() API exposes actual production XP/combat/equipment/gold/forge/
+party/contracts constants read-only. They are not ignored override knobs: attempting
+unsupported XP or forging policy overrides is rejected. Add further knobs only
+when production consumers are migrated to accept their resolved policy explicitly.
+
+Legacy rates.json is a compatibility layer applied after Registry resolution:
+known finite numeric keys replace runtime rates, negative/high values clamp as
+before, and omitted/invalid/malformed updates retain previous values. Plugin/admin
+writes remain bounded. server-config.effectiveBalance() snapshots those runtime
+rates. A pre-existing rates.json can therefore override new config rate values.
+No local rates.json was changed by this implementation.
+
+Classification: rates are live (monsterHp affects subsequent spawns), except
+population requires restart. Settlement coefficients/costs are locked when a
+project is initialized; the schema version is save-sensitive. Generation settings
+are pinned in a universe's existing generationSettings snapshot. New config cannot
+regenerate old regions or silently alter that universe's future geometry. The
+pure resolveLiveUpdate API rejects changes requiring restart/new persisted state.
+
+## Deterministic balance simulations and exports
+
+Default synthetic world, levels and World Tiers 1, 100, 500, 1000, 5000, 10000:
 
 ```text
-node --test tests/architecture-startup.test.js
+npm run simulate:balance
+npm run simulate:balance -- --ruleset Normal --json reports/balance-normal.json --csv reports/balance-normal.csv --markdown reports/balance-normal.md
+npm run simulate:balance -- --ruleset Hardcore --levels 1,100,10000 --tiers 8:20:4
 ```
 
-Deterministic generation and authoritative Atlas endpoint checks:
+Ranges use start:end:step; comma lists are also supported. At most 50 level
+checkpoints and 100 Tier checkpoints are accepted. Levels are 1..10000 and Tiers
+1..65542, matching the supported coordinate runtime. The two axes are not equated.
+
+Custom simulation overrides are a JSON object containing domain patches (without
+the config.json balance wrapper). A checked-in example is available:
 
 ```text
-node --test tests/world-generation.test.js tests/danger-atlas.test.js
+npm run simulate:balance -- --ruleset Custom --overrides docs/examples/balance-overrides.json --levels 100,10000 --tiers 8,10000 --json reports/balance-custom.json --csv reports/balance-custom.csv --markdown reports/balance-custom.md
 ```
 
-Focused balance regression checks:
+These commands generate descriptors/plans through production functions using a
+synthetic seed and frozen zero-history snapshot. They never unlock regions, spawn
+persistent entities, read saves or write world history. Output parent directories
+are created. reports/ is ignored by Git. CSV includes a BOM and quoted comma-
+separated encounter rows for Excel; JSON has all domains/scenarios; Markdown has
+assumptions, checks, encounters, Tier ranges and forge expectations.
 
-```text
-node --test tests/enemy-scaling.test.js tests/xp-region-levels.test.js tests/item-soft-cap.test.js
-```
+PASS means its explicit mathematical/production invariant held. FAIL means an
+invariant failed (including physically invalid generation); exports still include
+structured diagnostics and the CLI exits 1. WARN identifies missing telemetry or
+unavailable data, and exits 0. Default WARN includes absent live travel/kill/respawn
+telemetry and the absence of an independent monster-defense stat (reported null).
+A failed process/config validation is not a subjective balance warning.
 
-These are explicit file selections, not an assertion that the entire old suite
-is partitioned into unit/integration folders. There is no typecheck/build command
-at this checkpoint; phase 3 must add and verify those before documenting tsc.
+Reference encounters use production stats/spawner/formulas and the existing
+combat model: Common +0 before level 30, Rare +3 thereafter, averaged classes,
+50% telegraph dodging, no potions/travel/respawn/guardian-wave time. Gold/hour and
+XP/hour are on-target projections, not measured sustainable farming rates.
+XP at the level cap is zero. Gold Find rounds its own raw budget; doubling an
+already-rounded reward can differ by one gold. Party rewards reuse the actual
+single-pool split. Stone lifecycle ceilings assume all bounded permits are used.
+Expected Souls include the existing completion interval/Alpha chance; they are
+not guaranteed drops or an economic valuation of Souls.
 
-The full suite currently has nine baseline failures; see MODERNIZATION-STATUS.md.
-A nonzero full-suite exit must not be presented as success. Compare failing test
-names/assertions with the baseline, investigate new failures, and do not rewrite
-fixtures or alter gameplay to hide them. Test durations vary with load.
+Forge +0..+9 uses exact absorbing Markov equations with production probabilities,
+prices and the shared downgrade transition. Rarity/drop expectations use the same
+helpers as live rolls. Reference sale prices use on-level +0 items, not a model
+of actual random item-level drop sales. World rows use actual descriptor ranges
+and validate real geometry/mandatory objectives. No preference is classified as
+an economic failure without an explicit approved threshold.
 
-## Existing production-formula reports
-
-Default combat report, console Markdown:
+Existing standalone reports remain available:
 
 ```text
 node scripts/combat-balance.js
+node scripts/xp-balance.js --progression --out reports/xp.md --json reports/xp.json
+node scripts/world-generation-stress.js 100 reports/generation.json
 ```
 
-XP progression report with JSON and Markdown export (output parent must exist):
+The legacy combat report's worlds() convenience table retains its approximate
+Tier mapping; the unified simulator uses actual descriptors instead. Historical
+XP/gold OLD/NEW reports need Git baseline commits. The legacy gold report still
+fails its pre-existing `Gold rebalance changed combat/XP reference data` assertion;
+it also failed before modernization. Do not remove that assertion to claim an
+OLD/NEW report. The new simulator reports current production formulas and does
+not fabricate historical comparisons.
+
+## Adding a real Registry parameter: worked example
+
+The settlement scaling coefficient is now a complete implemented example:
+
+1. Define it in SettlementEconomy (src/balance/typed/types.ts).
+2. Keep the existing 0.06 in typed/base.ts; no unapproved default change.
+3. Validate finite [0,1e6] values in typed/registry.ts; classify it generation-locked.
+4. A named preset inherits it. Server overrides can provide the same property;
+   Normal/Hardcore/Accelerated/Custom intentionally keep empty default patches.
+5. server-config resolves the value; server.js injects it as constructionEconomy
+   into createUniverse. New-project snapshotConstructionCosts consumes it.
+6. Existing snapshots/donations are retained, including fixed legacy prices.
+7. balance-registry.test.js checks equivalence, limits and precedence;
+   balance-config.test.js exercises the actual production new/old project path.
+8. The simulator calls constructionCostsForTier with the same resolved config;
+   use the example override file and compare its new-project costs in JSON.
+9. Build, typecheck, run the focused tests and regenerate simulation exports.
+
+Do not expose a new field only in docs or simulation. Integrate production and
+add invalid-input/equivalence/persistence tests before accepting the override.
+
+## Agent navigation and remaining migrations
 
 ```text
-node scripts/xp-balance.js --progression --out xp-report.md --json xp-report.json
-```
-
-Gold OLD/NEW report:
-
-```text
-node scripts/gold-balance.js --out gold-report.md --json gold-report.json
-```
-
-**Known failure:** the default gold historical comparison currently throws
-`Gold rebalance changed combat/XP reference data`. It also fails on unmodified
-88c8345: its historical gold-only assertion predates subsequent combat/XP work.
-Do not remove the assertion or claim a valid OLD/NEW export. Both XP and gold
-scripts accept `--baseline <commit>`; select a meaningful baseline explicitly,
-not merely one that makes checks pass. Missing historical Git commits also
-produce an actionable failure instead of an invented estimate.
-
-Bounded generation stress/distribution report, 100 cases and JSON output:
-
-```text
-node scripts/world-generation-stress.js 100 generation-report.json
-```
-
-The count is validated in 1..1000000. This command executes on load; do not
-require the script as a library. The 100-case run checks the generator's placement
-and distribution invariants, not every long-term gameplay difficulty relationship.
-
-PowerShell/CMD/Linux can all redirect console output using `> combat-report.md`.
-JSON should use the scripts' `--json` option or positional output argument rather
-than redirecting human-readable stdout. The commands above create reports in the
-current directory; they are disposable artifacts, not save files. Do not commit
-large report outputs or include private seeds from real saves.
-
-### Interpretation and current limitations
-
-- Existing scripts are individual analytical reports, not a unified PASS/WARN/FAIL
-  framework. They do not accept a common Ruleset, overrides or Tier range.
-- Combat reports model reference heroes and explicit dodge/healing assumptions.
-  Their `worlds()` helper uses an approximate Tier-to-level mapping, not current
-  authoritative generated ranges. Do not use it as proof of frontier balance.
-- XP reports state fixed/reference kill-time assumptions; XP/hour is a scenario,
-  not measured production telemetry. Boss progression, gear and Souls have value
-  beyond that number. Inspect the source and printed assumptions.
-- Gold historical comparisons require an appropriate Git baseline and currently
-  have the documented pre-existing assertion failure.
-- Generation checks report numeric/distribution invariants and optional placement
-  failures. Optional skipped encounters are not mandatory-objective failures.
-- Normal/Hardcore/Accelerated/Custom selection, custom balance overrides, unified
-  Tier-range simulation, forge Markov analysis, CSV export and shared status
-  thresholds are phase-2/4 deliverables, **not available commands yet**.
-
-## Dependency and focused-audit commands
-
-```text
-node scripts/module-map.js --out module-dependencies.json
-node scripts/module-map.js --group player-and-monster-scaling
-node scripts/module-map.js --group xp-and-progression
+npm run modules -- --out reports/module-dependencies.json
 node scripts/module-map.js --group equipment-and-forging
-node scripts/module-map.js --group gold-and-loot-economy
-node scripts/module-map.js --group world-generation-and-difficulty
-node scripts/module-map.js --focus src/economy/equipment.js
+node scripts/module-map.js --focus src/shared/typed/resources.ts
 ```
 
-Use either --group or --focus; --out optionally exports that filtered view.
-The full map includes source nodes, literal dependencies, HTML script order,
-static cycles, relocation mapping and diagnostics. It never imports inspected
-game modules, reads JSON stores, unlocks regions or starts the server. JSON import
-targets are recorded as data edges without reading them. Lexical false positives
-in comments/examples and unresolved dynamic plugin imports are documented;
-inspect runtime hooks and globals manually. For small agent context, use a
-filtered view instead of pasting the complete map.
-
-## Adding balance parameters: required future workflow
-
-There is no Registry API/type/schema to extend yet. The following worked migration
-example is a **design checklist**, not runnable commands or implemented interfaces.
-Use the existing settlement scaling coefficient (0.06) as a pilot:
-
-1. Move the existing value from settlement-economy-config.js into the Registry's
-   settlement domain, retaining 0.06 and the existing formula unchanged.
-2. Define a strict typed settlement configuration with a numeric coefficient.
-3. Validate finite, nonnegative bounded values and reject unknown keys; keep
-   MAX_CURRENCY enforcement in safety-limits, not the balance schema.
-4. Supply the existing value in immutable base defaults.
-5. Resolve Base -> Ruleset -> server override -> validated effective config.
-   All named presets initially inherit 0.06; no unapproved preset rebalance.
-6. Pass the resolved settlement config explicitly into production cost calculation
-   for **new** projects. Preserve legacy costs, existing price snapshots and
-   donations. Classify this parameter as generation/project-initialization locked.
-7. Test default equivalence, precedence, invalid values, safe integers and that
-   already-snapshotted projects do not reprice after a config change.
-8. Have the future simulator call that same production helper for new projects
-   under each resolved configuration, recording seed/version/snapshot identity.
-   Verify changed previews while existing persisted costs remain identical.
-
-Do not add a knob to a registry unless gameplay and the simulator actually consume
-the resolved value. Do not invent CLI flags for this workflow until implemented.
+The source-only map includes authored TS entry points, imports, browser script
+order, relocation map, static cycles and five audit groups. It does not execute
+modules or read JSON stores. Lexical/comment examples and dynamic plugins require
+manual review. Prefer filtered views to minimize agent context.
+Root backend compatibility files were removed; import implementation modules from
+src/. Run `node scripts/audit-root-imports.js --out reports/root-imports.json` to
+check retired literal paths and review dynamic imports. The old historical report
+filenames/Git paths remain virtual inputs; scripts/historical-imports.js resolves
+only their imports without recreating root wrappers or patching global require.
+See ROOT-WRAPPER-REMOVAL.md for every old/new path and external compatibility limits.
+See AGENTS.md, ARCHITECTURE.md, DOMAIN-REFACTOR-PLAN.md and TYPESCRIPT-ROADMAP.md.

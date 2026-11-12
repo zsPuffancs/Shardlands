@@ -1,10 +1,10 @@
 'use strict';
 const test = require('node:test'), assert = require('node:assert/strict'), crypto = require('node:crypto');
-const { generateRegion, createUniverse, seededRandom } = require('../universe');
-const { TIERS, createMonsterSpawner } = require('../monsters');
-const { stream, sampleAnnulus, generateSpawnPlan, validateSpawnPlan, normalizeBudgets, HARD_BUDGETS } = require('../world-generation');
-const { createEncounterRuntime } = require('../encounter-runtime');
-const { IndexedEntities } = require('../spatial-index');
+const { generateRegion, createUniverse, seededRandom } = require('../src/world/universe');
+const { TIERS, createMonsterSpawner } = require('../src/combat/monsters');
+const { stream, sampleAnnulus, generateSpawnPlan, validateSpawnPlan, normalizeBudgets, HARD_BUDGETS } = require('../src/world/world-generation');
+const { createEncounterRuntime } = require('../src/world/encounter-runtime');
+const { IndexedEntities } = require('../src/shared/spatial-index');
 const fixtures = require('./fixtures/generation-v1.json');
 const area = { x0: 0, y0: 0, w: 5000, h: 5000, cx: 2500, cy: 2500 };
 const zone = { outer: true, generated: true, min: 400, max: 99999, types: ['wolf', 'boar'], bosses: ['wb8'], worldBoss: 'wb8', count: 260, stones: 32, stone: 'stone', alphas: 8, lv: [60, 70] };
@@ -68,7 +68,7 @@ test('v2 summaries exclude persistent spawn definitions and live state', () => {
 });
 test('encounter activation obeys global/map caps and restores wounded/dead state after unload', () => {
   const players = new IndexedEntities(), mobs = new IndexedEntities(), saved = {}; let id = 0, loads = 0;
-  const map = require('../game-world').maps[0];
+  const map = require('../src/world/game-world').maps[0];
   const definition = { encounters: [{ id: 'camp:0', x: 6000, y: 6000, spawnIds: ['a', 'b', 'c'] }], spawns: ['a', 'b', 'c'].map(id => ({ id, encounterId: 'camp:0', x: 6000, y: 6000, type: 'wolf', level: 1 })) };
   const runtime = createEncounterRuntime({ players, mobs, maxActive: 2, maxPerMap: 2, unloadAfterMs: 0, spawnMob: (ty, x, y, tier, options) => { const m = { id: ++id, ty, x, y, hp: 100, mh: 100, stoneStep: 5, dead: 0 }; mobs.set(m.id, m); return m; } });
   runtime.register({ id: 1, map, zoneIndex: 0, min: 400, max: 1250, loadPlan: () => { loads++; return definition; }, storage: () => saved });
@@ -80,7 +80,7 @@ test('encounter activation obeys global/map caps and restores wounded/dead state
 });
 
 test('thousands of registered regions remain dormant without generating or instantiating them', () => {
-  const { maps, addMap } = require('../game-world'), players = new IndexedEntities(), mobs = new IndexedEntities(); let loads = 0, id = 0;
+  const { maps, addMap } = require('../src/world/game-world'), players = new IndexedEntities(), mobs = new IndexedEntities(); let loads = 0, id = 0;
   const runtime = createEncounterRuntime({ players, mobs, maxActive: 1, maxPerMap: 1, spawnMob: (ty, x, y) => { const monster = { id: ++id, ty, x, y, hp: 100, mh: 100 }; mobs.set(monster.id, monster); return monster; } });
   for (let i = 1; i <= 1000; i++) {
     const map = addMap(i, {}), state = {};
@@ -93,11 +93,11 @@ test('thousands of registered regions remain dormant without generating or insta
 test('generation failure is isolated and rate-limited without deleting saved state', () => {
   const players = new IndexedEntities(), mobs = new IndexedEntities(), errors = [], saved = { a: { health: .5 } }; players.set(1, { id: 1, x: 6000, y: 6000 });
   const runtime = createEncounterRuntime({ players, mobs, spawnMob: () => {}, onError: error => errors.push(error) });
-  runtime.register({ id: 1, map: require('../game-world').maps[0], min: 400, max: 1250, loadPlan: () => { throw Error('invalid plan'); }, storage: () => saved });
+  runtime.register({ id: 1, map: require('../src/world/game-world').maps[0], min: 400, max: 1250, loadPlan: () => { throw Error('invalid plan'); }, storage: () => saved });
   assert.doesNotThrow(() => runtime.tick(1000)); runtime.tick(1500); assert.equal(errors.length, 1); assert.deepEqual(saved, { a: { health: .5 } });
 });
 test('v2 frontier activation reproduces exact spawn definitions, levels and health after restart', () => {
-  const { createRegions } = require('../regions'), { maps } = require('../game-world');
+  const { createRegions } = require('../src/world/regions'), { maps } = require('../src/world/game-world');
   function setup(data) {
     maps.splice(1); TIERS.splice(7);
     const u = universe(data || {}, { worldSeed: 'restart-proof' }); u.state.worldTier = 8; u.regionFor(8);

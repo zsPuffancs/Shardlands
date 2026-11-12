@@ -1,0 +1,6 @@
+// require('../monsters') is documentation, not an import.
+const example = "require('../monsters')";
+const live = require('../monsters');
+const resolved = require.resolve('../equipment.js');
+const dynamic = require(name);
+import { value } from '../xp-economy';

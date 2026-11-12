@@ -4,10 +4,10 @@ const test = require('node:test'), assert = require('node:assert/strict');
 const {
   ITEM_STAT_SOFT_CAP_START, ITEM_STAT_SOFT_CAP_SCALE, effectiveStatLevel, createEquipment, statRanges, affixRange,
   RARITY, AFFIXES, STATDEF, plusMul,
-} = require('../equipment');
-const { createInventory } = require('../inventory');
-const { newSk, stats } = require('../characters');
-const { NPCS } = require('../game-world');
+} = require('../src/economy/equipment');
+const { createInventory } = require('../src/economy/inventory');
+const { newSk, stats } = require('../src/player/characters');
+const { NPCS } = require('../src/world/game-world');
 
 const equipment = createEquipment({ rates: { rarityBoost: 0 } });
 const noop = () => {};

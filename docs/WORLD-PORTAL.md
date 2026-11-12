@@ -53,15 +53,15 @@ Legacy `{"t":"portal"}` requests receive the first bounded page (default 25) wit
 
 ## Implementation and scaling
 
-`portal-directory.js` builds compact metadata and normalized search strings from existing maps and saved region descriptors. Tier/map lookups use Maps, and newly opened regions register after normal initialization. Listing never calls `regionFor`, generates a region, materializes a plan or opens another map. The unlocked metadata list/count is cached until registration or World Tier changes. Ordinary pagination slices this cached list. Text search scans only cached lightweight strings; direct Tier lookup uses the Tier index; preference filtering examines only the bounded supplied IDs. Only current/page descriptors are serialized. Population counting still examines online players. These are algorithmic bounds, not benchmark claims.
+`src/world/portal-directory.js` builds compact metadata and normalized search strings from existing maps and saved region descriptors. Tier/map lookups use Maps, and newly opened regions register after normal initialization. Listing never calls `regionFor`, generates a region, materializes a plan or opens another map. The unlocked metadata list/count is cached until registration or World Tier changes. Ordinary pagination slices this cached list. Text search scans only cached lightweight strings; direct Tier lookup uses the Tier index; preference filtering examines only the bounded supplied IDs. Only current/page descriptors are serialized. Population counting still examines online players. These are algorithmic bounds, not benchmark claims.
 
 The existing runtime capacity (65535 generated maps plus the Founding Lands) is unchanged. The metadata index is designed to browse 10,000+ unlocked Tiers without thousands of DOM nodes or full-list WebSocket payloads. All server configuration and save formats remain unchanged.
 
 ## Files
 
-- `portal-directory.js`: indexed metadata, bounded request parsing, filtering and paginated responses.
-- `regions.js`: directory registration/listing and authoritative travel eligibility.
-- `player-session.js`: forwards list parameters and optionally acknowledges travel.
+- `src/world/portal-directory.js`: indexed metadata, bounded request parsing, filtering and paginated responses.
+- `src/world/regions.js`: directory registration/listing and authoritative travel eligibility.
+- `src/player/player-session.js`: forwards list parameters and optionally acknowledges travel.
 - `public/portal-ui.js`, `public/portal-ui.css`: extracted UI, selection, preferences, request lifecycle and responsive presentation.
 - `public/ui.js`, `public/game.js`, `public/index.html`: window/network/world hooks and asset loading; old portal rendering removed.
 - `public/locales/hu.js`, `README.md`, this document: translations and usage/protocol documentation.

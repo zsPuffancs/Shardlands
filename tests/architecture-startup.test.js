@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { fork } = require('node:child_process');
+const { fork, spawn } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 
 test('relocated backend starts with plugins, checkpoints and restarts from isolated existing saves', { timeout: 30000 }, async () => {
@@ -38,6 +38,19 @@ test('relocated backend starts with plugins, checkpoints and restarts from isola
     assert.equal(second.seed, first.seed);
     assert.equal(second.generatorVersion, first.generatorVersion);
     assert.deepEqual(second.regions, first.regions);
+    fs.writeFileSync(path.join(directory, 'config.json'), JSON.stringify({ tunnel: false, balance: { ruleset: 'Custom', overrides: { rates: { goldRate: 2 } } } }));
+    const launcher = spawn(process.execPath, [path.join(directory, 'local-server.js')], { cwd: directory, env: { ...process.env, PORT: '0' }, stdio: ['pipe', 'pipe', 'pipe'] });
+    children.push(launcher);
+    let launcherOutput = '', stopped = false;
+    launcher.stdout.on('data', data => {
+      launcherOutput += data;
+      if (!stopped && launcherOutput.includes('Server is running!')) { stopped = true; launcher.stdin.write('stop\n'); }
+    });
+    launcher.stderr.on('data', data => { launcherOutput += data; });
+    const launcherCode = await new Promise((resolve, reject) => { launcher.once('error', reject); launcher.once('exit', resolve); });
+    assert.equal(launcherCode, 0, launcherOutput);
+    assert.equal(stopped, true);
+    assert.match(launcherOutput, /Save complete/);
     for (const file of ['saves.json', 'plugin-data.json', 'rates.json']) assert.doesNotThrow(() => JSON.parse(fs.readFileSync(path.join(directory, file), 'utf8')), file);
     assert.equal(fs.existsSync(path.join(directory, 'src', 'server', 'universe.json')), false);
   } finally {

@@ -4,7 +4,7 @@ Restart the server to apply the new XP curve. No reseeding, unlock, character re
 
 ## Authoritative reward math
 
-`xp-economy.js` is the only reward implementation. Let `g = playerLevel - monsterLevel`. Between consecutive anchors `(a, A)` and `(b, B)`, the multiplier is `A + (B-A) * s((g-a)/(b-a))`, where `s(t) = 3t² - 2t³`. At every anchor the two segments meet with zero first derivative.
+`src/progression/xp-economy.js` is the only reward implementation. Let `g = playerLevel - monsterLevel`. Between consecutive anchors `(a, A)` and `(b, B)`, the multiplier is `A + (B-A) * s((g-a)/(b-a))`, where `s(t) = 3t² - 2t³`. At every anchor the two segments meet with zero first derivative.
 
 Overlevel anchors: `(5, 1)`, `(6, .95)`, `(10, .65)`, `(15, .30)`, `(20, .10)`, `(25, 0)`. Gaps through +5 have multiplier 1; gaps at least +25 have multiplier 0. For stronger enemies use their positive advantage `d = -g`: anchors `(10, 1)`, `(15, .90)`, `(25, .55)`, `(40, .22)`, `(60, .02)`. Through +10 enemy advantage the penalty factor remains 1. Beyond 60 it is `.02 / (1 + ((d-60)/10)²)`, continuous with zero derivative at 60 and tending to zero.
 
@@ -12,7 +12,7 @@ These are multipliers, not a promise of identical raw XP from different monster 
 
 ## Distribution policy 1
 
-`universe.createRegionDescriptor` pins the policy only when creating a new frontier descriptor. `region-blueprint.buildRegionPlan` passes it into the shared production `world-generation.generateSpawnPlan`; `progression-generation.js` assigns the already placed encounters their levels. The plan keeps generator version 2 and adds a separate `progression` record. No player state or clock is an input.
+`universe.createRegionDescriptor` pins the policy only when creating a new frontier descriptor. `region-blueprint.buildRegionPlan` passes it into the shared production `world-generation.generateSpawnPlan`; `src/world/progression-generation.js` assigns the already placed encounters their levels. The plan keeps generator version 2 and adds a separate `progression` record. No player state or clock is an input.
 
 For `N = maximum-minimum+1`, band boundaries are `minimum + round(N * cut)` (upper end exclusive). Empty bands near the level ceiling are removed and their remaining population weights renormalized.
 
@@ -70,11 +70,11 @@ Final full-suite execution: **231 tests, 229 passed, 2 failed**. Both failures m
 
 | Files | Change |
 |---|---|
-| `xp-economy.js` | Shared smooth signed-gap curve; unchanged category/recipient/bonus limits |
-| `progression-generation.js` | Versioned bands, bounded danger accessibility, assignment, repair and diagnostics |
-| `world-generation.js`, `universe.js`, `region-blueprint.js` | New-descriptor policy pinning and production plan/validation integration |
-| `combat.js` | Policy-1 stone guardians inherit parent levels; legacy policy preserved |
-| `world-atlas.js`, `dev-atlas/atlas.js`, `dev-atlas/index.html` | Local diagnostic payload/export, overlays, level labels and coverage panel |
+| `src/progression/xp-economy.js` | Shared smooth signed-gap curve; unchanged category/recipient/bonus limits |
+| `src/world/progression-generation.js` | Versioned bands, bounded danger accessibility, assignment, repair and diagnostics |
+| `src/world/world-generation.js`, `src/world/universe.js`, `src/world/region-blueprint.js` | New-descriptor policy pinning and production plan/validation integration |
+| `src/combat/combat.js` | Policy-1 stone guardians inherit parent levels; legacy policy preserved |
+| `src/world/world-atlas.js`, `dev-atlas/atlas.js`, `dev-atlas/index.html` | Local diagnostic payload/export, overlays, level labels and coverage panel |
 | `scripts/xp-balance.js`, `scripts/xp-progression-balance.js` | Production historical comparison mode and full-region progression simulation |
 | `tests/xp-progression.test.js`, `tests/xp-economy.test.js`, `tests/xp-region-levels.test.js`, `tests/danger-atlas.test.js` | New and updated policy, runtime, party, save, HTTP and stress regressions |
 | `README.md`, `docs/XP-ECONOMY.md`, `docs/XP-PROGRESSION.md` | Operation, exact math, authority and compatibility documentation |

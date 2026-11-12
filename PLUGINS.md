@@ -4,6 +4,14 @@ Drop a `.js` file (or a folder containing `index.js`) into `plugins/` and restar
 Files starting with `_` are ignored. Disable one without deleting it: add its name to `disabledPlugins` in `config.json`.
 A broken plugin never crashes the server: errors are printed to the console and the plugin is skipped.
 
+The supported server-plugin contract is `init(api)` and the API described here.
+The temporary root backend module wrappers have been retired; internal modules
+live under `src/`. Built-in plugins do not import those legacy paths. Third-party
+code using an old direct import such as `../monsters` must migrate to
+`../src/combat/monsters` (or preferably use `api.MOBTYPES`, `api.spawn`, etc.).
+Direct imports of backend internals are not a separate stable plugin API.
+See [the wrapper audit](docs/ROOT-WRAPPER-REMOVAL.md) for the complete path map.
+
 ```js
 // plugins/my_plugin.js
 module.exports = { name: 'my_plugin', version: '1.0', init(api) {

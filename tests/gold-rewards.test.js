@@ -1,11 +1,11 @@
 'use strict';
 const test = require('node:test'), assert = require('node:assert/strict');
-const gold = require('../gold-rewards');
-const { MOBTYPES, TIERS, createMonsterSpawner } = require('../monsters');
-const { createLoot } = require('../loot');
-const { MAX_CURRENCY } = require('../safety-limits');
-const { newSk, stats, goldFind } = require('../characters');
-const { createGameSaves } = require('../persistence');
+const gold = require('../src/economy/gold-rewards');
+const { MOBTYPES, TIERS, createMonsterSpawner } = require('../src/combat/monsters');
+const { createLoot } = require('../src/economy/loot');
+const { MAX_CURRENCY } = require('../src/shared/safety-limits');
+const { newSk, stats, goldFind } = require('../src/player/characters');
+const { createGameSaves } = require('../src/server/persistence');
 const noop = () => {};
 function hero(id = 1, bonus = 0) { const player = { id, name: 'Hero' + id, c: {}, cls: 'archer', lvl: 100, xp: 1234, sp: 25, gold: 777, souls: 123, eq: {}, bag: [], inv: {}, sk: newSk(), buf: {}, x: 6000, y: 6000 }; stats(player); player.hp = player.maxhp; player.mp = player.maxmp; player.g.gf = bonus; return player; }
 function spawn(type = 'wolf', level = 100, generated = true, alpha = false) {

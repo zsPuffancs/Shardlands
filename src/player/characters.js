@@ -1,4 +1,5 @@
 'use strict';
+const { restoreResource } = require('../shared/generated/resources');
 
 const { MAX_SAFE_AMOUNT, LEVEL_UPS_PER_TICK, validAmount, credit } = require('../shared/safety-limits');
 const { localizedText: messageText } = require('../shared/localized-text');
@@ -115,7 +116,7 @@ function createProgression({ fire, ev, say, toast, broadcast, sendInv }) {
     player.sk[skillKey]++;
     player.sp--;
     stats(player);
-    player.hp = Math.min(player.maxhp, player.hp + Math.max(0, player.maxhp - previousMaxHealth));
+    player.hp = restoreResource(player.hp, player.maxhp, Math.max(0, player.maxhp - previousMaxHealth));
     sendInv(player);
   }
 

@@ -20,13 +20,14 @@ function implementation(name) {
   if (name.includes('/')) return name;
   const domain = Object.keys(manifest.domains).find(key => manifest.domains[key].includes(name));
   const target = 'src/' + domain + '/' + name + '.js';
-  return fs.existsSync(path.join(ROOT, target)) ? target : name + '.js';
+  if (!domain || !fs.existsSync(path.join(ROOT, target))) throw new Error('Missing canonical implementation: ' + name);
+  return target;
 }
 function inventory() {
   const files = sourceFiles(), known = new Set(files), edges = [], diagnostics = [];
   const resolve = (from, request) => {
     const base = slash(path.normalize(path.join(path.dirname(from), request)));
-    return [base, base + '.js', base + '.cjs', base + '.mjs', base + '.ts', base + '/index.js', base + '/index.ts'].find(candidate => known.has(candidate))
+    return [base, base + '.js', base + '.cjs', base + '.mjs', base + '.ts', base + '.d.ts', base + '/index.js', base + '/index.ts'].find(candidate => known.has(candidate))
       || (base.endsWith('.json') && !base.startsWith('../') && fs.existsSync(path.join(ROOT, base)) ? base : undefined);
   };
   for (const file of files) {
@@ -51,6 +52,11 @@ function inventory() {
     }
     if (/\brequire\s*\(\s*[^'"\s]/.test(source)) diagnostics.push({ file, message: 'Dynamic require: inspect runtime plugin/fixture loading manually' });
   }
+  for (const file of files.filter(file => /^src\/(?:balance|shared)\/typed\/[^/]+\.ts$/.test(file))) {
+    const base = file.replace('/typed/', '/generated/').replace(/\.ts$/, '');
+    for (const generated of [base + '.js', base + '.d.ts']) if (known.has(generated)) edges.push({ from: generated, to: file, kind: 'generated-from' });
+  }
+  if (known.has('public/resource-bars.js')) edges.push({ from: 'public/resource-bars.js', to: 'src/shared/typed/resources.ts', kind: 'generated-from' });
   const localEdges = edges.filter(edge => (edge.kind === 'local' || edge.kind === 'browser-script') && known.has(edge.to));
   // Strongly connected components report potential cycles, including deferred imports.
   const adjacency = new Map(files.map(file => [file, []]));
@@ -73,11 +79,13 @@ function inventory() {
     schemaVersion: 1,
     limitations: ['Lexical literal-import scan, not an AST or execution trace; comments may over-report.', 'Does not infer browser globals, injected callbacks, plugin hooks or dynamic import targets.', 'Potential cycles include lazy imports; inspect lifecycle before changing them.'],
     entryPoints: manifest.entryPoints,
+    authoredBalanceModules: manifest.balanceModules,
+    authoredSharedModules: manifest.typedShared,
     nodes: files,
     edges,
     cycles: cycles.sort((a, b) => a[0].localeCompare(b[0], 'en')),
     inspectTogether: Object.fromEntries(Object.entries(manifest.inspectTogether).map(([group, names]) => [group, names.map(implementation)])),
-    relocationMap: Object.entries(manifest.domains).flatMap(([domain, names]) => names.map(name => ({ legacy: name + '.js', implementation: 'src/' + domain + '/' + name + '.js' }))),
+    relocationMap: Object.entries(manifest.domains).flatMap(([domain, names]) => names.map(name => ({ legacy: name + '.js', implementation: 'src/' + domain + '/' + name + '.js', legacyPathStatus: fs.existsSync(path.join(ROOT, name + '.js')) ? 'retained' : 'removed' }))),
     diagnostics,
   };
 }
@@ -97,7 +105,8 @@ function main(args) {
     const selected = group ? result.inspectTogether[group] : [focus];
     if (!selected || selected.some(file => !result.nodes.includes(file))) throw Error('Unknown group or source path');
     const selectedSet = new Set(selected);
-    result = { schemaVersion: 1, limitations: result.limitations, selected, edges: result.edges.filter(edge => selectedSet.has(edge.from) || selectedSet.has(edge.to)), diagnostics: result.diagnostics.filter(row => selectedSet.has(row.file)) };
+    for (const edge of result.edges) if (edge.kind === 'generated-from' && selectedSet.has(edge.to)) selectedSet.add(edge.from);
+    result = { schemaVersion: 1, limitations: result.limitations, selected: [...selectedSet], edges: result.edges.filter(edge => selectedSet.has(edge.from) || selectedSet.has(edge.to)), diagnostics: result.diagnostics.filter(row => selectedSet.has(row.file)) };
   }
   const json = JSON.stringify(result, null, 2) + '\n';
   if (output) fs.writeFileSync(path.resolve(output), json);

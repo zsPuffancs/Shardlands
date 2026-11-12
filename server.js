@@ -25,7 +25,7 @@ const { createAtlas } = require('./src/world/world-atlas');
 const { createMobTypeIndex, createSnapshotPublisher } = require('./src/multiplayer/snapshots');
 const { startServer } = require('./src/server/server-lifecycle');
 
-const { config, rates } = loadServerConfig(__dirname);
+const { config, rates, balance } = loadServerConfig(__dirname);
 const port = process.env.PORT || config.port || 3000;
 recoverSaveGroup(__dirname, ['saves.json', 'plugin-data.json', 'universe.json']);
 const saveStore = openJsonStore(path.join(__dirname, 'saves.json'));
@@ -62,7 +62,7 @@ function fire(event, ...args) {
 const notifications = { send, say, toast, broadcast, ev: emitGameEvent, fire };
 
 const universe = createUniverse({
-  store: universeStore, config, broadcast, messageText: localizedText, isAdmin: player => sessions.isAdmin(player),
+  store: universeStore, config, constructionEconomy: balance.values.settlement, broadcast, messageText: localizedText, isAdmin: player => sessions.isAdmin(player),
 });
 attachUniverse(universe.identity);
 setSettlement(maps[0], universe.settlement(1));

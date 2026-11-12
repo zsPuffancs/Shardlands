@@ -1,11 +1,12 @@
 'use strict';
+const { spawnCategory } = require('../shared/generated/entities');
 // Pure monster-gold policy. No dependency on forge, XP, persistence or World Tier.
 const { MAX_CURRENCY, RATE_BOUNDS } = require('../shared/safety-limits');
 const GOLD_BALANCE = Object.freeze({ maxLevel: 10000, progressionCostBase: 100, progressionLevelDivisor: 12, normalCostFraction: .065, variation: .20, legacyExponent: 1.5, legacyAlphaMultiplier: 5, legacyStoneMultiplier: 1.5, multipliers: Object.freeze({ normal: 1, alpha: 4, stone: 8, boss: 80, worldBoss: 240 }) });
 const FRONTIER_MODEL = 'frontier-linear-v1', FOUNDING_MODEL = 'founding-legacy-v1';
 const validLevel = level => Number.isSafeInteger(level) && level >= 1 && level <= GOLD_BALANCE.maxLevel;
 function product(a, b) { return Number.isFinite(a) && Number.isFinite(b) && a > 0 && b > 0 ? a > MAX_CURRENCY / b ? MAX_CURRENCY : a * b : 0; }
-function goldCategory(monster, template) { return template.stone ? 'stone' : template.worldBoss ? 'worldBoss' : template.boss ? 'boss' : monster.alpha ? 'alpha' : 'normal'; }
+function goldCategory(monster, template) { return spawnCategory(template, monster.alpha); }
 function frontierAverageGold(level, category = 'normal') {
   if (!validLevel(level) || !Object.hasOwn(GOLD_BALANCE.multipliers, category)) return 0;
   return GOLD_BALANCE.normalCostFraction * GOLD_BALANCE.progressionCostBase * (1 + level / GOLD_BALANCE.progressionLevelDivisor) * GOLD_BALANCE.multipliers[category];

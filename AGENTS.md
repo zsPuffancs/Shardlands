@@ -3,7 +3,8 @@
 ## Start here
 
 - Backend: CommonJS JavaScript under `src/`; `server.js` composes services.
-- Root backend files are compatibility re-exports. Edit implementations in `src/`.
+- Backend module imports must target `src/`; root compatibility wrappers were
+  retired. Keep the intentional root launchers `server.js` and `local-server.js`.
 - `local-server.js`, `start.bat`, `start.sh`: local launcher, console/restart/tunnel.
 - `public/index.html`: browser entry, ordered global scripts; no frontend build.
 - `dev-atlas/`: local-only Atlas UI; `src/world/world-atlas.js` serves it.
@@ -27,6 +28,10 @@ The five audit groups in `docs/module-domains.json` are:
 `gold-and-loot-economy`, `world-generation-and-difficulty`.
 Start with a group and its direct dependencies, then inspect relevant tests.
 Do not load the entire repository, generated map or save files into context.
+`node scripts/audit-root-imports.js` checks for retired literal import paths and
+lists dynamic calls for manual review (requires the TypeScript dev dependency).
+Historical Git reports use scripts/historical-imports.js only within their virtual
+modules; do not add root shims or process-wide require hooks for old source.
 The map is a lexical scan, not a runtime trace; browser globals, injected
 callbacks and plugin hooks require manual inspection. Reported cycles can be lazy.
 
@@ -45,26 +50,37 @@ callbacks and plugin hooks require manual inspection. Reported cycles can be laz
 
 ## Balance Registry and Rulesets: implementation status
 
-**Not implemented yet:** typed Balance Registry, Ruleset resolver, TypeScript
-toolchain and unified simulation engine. Do not import or document imaginary APIs.
-The approved next-phase plan is in `docs/MODERNIZATION-PLAN.md`.
-Planned precedence is Base -> Ruleset -> server overrides -> validated effective
-balance; Normal/Hardcore/Accelerated/Custom must initially retain current values.
+`src/balance/index.js` exposes resolveBalance(), resolveLiveUpdate(), settingMode()
+and formulaCatalog(). Types/defaults/validation are authored in `src/balance/typed/`.
+Precedence: Base -> named Ruleset -> config.json balance.overrides -> validation.
+Normal/Hardcore/Accelerated/Custom initially inherit identical values.
+Supported configurable domains: rates, settlement, worldGeneration. Other formula
+constants are a read-only production catalog; unknown override knobs are rejected.
+Do not advertise unsupported XP/forge/stat policy overrides.
 
-Today defaults are domain constants (see ARCHITECTURE.md). `server-config.js`
-loads config.json over server defaults; rates.json overrides recognized finite
-numeric rate keys, with safety-limits bounding assignment. Rates hot-reload;
-omitted/malformed updates keep previous values. Plugins/admin commands can mutate
-the same bounded rates object. PORT overrides configured port. There is no
-current Ruleset layer. Keep technical safety limits separate from balance knobs.
+server-config adapts legacy rates.json *after* this resolution, preserving numeric
+hot reload, clamping, previous values on malformed input and bounded plugin/admin
+writes. effectiveBalance() snapshots current rates. PORT overrides configured port.
+Generation settings already stored in a universe and settlement project price
+snapshots remain authoritative. Never apply live updates to locked settings.
+Keep technical ceilings in safety-limits, separate from gameplay defaults.
 
 ## JavaScript / TypeScript boundary
 
-Current runtime is CommonJS JS; there is no package.json, tsc, ESM migration or
-build command. Do not rename files to TS without a runnable build/interoperability
-path. New TS work must use strict checking and emit compatible CommonJS, retain
-JS entry points and avoid changing browser UMD modules. Distinguish authored and
-generated code. Do not add dependencies without a concrete need.
+Runtime remains CommonJS. TypeScript 5.9.3 is the only development dependency;
+`npm ci`, `npm run build`, `npm run typecheck`. No runtime dependencies or ESM
+migration. Authored TS: src/balance/typed/ and src/shared/typed/. Their generated/
+siblings are committed CommonJS/declarations for build-free server startup.
+Never hand-edit generated files. Build also emits public/resource-bars.js from
+the shared TS resource presenter; verify with `npm run check:shared-ui`.
+Strict/noImplicitOverride checking applies to new TS, not the entire legacy JS
+client. Preserve existing browser global/script order and shared UMD exports.
+See docs/TYPESCRIPT-ROADMAP.md and docs/DOMAIN-REFACTOR-PLAN.md.
+
+Resource arithmetic/presentation: src/shared/typed/resources.ts. Raw damage keeps
+overkill and fractional values; display normalization clamps separately. World Boss
+identity/template/category helpers: src/shared/typed/entities.ts. Spawn category
+and summoned/anomaly reward category intentionally have different precedence.
 
 ## Persistence and generation invariants
 
@@ -90,6 +106,11 @@ generated code. Do not add dependencies without a concrete need.
 - When authorized: `node --test tests/*.test.js`; focused integration:
   `node --test tests/architecture-startup.test.js`; generation:
   `node --test tests/world-generation.test.js tests/danger-atlas.test.js`.
+- New checks: `npm run test:unit`, `npm run test:integration`,
+  `npm run test:balance`, `npm run test:determinism`.
+- Unified report: `npm run simulate:balance -- --ruleset Normal --json reports/balance.json --csv reports/balance.csv --markdown reports/balance.md`.
+  Production helpers, exact forge Markov model and actual descriptor Tier ranges;
+  modeled income is not measured farming telemetry. WARN is not a failed invariant.
 - Existing reports: `node scripts/combat-balance.js`,
   `node scripts/xp-balance.js --progression`,
   `node scripts/world-generation-stress.js 100`.

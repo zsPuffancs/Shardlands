@@ -2,11 +2,11 @@
 // Enemy scaling (enemy-scaling.js): category multipliers, world progression, party scaling, boss phases,
 // and time-to-kill / time-to-death against heroes built with the live player formulas.
 const test = require('node:test'), assert = require('node:assert/strict');
-const scaling = require('../enemy-scaling');
+const scaling = require('../src/combat/enemy-scaling');
 const balance = require('../scripts/combat-balance');
-const { MOBTYPES, TIERS } = require('../monsters');
-const xp = require('../xp-economy');
-const { monsterGoldRewards } = require('../gold-rewards');
+const { MOBTYPES, TIERS } = require('../src/combat/monsters');
+const xp = require('../src/progression/xp-economy');
+const { monsterGoldRewards } = require('../src/economy/gold-rewards');
 
 const { ENEMY_SCALING } = scaling;
 const close = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps * Math.max(1, Math.abs(b)), a + ' != ' + b);

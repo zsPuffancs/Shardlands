@@ -1,11 +1,11 @@
 'use strict';
 const test = require('node:test'), assert = require('node:assert/strict');
-const xp = require('../xp-economy');
-const { createProgression, newSk, stats } = require('../characters');
-const { createCombat } = require('../combat');
-const { createTeams } = require('../teams');
-const { createEncounterParticipation } = require('../encounter-participation');
-const { MOBTYPES, createMonsterSpawner, TIERS } = require('../monsters');
+const xp = require('../src/progression/xp-economy');
+const { createProgression, newSk, stats } = require('../src/player/characters');
+const { createCombat } = require('../src/combat/combat');
+const { createTeams } = require('../src/multiplayer/teams');
+const { createEncounterParticipation } = require('../src/combat/encounter-participation');
+const { MOBTYPES, createMonsterSpawner, TIERS } = require('../src/combat/monsters');
 const noop = () => {};
 function hero(id = 1, level = 100) { const player = { id, name: 'Hero' + id, c: {}, cls: 'archer', lvl: level, xp: 0, sp: 0, gold: 0, eq: {}, bag: [], inv: {}, sk: newSk(), buf: {}, x: 6000, y: 6000, team: 0 }; stats(player); player.hp = player.maxhp; player.mp = player.maxmp; return player; }
 function setup(count = 1, { share = true, levels = [], xpHook = noop, rate = 1 } = {}) {
@@ -162,7 +162,7 @@ test('all reward inputs stay safe across supported levels, gap boundaries and ex
 });
 
 test('lazy runtime restores independent party HP/damage scalars without healing a wounded encounter', () => {
-  const { createEncounterRuntime } = require('../encounter-runtime'), { maps } = require('../game-world');
+  const { createEncounterRuntime } = require('../src/world/encounter-runtime'), { maps } = require('../src/world/game-world');
   const player = hero(), players = new Map([[1, player]]), mobs = new Map(), saved = { a: { health: .5, ps: 2.8, partyDamageScale: 1.32 } };
   const runtime = createEncounterRuntime({ players, mobs, spawnMob: (type, x, y) => { const monster = { id: 9, ty: type, x, y, mh: 100, hp: 100, ps: 1 }; mobs.set(9, monster); return monster; } });
   runtime.register({ id: 1, map: maps[0], zoneIndex: 0, min: 0, max: 99999, outer: true, storage: () => saved, loadPlan: () => ({ spawns: [{ id: 'a', encounterId: 'camp:0', type: 'wolf', x: 6020, y: 6000 }], encounters: [{ id: 'camp:0', x: 6020, y: 6000, spawnIds: ['a'] }] }) });

@@ -1,4 +1,5 @@
 'use strict';
+const { worldBossTemplate } = require('../shared/generated/entities');
 // Regions beyond the founding lands. Each one is a generated map with its own village,
 // monsters, stones and World Boss, reached through the World Portal.
 const { buildRegionPlan, frontierZone } = require('./region-blueprint');
@@ -42,7 +43,7 @@ function createRegions({ universe, players, mobs, spawnMob, config = {}, populat
     if (maps[index]) return maps[index];
     const region = universe.regionFor(tier), boss = region.worldBoss;
     const archetype = MOBTYPES[boss.archetype] ? boss.archetype : 'deathlord';
-    MOBTYPES[boss.type] = { ...MOBTYPES[archetype], r: Math.round(MOBTYPES[archetype].r * WORLD_BOSS_SIZE), name: boss.name, archetype, element: region.element, worldBoss: true };
+    MOBTYPES[boss.type] = worldBossTemplate(MOBTYPES[archetype], { name: boss.name, archetype, element: region.element });
     SPECIAL[boss.type] = SPECIAL[archetype] || boss.signature || 'charge';
     const map = addMap(index, { tier: zoneIndex, regionTier: tier, look: LOOK_FOR[region.biome] === undefined ? 6 : LOOK_FOR[region.biome] });
     setSettlement(map, universe.settlement(tier));

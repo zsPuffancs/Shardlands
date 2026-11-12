@@ -4,7 +4,7 @@ Gold rebalance is limited to monster reward calculation and its existing payout 
 
 ## Exact formulas
 
-`gold-rewards.js` is pure and owns the balance constants. For a generated frontier monster at authoritative server level L (integer 1..10000):
+`src/economy/gold-rewards.js` is pure and owns the balance constants. For a generated frontier monster at authoritative server level L (integer 1..10000):
 
     normalAverage(L) = .065 * 100 * (1 + L/12)
     budget = normalAverage(L) * categoryMultiplier * (.8 + .4*U) * goldRate
@@ -23,11 +23,11 @@ For founding regions, the old calculation is retained:
           * goldRate
           * (stone ? 1.5 : 1)
 
-Solo final rounding and personal Gold Find remain identical to the old formula for valid ordinary settings. Frontier rewards never reuse those old template ranges/multipliers or add the legacy stone multiplier, avoiding double multiplication. `monsters.js` sets `goldModel` to `frontier-linear-v1` with neutral `gm=1`, or `founding-legacy-v1` with the old gm. Untagged in-memory/plugin monsters fall back to the authoritative zone's generated flag; explicit model tags are respected. Plugins should use the shared gold module rather than assuming frontier gm/gb still encode a scaled reward. Unknown model versions and invalid source levels fail closed with zero gold.
+Solo final rounding and personal Gold Find remain identical to the old formula for valid ordinary settings. Frontier rewards never reuse those old template ranges/multipliers or add the legacy stone multiplier, avoiding double multiplication. `src/combat/monsters.js` sets `goldModel` to `frontier-linear-v1` with neutral `gm=1`, or `founding-legacy-v1` with the old gm. Untagged in-memory/plugin monsters fall back to the authoritative zone's generated flag; explicit model tags are respected. Plugins should use the shared gold module rather than assuming frontier gm/gb still encode a scaled reward. Unknown model versions and invalid source levels fail closed with zero gold.
 
 ## Payout and safety
 
-The current team/ownership rules are preserved. `combat.js` still selects the current gold-sharing roster; no XP participation restrictions are imposed on gold. `loot.js` rolls one pool, removes duplicate recipient IDs, and splits the rounded integer pool evenly. Remainder units go in the existing killer-first order. This corrects the old small party-rounding inflation (and duplicate-recipient payouts); it can shift a share by a coin compared with independently rounding fractions.
+The current team/ownership rules are preserved. `src/combat/combat.js` still selects the current gold-sharing roster; no XP participation restrictions are imposed on gold. `src/economy/loot.js` rolls one pool, removes duplicate recipient IDs, and splits the rounded integer pool evenly. Remainder units go in the existing killer-first order. This corrects the old small party-rounding inflation (and duplicate-recipient payouts); it can shift a share by a coin compared with independently rounding fractions.
 
 Personal Gold Find is then applied only to that recipient's share:
 
@@ -39,9 +39,9 @@ The killer receives the same owned ground drop, with existing protection and exp
 
 ## Files and verification
 
-- `gold-rewards.js`: pure source/category/scaling/roll/allocation functions.
-- `monsters.js`: gold metadata integration only.
-- `loot.js`: use the shared gold payout and deduplicate recipients; other loot paths remain unchanged.
+- `src/economy/gold-rewards.js`: pure source/category/scaling/roll/allocation functions.
+- `src/combat/monsters.js`: gold metadata integration only.
+- `src/economy/loot.js`: use the shared gold payout and deduplicate recipients; other loot paths remain unchanged.
 - `scripts/gold-balance.js`: before/after reference simulation using historical production monster data and the real current reward functions.
 - `tests/gold-rewards.test.js`: ten regression groups including 10000-level monotonicity, categorical priority, founding parity, party conservation/ownership/overflow, Gold Find, rate/numeric extremes and unchanged saved player data.
 - `docs/GOLD-BALANCE-REPORT.md`: generated tables covering every requested level/category, gold/hour, unchanged forge costs, founding regions, seeded World Tiers, Gold Find/rates and party distribution.

@@ -1,7 +1,7 @@
 # Enemy scaling
 
-How strong monsters are: `enemy-scaling.js` (all parameters in `ENEMY_SCALING`), used by `monsters.js` when a monster spawns,
-by `encounter-participation.js` for party scaling, and by `combat.js` / `simulation.js` for boss behaviour.
+How strong monsters are: `src/combat/enemy-scaling.js` (all parameters in `ENEMY_SCALING`), used by `src/combat/monsters.js` when a monster spawns,
+by `src/combat/encounter-participation.js` for party scaling, and by `src/combat/combat.js` / `src/combat/simulation.js` for boss behaviour.
 `scripts/combat-balance.js` prints the tables below from the live formulas; `tests/enemy-scaling.test.js` checks them.
 
 ## What was wrong (measured with the production formulas)
@@ -66,7 +66,7 @@ It keeps growing (no plateau) but never accelerates (no exponential). Monster le
 ### Party scaling
 
 Health per extra member (2–5 heroes): normal +45% (unchanged), Alpha and stones +50%, bosses +60%, World Bosses +70%.
-Damage stays +8% per member (`xp-economy.js`), so joining a group is never a punishment. XP still pays at most the normal
+Damage stays +8% per member (`src/progression/xp-economy.js`), so joining a group is never a punishment. XP still pays at most the normal
 party scale (`partyAllocation` caps it), so the extra boss health does not inflate XP.
 
 ### Boss behaviour (existing attacks, telegraphs and identities kept)
@@ -83,9 +83,9 @@ Phase changes and recover windows show a banner under the target frame (`ux.js`,
 
 ### Rewards
 
-- XP: unchanged (`xp-economy.js` category budgets). Alphas now pay 3× a normal for 3× the health (before: 3× for 5×).
+- XP: unchanged (`src/progression/xp-economy.js` category budgets). Alphas now pay 3× a normal for 3× the health (before: 3× for 5×).
 - World Bosses now drop 7 items (was 5), at least Epic (was Rare), item level +5 (was +3), and 5–10 souls (was 1–5).
-  Bosses, Alphas and stones are unchanged. Gold is unchanged (`gold-rewards.js`).
+  Bosses, Alphas and stones are unchanged. Gold is unchanged (`src/economy/gold-rewards.js`).
 
 ## Before and after
 

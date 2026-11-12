@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const Delta = require('../public/state-delta');
-const { mobSnapshot } = require('../snapshots');
+const { mobSnapshot } = require('../src/multiplayer/snapshots');
 const wire = value => JSON.parse(JSON.stringify(value));
 function transport() {
   const packets = [], connection = { uiDeltas: true }; let now = 1000, failing = false;

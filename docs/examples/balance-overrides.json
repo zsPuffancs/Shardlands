@@ -1,0 +1,4 @@
+{
+  "rates": { "goldRate": 2 },
+  "settlement": { "scalingCoefficient": 0.1 }
+}

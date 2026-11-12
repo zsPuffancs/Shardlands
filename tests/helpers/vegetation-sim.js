@@ -3,7 +3,7 @@
 // for the founding map or a generated region, and measures what it places.
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.join(__dirname, '../..');
-const { TIERS } = require(path.join(ROOT, 'monsters'));
+const { TIERS } = require('../../src/combat/monsters');
 const Settlement = require(path.join(ROOT, 'public/settlement'));
 
 let NAT = null;

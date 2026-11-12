@@ -1,17 +1,20 @@
 'use strict';
 // Offline report: execute the pinned pre-update production XP module, never approximate its curve.
 const { execFileSync } = require('node:child_process');
+const { createHistoricalRequire } = require('./historical-imports');
 const Module = require('node:module'), path = require('node:path');
-const xp = require('../xp-economy');
-const { generateSpawnPlan } = require('../world-generation');
-const { createDangerSpec } = require('../danger-geography');
-const { POLICY_VERSION, validateProgression } = require('../progression-generation');
+const xp = require('../src/progression/xp-economy');
+const { generateSpawnPlan } = require('../src/world/world-generation');
+const { createDangerSpec } = require('../src/world/danger-geography');
+const { POLICY_VERSION, validateProgression } = require('../src/world/progression-generation');
 const BASELINE = '25a1d0a2a39ad65d9571381d927d503a77ed88f2';
 const SECONDS = Object.freeze({ normal: 5, alpha: 15, stone: 60, boss: 120, worldBoss: 300, summoned: 5, anomaly: 60 });
 function historicalXp(reference) {
   const filename = path.resolve(__dirname, '..', 'xp-economy.js');
   const source = execFileSync('git', ['show', reference + ':xp-economy.js'], { cwd: path.dirname(filename), encoding: 'utf8' });
-  const historical = new Module(filename); historical.filename = filename; historical.paths = Module._nodeModulePaths(path.dirname(filename)); historical._compile(source, filename);
+  const historical = new Module(filename); historical.filename = filename; historical.paths = Module._nodeModulePaths(path.dirname(filename));
+  historical.require = createHistoricalRequire(historical);
+  historical._compile(source, filename);
   return historical.exports;
 }
 function metrics(api, options, seconds) {

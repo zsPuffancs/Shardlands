@@ -1,4 +1,6 @@
 'use strict';
+const { upgradeOutcome } = require('../../public/forge-math');
+const { restoreResource } = require('../shared/generated/resources');
 const crypto = require('node:crypto');
 const { createAutoAffixJobs } = require('./auto-affix-jobs');
 
@@ -90,7 +92,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     if (itemKey === 'hp' || itemKey === 'hp2') {
       const healAmount = Math.floor(player.maxhp * (itemKey === 'hp' ? 0.4 : 1));
       const previousHealth = player.hp;
-      player.hp = Math.min(player.maxhp, player.hp + healAmount);
+      player.hp = restoreResource(player.hp, player.maxhp, healAmount);
       const restoredHealth = Math.round(player.hp - previousHealth);
       ev('heal', player.x, player.y, '+' + restoredHealth, { combatPlayerId: player.id, restoredHealth });
     }
@@ -143,10 +145,8 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
   }
   function tryUpgrade(player, item, cost) {
     player.gold -= cost;
-    const success = Math.random() < UP_RATE[item.plus];
-    const drop = !success && item.plus >= 5;
-    if (success) item.plus++;
-    else if (drop) item.plus--;
+    const { success, drop, plus } = upgradeOutcome(item.plus, Math.random());
+    item.plus = plus;
     return { success, drop };
   }
 

@@ -2,15 +2,15 @@
 // Prepared for explicit execution on user request. This change does not install test hooks.
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), vm = require('node:vm');
-const { openJsonStore, coordinateSaves, recoverSaveGroup } = require('../persistence');
-const { createAdventure, CONTRACTS } = require('../adventure');
-const { createTeams } = require('../teams');
-const { createRegions } = require('../regions');
-const { createEncounterRuntime } = require('../encounter-runtime');
-const { createEncounterParticipation } = require('../encounter-participation');
-const { bossPressure } = require('../enemy-scaling');
-const { mobSnapshot } = require('../snapshots');
-const { maps, addMap, setSettlement, boardPosition, NPCS } = require('../game-world');
+const { openJsonStore, coordinateSaves, recoverSaveGroup } = require('../src/server/persistence');
+const { createAdventure, CONTRACTS } = require('../src/progression/adventure');
+const { createTeams } = require('../src/multiplayer/teams');
+const { createRegions } = require('../src/world/regions');
+const { createEncounterRuntime } = require('../src/world/encounter-runtime');
+const { createEncounterParticipation } = require('../src/combat/encounter-participation');
+const { bossPressure } = require('../src/combat/enemy-scaling');
+const { mobSnapshot } = require('../src/multiplayer/snapshots');
+const { maps, addMap, setSettlement, boardPosition, NPCS } = require('../src/world/game-world');
 const { evaluate } = require('../public/affix-usage');
 const noop = () => {};
 function hero(id = 1) { const p = { id, name: 'Hero' + id, cls: 'blade', c: {}, lvl: 10, hp: 100, maxhp: 100, souls: 0, gold: 1000, xp: 99, eq: {}, bag: [], data: {}, x: NPCS.merchant.x, y: NPCS.merchant.y }; p.c.p = p; return p; }

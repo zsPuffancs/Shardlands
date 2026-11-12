@@ -2,10 +2,11 @@
 // Offline balance runner: production math after, actual historical production modules before.
 const fs = require('node:fs'), path = require('node:path'), Module = require('node:module');
 const { execFileSync } = require('node:child_process');
+const { createHistoricalRequire } = require('./historical-imports');
 const root = path.resolve(__dirname, '..');
-const xp = require('../xp-economy'), characters = require('../characters'), monsters = require('../monsters');
-const { statRanges } = require('../equipment');
-const { resolveRegionLevels } = require('../region-levels');
+const xp = require('../src/progression/xp-economy'), characters = require('../src/player/characters'), monsters = require('../src/combat/monsters');
+const { statRanges } = require('../src/economy/equipment');
+const { resolveRegionLevels } = require('../src/world/region-levels');
 const BASELINE = 'f374228585ae6b3d9e973389a2c0eab9410e80f3';
 const LEVELS = [1, 10, 25, 50, 60, 100, 250, 500, 1000, 5000, 9999, 10000];
 const CATEGORIES = ['normal', 'alpha', 'stone', 'boss', 'worldBoss', 'summoned', 'anomaly'];
@@ -18,8 +19,9 @@ function legacyModules(reference = BASELINE) {
     try { source = execFileSync('git', ['show', reference + ':' + filename], { cwd: root, encoding: 'utf8', maxBuffer: 1024 * 1024 }); }
     catch { throw new Error('Historical production baseline unavailable: ' + reference + '. Use a full clone or --baseline <commit>. No estimated baseline is substituted.'); }
     const module = new Module(path.join(root, filename)); module.filename = path.join(root, filename); module.paths = Module._nodeModulePaths(root);
-    const nativeRequire = module.require.bind(module);
-    module.require = name => ['./monsters', './characters'].includes(name) ? load(name.slice(2) + '.js') : nativeRequire(name);
+    module.require = createHistoricalRequire(module, {
+      './monsters': () => load('monsters.js'), './characters': () => load('characters.js'),
+    });
     module._compile(source, module.filename); loaded[filename] = module.exports; return module.exports;
   }
   return { monsters: load('monsters.js'), characters: load('characters.js'), combat: load('combat.js') };

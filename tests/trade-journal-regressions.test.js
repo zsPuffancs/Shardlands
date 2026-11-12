@@ -2,11 +2,11 @@
 // Prepared for explicit execution on request; no automatic runner or hook is added.
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), vm = require('node:vm');
-const { createInventory } = require('../inventory');
-const { createTeams } = require('../teams');
-const { createAdventure } = require('../adventure');
-const { stats, newSk } = require('../characters');
-const { NPCS } = require('../game-world');
+const { createInventory } = require('../src/economy/inventory');
+const { createTeams } = require('../src/multiplayer/teams');
+const { createAdventure } = require('../src/progression/adventure');
+const { stats, newSk } = require('../src/player/characters');
+const { NPCS } = require('../src/world/game-world');
 const noop = () => {};
 const item = uid => ({ uid, name: 'Iron Sword', slot: 'weapon', fam: 'sword', ilvl: 10, rar: 0, plus: 0, req: 1, stats: { dmg: 25 } });
 function hero(id = 1) { const player = { id, name: 'Hero' + id, cls: 'blade', c: {}, lvl: 10, gold: 1000, souls: 100, xp: 0, bag: [], eq: {}, sk: newSk(), buf: {}, inv: {}, data: {}, x: NPCS.mystic.x, y: NPCS.mystic.y }; stats(player); player.hp = player.maxhp; player.mp = player.maxmp; player.c.p = player; return player; }

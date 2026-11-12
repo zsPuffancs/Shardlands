@@ -1,6 +1,6 @@
 # Spirit Stone farming rewards
 
-The server policy and lifecycle permits live in `stone-rewards.js`. Tuning values are centralized in `STONE_REWARDS` for a future Rulesets integration; there is no new framework or dependency.
+The server policy and lifecycle permits live in `src/economy/stone-rewards.js`. Tuning values are centralized in `STONE_REWARDS` for a future Rulesets integration; there is no new framework or dependency.
 
 | Enemy | XP | Gold | Additional loot |
 |---|---:|---:|---|
@@ -26,10 +26,10 @@ For persisted encounter plans, the existing `stoneStep` field records the lowest
 
 ## Files and limits
 
-- `stone-rewards.js`: tunable policy, stage reservation, one-use XP/loot authorization and respawn reset.
-- `summons.js`, `combat.js`: source classification, wave authorization and reward settlement through existing participation.
-- `xp-economy.js`, `gold-rewards.js`: shared Stone budgets and premodifier reward scaling; ordinary paths preserved.
-- `loot.js`: controlled reduced guardian loot and improved completion rewards.
-- `monsters.js`, `encounter-runtime.js`: normal respawn reset and existing stage checkpoint integration.
+- `src/economy/stone-rewards.js`: tunable policy, stage reservation, one-use XP/loot authorization and respawn reset.
+- `src/combat/summons.js`, `src/combat/combat.js`: source classification, wave authorization and reward settlement through existing participation.
+- `src/progression/xp-economy.js`, `src/economy/gold-rewards.js`: shared Stone budgets and premodifier reward scaling; ordinary paths preserved.
+- `src/economy/loot.js`: controlled reduced guardian loot and improved completion rewards.
+- `src/combat/monsters.js`, `src/world/encounter-runtime.js`: normal respawn reset and existing stage checkpoint integration.
 
 These are balance settings, not a measured XP/hour guarantee. Clear time depends on class, AoE, gear, risk and travel; no combat timings or benchmarks were executed. No tests were added/modified/run; no build, lint or verification commands were run.

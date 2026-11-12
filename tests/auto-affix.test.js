@@ -1,15 +1,15 @@
 'use strict';
 const test = require('node:test'), assert = require('node:assert/strict');
 const { estimate, rollValue } = require('../public/affix-math');
-const { affixRange, AFFIXES, AFFIX_COST, RARITY, createEquipment, effectiveStatLevel } = require('../equipment');
-const { createAutoAffixJobs } = require('../auto-affix-jobs');
-const { AUTO_AFFIX_LIMITS } = require('../safety-limits');
-const { createInventory } = require('../inventory');
-const { newSk, stats } = require('../characters');
-const { NPCS, CX, CY, maps, addMap } = require('../game-world');
-const { createGameSaves } = require('../persistence');
-const { createTeams } = require('../teams');
-const { createPlayerSessions } = require('../player-session');
+const { affixRange, AFFIXES, AFFIX_COST, RARITY, createEquipment, effectiveStatLevel } = require('../src/economy/equipment');
+const { createAutoAffixJobs } = require('../src/economy/auto-affix-jobs');
+const { AUTO_AFFIX_LIMITS } = require('../src/shared/safety-limits');
+const { createInventory } = require('../src/economy/inventory');
+const { newSk, stats } = require('../src/player/characters');
+const { NPCS, CX, CY, maps, addMap } = require('../src/world/game-world');
+const { createGameSaves } = require('../src/server/persistence');
+const { createTeams } = require('../src/multiplayer/teams');
+const { createPlayerSessions } = require('../src/player/player-session');
 const noop = () => {};
 function hero(id = 1) { const p = { id, name: 'Hero' + id, c: {}, cls: 'archer', lvl: 100, xp: 100, sp: 20, gold: 10000, souls: 1000000, bag: [], eq: {}, inv: {}, sk: newSk(), buf: {}, x: CX, y: CY /* the plaza centre: in reach of every NPC */ }; stats(p); p.hp = p.maxhp; p.mp = p.maxmp; p.c.p = p; return p; }
 function item(uid = 'target', extra = {}) { return { uid, name: 'Iron Sword', slot: 'weapon', fam: 'sword', ilvl: 100, rar: 3, plus: 7, req: 1, stats: { dmg: 123, crit: 5 }, psk: { might: 2 }, lk: 1, ...extra }; }

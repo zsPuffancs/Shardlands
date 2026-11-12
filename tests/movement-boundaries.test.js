@@ -1,11 +1,11 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { BASE_PLAYER_MOVE_SPEED, MAX_PLAYER_MOVE_SPEED, playerMoveSpeed, newSk, stats } = require('../characters');
-const { maps, addMap, mapOf, clampWorld } = require('../game-world');
-const { createSimulation } = require('../simulation');
-const { createPlayerSessions } = require('../player-session');
-const { createCombat } = require('../combat');
+const { BASE_PLAYER_MOVE_SPEED, MAX_PLAYER_MOVE_SPEED, playerMoveSpeed, newSk, stats } = require('../src/player/characters');
+const { maps, addMap, mapOf, clampWorld } = require('../src/world/game-world');
+const { createSimulation } = require('../src/combat/simulation');
+const { createPlayerSessions } = require('../src/player/player-session');
+const { createCombat } = require('../src/combat/combat');
 const noop = () => {};
 function player(x, y) {
   const p = { id: 1, cls: 'archer', lvl: 100, eq: {}, sk: newSk(), buf: {}, x, y, dir: { x: 0, y: 0 }, target: 0, cd: 0 };

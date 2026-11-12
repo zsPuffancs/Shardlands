@@ -14,3 +14,5 @@
 # cloudflared for the invite link (large binary, download separately)
 /tools/
 /cloudflared*
+/node_modules/
+/reports/
