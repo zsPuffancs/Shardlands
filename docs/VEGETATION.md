@@ -10,8 +10,8 @@ Two placement systems exist side by side:
   Still used by every biome look except Gloomwood.
 - **Distribution recipes** (`public/vegetation.js`): groves, open woodland and clearings. Used by the looks listed in
   `Vegetation.LOOKS`: look 1, **Gloomwood** (the founding ring and the wildwood regions; playtested and approved, its
-  output is frozen by `tests/fixtures/vegetation-approved.json`), and look 0, **Meadows** (the founding ring round the
-  village).
+  output is frozen by `tests/fixtures/vegetation-approved.json`), look 0, **Meadows** (the founding ring round the
+  village; approved and frozen too), and look 4, **Frostfang Peaks** (the founding ring and the glacier regions).
 
 For a planned look, the uniform passes still draw their random numbers and place nothing, so every other look, the
 farmland and everything baked after the vegetation (zone specials, lava and ice pools) stays exactly as it was.
@@ -47,6 +47,16 @@ The ground layer uses two more noise fields: **flower meadows** (patches of Flow
 ground** (grass chance cut to 12%), on top of grass patches of 8 to 22 tufts. Bushes, berry bushes, small mossy
 rocks, logs and stumps are scattered on a 175-unit grid, small rock groups on a 560-unit grid. The farmland round the
 village is untouched.
+
+## Frostfang Peaks
+
+Snow-laden pine woodland in pockets and stands: the Gloomwood structure (density field, clearings, canopy spacing, a
+budget of 46 per km2) with roomier spacing (0.8 of the crowns), wider snowfield clearings (140 to 235 radius) and
+copses of 2 to 5 trees out in the open, so stands range from lone trees to large pockets. Trees: PineTree_Snow
+(also as saplings), CommonTree_Snow, BirchTree_Snow and a few dead snowy trees. Ground: snow bushes, snowy rocks and
+stumps round the trees, fallen snowy logs, many exposed rock outcrops (3 to 7 rocks), and sparse patches of small snow
+bushes, pebbles and frosted grass with bare snow between. Snow assets only; the farmland and zone specials (ice
+crystals, ice pools) are untouched.
 
 ## Tools
 

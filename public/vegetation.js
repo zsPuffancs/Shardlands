@@ -112,6 +112,44 @@
         { models: ['Flowers'], w: .5, size: [9, 13], tint: [.8, .85, .9], clearingOnly: true },
       ] },
     },
+    4: { // Frostfang Peaks / glacier: snow-laden pine pockets and small stands, snowy openings, exposed rock, fallen trees
+      name: 'Frostfang',
+      budget: 46,
+      trees: [
+        { models: seq('PineTree_Snow', 5), w: 6, size: [150, 215] },
+        { models: seq('PineTree_Snow', 5), w: 1.6, size: [70, 105], young: true },
+        { models: seq('CommonTree_Snow', 5), w: 1, size: [115, 160] },
+        { models: seq('BirchTree_Snow', 5), w: .55, size: [120, 160] },
+        { models: seq('CommonTree_Dead_Snow', 5), w: .45, size: [105, 145] },
+        { models: seq('BirchTree_Dead_Snow', 5), w: .3, size: [100, 140] },
+      ],
+      spacing: { trunk: 26, canopy: .8, group: .72 },  // a little roomier than Gloomwood; stand trees may touch
+      field: { scale: 820, fine: 260, grove: .56, open: .44 },
+      chance: { grove: 1, open: .45, thin: .04 },      // pockets of woodland, sparse in between, nearly bare below
+      cell: 58,
+      clearings: { cell: 600, chance: .85, r: [140, 235] }, // open snowfields spread through the woods
+      copses: { cell: 400, chance: .55, count: [2, 5], r: [50, 115] }, // small stands out in the open
+      roads: { clearance: 56, edge: 200, edgeChance: .3 },
+      village: 240,
+      understory: { chance: { grove: .5, open: .45, thin: .35 }, count: [1, 2], ring: [.5, 1.15], items: [
+        { models: ['Bush_Snow_1', 'Bush_Snow_2'], w: 3, size: [22, 34] },
+        { models: seq('Rock_Snow', 7), w: 2, size: [14, 30], bySize: true },
+        { models: ['TreeStump_Snow'], w: 1, size: [13, 18] },
+      ] },
+      groundProps: { cell: 210, chance: .34, groveSkip: .5, items: [
+        { models: ['WoodLog_Snow'], w: 2.4, size: [42, 58], bySize: true },
+        { models: ['TreeStump_Snow'], w: 1.4, size: [13, 18] },
+        { models: ['Bush_Snow_1', 'Bush_Snow_2'], w: 1.6, size: [20, 32] },
+        { models: seq('Rock_Snow', 7), w: 1.6, size: [16, 36], bySize: true },
+      ] },
+      outcrops: { cell: 380, chance: .55, count: [3, 7], r: [18, 58], models: seq('Rock_Snow', 7), size: [20, 56] }, // exposed rock
+      grass: { cell: 150, chance: { clearing: .3, thin: .32, open: .26, grove: .08 }, count: [3, 9], r: [20, 50], items: [
+        { models: ['Bush_Snow_1', 'Bush_Snow_2'], w: 2, size: [10, 16] },
+        { models: seq('Rock_Snow', 7), w: 1.6, size: [6, 12], bySize: true },
+        { models: ['Grass_Short'], w: 1.4, size: [7, 11], tint: [.82, .9, .94] },
+      ],
+      bare: { scale: 700, below: .4, factor: .2 } },
+    },
   };
   const LOOKS = Object.keys(RECIPES).map(Number);
 

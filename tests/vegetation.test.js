@@ -1,13 +1,13 @@
 'use strict';
 // Vegetation distribution (public/vegetation.js) as baked by the client (public/world.js bakeDecor), headless.
-// Meadows (look 0) and Gloomwood (look 1) use the new distribution; every other look must be untouched.
+// Meadows (look 0), Gloomwood (look 1) and Frostfang (look 4) use the new distribution; every other look must be untouched.
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path');
 const Vegetation = require('../public/vegetation');
 const { bake, stats } = require('./helpers/vegetation-sim');
 const { fingerprint } = require('../scripts/vegetation-fingerprint');
 
-const MEADOWS = 0, GLOOM = 1;
+const MEADOWS = 0, GLOOM = 1, SNOW = 4;
 // measured with the uniform scatter (commit a57e0bc) by scripts/vegetation-report.js
 const BEFORE = { founding: { perKm2: 118.2, nnMean: 46, open150: 0 }, region: { perKm2: 113.5, nnMean: 47, open150: 0 } };
 const founding = bake({ kind: 'founding' }), region = bake({ kind: 'region', look: GLOOM }, 1337, 3);
@@ -22,7 +22,7 @@ test('only the planned biomes change: approved ones are frozen, every other biom
     else if (planned.has(look) && !k.endsWith('streamAfter')) assert.notEqual(now[k], v, k + ' uses the new distribution');
     else assert.equal(now[k], v, k + ' unchanged');
   }
-  assert.deepEqual(Vegetation.LOOKS, [MEADOWS, GLOOM]);
+  assert.deepEqual(Vegetation.LOOKS, [MEADOWS, GLOOM, SNOW]);
   // the farmland outside the village is placed exactly as before
   const farm = r => JSON.stringify(r.placed.filter(p => /^(Wheat|Corn)/.test(p.name)).map(p => [p.name, +p.x.toFixed(2), +p.z.toFixed(2)]));
   assert.equal(farm(founding), farm(bake({ kind: 'founding' }, 1337, 0, { vegetation: false })));
@@ -162,4 +162,50 @@ test('Meadows: deterministic per seed, different between seeds', () => {
   const sig = r => JSON.stringify(r.placed.filter(p => r.zoneOf(p.x, p.z) === MEADOWS).map(p => [p.name, +p.x.toFixed(2), +p.z.toFixed(2), +p.size.toFixed(2)]));
   assert.equal(sig(bake({ kind: 'founding' }, 7)), sig(meadowRuns[1][1]));
   assert.notEqual(sig(meadowRuns[1][1]), sig(founding));
+});
+
+// ---------- Frostfang Peaks / glacier (look 4: the founding ring and the glacier regions) ----------
+const SNOW_BEFORE = { perKm2: 117.3, region: 113.5 }; // uniform scatter, seed 1337 (113-123 over these seeds)
+const snowRuns = SEEDS.flatMap(seed => [[seed + ' ring', seed === 1337 ? founding : meadowRuns.find(r => r[0] === seed)[1]], [seed + ' region', bake({ kind: 'region', look: SNOW }, seed, 3)]]);
+function groups(run, look, link) { // trees joined when closer than link: sizes of the stands
+  const T = run.placed.filter(p => p.cat === 0 && run.zoneOf(p.x, p.z) === look), par = T.map((_, i) => i), f = i => par[i] === i ? i : (par[i] = f(par[i])), g = new Map(), K = 200;
+  T.forEach((t, i) => { const k = Math.floor(t.x / K) + ',' + Math.floor(t.z / K); (g.get(k) || g.set(k, []).get(k)).push(i); });
+  T.forEach((t, i) => { const kx = Math.floor(t.x / K), kz = Math.floor(t.z / K); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (const j of g.get((kx + a) + ',' + (kz + b)) || []) if (j > i && Math.hypot(t.x - T[j].x, t.z - T[j].z) < link) par[f(i)] = f(j); });
+  const sz = new Map(); T.forEach((_, i) => sz.set(f(i), (sz.get(f(i)) || 0) + 1)); return { trees: T.length, sizes: [...sz.values()].sort((a, b) => b - a) };
+}
+
+test('Frostfang: 30-50 large trees per km2, well under half of before, within the budget, on every seed', () => {
+  for (const [label, run] of snowRuns) {
+    const s = stats(run, SNOW);
+    assert.ok(s.perKm2 >= 30 && s.perKm2 <= Vegetation.RECIPES[SNOW].budget + 1, label + ': ' + s.perKm2 + ' trees/km2');
+    assert.ok(s.perKm2 <= SNOW_BEFORE.region * 0.45, label + ' well under half of before');
+    assert.ok(s.nnMin >= 24 && s.closeShare <= 0.25, label + ': nearest ' + s.nnMin + ', ' + Math.round(s.closeShare * 100) + '% within 60 (before 73%)');
+  }
+});
+
+test('Frostfang: stands of every size with snowy openings between them, never one wall of trees', () => {
+  for (const [label, run] of snowRuns) {
+    const s = stats(run, SNOW), g = groups(run, SNOW, 130);
+    assert.ok(s.open150 >= 0.15 && s.open250 >= 0.04, label + ': open ' + Math.round(s.open150 * 100) + '% / ' + Math.round(s.open250 * 100) + '%');
+    const single = g.sizes.filter(n => n === 1).length, small = g.sizes.filter(n => n >= 2 && n <= 5).length, pockets = g.sizes.filter(n => n >= 15).length;
+    assert.ok(single >= 10 && small >= 8 && pockets >= 4, label + ': ' + single + ' lone trees, ' + small + ' small stands, ' + pockets + ' woodland pockets');
+    assert.ok(g.sizes[0] / g.trees <= 0.4, label + ': the biggest stand holds ' + Math.round(g.sizes[0] / g.trees * 100) + '% of the trees');
+  }
+});
+
+test('Frostfang: snowy bushes, rocks, logs and stumps; snow assets only; roads and the village stay clear', () => {
+  for (const [label, run] of snowRuns) {
+    const inS = p => run.zoneOf(p.x, p.z) === SNOW && !/^(Wheat|Corn)/.test(p.name) /* farmland: unchanged */, all = run.placed.filter(inS), T = all.filter(p => p.cat === 0), other = all.filter(p => p.cat > 0);
+    for (const p of all) assert.ok(/Snow|^Grass_Short$/.test(p.name), label + ' snowy asset: ' + p.name);
+    assert.ok(other.some(p => /^Bush_Snow/.test(p.name)) && other.some(p => /^Rock_Snow/.test(p.name)) && other.some(p => /^WoodLog_Snow/.test(p.name)) && other.some(p => /^TreeStump_Snow/.test(p.name)), label + ' variety');
+    assert.ok(other.length > T.length && other.length < T.length * 4.5, label + ': ' + other.length + ' smaller pieces for ' + T.length + ' trees');
+    for (const t of T) { assert.ok(!run.onRoad(t.x, t.z, 56), label + ' trunk near a road'); assert.ok(Math.hypot(t.x - run.CX, t.z - run.CY) >= run.V + 240, label + ' tree at the village'); }
+    for (const p of other) assert.ok(!run.onRoad(p.x, p.z, 25), label + ' on a road');
+  }
+});
+
+test('Frostfang: deterministic per seed', () => {
+  const sig = r => JSON.stringify(r.placed.filter(p => r.zoneOf(p.x, p.z) === SNOW).map(p => [p.name, +p.x.toFixed(2), +p.z.toFixed(2), +p.size.toFixed(2)]));
+  assert.equal(sig(bake({ kind: 'region', look: SNOW }, 7, 3)), sig(snowRuns.find(r => r[0] === '7 region')[1]));
+  assert.notEqual(sig(snowRuns.find(r => r[0] === '7 region')[1]), sig(snowRuns.find(r => r[0] === '99 region')[1]));
 });
