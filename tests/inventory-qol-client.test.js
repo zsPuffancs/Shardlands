@@ -61,7 +61,7 @@ test('inventory synchronization clears stale selections, tooltip and pending des
 
 test('all new inventory UI and server feedback keys have Hungarian catalog entries', () => {
   let catalog; vm.runInNewContext(fs.readFileSync(require.resolve('../public/locales/hu'), 'utf8'), { GameText: { addCatalog: (language, values) => { catalog = values; } } });
-  const source = fs.readFileSync(require.resolve('../public/inventory-qol'), 'utf8') + fs.readFileSync(require.resolve('../inventory'), 'utf8');
+  const source = fs.readFileSync(require.resolve('../public/inventory-qol'), 'utf8') + fs.readFileSync(require.resolve('../src/economy/inventory'), 'utf8');
   for (const match of source.matchAll(/['"](inventory\.[A-Za-z]+)['"]/g)) assert.ok(Object.hasOwn(catalog, match[1]), match[1]);
 });
 

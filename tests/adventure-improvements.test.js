@@ -108,7 +108,7 @@ test('bestiary records only encountered families and actually collected drops, p
   await service.handle(player, { op: 'inspect' }); const view = packets.at(-1); assert.deepEqual(Object.keys(view.entries), ['wolf']); assert.equal(view.entries.wolf.kills, 1); assert.equal(view.entries.wolf.drops.gold, 40);
   const restored = hero(); restored.data = JSON.parse(JSON.stringify(player.data)); await service.handle(restored, { op: 'inspect' }); assert.equal(packets.at(-1).entries.wolf.kills, 1);
   let catalog; vm.runInNewContext(fs.readFileSync(require.resolve('../public/locales/hu'), 'utf8'), { GameText: { addCatalog: (code, entries) => { catalog = entries; } } });
-  for (const file of ['../adventure', '../public/adventure-ui']) for (const match of fs.readFileSync(require.resolve(file), 'utf8').matchAll(/(?:text|localizedText)\('((?:adventure|boss|affix|team)\.[^']+)'/g)) assert.ok(Object.hasOwn(catalog, match[1]), match[1]);
+  for (const file of ['../src/progression/adventure', '../public/adventure-ui']) for (const match of fs.readFileSync(require.resolve(file), 'utf8').matchAll(/(?:text|localizedText)\('((?:adventure|boss|affix|team)\.[^']+)'/g)) assert.ok(Object.hasOwn(catalog, match[1]), match[1]);
 });
 
 test('journal updates batch changed entries at 250ms and unsupported future journals do not break combat', async () => {

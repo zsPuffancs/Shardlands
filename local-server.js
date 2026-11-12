@@ -1,8 +1,8 @@
 'use strict';
 const { fork } = require('node:child_process');
 const path = require('node:path');
-const { RESTART_EXIT_CODE } = require('./server-console');
-const { startTunnel } = require('./tunnel');
+const { RESTART_EXIT_CODE } = require('./src/server/server-console');
+const { startTunnel } = require('./src/server/tunnel');
 
 let config = {};
 try { config = JSON.parse(require('node:fs').readFileSync(path.join(__dirname, 'config.json'), 'utf8')); } catch {}

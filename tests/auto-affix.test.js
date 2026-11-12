@@ -184,7 +184,7 @@ test('server shutdown cancels jobs before transport close and the final durable 
   const sandbox = { module: { exports: {} }, require: name => { assert.equal(name, './server-console'); return { RESTART_EXIT_CODE: 75 }; },
     process: { argv: [], stdin: {}, on: (name, callback) => signals.set(name, callback), exit }, console: { log: noop, error: noop }, performance: { now: () => 0 },
     setInterval: () => 1, setTimeout: () => 2, clearInterval: noop, clearTimeout: noop };
-  vm.runInNewContext(fs.readFileSync(require.resolve('../server-lifecycle'), 'utf8'), sandbox);
+  vm.runInNewContext(fs.readFileSync(require.resolve('../src/server/server-lifecycle'), 'utf8'), sandbox);
   sandbox.module.exports.startServer({ server: { once: noop, listen: noop, close: () => order.push('server') }, transport: { close: () => order.push('transport') },
     tick: noop, tickIntervalMs: 50, beforeShutdown: () => { order.push('cancel'); game.inventory.cancelAllAutoAffix('cancelled'); },
     saveAll: async () => { order.push('save'); assert.equal(game.inventory.isAutoAffixReserved(game.player, 'target'), false); assert.equal(game.player.souls, balance); return true; } });
