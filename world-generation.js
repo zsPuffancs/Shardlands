@@ -50,7 +50,7 @@ function boundaryFor(zone, area) {
   if (![boundary.width, boundary.height, boundary.cx, boundary.cy, boundary.min].every(Number.isFinite) || boundary.width <= 0 || boundary.height <= 0 || (boundary.shape === 'annulus' && (!Number.isFinite(boundary.max) || boundary.max <= boundary.min))) throw new RangeError('Invalid region boundary');
   return boundary;
 }
-function generateSpawnPlan({ seed, tier, generatorVersion = VERSION, zone, area, budgets: options, spacing: customSpacing = {}, protectedAreas = [], dangerSpec }) {
+function generateSpawnPlan({ seed, tier, generatorVersion = VERSION, zone, area, budgets: options, spacing: customSpacing = {}, protectedAreas = [], dangerSpec, progressionVersion = 0 }) {
   if (generatorVersion !== VERSION) throw new RangeError('Spawn plans require generator v2');
   if (!Number.isSafeInteger(tier) || tier < 1) throw new RangeError('Invalid region tier');
   const boundary = boundaryFor(zone, area), families = [...new Set(zone.types)].sort();
@@ -139,7 +139,13 @@ function generateSpawnPlan({ seed, tier, generatorVersion = VERSION, zone, area,
   for (let i = 0; i < budgets.resources; i++) place('resource', i, 0);
   const settlement = { id: 'settlement', x: boundary.cx, y: boundary.cy };
   const paths = encounters.filter(encounter => encounter.kind === 'boss').map(encounter => ({ from: settlement.id, to: encounter.id, points: [{ x: settlement.x, y: settlement.y }, { x: encounter.x, y: encounter.y }] }));
-  return { version: VERSION, tier, boundary, budgets, spacing, protectedAreas: exclusions, settlement, roads, paths: routePlan ? routePlan.paths : paths, ...(danger ? { danger, portal: routePlan.portal, routeRepairs: routePlan.routeRepairs } : {}), requiredLocations: bosses.map((type, i) => ({ id: 'boss:' + i, type })), encounters, spawns, failures, metrics, difficulty: { worldAffixes: [], encounterAffixes: [], combatAffixes: [], anomalies: { enabled: false, budget: 1 } } };
+  const plan = { version: VERSION, tier, boundary, budgets, spacing, protectedAreas: exclusions, settlement, roads, paths: routePlan ? routePlan.paths : paths, ...(danger ? { danger, portal: routePlan.portal, routeRepairs: routePlan.routeRepairs } : {}), requiredLocations: bosses.map((type, i) => ({ id: 'boss:' + i, type })), encounters, spawns, failures, metrics, difficulty: { worldAffixes: [], encounterAffixes: [], combatAffixes: [], anomalies: { enabled: false, budget: 1 } } };
+  if (zone.generated && progressionVersion) {
+    const progression = require('./progression-generation');
+    if (progressionVersion !== progression.POLICY_VERSION) throw new RangeError('Unsupported progression policy: ' + progressionVersion);
+    progression.assignProgression(plan, zone.lv, stream(seed, tier, progressionVersion, 'progression-levels'));
+  }
+  return plan;
 }
 function validateSpawnPlan(plan) {
   const errors = [], seen = new Set(), index = new SpatialIndex(600), maxSpacing = Math.max(...Object.values(plan.spacing), 1000);
@@ -170,6 +176,8 @@ function validateSpawnPlan(plan) {
       if (encounter.kind !== 'boss' && !geography.placementAllowed(plan.danger, encounter.kind, encounter)) errors.push('danger-placement:' + encounter.id);
     }
   }
-  return { valid: errors.length === 0, errors, counts };
+  const progression = plan.progression ? require('./progression-generation').validateProgression(plan) : undefined;
+  if (progression) errors.push(...progression.errors.map(error => 'progression:' + error));
+  return { valid: errors.length === 0, errors, counts, ...(progression ? { progression } : {}) };
 }
 module.exports = { VERSION, HARD_BUDGETS, SPACING, stream, sampleAnnulus, normalizeBudgets, generateSpawnPlan, validateSpawnPlan, segmentDistance };

@@ -134,7 +134,7 @@ function report(reference = BASELINE) {
 }
 if (require.main === module) {
   const args = process.argv.slice(2), option = name => { const index = args.indexOf(name); return index < 0 ? null : args[index + 1]; };
-  const result = report(option('--baseline') || BASELINE);
+  const result = args.includes('--progression') ? require('./xp-progression-balance').report(option('--baseline') || require('./xp-progression-balance').BASELINE) : report(option('--baseline') || BASELINE);
   if (option('--out')) fs.writeFileSync(path.resolve(option('--out')), result.markdown);
   if (option('--json')) fs.writeFileSync(path.resolve(option('--json')), JSON.stringify({ ...result, markdown: undefined }));
   process.stdout.write(result.markdown);

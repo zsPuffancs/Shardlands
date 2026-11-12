@@ -34,7 +34,11 @@ function createAtlas({ universe, directory = path.join(__dirname, 'dev-atlas') }
     const plan = spawnPlan || (initial.generatorVersion === 2 ? buildRegionPlan({ ...context, seed: preview ? seed : initial.seed }, record) : null);
     const validation = plan ? validateSpawnPlan(plan) : { valid: null, errors: [], counts: {}, unsupported: 'v1 has no saved encounter geometry; legacy placement is intentionally unchanged.' };
     if (plan?.danger) validation.routes = validateRoutes(plan);
+    // Legacy plans are diagnosed in place, never assigned a new policy or repaired by inspection.
+    const progression = plan ? validation.progression || require('./progression-generation').validateProgression(plan, record.levels) : null;
     const payload = { seed: preview ? seed : initial.seed, tier, generatorVersion: initial.generatorVersion, dangerVersion: plan?.danger?.version || null, status: preview ? 'hypothetical-preview' : spawnPlan ? 'persisted-plan' : 'persisted-region-unmaterialized-plan', snapshotId: preview ? snapshotId : digest(record.snapshot || {}), frozenSnapshot: preview ? frozen.snapshot : record.snapshot, descriptor, geometry: plan?.boundary || { shape: tier <= 7 && !require('./monsters').TIERS[tier - 1].outer ? 'annulus' : 'square', width: regionGeometry(tier).w, height: regionGeometry(tier).h, cx: regionGeometry(tier).cx, cy: regionGeometry(tier).cy, min: tier <= 7 ? require('./monsters').TIERS[tier - 1].min : 400, max: tier <= 7 ? require('./monsters').TIERS[tier - 1].max : 99999, margin: 30 }, plan, heatmap: plan?.danger ? sampleHeatmap(plan.danger) : null, validation, notes: ['Flat walkable gameplay terrain; scenery is decorative, not a collision mesh.', ...(preview ? ['Read-only dry run; history/configuration frozen at server startup. Missing predecessor levels are reconstructed as a deterministic chain; alternative seeds start from the founding level.'] : []), ...(!plan?.danger ? ['Legacy region: no danger field is retrofitted.'] : [])] };
+    payload.progression = progression;
+    if (progression?.legacy) payload.notes.push('Legacy progression: report only; saved levels and encounters are unchanged.');
     cache.set(key, payload); if (cache.size > 8) cache.delete(cache.keys().next().value);
     return payload;
   }
@@ -60,14 +64,14 @@ function createAtlas({ universe, directory = path.join(__dirname, 'dev-atlas') }
           if (!url.searchParams.has('x') || !url.searchParams.has('y') || !Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x > result.geometry.width || y > result.geometry.height) throw new RangeError('Probe outside region');
           const score = result.plan?.danger ? dangerAt(result.plan.danger, x, y) : null;
           json(200, { x, y, score, category: score === null ? 'LEGACY / UNMODELED' : category(score), encounters: result.plan?.encounters.filter(e => Math.hypot(x - e.x, y - e.y) <= e.radius + 80).map(e => ({ id: e.id, kind: e.kind, spawnIds: e.spawnIds })) || [] });
-        } else if (url.pathname.endsWith('/report')) { response.setHeader('Content-Disposition', 'attachment; filename="shardlands-validation-' + result.tier + '.json"'); json(200, { seed: result.seed, tier: result.tier, generatorVersion: result.generatorVersion, status: result.status, snapshotId: result.snapshotId, geometry: result.geometry, validation: result.validation, dangerProfile: result.plan?.danger?.profile || null, routes: result.plan?.paths || [], routeRepairs: result.plan?.routeRepairs || [], failures: result.plan?.failures || [], notes: result.notes }); }
+        } else if (url.pathname.endsWith('/report')) { response.setHeader('Content-Disposition', 'attachment; filename="shardlands-validation-' + result.tier + '.json"'); json(200, { seed: result.seed, tier: result.tier, generatorVersion: result.generatorVersion, status: result.status, snapshotId: result.snapshotId, geometry: result.geometry, validation: result.validation, progression: result.progression, dangerProfile: result.plan?.danger?.profile || null, routes: result.plan?.paths || [], routeRepairs: result.plan?.routeRepairs || [], failures: result.plan?.failures || [], notes: result.notes }); }
         else json(200, result);
       } else {
         const asset = { '/dev/atlas': 'index.html', '/dev/atlas/': 'index.html', '/dev/atlas/atlas.js': 'atlas.js', '/dev/atlas/atlas.css': 'atlas.css' }[url.pathname];
         if (!asset) json(404, { error: 'Not found' });
         else { const body = fs.readFileSync(path.join(directory, asset)); response.writeHead(200, { 'Content-Type': asset.endsWith('.js') ? 'text/javascript; charset=utf-8' : asset.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/html; charset=utf-8' }); response.end(body); }
       }
-    } catch (error) { json(error instanceof RangeError ? 400 : 422, { error: error.message }); }
+    } catch (error) { json(error instanceof RangeError ? 400 : 422, { error: error.message, ...(error.code === 'INVALID_PROGRESSION' ? { code: error.code, progression: error.diagnostics } : {}) }); }
     return true;
   }
   return { handle, inspect, snapshotId, cacheSize: () => cache.size };

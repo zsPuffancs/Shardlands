@@ -17,7 +17,6 @@ const slotIcon = s => uiImg('slot-empty-' + s), consIcon = k => uiImg('item-' + 
 const clsKey = cls => ['blade', 'archer', 'mage'].includes(cls) ? cls : ({ sword: 'blade', bow: 'archer', staff: 'mage' }[I && I.classes[cls] && I.classes[cls].fam] || 'blade');
 const skillIcon = k => uiImg('skill-' + (k === 's1' ? clsKey(I.cls) : k));
 const sellValue = it => Math.round((3 * it.ilvl + 5) * (1 + (it.rar * it.rar) * 0.6) * (1 + (it.plus || 0) * 0.5));
-const upCost = it => Math.round(100 * (it.plus + 1) * (it.plus + 1) * (1 + it.ilvl / 12) * (it.slot === 'weapon' ? 1 : 0.8));
 const plusMul = (it, k) => 1 + (it.plus || 0) * (it.slot === 'weapon' && k === 'dmg' ? 0.15 : 0.1);
 const eff = (it, k, plus) => it.stats[k] * (1 + (plus === undefined ? it.plus || 0 : plus) * (it.slot === 'weapon' && k === 'dmg' ? 0.15 : 0.1));
 const fmtS = (k, v) => (I.stat[k].pct ? v.toFixed(1) : Math.round(v));
@@ -493,7 +492,7 @@ function buildSmith() {
   $('smauto').disabled = true;
   if (!it) { $('smcard').innerHTML = '<div class="mu">' + esc(text("smith.noEquipment", "No equipment.")) + '</div>'; $('smgo').disabled = true; return; }
   if (it.plus >= 9) { $('smcard').innerHTML = '<div class="itemcard">' + tipItem(it) + '<div class="up" style="margin-top:6px">' + esc(text("smith.maxUpgrade", "Maximum level reached (+9).")) + '</div></div>'; $('smgo').disabled = true; return; }
-  const c = upCost(it), ch = Math.round(I.upRate[it.plus] * 100);
+  const c = ForgeMath.upCostFor(it), ch = Math.round(I.upRate[it.plus] * 100);
   let rows = ''; for (const k of STATORDER) if (k in it.stats) rows += '<div class="ln"><span>' + esc(text('stat.' + k, I.stat[k].n)) + '</span><span>' + fmtS(k, eff(it, k)) + ' → <b class="up">' + fmtS(k, eff(it, k, it.plus + 1)) + '</b></span></div>';
   $('smcard').innerHTML = '<div class="itemcard"><b class="nm" style="color:' + RC[it.rar] + '">' + esc(gearName(it.name)) + ' +' + it.plus + ' → +' + (it.plus + 1) + '</b><div class="mu">' + text("inventory.equipped", "Equipped") + ' · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + it.ilvl + '</div><div style="margin:6px 0">' + rows + '</div>' +
     '<div class="ln"><span>' + esc(text("smith.cost", "Cost")) + '</span><b style="color:' + (me.g >= c ? '#ffd77a' : '#ff7a6a') + '">' + GameText.number(c) + 'g</b></div><div class="ln"><span>' + esc(text("smith.chance", "Success chance")) + '</span><b style="color:' + (ch >= 70 ? '#6fe39a' : ch >= 40 ? '#ffd24a' : '#ff7a6a') + '">' + ch + '%</b></div>' +

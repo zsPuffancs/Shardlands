@@ -1,6 +1,6 @@
 # XP Economy 2.0 and party progression
 
-This update changes XP rewards and party combat scaling, not region geography, danger fields, the World Atlas, Chronicle rules or ordinary combat-stat curves. It requires a server restart, not a reseed or save reset. The existing region-level chain fix in commit `581d7ed` is retained unchanged.
+The original Economy 2.0 update changed XP rewards and party combat scaling. The subsequent [XP Penalty 2.0 and progression-generation update](XP-PROGRESSION.md) adds versioned frontier level distributions and Atlas coverage diagnostics. It requires a server restart, not a reseed or save reset. The existing region-level chain fix in commit `581d7ed` is retained unchanged.
 
 ## Confirmed problems
 
@@ -49,11 +49,11 @@ The early fraction blends continuously toward the standard fraction with `t=max(
 
 Let `gap=playerLevel-monsterLevel`. All categories, including bosses and stones, share these rules:
 
-- `gap >= 13`: zero XP, unchanged loot/gold eligibility.
-- `5 < gap < 13`: smoothstep falloff `s((13-gap)/8)`, where `s(t)=t*t*(3-2*t)`.
-- Stronger monsters: full gap factor within `w=max(5, playerLevel*0.10)`, then `1/(1+(max(0, monsterLevel-playerLevel-w)/w)^2)`.
+- `gap >= 25`: zero XP, unchanged loot/gold eligibility.
+- Through +5: full factor. Smoothstep interpolation through `(5,1), (6,.95), (10,.65), (15,.30), (20,.10), (25,0)`.
+- Stronger monsters: full gap factor through +10 enemy advantage, then smoothstep anchors `(15,.90), (25,.55), (40,.22), (60,.02)`. Beyond 60, `.02/(1+((advantage-60)/10)^2)` tends to zero.
 
-To prevent importing a high-level monster's entire budget, the reward reference level is `min(monsterLevel, playerLevel+5)`. Before relative scaling it is also capped to `1.5*Q(playerLevel)` times the reference category fraction. Near-level higher content can be rewarding; extreme carries quickly approach zero. No minimum +1 is forced after rounding, so sufficiently tiny rewards really become zero. The exact 12/13 boundary and both sides of the full-reward windows are tested.
+To prevent importing a high-level monster's entire budget, the reward reference level is `min(monsterLevel, playerLevel+5)`. Before relative scaling it is also capped to `1.5*Q(playerLevel)` times the reference category fraction. Near-level higher content can be rewarding; extreme carries quickly approach zero. No minimum +1 is forced after rounding, so sufficiently tiny rewards really become zero. The exact 24/25 boundary, interpolation continuity and both sides of the full-reward windows are tested. See [the progression report](XP-PROGRESSION-REPORT.md) for the before/after comparison against the original 13-level penalty.
 
 ## Party difficulty and allocation
 

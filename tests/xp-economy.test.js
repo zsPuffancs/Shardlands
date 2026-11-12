@@ -21,6 +21,17 @@ function setup(count = 1, { share = true, levels = [], xpHook = noop, rate = 1 }
 }
 function participate(game) { for (const player of game.roster) game.combat.hitMob(player, game.monster, 500); }
 
+test('Spirit Stone party rewards use individual penalties and pay each participant exactly once', () => {
+  const game = setup(2, { levels: [100, 110] }); game.monster.ty = 'stone';
+  // Stages have their own real-spawner integration test; isolate the payout path here.
+  game.monster.stoneStep = 0;
+  participate(game); game.combat.hitMob(game.roster[0], game.monster, 1e9);
+  const expected = game.roster.map(player => [player.id, xp.calculateEncounterXp({ playerLevel: player.lvl, monsterLevel: 100, category: 'stone', members: 2, healthScale: game.monster.ps })]);
+  assert.deepEqual(game.awards, expected); assert.ok(expected[1][1] < expected[0][1]);
+  game.combat.hitMob(game.roster[1], game.monster, 1e9);
+  assert.equal(game.awards.length, 2); assert.equal(game.drops.length, 1);
+});
+
 test('category budgets track actual level requirements and early-game rewards taper without spikes', () => {
   for (const level of [1, 10, 25, 50, 60, 100, 250, 500, 1000, 5000, 9999]) for (const category of Object.keys(xp.XP_BALANCE.fractions)) {
     const actual = xp.calculateEncounterXp({ playerLevel: level, monsterLevel: level, category });
@@ -33,16 +44,16 @@ test('category budgets track actual level requirements and early-game rewards ta
   assert.equal(xp.encounterCategory({}, { boss: true, worldBoss: true }), 'worldBoss');
 });
 
-test('exact overlevel 12/13 boundary, full-reward windows and underlevel tails are stable', () => {
+test('exact overlevel 24/25 boundary, full-reward windows and underlevel tails are stable', () => {
   for (const category of ['normal', 'alpha', 'stone', 'boss', 'worldBoss']) {
-    assert.ok(xp.calculateEncounterXp({ playerLevel: 112, monsterLevel: 100, category }) > 0);
-    assert.equal(xp.calculateEncounterXp({ playerLevel: 113, monsterLevel: 100, category }), 0);
+    assert.ok(xp.calculateEncounterXp({ playerLevel: 124, monsterLevel: 100, category }) > 0);
+    assert.equal(xp.calculateEncounterXp({ playerLevel: 125, monsterLevel: 100, category }), 0);
     assert.equal(xp.calculateEncounterXp({ playerLevel: 1, monsterLevel: 10000, category }), 0);
     assert.ok(xp.calculateEncounterXp({ playerLevel: 90, monsterLevel: 100, category }) > 0);
   }
   assert.equal(xp.levelGapScale(100, 95), 1); assert.ok(xp.levelGapScale(100, 94) < 1);
   assert.equal(xp.levelGapScale(100, 110), 1); assert.ok(xp.levelGapScale(100, 111) < 1);
-  assert.equal(xp.levelGapScale(1, 6), 1); assert.ok(xp.levelGapScale(1, 7) < 1);
+  assert.equal(xp.levelGapScale(1, 11), 1); assert.ok(xp.levelGapScale(1, 12) < 1);
   assert.ok(Math.abs(xp.levelGapScale(100, 110.0) - 1) < 1e-12);
   assert.ok(xp.levelGapScale(100, 200) > xp.levelGapScale(100, 1000));
 });
@@ -105,7 +116,7 @@ test('sharing toggles, joins, leaves and repeated hits never heal or resize an a
 });
 
 test('new members cannot claim a tagged encounter and noneligible last hitters do not steal eligible XP', () => {
-  const game = setup(2, { levels: [100, 113] }); participate(game); game.combat.hitMob(game.roster[1], game.monster, 1e9); assert.ok(game.roster[0].xp > 0); assert.equal(game.roster[1].xp, 0);
+  const game = setup(2, { levels: [100, 125] }); participate(game); game.combat.hitMob(game.roster[1], game.monster, 1e9); assert.ok(game.roster[0].xp > 0); assert.equal(game.roster[1].xp, 0);
   const late = setup(1), joined = hero(2); late.players.set(joined.id, joined); late.combat.hitMob(late.roster[0], late.monster, 500);
   late.teams.chatCommands.invite.fn(late.roster[0], [joined.name]); late.teams.chatCommands.accept.fn(joined); late.combat.hitMob(joined, late.monster, 1e9);
   assert.ok(late.roster[0].xp > 0); assert.equal(joined.xp, 0);

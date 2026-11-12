@@ -92,7 +92,13 @@ document.addEventListener('contextmenu', event => {
 addEventListener('keydown', event => {
   if (destroyDialog.open) { event.stopImmediatePropagation(); return; }
   if (!$('bag-item-menu').hidden) { if (event.key === 'Escape') { event.preventDefault(); closeBagMenu(true); } event.stopImmediatePropagation(); return; }
-  if (event.target.closest?.('#bag-tools')) { if (event.key === 'Escape') { event.preventDefault(); event.target.blur(); } event.stopImmediatePropagation(); keys = {}; held = false; return; }
+  if (event.target.closest?.('#bag-tools')) {
+    keys = {}; held = false;
+    // Sorting leaves focus on the control; Shift must still reach the tooltip listeners.
+    if (event.key === 'Shift') return;
+    if (event.key === 'Escape') { event.preventDefault(); event.target.blur(); }
+    event.stopImmediatePropagation(); return;
+  }
   const slot = event.target.closest?.('#bag [data-bag]'); if (!slot) return;
   if (event.key === 'ContextMenu' || event.shiftKey && event.key === 'F10') { event.preventDefault(); event.stopImmediatePropagation(); const bounds = slot.getBoundingClientRect(); openBagMenu(slot.dataset.bag, bounds.right, bounds.bottom); }
   else if (event.key === 'Enter' || event.key === ' ') { event.stopImmediatePropagation(); if (!event.target.closest('button')) { event.preventDefault(); slot.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: event.ctrlKey, shiftKey: event.shiftKey })); } }

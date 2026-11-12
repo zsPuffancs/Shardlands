@@ -14,9 +14,9 @@ function kill(type, killer, members = [killer], rate = 1) {
   for (const member of members) if (member !== killer) combat.hitMob(member, monster, 100);
   combat.hitMob(killer, monster, 1000000); return { awards, drops, monster };
 }
-test('a level gap of exactly 13 or more awards zero XP for ordinary mobs, bosses and stones, keeping drops', () => {
-  assert.equal(XP_LEVEL_GAP_LIMIT, 13);
-  for (const type of ['wolf', 'alphawolf', 'stone']) for (const gap of [13, 14, 100]) {
+test('a level gap of exactly 25 or more awards zero XP for ordinary mobs, bosses and stones, keeping drops', () => {
+  assert.equal(XP_LEVEL_GAP_LIMIT, 25);
+  for (const type of ['wolf', 'alphawolf', 'stone']) for (const gap of [25, 26, 100]) {
     const p = hero(1, 100 + gap), result = kill(type, p);
     assert.deepEqual(result.awards, []); assert.equal(p.xp, 0); assert.equal(result.drops.length, 1); assert.equal(result.drops[0].mob, result.monster);
   }
@@ -28,13 +28,13 @@ test('a gap of 12, equal levels and stronger monsters still award XP', () => {
   const p = hero(1, 100); assert.deepEqual(kill('stone', p, [p], 0).awards, []);
 });
 test('team XP eligibility is individual while gold/drop sharers remain unchanged', () => {
-  const high = hero(1, 113), low = hero(2, 100), mixed = kill('wolf', high, [high, low]);
+  const high = hero(1, 125), low = hero(2, 100), mixed = kill('wolf', high, [high, low]);
   const soloXp = calculateEncounterXp({ playerLevel: 100, monsterLevel: 100 });
   assert.deepEqual(mixed.awards, [[2, soloXp]]); assert.equal(high.xp, 0); assert.equal(low.xp, soloXp); assert.deepEqual(mixed.drops[0].sharers, [high, low]);
   const a = hero(1, 100), b = hero(2, 100), both = kill('wolf', a, [a, b]);
   const partyXp = calculateEncounterXp({ playerLevel: 100, monsterLevel: 100, members: 2 });
   assert.deepEqual(both.awards.sort((a, b) => a[0] - b[0]), [[1, partyXp], [2, partyXp]]);
-  const oldA = hero(1, 113), oldB = hero(2, 114); assert.deepEqual(kill('stone', oldA, [oldA, oldB]).awards, []);
+  const oldA = hero(1, 125), oldB = hero(2, 126); assert.deepEqual(kill('stone', oldA, [oldA, oldB]).awards, []);
 });
 function world(data = {}, config = {}) { return createUniverse({ store: { data, save: async () => {} }, config, isAdmin: () => false, messageText: () => '', broadcast: noop }); }
 test('10000 seeded level ranges are reproducible and span 20..45 levels', () => {

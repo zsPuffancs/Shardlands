@@ -111,7 +111,10 @@ function createRegionDescriptor(state, tier, snapshot) {
   if (tier > FOUNDING_TIERS) {
     region.levels = resolveRegionLevels(state.seed, tier, state.regions);
     region.levelRangeVersion = state.levelRangeVersion || LEVEL_RANGE_VERSION;
-    if (state.generatorVersion === 2) region.dangerSpec = createDangerSpec({ seed: state.seed, tier, biome: region.biome, options: state.generationSettings?.danger });
+    if (state.generatorVersion === 2) {
+      region.dangerSpec = createDangerSpec({ seed: state.seed, tier, biome: region.biome, options: state.generationSettings?.danger });
+      region.progressionVersion = require('./progression-generation').POLICY_VERSION;
+    }
   }
   return { ...region, snapshot: tier > FOUNDING_TIERS ? structuredClone(snapshot) : undefined };
 }

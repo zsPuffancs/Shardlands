@@ -9,6 +9,7 @@ const { CLASSES, critCh, critMul, defRed, playerDmg, rank, passive, gearLifestea
 
 const { XP_BALANCE, levelGapScale, encounterCategory, encounterShare } = require('./xp-economy');
 const { createEncounterParticipation } = require('./encounter-participation');
+const { deathGoldPenalty } = require('./death-gold');
 const XP_LEVEL_GAP_LIMIT = XP_BALANCE.overlevelCutoff;
 const canEarnMonsterXp = (hero, monster) => levelGapScale(hero.lvl, monster.lvl) > 0;
 const { SUMMON_LIFETIME_MS, createSummons } = require('./summons');
@@ -51,9 +52,11 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
         const step = Math.ceil((monster.hp / monster.mh) * 5);
         while (monster.stoneStep > step && monster.hp > 0) {
           monster.stoneStep--;
+          // Legacy/founding regions retain their original guardian level policy.
+          const guardianLevels = TIERS[monster.tier].progressionVersion === 1 ? { level: monster.lvl } : {};
           const requests = [];
-          for (let i = 0; i < Math.min(12, 5 + monster.tier); i++) { const angle = rnd(0, Math.PI * 2), radius = rnd(60, 140); requests.push({ type: pick(TIERS[monster.tier].types), x: monster.x + Math.cos(angle) * radius, y: monster.y + Math.sin(angle) * radius }); }
-          if (monster.stoneStep <= 3) requests.push({ type: pick(TIERS[monster.tier].types), x: monster.x + rnd(-60, 60), y: monster.y + rnd(-60, 60), options: { alpha: true } });
+          for (let i = 0; i < Math.min(12, 5 + monster.tier); i++) { const angle = rnd(0, Math.PI * 2), radius = rnd(60, 140); requests.push({ type: pick(TIERS[monster.tier].types), x: monster.x + Math.cos(angle) * radius, y: monster.y + Math.sin(angle) * radius, options: guardianLevels }); }
+          if (monster.stoneStep <= 3) requests.push({ type: pick(TIERS[monster.tier].types), x: monster.x + rnd(-60, 60), y: monster.y + rnd(-60, 60), options: { alpha: true, ...guardianLevels } });
           for (const guardian of summons.spawnBatch(monster, requests)) guardian.target = player.id;
           ev('fx', monster.x, monster.y, 160, { s: 'summon' });
         }
@@ -92,10 +95,8 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     player.hp -= damage; ev('hurt', player.x, player.y, damage, { a: monster.id, combatPlayerId: player.id, monsterType: monster.ty });
     if (player.hp <= 0) {
       player.hp = 0; player.dead = now + 5000; player.target = 0; player.chasingTarget = false;
-      const availableGold = Math.max(0, player.gold);
-      const lossRate = Math.max(0, Math.min(1, rates.deathGoldLoss));
-      const loss = Math.floor(availableGold * lossRate);
-      player.gold = availableGold - loss;
+      const loss = deathGoldPenalty(player, rates);
+      if (loss > 0) player.gold -= loss;
       say(player, messageText("server.died", "You died. Lost {gold} gold. Respawning in the village...", { gold: loss })); fire('death', player, monster);
       for (const attacker of mobs.values()) if (attacker.target === player.id) attacker.target = 0;
     }

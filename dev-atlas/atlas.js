@@ -1,7 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id), canvas = $('map'), context = canvas.getContext('2d');
-const layers = { terrain: true, heatmap: true, encounters: true, protected: true, routes: true, diagnostics: true };
-const names = { terrain: 'Terrain & region boundaries', heatmap: 'Danger heatmap', encounters: 'Encounters & bosses', protected: 'Protected zones & settlement', routes: 'Safe & dangerous routes', diagnostics: 'Generation diagnostics' };
+const layers = { terrain: true, heatmap: true, encounters: true, protected: true, routes: true, diagnostics: true, progression: false, monsterLevels: false, stoneLevels: true, entrySources: false };
+const names = { terrain: 'Terrain & region boundaries', heatmap: 'Danger heatmap', encounters: 'Encounters & bosses', protected: 'Protected zones & settlement', routes: 'Safe & dangerous routes', diagnostics: 'Generation diagnostics', progression: 'Progression bands / endgame', monsterLevels: 'Monster levels', stoneLevels: 'Spirit Stone levels', entrySources: 'Accessible entry XP encounters' };
 const palette = [[83, 184, 180], [104, 172, 98], [196, 174, 70], [210, 116, 53], [214, 57, 91]];
 let data = null, heatmap = null, camera = { scale: 1, x: 0, y: 0 }, width = 1, height = 1, requestId = 0, activeQuery = '', selected = null, probeTimer, probeAbort, probeId = 0, drag = null, pinned = false;
 for (const [key, value] of Object.entries(layers)) {
@@ -47,6 +47,22 @@ function render(ctx, w, h, view) {
     else if (encounter.kind === 'stone') ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
     else { ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill(); }
   }
+  if (plan && data.progression) {
+    const bandColors = { entry: '#73d7ab', progression: '#dbd184', danger: '#ed9658', endgame: '#eb637c' };
+    ctx.font = '11px system-ui';
+    for (const encounter of plan.encounters) {
+      const diagnostic = data.progression.encounters.find(entry => entry.id === encounter.id);
+      if (!diagnostic) continue;
+      if (layers.progression || layers.entrySources && diagnostic.entryEligible) {
+        circle(ctx, encounter, Math.max(50, encounter.radius), view); ctx.strokeStyle = bandColors[diagnostic.band]; ctx.lineWidth = diagnostic.entryEligible && layers.entrySources ? 4 : 2; ctx.stroke();
+        if (!diagnostic.accessible && encounter.kind !== 'boss') { ctx.fillStyle = '#ff647855'; ctx.fill(); }
+      }
+      if (encounter.kind === 'stone' && layers.stoneLevels || ['camp', 'alpha', 'boss'].includes(encounter.kind) && layers.monsterLevels) {
+        const levels = diagnostic.levels, min = Math.min(...levels), max = Math.max(...levels);
+        if (levels.length) { ctx.fillStyle = '#fff0d8'; ctx.fillText('Lv ' + min + (max !== min ? '–' + max : ''), left + encounter.x * scale + 7, top + encounter.y * scale - 6); }
+      }
+    }
+  }
   if (layers.diagnostics && plan) {
     for (const error of data.validation.errors || []) {
       const id = error.slice(error.indexOf(':') + 1), encounter = plan.encounters.find(encounter => encounter.id === id) || plan.spawns.find(spawn => spawn.id === id) || data.validation.routes?.objectives.find(objective => objective.id === id);
@@ -75,6 +91,10 @@ function metadata() {
   const optional = data.plan?.failures.length || 0;
   $('validation').textContent = data.validation.valid === null ? data.validation.unsupported : (data.validation.valid ? 'PASS' : 'FAIL') + ' · ' + (data.plan?.spawns.length || 0) + ' planned enemies · ' + optional + ' optional placements omitted · ' + (data.plan?.routeRepairs?.length || 0) + ' route repairs';
   $('issues').replaceChildren(); for (const issue of [...(data.validation.errors || []), ...(data.plan?.failures || []).map(failure => 'Optional placement omitted: ' + failure.id)]) { const li = document.createElement('li'); li.textContent = issue; $('issues').append(li); }
+  const progression = data.progression;
+  $('progression').textContent = progression ? (progression.legacy ? 'LEGACY · report only · ' : 'Policy v' + progression.version + ' · ') + (progression.valid ? 'PASS' : 'FAIL') + ' · Lv ' + progression.levels.join('–') + ' · largest XP gap: ' + progression.largestGap + ' levels · safe entry: ' + progression.entry.normalCount + ' normal monsters' : 'No saved encounter plan available.';
+  $('progression-bands').replaceChildren();
+  if (progression) for (const text of [...progression.normalBands.map(band => 'Monsters / ' + band.name + ': ' + band.percent.toFixed(1) + '% · Lv ' + band.min + '–' + band.max), ...progression.stoneBands.map(band => 'Stones / ' + band.name + ': ' + band.percent.toFixed(1) + '% · Lv ' + band.min + '–' + band.max), ...progression.gaps.map(gap => 'XP coverage gap: ' + gap.min + '–' + gap.max), ...progression.errors, ...progression.warnings]) { const li = document.createElement('li'); li.textContent = text; $('progression-bands').append(li); }
 }
 async function fetchJson(url, options) { const response = await fetch(url, options), result = await response.json(); if (!response.ok) throw new Error(result.error || 'Atlas request failed'); return result; }
 async function load() {
@@ -90,7 +110,10 @@ async function probe(position, pin, event) {
   probeAbort?.abort(); const controller = new AbortController(); probeAbort = controller; const id = ++probeId;
   try { const result = await fetchJson('/dev/atlas/api/probe?' + activeQuery + '&x=' + position.x + '&y=' + position.y, { signal: controller.signal }); if (id !== probeId) return;
     const encounter = nearby(position), lines = ['Local coordinates: ' + result.x.toFixed(1) + ', ' + result.y.toFixed(1), 'Danger: ' + (result.score === null ? 'unmodeled' : result.score.toFixed(3)) + ' · ' + result.category];
-    if (encounter) { const members = data.plan.spawns.filter(spawn => spawn.encounterId === encounter.id); lines.push(encounter.kind.toUpperCase() + ' · ' + encounter.id, members.map(spawn => spawn.type + ' Lv ' + spawn.level).join(', ') || 'No enemy members'); }
+    if (encounter) { const members = data.plan.spawns.filter(spawn => spawn.encounterId === encounter.id); lines.push(encounter.kind.toUpperCase() + ' · ' + encounter.id, members.map(spawn => spawn.type + ' Lv ' + spawn.level).join(', ') || 'No enemy members');
+      const diagnostic = data.progression?.encounters.find(entry => entry.id === encounter.id);
+      if (diagnostic) lines.push('Band: ' + diagnostic.band + ' · accessible without boss: ' + diagnostic.accessible + ' · entry XP source: ' + diagnostic.entryEligible);
+    }
     else if (result.encounters.length) lines.push('Nearby: ' + result.encounters.map(encounter => encounter.id).join(', '));
     if (pin || !pinned) { $('selection').replaceChildren(); const b = document.createElement('b'), p = document.createElement('p'); b.textContent = pin ? 'Pinned location' : 'Position & encounter inspector'; p.textContent = lines.join('\n'); $('selection').append(b, p); }
     if (pin) { selected = encounter || position; pinned = true; draw(); }

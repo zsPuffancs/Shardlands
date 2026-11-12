@@ -2,6 +2,7 @@
 
 const { rnd, rint, pick } = require('./game-world');
 const { rollValue } = require('./public/affix-math');
+const { UP_RATE, upCostFor } = require('./public/forge-math');
 
 const SLOTS = ['weapon', 'helm', 'armor', 'boots', 'ring', 'amulet'], NO_DMG = { helm: 1, armor: 1, boots: 1 };
 const RARITY = [{ n: 'Common', m: 1, x: 0, w: 60 }, { n: 'Uncommon', m: 1.25, x: 1, w: 25 }, { n: 'Rare', m: 1.55, x: 2, w: 11 }, { n: 'Epic', m: 1.9, x: 3, w: 3.5 }, { n: 'Legendary', m: 2.4, x: 4, w: 0.6 }, { n: 'Mythic', m: 3.1, x: 5, w: 0 }];
@@ -21,7 +22,6 @@ const STATDEF = {
 // Gear no longer gives XP or gold bonuses. Old items lose these stats when their owner logs in.
 const REMOVED_STATS = ['gf', 'xpb'];
 const PRIMARY = { weapon: { dmg: i => 3 * i + 5 }, helm: { def: i => 1.3 * i + 2 }, armor: { hp: i => 12 * i + 20, def: i => 1.6 * i }, boots: { spd: i => 1.5 + i * 0.08, def: i => 0.8 * i }, ring: { dmg: i => 0.9 * i + 1, crit: i => 1 + i * 0.05 }, amulet: { hp: i => 6 * i + 10, mp: i => 2 * i + 4 } };
-const UP_RATE = [1, .9, .8, .7, .6, .5, .4, .3, .2];
 // Affixes: one bonus stat per weapon, ring or amulet, put on by the Soul Mystic. The affix also names the item.
 const AFFIX_SLOTS = { weapon: 1, ring: 1, amulet: 1 };
 const AFFIXES = {
@@ -70,7 +70,6 @@ const itemView = item => item ? { ...item, rg: statRanges(item) } : item;
 function sanitize(item) { if (item && item.stats) for (const key of REMOVED_STATS) delete item.stats[key]; if (item && NO_DMG[item.slot]) { delete item.stats.dmg; delete item.stats.crit; } if (item && !item.plus) item.plus = 0; return item; }
 const plusMul = (item, statKey) => 1 + (item.plus || 0) * (item.slot === 'weapon' && statKey === 'dmg' ? 0.15 : 0.1);
 const sellValue = item => Math.round((3 * item.ilvl + 5) * (1 + RARITY[item.rar].x * RARITY[item.rar].x * 0.6) * (1 + (item.plus || 0) * 0.5));
-const upCostFor = item => item ? Math.round(100 * (item.plus + 1) * (item.plus + 1) * (1 + item.ilvl / 12) * (item.slot === 'weapon' ? 1 : 0.8)) : 0;
 
 function createEquipment({ rates }) {
   let nextItemNumber = 0; const newUid = () => Date.now().toString(36) + '-' + (nextItemNumber++).toString(36);

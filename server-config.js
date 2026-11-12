@@ -2,6 +2,7 @@
 
 const fs = require('node:fs');
 const { boundedRateSettings } = require('./safety-limits');
+const { DEFAULT_DEATH_GOLD_RATES } = require('./death-gold');
 const path = require('node:path');
 
 function loadServerConfig(directory) {
@@ -9,7 +10,7 @@ function loadServerConfig(directory) {
   try { Object.assign(config, JSON.parse(fs.readFileSync(path.join(directory, 'config.json'), 'utf8'))); } catch (error) {}
 
   const ratesFile = path.join(directory, 'rates.json');
-  const rates = boundedRateSettings({ xpRate: 1, goldRate: 1, gearDropRate: 0.8, potionDropRate: 1, rarityBoost: 0, monsterHp: 1.6, monsterDamage: 1.4, deathZoneMonsters: 1800, deathGoldLoss: 0.1, respawnSeconds: 11 });
+  const rates = boundedRateSettings({ xpRate: 1, goldRate: 1, gearDropRate: 0.8, potionDropRate: 1, rarityBoost: 0, monsterHp: 1.6, monsterDamage: 1.4, deathZoneMonsters: 1800, ...DEFAULT_DEATH_GOLD_RATES, respawnSeconds: 11 });
   function writeDefaultRates() {
     const defaults = Object.assign({ _README: [
       'Edit the numbers below and save - the running server picks them up within ~2 seconds (no restart).',
@@ -18,7 +19,9 @@ function loadServerConfig(directory) {
       'rarityBoost: 0 = normal; 1 = noticeably more rare/epic/legendary; 3 = loot shower.',
       'monsterHp / monsterDamage: monster strength (applies as monsters respawn / immediately).',
       'deathZoneMonsters: how many monsters live in the Death Zone (needs a server restart).',
-      'deathGoldLoss: share of gold lost on death (0.1 = 10%).  respawnSeconds: normal monster respawn time.'] }, rates);
+      'deathGoldLoss: death penalty fraction (default/max 0.05 = 5%; legacy higher values are capped).',
+      'deathGoldKillCap: death penalty cap in average normal monster rewards at player level (default/max 12). Either death setting at 0 disables the loss.',
+      'respawnSeconds: normal monster respawn time.'] }, rates);
     try { fs.writeFileSync(ratesFile, JSON.stringify(defaults, null, 2)); } catch (error) {}
   }
   function loadRates(first) {

@@ -100,7 +100,13 @@ test('stress: many seeds, all biomes, bounded budgets and high tiers retain reac
     record.biome = biomes[i % biomes.length]; record.dangerSpec = createDangerSpec({ seed, tier, biome: record.biome });
     universe.state.generationSettings.budgets = i % 10 === 0 ? { monsters: 800, stones: 40, alphas: 16 } : i % 10 === 1 ? { monsters: 0, stones: 0, alphas: 0 } : {};
     const start = performance.now(); let plan;
-    try { plan = buildRegionPlan(universe.state, record); assert.equal(validateSpawnPlan(plan).valid, true); assert.equal(validateRoutes(plan).valid, true); }
+    try {
+      if (i % 10 === 1) {
+        assert.throws(() => buildRegionPlan(universe.state, record), error => error.code === 'INVALID_PROGRESSION' && error.diagnostics.errors.includes('missing-normal-population'));
+        continue;
+      }
+      plan = buildRegionPlan(universe.state, record); assert.equal(validateSpawnPlan(plan).valid, true); assert.equal(validateRoutes(plan).valid, true);
+    }
     catch (error) { throw new Error('Reproducible failure seed=' + seed + ' tier=' + tier + ' biome=' + record.biome, { cause: error }); }
     times.push(performance.now() - start);
     const counts = validateSpawnPlan(plan).counts; for (const key of Object.keys(counts)) assert.ok(counts[key] <= plan.budgets[key], seed + ' ' + key);
@@ -159,7 +165,9 @@ test('real HTTP Atlas endpoints serve local UI, exact probes and reports; public
   const list = await (await get('/dev/atlas/api/regions')).json(); assert.equal(list.regions.length, 8); assert.equal(list.seed, universe.state.seed);
   const preview = await (await get('/dev/atlas/api/region?tier=50000&mode=preview&seed=chosen-atlas-seed')).json(); assert.equal(preview.status, 'hypothetical-preview'); assert.equal(preview.seed, 'chosen-atlas-seed'); assert.equal(preview.validation.valid, true);
   const probe = await (await get('/dev/atlas/api/probe?tier=8&x=2500&y=2500')).json(); assert.ok(probe.score <= .1); assert.equal(probe.score, dangerAt(record.spawnPlan.danger, 2500, 2500)); assert.equal(probe.category, 'SAFE');
-  const report = await get('/dev/atlas/api/report?tier=8'); assert.ok(report.headers.get('content-disposition').includes('attachment')); assert.equal((await report.json()).validation.valid, true);
+  const report = await get('/dev/atlas/api/report?tier=8'); assert.ok(report.headers.get('content-disposition').includes('attachment'));
+  const exported = await report.json(); assert.equal(exported.validation.valid, true); assert.equal(exported.progression.valid, true); assert.equal(exported.progression.version, 1); assert.equal(exported.progression.gapCount, 0);
+  assert.equal(preview.progression.version, 1); assert.equal(preview.progression.entry.accessible, true);
   for (const url of ['/dev/atlas/api/region?tier=NaN', '/dev/atlas/api/region?tier=9', '/dev/atlas/api/probe?tier=8&x=-1&y=1', '/dev/atlas/api/probe?tier=8']) assert.equal((await get(url)).status, 400, url);
   for (const headers of [{ 'X-Forwarded-For': '8.8.8.8' }, { Host: 'evil.example' }, { Origin: 'https://evil.example' }]) {
     // Node fetch normalizes Host; use an actual HTTP request to test rebinding protection.
@@ -168,6 +176,6 @@ test('real HTTP Atlas endpoints serve local UI, exact probes and reports; public
   }
   assert.equal((await get('/dev/atlas/api/region?tier=8', { method: 'POST' })).status, 405);
   const publicInfo = JSON.stringify(await (await get('/api/info')).json()), summary = JSON.stringify(universe.summary());
-  for (const output of [publicInfo, summary]) for (const secret of [universe.state.seed, 'dangerSpec', 'noiseSize', 'protectedAreas', 'spawnPlan', 'routeRepairs']) assert.ok(!output.includes(secret), secret);
+  for (const output of [publicInfo, summary]) for (const secret of [universe.state.seed, 'dangerSpec', 'noiseSize', 'protectedAreas', 'spawnPlan', 'routeRepairs', 'normalBands', 'entryEligible']) assert.ok(!output.includes(secret), secret);
   assert.equal(JSON.stringify(universe.state), before);
 });

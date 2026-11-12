@@ -2,7 +2,9 @@
 // Shared production XP mathematics. This module never reads time, players, saves or World Tier.
 const MAX_PLAYER_LEVEL = 10000;
 const XP_BALANCE = Object.freeze({
-  overlevelCutoff: 13, fullOverlevelGap: 5, underlevelMinimumWindow: 5, underlevelRelativeWindow: .10,
+  overlevelCutoff: 25, fullOverlevelGap: 5, underlevelMinimumWindow: 5,
+  overlevelCurve: Object.freeze([[5, 1], [6, .95], [10, .65], [15, .30], [20, .10], [25, 0]].map(Object.freeze)),
+  underlevelCurve: Object.freeze([[10, 1], [15, .90], [25, .55], [40, .22], [60, .02]].map(Object.freeze)),
   relativeBudgetCap: 1.5,
   earlyTaperLevel: 10,
   fractions: Object.freeze({ normal: .025, alpha: .075, stone: .10, boss: .15, worldBoss: .25, summoned: 0, anomaly: .10 }),
@@ -32,14 +34,23 @@ function categoryFraction(category, level) {
   const base = XP_BALANCE.fractions[category];
   return base + (XP_BALANCE.earlyFractions[category] - base) * taper ** 2;
 }
+function interpolateGap(gap, points) {
+  if (gap <= points[0][0]) return points[0][1];
+  for (let i = 1; i < points.length; i++) {
+    const [end, value] = points[i], [start, previous] = points[i - 1];
+    if (gap <= end) return previous + (value - previous) * smooth((gap - start) / (end - start));
+  }
+  return points.at(-1)[1];
+}
+// Signed gap = recipient minus enemy. Smoothstep knots have matching zero slopes.
+function gapMultiplier(gap) {
+  if (!Number.isFinite(gap)) return 0;
+  if (gap >= 0) return interpolateGap(gap, XP_BALANCE.overlevelCurve);
+  const stronger = -gap;
+  return stronger <= 60 ? interpolateGap(stronger, XP_BALANCE.underlevelCurve) : .02 / (1 + ((stronger - 60) / 10) ** 2);
+}
 function levelGapScale(playerLevel, monsterLevel) {
-  if (!validLevel(playerLevel) || !validLevel(monsterLevel) || playerLevel === MAX_PLAYER_LEVEL) return 0;
-  const overlevel = playerLevel - monsterLevel;
-  if (overlevel >= XP_BALANCE.overlevelCutoff) return 0;
-  if (overlevel > XP_BALANCE.fullOverlevelGap) return smooth((XP_BALANCE.overlevelCutoff - overlevel) / (XP_BALANCE.overlevelCutoff - XP_BALANCE.fullOverlevelGap));
-  const window = Math.max(XP_BALANCE.underlevelMinimumWindow, playerLevel * XP_BALANCE.underlevelRelativeWindow);
-  const excess = Math.max(0, -overlevel - window);
-  return 1 / (1 + (excess / window) ** 2);
+  return validLevel(playerLevel) && validLevel(monsterLevel) && playerLevel < MAX_PLAYER_LEVEL ? gapMultiplier(playerLevel - monsterLevel) : 0;
 }
 const encounterBaseXp = (level, category) => validLevel(level) ? xpNeed(level) * categoryFraction(category, level) : 0;
 function encounterShare({ playerLevel, monsterLevel, category = 'normal', members = 1, healthScale = partyHpScale(members) }) {
@@ -72,4 +83,4 @@ function calculateEncounterXp(options) {
   const multiplier = options.pluginMultiplier === undefined ? 1 : options.pluginMultiplier;
   return finalizeXpAward(boosted, boosted * multiplier, { combat: true, limit });
 }
-module.exports = { MAX_PLAYER_LEVEL, XP_BALANCE, validLevel, xpNeed, partyHpScale, partyDamageScale, partyPoolScale, partyAllocation, encounterCategory, categoryFraction, levelGapScale, encounterBaseXp, encounterShare, gearXpMultiplier, applyXpBonuses, finalizeXpAward, encounterLimit, calculateEncounterXp };
+module.exports = { MAX_PLAYER_LEVEL, XP_BALANCE, validLevel, xpNeed, partyHpScale, partyDamageScale, partyPoolScale, partyAllocation, encounterCategory, categoryFraction, gapMultiplier, levelGapScale, encounterBaseXp, encounterShare, gearXpMultiplier, applyXpBonuses, finalizeXpAward, encounterLimit, calculateEncounterXp };
