@@ -3,8 +3,15 @@ const GL = (() => {
   const cv = document.getElementById('c'), dprRaw = window.devicePixelRatio || 1;
   const gl = cv.getContext('webgl', { antialias: dprRaw < 1.5, alpha: false, powerPreference: 'high-performance' });
   const ext = gl && gl.getExtension('ANGLE_instanced_arrays');
-  if (!gl || !ext) { document.body.innerHTML = '<p style="padding:30px;color:#fff;font-family:sans-serif">Your browser does not support WebGL (with instancing). Try a current Chrome, Edge or Firefox.</p>'; throw new Error('no webgl'); }
-  const SH = 2048, STRIDE = 17, CH = 625, SUN = (() => { const v = [0.45, 0.85, 0.3], l = Math.hypot(...v); return v.map(x => x / l); })();
+  if (!gl || !ext) {
+    const notice = document.createElement('p');
+    notice.style.cssText = 'padding:30px;color:#fff;font-family:sans-serif';
+    notice.textContent = text('graphics.webglRequired', 'Your browser does not support WebGL (with instancing). Try a current Chrome, Edge or Firefox.');
+    document.body.replaceChildren(notice);
+    throw new Error('no webgl');
+  }
+  let SH = 2048;
+  const STRIDE = 17, CH = 625, SUN = (() => { const v = [0.45, 0.85, 0.3], l = Math.hypot(...v); return v.map(x => x / l); })();
   const PREC = '#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n';
   const VSX = 'attribute vec3 p;attribute vec3 n;attribute vec4 m0;attribute vec4 m1;attribute vec4 m2;attribute vec4 c;attribute float e;';
   const vs = VSX + `uniform mat4 VP;uniform mat4 LVP;varying vec3 vN;varying vec3 vW;varying vec4 vC;varying float vE;varying vec3 vS;
@@ -15,7 +22,8 @@ uniform sampler2D tex;uniform sampler2D shadow;uniform vec3 texR;uniform vec3 tg
 float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(h(i),h(i+vec2(1.0,0.0)),f.x),mix(h(i+vec2(0.0,1.0)),h(i+vec2(1.0,1.0)),f.x),f.y);}
 float up(vec4 v){return dot(v,vec4(1.0,1.0/255.0,1.0/65025.0,1.0/16581375.0));}
-float shade(){if(shOn<0.5)return 1.0;if(vS.x<0.0||vS.x>1.0||vS.y<0.0||vS.y>1.0||vS.z>1.0)return 1.0;float b=vS.z-0.0017;float t=0.5/${SH}.0;
+uniform float shadowSize;
+float shade(){if(shOn<0.5)return 1.0;if(vS.x<0.0||vS.x>1.0||vS.y<0.0||vS.y>1.0||vS.z>1.0)return 1.0;float b=vS.z-0.0017;float t=0.5/shadowSize;
 float s=step(b,up(texture2D(shadow,vS.xy+vec2(-t,-t))))+step(b,up(texture2D(shadow,vS.xy+vec2(t,-t))))+step(b,up(texture2D(shadow,vS.xy+vec2(-t,t))))+step(b,up(texture2D(shadow,vS.xy+vec2(t,t))));
 vec2 f=abs(vS.xy-0.5)*2.0;float k=clamp((1.0-max(f.x,f.y))*6.0,0.0,1.0);return mix(1.0,s*0.25,k);}
 void main(){
@@ -36,13 +44,14 @@ gl_FragColor=vec4(mix(col,fog,clamp(f,0.0,1.0)),vC.a);}`;
   const vsk = VSK + `uniform mat4 VP;uniform mat4 LVP;varying vec3 vN;varying vec3 vW;varying vec2 vU;varying vec3 vS;
 void main(){mat4 K=B[int(j.x)]*w.x+B[int(j.y)]*w.y+B[int(j.z)]*w.z+B[int(j.w)]*w.w;mat4 MK=MW*K;vec4 wp=MK*vec4(p,1.0);vW=wp.xyz;vN=mat3(MK)*n;vU=uv;vec4 s=LVP*wp;vS=s.xyz*0.5+0.5;gl_Position=VP*wp;}`;
   const fsk = PREC + `varying vec3 vN;varying vec3 vW;varying vec2 vU;varying vec3 vS;
-uniform vec3 cam;uniform vec3 fog;uniform vec3 sunCol;uniform vec3 ambCol;uniform vec3 sunDir;uniform float shOn;uniform sampler2D tex;uniform sampler2D shadow;uniform vec3 tint;uniform vec3 emc;uniform float alpha;
+uniform vec3 cam;uniform vec3 fog;uniform vec3 sunCol;uniform vec3 ambCol;uniform vec3 sunDir;uniform float shOn;uniform sampler2D tex;uniform sampler2D shadow;uniform vec3 tint;uniform vec3 emc;uniform float alpha;uniform float glw;
 float up(vec4 v){return dot(v,vec4(1.0,1.0/255.0,1.0/65025.0,1.0/16581375.0));}
-float shade(){if(shOn<0.5)return 1.0;if(vS.x<0.0||vS.x>1.0||vS.y<0.0||vS.y>1.0||vS.z>1.0)return 1.0;float b=vS.z-0.0017;float t=0.5/${SH}.0;
+uniform float shadowSize;
+float shade(){if(shOn<0.5)return 1.0;if(vS.x<0.0||vS.x>1.0||vS.y<0.0||vS.y>1.0||vS.z>1.0)return 1.0;float b=vS.z-0.0017;float t=0.5/shadowSize;
 float s=step(b,up(texture2D(shadow,vS.xy+vec2(-t,-t))))+step(b,up(texture2D(shadow,vS.xy+vec2(t,-t))))+step(b,up(texture2D(shadow,vS.xy+vec2(-t,t))))+step(b,up(texture2D(shadow,vS.xy+vec2(t,t))));
 vec2 f=abs(vS.xy-0.5)*2.0;float k=clamp((1.0-max(f.x,f.y))*6.0,0.0,1.0);return mix(1.0,s*0.25,k);}
-void main(){vec3 N=normalize(vN);vec3 base=texture2D(tex,vU).rgb*tint;float d=max(dot(N,sunDir),0.0);float sh=shade();vec3 V=normalize(cam-vW);
-float rim=pow(1.0-max(dot(N,V),0.0),3.0);vec3 col=base*(ambCol*(0.62+0.16*N.y)+sunCol*d*sh*0.62)+ambCol*rim*0.1+emc;
+void main(){vec3 N=normalize(vN);vec4 tx=texture2D(tex,vU);vec3 base=tx.rgb*tint;float d=max(dot(N,sunDir),0.0);float sh=shade();vec3 V=normalize(cam-vW);
+float rim=pow(1.0-max(dot(N,V),0.0),3.0);vec3 col=base*(ambCol*(0.62+0.16*N.y)+sunCol*d*sh*0.62)+ambCol*rim*0.1+emc+base*glw*(1.0-tx.a);
 float dist=length(vW-cam);float f=1.0-exp(-pow(dist*0.00052,1.7));gl_FragColor=vec4(mix(col,fog,clamp(f,0.0,1.0)),alpha);}`;
   const vskd = VSK + 'uniform mat4 LVP;void main(){mat4 K=B[int(j.x)]*w.x+B[int(j.y)]*w.y+B[int(j.z)]*w.z+B[int(j.w)]*w.w;gl_Position=LVP*(MW*K*vec4(p,1.0));}';
   const vsd = VSX + 'uniform mat4 LVP;void main(){vec4 q=vec4(p,1.0);gl_Position=LVP*vec4(dot(m0,q),dot(m1,q),dot(m2,q),1.0);}';
@@ -54,9 +63,9 @@ float dist=length(vW-cam);float f=1.0-exp(-pow(dist*0.00052,1.7));gl_FragColor=v
     if (!gl.getProgramParameter(P, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(P)); return P;
   }
   const P1 = prog(vs, fs), P2 = prog(vsd, fsd), U = {}, UD = { LVP: gl.getUniformLocation(P2, 'LVP') };
-  for (const k of ['VP', 'LVP', 'cam', 'fog', 'sunCol', 'ambCol', 'sunDir', 'skyCol', 'night', 'mode', 'shOn', 'tex', 'shadow', 'texR', 'tgt']) U[k] = gl.getUniformLocation(P1, k);
+  for (const k of ['VP', 'LVP', 'cam', 'fog', 'sunCol', 'ambCol', 'sunDir', 'skyCol', 'night', 'mode', 'shOn', 'shadowSize', 'tex', 'shadow', 'texR', 'tgt']) U[k] = gl.getUniformLocation(P1, k);
   const skinOK = gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS) >= 150; let PK = null, PKD = null; const UK = {}, UKD = {};
-  if (skinOK) { try { PK = prog(vsk, fsk); PKD = prog(vskd, fsd); for (const k of ['B', 'MW', 'VP', 'LVP', 'cam', 'fog', 'sunCol', 'ambCol', 'sunDir', 'shOn', 'tex', 'shadow', 'tint', 'emc', 'alpha']) UK[k] = gl.getUniformLocation(PK, k); for (const k of ['B', 'MW', 'LVP']) UKD[k] = gl.getUniformLocation(PKD, k); } catch (e) { console.warn('character shader unavailable', e); PK = null; } }
+  if (skinOK) { try { PK = prog(vsk, fsk); PKD = prog(vskd, fsd); for (const k of ['B', 'MW', 'VP', 'LVP', 'cam', 'fog', 'sunCol', 'ambCol', 'sunDir', 'shOn', 'shadowSize', 'tex', 'shadow', 'tint', 'emc', 'alpha', 'glw']) UK[k] = gl.getUniformLocation(PK, k); for (const k of ['B', 'MW', 'LVP']) UKD[k] = gl.getUniformLocation(PKD, k); } catch (e) { console.warn('character shader unavailable', e); PK = null; } }
   gl.enable(gl.DEPTH_TEST); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   // shadow framebuffer (depth packed into RGBA so it works everywhere)
   let shOK = true; const shTex = gl.createTexture(), fbo = gl.createFramebuffer();
@@ -121,23 +130,75 @@ float dist=length(vW-cam);float f=1.0-exp(-pow(dist*0.00052,1.7));gl_FragColor=v
   const persp = (fov, asp, n, f) => { const t = 1 / Math.tan(fov / 2); return new Float32Array([t / asp, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, 2 * f * n / (n - f), 0]); };
   function look(e, t) { let z = nrm(sub(e, t)), x = nrm(cross([0, 1, 0], z)), y = cross(z, x); return { m: new Float32Array([x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -dot(x, e), -dot(y, e), -dot(z, e), 1]), right: x, up: y, fwd: z.map(v => -v) }; }
   const cam = { eye: [0, 100, 100], tgt: [0, 0, 0], VP: new Float32Array(16), fov: 0.95, w: 1, h: 1, right: [1, 0, 0], up: [0, 1, 0], fwd: [0, 0, -1] };
-  function setCamera(eye, target) { const v = look(eye, target); cam.VP = mul(persp(cam.fov, cam.w / cam.h, 8, 9000), v.m); cam.eye = eye; cam.tgt = target; cam.right = v.right; cam.up = v.up; cam.fwd = v.fwd; }
+  const frustum = new Float32Array(24);
+  function setCamera(eye, target) {
+    const v = look(eye, target);
+    const m = cam.VP = mul(persp(cam.fov, cam.w / cam.h, 8, 9000), v.m);
+    cam.eye = eye; cam.tgt = target; cam.right = v.right; cam.up = v.up; cam.fwd = v.fwd;
+    // Clip planes are the fourth row plus or minus each of the first three rows.
+    for (let axis = 0; axis < 3; axis++) {
+      for (let col = 0; col < 4; col++) {
+        frustum[axis * 8 + col] = m[col * 4 + 3] + m[col * 4 + axis];
+        frustum[axis * 8 + 4 + col] = m[col * 4 + 3] - m[col * 4 + axis];
+      }
+    }
+  }
+  function boundsVisible(bounds) {
+    for (let i = 0; i < frustum.length; i += 4) {
+      const x = frustum[i], y = frustum[i + 1], z = frustum[i + 2];
+      if (x * bounds[x < 0 ? 0 : 3] + y * bounds[y < 0 ? 1 : 4] +
+          z * bounds[z < 0 ? 2 : 5] + frustum[i + 3] < 0) return false;
+    }
+    return true;
+  }
   function project(x, y, z) { const m = cam.VP, cx = m[0] * x + m[4] * y + m[8] * z + m[12], cy = m[1] * x + m[5] * y + m[9] * z + m[13], cw = m[3] * x + m[7] * y + m[11] * z + m[15]; if (cw <= 1) return null; return { x: (cx / cw + 1) / 2 * cam.w, y: (1 - cy / cw) / 2 * cam.h, d: cw }; }
   function ray(px, py) { const nx = px / cam.w * 2 - 1, ny = 1 - py / cam.h * 2, th = Math.tan(cam.fov / 2), asp = cam.w / cam.h; return { o: cam.eye, d: nrm([0, 1, 2].map(i => cam.fwd[i] + cam.right[i] * nx * th * asp + cam.up[i] * ny * th)) }; }
 
   // ---------- quality ----------
-  const Q = { mode: 'auto', scale: 1, shadows: true, fps: 60, draws: 0, inst: 0 };
-  try { const m = localStorage.getItem('sl_gfx'); if (m) Q.mode = m; } catch (e) {}
-  function resize() { const d = Math.min(dprRaw, 1.5) * Q.scale; cam.w = innerWidth; cam.h = innerHeight; cv.width = Math.max(320, Math.floor(cam.w * d)); cv.height = Math.max(200, Math.floor(cam.h * d)); }
-  function applyMode() { if (Q.mode === 'low') { Q.scale = 0.6; Q.shadows = false; } else if (Q.mode === 'medium') { Q.scale = 0.8; Q.shadows = true; } else if (Q.mode === 'high') { Q.scale = 1; Q.shadows = true; } else { Q.scale = 1; Q.shadows = true; } resize(); }
-  function setQuality(m) { Q.mode = m; raises = 0; try { localStorage.setItem('sl_gfx', m); } catch (e) {} applyMode(); }
-  let acc = 0, frames = 0, good = 0, raises = 0;
-  function perf(dtMs) { // called every frame; in auto mode trades resolution/shadows for frame rate
-    if (dtMs > 1500) return; acc += dtMs; frames++; if (acc < 900) return; const avg = acc / frames; acc = 0; frames = 0; Q.fps = Math.round(1000 / avg); if (Q.mode !== 'auto') return;
-    if (avg > 24) { good = 0; if (Q.scale > 0.61) { Q.scale = Math.max(0.6, Q.scale - 0.14); resize(); } else if (Q.shadows) Q.shadows = false; }
-    else if (avg < 17.6 && raises < 3 && ++good >= 8) { good = 0; if (!Q.shadows) { Q.shadows = true; raises++; } else if (Q.scale < 0.99) { Q.scale = Math.min(1, Q.scale + 0.14); raises++; resize(); } }
+  const Q = { mode: 'auto', scale: 1, shadows: true, fps: 60, draws: 0, inst: 0, fpsLimit: 60, resolution: 1, shadowQuality: 'low' };
+  try {
+    const mode = localStorage.getItem('sl_gfx'); if (['auto', 'low', 'medium', 'high'].includes(mode)) Q.mode = mode;
+    const saved = JSON.parse(localStorage.getItem('sl_render') || '{}');
+    if ([0, 30, 60, 120].includes(saved.fpsLimit)) Q.fpsLimit = saved.fpsLimit;
+    if (Number.isFinite(saved.resolution)) Q.resolution = Math.max(.5, Math.min(1, saved.resolution));
+    if (['off', 'low', 'high'].includes(saved.shadowQuality)) Q.shadowQuality = saved.shadowQuality;
+  } catch (error) {}
+  function resize() { const d = Q.scale * Q.resolution; cam.w = innerWidth; cam.h = innerHeight; cv.width = Math.max(1, Math.floor(cam.w * d)); cv.height = Math.max(1, Math.floor(cam.h * d)); }
+  function resizeShadows() {
+    const size = Q.shadowQuality === 'high' ? 2048 : 1024;
+    if (SH === size) return;
+    SH = size;
+    gl.bindTexture(gl.TEXTURE_2D, shTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, SH, SH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, rb); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, SH, SH);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); shOK = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
-  addEventListener('resize', resize); applyMode();
+  function applyMode() { Q.scale = Q.mode === 'low' ? .6 : Q.mode === 'medium' ? .8 : 1; Q.shadows = Q.mode !== 'low'; resize(); }
+  function setQuality(mode) { Q.mode = mode; good = 0; try { localStorage.setItem('sl_gfx', mode); } catch (error) {} applyMode(); }
+  function setRenderOptions(options) {
+    if ([0, 30, 60, 120].includes(options.fpsLimit)) Q.fpsLimit = options.fpsLimit;
+    if (Number.isFinite(options.resolution)) Q.resolution = Math.max(.5, Math.min(1, options.resolution));
+    if (['off', 'low', 'high'].includes(options.shadowQuality)) Q.shadowQuality = options.shadowQuality;
+    try { localStorage.setItem('sl_render', JSON.stringify({ fpsLimit: Q.fpsLimit, resolution: Q.resolution, shadowQuality: Q.shadowQuality })); } catch (error) {}
+    acc = frames = good = 0; resize(); resizeShadows();
+  }
+  let acc = 0, frames = 0, good = 0;
+  function perf(dtMs) {
+    if (dtMs > 250 || dtMs <= 0) return;
+    acc += dtMs; frames++; if (acc < 1000) return;
+    const avg = acc / frames; acc = frames = 0; Q.fps = Math.round(1000 / avg);
+    if (Q.mode !== 'auto') return;
+    const budget = 1000 / (Q.fpsLimit || 60);
+    if (avg > budget * 1.2) {
+      good = 0;
+      if (Q.scale > .61) { Q.scale = Math.max(.6, Q.scale - .1); resize(); } else Q.shadows = false;
+    } else if (avg <= budget * 1.04 && ++good >= 12) {
+      good = 0;
+      if (!Q.shadows) Q.shadows = true;
+      else if (Q.scale < .99) { Q.scale = Math.min(1, Q.scale + .1); resize(); }
+    }
+  }
+  addEventListener('resize', resize); applyMode(); resizeShadows();
 
   // ---------- instanced drawing ----------
   let sky_ = { d: 1, fog: [.6, .69, .72], sun: [.72, .72, .7], amb: [1, 1, 1], zen: [.25, .5, .85] };
@@ -154,7 +215,15 @@ float dist=length(vW-cam);float f=1.0-exp(-pow(dist*0.00052,1.7));gl_FragColor=v
   function begin() { for (const m of list) { m.o.n = 0; m.t.n = 0; m.d.n = 0; } skinQ.length = 0; }
   // ---------- static world baking (world-space chunks, one draw call each) ----------
   let bk = null; const chunks = []; let detailR = 0;
-  function bakeBegin() { bk = new Map(); for (const c of chunks) gl.deleteBuffer(c.buf); chunks.length = 0; }
+  function bakeBegin() {
+    begin();
+    // Shared meshes survive map changes; release their previous map's peak instance capacity.
+    for (const mesh of list) for (const queue of [mesh.o, mesh.t, mesh.d]) {
+      queue.arr = new Float32Array(64 * STRIDE);
+      gl.bindBuffer(gl.ARRAY_BUFFER, queue.buf); gl.bufferData(gl.ARRAY_BUFFER, queue.arr.byteLength, gl.DYNAMIC_DRAW);
+    }
+    bk = new Map(); for (const chunk of chunks) gl.deleteBuffer(chunk.buf); chunks.length = 0;
+  }
   function bakeAdd(mesh, x, y, z, sx, sy, sz, yaw, pitch, col, emis, roll, far) {
     const kx = Math.floor(x / CH), kz = Math.floor(z / CH), key = kx + ',' + kz + (far ? 'f' : ''); let a = bk.get(key); if (!a) { a = { f: new Float32Array(11 * 8192), n: 0, kx, kz, far: !!far }; bk.set(key, a); }
     const c = Math.cos(yaw), s = Math.sin(yaw), ca = Math.cos(pitch || 0), sa = Math.sin(pitch || 0);
@@ -170,7 +239,22 @@ float dist=length(vW-cam);float f=1.0-exp(-pow(dist*0.00052,1.7));gl_FragColor=v
     }
     a.n = o;
   }
-  function bakeEnd() { for (const a of bk.values()) { const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, a.f.subarray(0, a.n), gl.STATIC_DRAW); chunks.push({ buf, count: a.n / 11, cx: (a.kx + .5) * CH, cz: (a.kz + .5) * CH, far: a.far }); } bk = null; }
+  function bakeEnd() {
+    for (const a of bk.values()) {
+      const buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, a.f.subarray(0, a.n), gl.STATIC_DRAW);
+      const bounds = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
+      for (let i = 0; i < a.n; i += 11) {
+        for (let axis = 0; axis < 3; axis++) {
+          bounds[axis] = Math.min(bounds[axis], a.f[i + axis]);
+          bounds[axis + 3] = Math.max(bounds[axis + 3], a.f[i + axis]);
+        }
+      }
+      chunks.push({ buf, count: a.n / 11, cx: (a.kx + .5) * CH, cz: (a.kz + .5) * CH, far: a.far, bounds });
+    }
+    bk = null;
+  }
 
   let gtex = null, gR = [0, 0, 1];
   function setGround(canvas, x0, z0, size) {
@@ -200,13 +284,13 @@ float dist=length(vW-cam);float f=1.0-exp(-pow(dist*0.00052,1.7));gl_FragColor=v
     constRows(I0, I1, I2); A(5); A(6);
     for (const c of chunks) {
       const dx = c.cx - cx, dz = c.cz - cz, d2 = dx * dx + dz * dz; if (d2 > (rad + 450) * (rad + 450)) continue; if (c.far && d2 < detailR * detailR) continue;
-      if (cull && (c.cx - cam.eye[0]) * cam.fwd[0] + (c.cz - cam.eye[2]) * cam.fwd[2] < -700) continue;
+      if (cull && !boundsVisible(c.bounds)) continue;
       gl.bindBuffer(gl.ARRAY_BUFFER, c.buf); A(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 44, 0); A(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 44, 12);
       gl.vertexAttribPointer(5, 4, gl.FLOAT, false, 44, 24); gl.vertexAttribPointer(6, 1, gl.FLOAT, false, 44, 40); gl.drawArrays(gl.TRIANGLES, 0, c.count); Q.draws++;
     }
   }
   function drawConst(m, r0, r1, r2) { bindMesh(m); constRows(r0, r1, r2); gl.vertexAttrib4f(5, 1, 1, 1, 1); gl.vertexAttrib1f(6, 0); gl.drawArrays(gl.TRIANGLES, 0, m.count); Q.draws++; }
-  const shadowsOn = () => Q.shadows && shOK && sky_.d > 0.12;
+  const shadowsOn = () => Q.shadows && Q.shadowQuality !== 'off' && shOK && sky_.d > 0.12;
   // ---------- glTF characters ----------
   const CT = { 5126: Float32Array, 5123: Uint16Array, 5121: Uint8Array, 5125: Uint32Array, 5122: Int16Array, 5120: Int8Array }, NC = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 };
   function readAcc(g, bin, i) {
@@ -219,7 +303,7 @@ float dist=length(vW-cam);float f=1.0-exp(-pow(dist*0.00052,1.7));gl_FragColor=v
   async function loadGLB(url) {
     const ab = await (await fetch(url)).arrayBuffer(), dv = new DataView(ab), jl = dv.getUint32(12, true), g = JSON.parse(new TextDecoder().decode(new Uint8Array(ab, 20, jl))), bin = new Uint8Array(ab, 20 + jl + 8, dv.getUint32(20 + jl, true));
     const texs = await Promise.all((g.images || []).map(async im => { const bv = g.bufferViews[im.bufferView], blob = new Blob([new Uint8Array(bin.buffer, bin.byteOffset + (bv.byteOffset || 0), bv.byteLength)], { type: im.mimeType }); const bmp = await createImageBitmap(blob);
-      const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bmp); gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); return t; }));
+      const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bmp); bmp.close(); gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); return t; }));
     const white = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, white); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 255, 255, 255]));
     const N = g.nodes.length, parent = new Int16Array(N).fill(-1); g.nodes.forEach((n, i) => (n.children || []).forEach(c => parent[c] = i));
     const order = []; const visit = i => { order.push(i); (g.nodes[i].children || []).forEach(visit); }; (g.scenes[g.scene || 0].nodes).forEach(visit);
@@ -235,10 +319,10 @@ float dist=length(vW-cam);float f=1.0-exp(-pow(dist*0.00052,1.7));gl_FragColor=v
       const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, v, gl.STATIC_DRAW);
       let ib = null, ic = vc; if (pr.indices !== undefined) { const I = readAcc(g, bin, pr.indices), u = new Uint16Array(I.length); for (let k = 0; k < I.length; k++) u[k] = I[k]; ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, u, gl.STATIC_DRAW); ic = u.length; }
       const mat = pr.material !== undefined ? g.materials[pr.material] : null, pbr = mat && mat.pbrMetallicRoughness || {}, ti = pbr.baseColorTexture ? g.textures[pbr.baseColorTexture.index].source : -1;
-      prims.push({ vb, ib, ic, skinned: n.skin !== undefined && !!J, node: ni, tex: ti >= 0 ? texs[ti] : white, mat: pr.material || 0, name: g.meshes[n.mesh].name });
+      prims.push({ vb, ib, ic, skinned: n.skin !== undefined && !!J, node: ni, tex: ti >= 0 ? texs[ti] : white, mat: pr.material || 0, name: g.meshes[n.mesh].name, nodeName: n.name });
     } });
     const anims = {}; for (const an of g.animations || []) { let dur = 0; const ch = an.channels.map(c => { const sm = an.samplers[c.sampler], t = readAcc(g, bin, sm.input), v = readAcc(g, bin, sm.output); dur = Math.max(dur, t[t.length - 1]); return { node: c.target.node, path: c.target.path, t, v }; }); anims[an.name] = { dur, ch }; }
-    return { N, parent, order, dT, dR, dS, joints, ibm, prims, anims, height: maxY > minY ? maxY - minY : 2, minY, T: new Float32Array(N * 3), R: new Float32Array(N * 4), S: new Float32Array(N * 3), T2: new Float32Array(N * 3), R2: new Float32Array(N * 4), S2: new Float32Array(N * 3) };
+    return { N, parent, order, dT, dR, dS, joints, ibm, prims, anims, names: g.nodes.map(n => n.name || ''), height: maxY > minY ? maxY - minY : 2, minY, T: new Float32Array(N * 3), R: new Float32Array(N * 4), S: new Float32Array(N * 3), T2: new Float32Array(N * 3), R2: new Float32Array(N * 4), S2: new Float32Array(N * 3) };
   }
   function sampleAnim(an, time, T, R, S) {
     if (!an) return; const tt = an.dur > 0 ? time : 0;
@@ -270,18 +354,31 @@ float dist=length(vW-cam);float f=1.0-exp(-pow(dist*0.00052,1.7));gl_FragColor=v
   const tmp4 = new Float32Array(4);
   // queue a posed character: world position, yaw, uniform scale, tint, per-material emissive colour (index 1 = weapon)
   const skinQ = []; const jbuf = new Float32Array(32 * 16), mw = new Float32Array(16);
-  function drawSkinned(md, nodes, x, y, z, yaw, sc, tint, emc, alpha, wemc) { if (PK) skinQ.push({ md, nodes, x, y, z, yaw, sc, tint: tint || [1, 1, 1], emc: emc || [0, 0, 0], alpha: alpha === undefined ? 1 : alpha, wemc }); }
+  // gear (optional): { hide: Uint8Array per prim (1 = skip), mesh: gearMesh(...), col } - equipment rigidly skinned to bones, one draw
+  function drawSkinned(md, nodes, x, y, z, yaw, sc, tint, emc, alpha, wemc, gear) { if (PK) skinQ.push({ md, nodes, x, y, z, yaw, sc, tint: tint || [1, 1, 1], emc: emc || [0, 0, 0], alpha: alpha === undefined ? 1 : alpha, wemc, gear }); }
+  // equipment mesh: interleaved character vertices (16 floats: pos, normal, uv, joints, weights) + RGBA palette (alpha < 255 glows)
+  const palTex = new Map();
+  function gearMesh(verts, palette, palW) {
+    let tex = palTex.get(palette);
+    if (!tex) { tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, palW, palette.length / 4 / palW, 0, gl.RGBA, gl.UNSIGNED_BYTE, palette); for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); palTex.set(palette, tex); }
+    const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+    return { vb, ic: verts.length / 16, tex };
+  }
   function drawSkinQueue(shadowPass) {
     if (!skinQ.length) return; const P = shadowPass ? PKD : PK, U2 = shadowPass ? UKD : UK; gl.useProgram(P);
     for (let i = 2; i < 7; i++) DV(i, 0); for (let i = 5; i < 7; i++) X(i);
-    if (!shadowPass) { gl.uniformMatrix4fv(U2.VP, false, cam.VP); gl.uniform3fv(U2.cam, cam.eye); gl.uniform3fv(U2.fog, sky_.fog); gl.uniform3fv(U2.sunCol, sky_.sun); gl.uniform3fv(U2.ambCol, sky_.amb); gl.uniform3fv(U2.sunDir, SUN); gl.uniform1i(U2.tex, 0); gl.uniform1i(U2.shadow, 1); }
+    if (!shadowPass) { gl.uniformMatrix4fv(U2.VP, false, cam.VP); gl.uniform3fv(U2.cam, cam.eye); gl.uniform3fv(U2.fog, sky_.fog); gl.uniform3fv(U2.sunCol, sky_.sun); gl.uniform3fv(U2.ambCol, sky_.amb); gl.uniform3fv(U2.sunDir, SUN); gl.uniform1i(U2.tex, 0); gl.uniform1i(U2.shadow, 1); gl.uniform1f(U2.shadowSize, SH); }
     for (const q of skinQ) {
       if (shadowPass && q.alpha < 1) continue; const md = q.md, c = Math.cos(q.yaw), s = Math.sin(q.yaw), k = q.sc;
       mw[0] = c * k; mw[1] = 0; mw[2] = -s * k; mw[3] = 0; mw[4] = 0; mw[5] = k; mw[6] = 0; mw[7] = 0; mw[8] = s * k; mw[9] = 0; mw[10] = c * k; mw[11] = 0; mw[12] = q.x; mw[13] = q.y; mw[14] = q.z; mw[15] = 1;
       gl.uniformMatrix4fv(U2.MW, false, mw);
       if (!shadowPass) { gl.uniform3fv(U2.tint, q.tint); gl.uniform1f(U2.alpha, q.alpha); }
-      let jointsSet = false;
-      for (const pr of md.prims) {
+      let jointsSet = false; const hide = q.gear && q.gear.hide, gm = q.gear && q.gear.mesh;
+      if (!shadowPass) gl.uniform1f(U2.glw, 0);
+      for (let pi = 0; pi <= md.prims.length; pi++) {
+        let pr = md.prims[pi];
+        if (pi === md.prims.length) { if (!gm || !gm.ic) break; pr = { skinned: true, vb: gm.vb, ic: gm.ic, tex: gm.tex, mat: -1, gear: 1 }; if (!shadowPass) { gl.uniform1f(U2.glw, 1); gl.uniform3fv(U2.tint, q.gear.col || [1, 1, 1]); } }
+        else if (hide && hide[pi]) continue;
         if (pr.skinned) { if (!jointsSet) { for (let jn = 0; jn < md.joints.length && jn < 32; jn++) mulInto(jbuf, jn * 16, q.nodes, md.joints[jn] * 16, md.ibm, jn * 16); jointsSet = true; } gl.uniformMatrix4fv(U2.B, false, jbuf); }
         else { gl.uniformMatrix4fv(U2.B, false, q.nodes.subarray(pr.node * 16, pr.node * 16 + 16)); jointsSet = false; }
         if (!shadowPass) { gl.uniform3fv(U2.emc, pr.mat === 1 && q.wemc ? q.wemc : q.emc); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, pr.tex); }
@@ -295,7 +392,7 @@ float dist=length(vW-cam);float f=1.0-exp(-pow(dist*0.00052,1.7));gl_FragColor=v
     for (const m of list) for (const q of [m.o, m.t, m.d]) if (q.n) { gl.bindBuffer(gl.ARRAY_BUFFER, q.buf); gl.bufferData(gl.ARRAY_BUFFER, q.arr.subarray(0, q.n * STRIDE), gl.DYNAMIC_DRAW); }
     const sh = shadowsOn(), T = cam.tgt; let LVP = null;
     if (sh) {
-      const R = 760, tx = 2 * R / SH, e0 = [T[0] + SUN[0] * 1100, T[1] + SUN[1] * 1100, T[2] + SUN[2] * 1100], b = look(e0, T);
+      const R = Q.shadowQuality === 'low' ? 520 : 760, tx = 2 * R / SH, e0 = [T[0] + SUN[0] * 1100, T[1] + SUN[1] * 1100, T[2] + SUN[2] * 1100], b = look(e0, T);
       const sr = dot(T, b.right), su = dot(T, b.up), dr = Math.round(sr / tx) * tx - sr, du = Math.round(su / tx) * tx - su, t2 = [T[0] + b.right[0] * dr + b.up[0] * du, T[1] + b.right[1] * dr + b.up[1] * du, T[2] + b.right[2] * dr + b.up[2] * du];
       const v = look([t2[0] + SUN[0] * 1100, t2[1] + SUN[1] * 1100, t2[2] + SUN[2] * 1100], t2), n = 200, f = 2300;
       LVP = mul(new Float32Array([1 / R, 0, 0, 0, 0, 1 / R, 0, 0, 0, 0, -2 / (f - n), 0, 0, 0, -(f + n) / (f - n), 1]), v.m);
@@ -306,7 +403,7 @@ float dist=length(vW-cam);float f=1.0-exp(-pow(dist*0.00052,1.7));gl_FragColor=v
     gl.viewport(0, 0, cv.width, cv.height); gl.clearColor(sky_.fog[0], sky_.fog[1], sky_.fog[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.useProgram(P1); gl.enable(gl.BLEND);
     gl.uniformMatrix4fv(U.VP, false, cam.VP); gl.uniformMatrix4fv(U.LVP, false, LVP || cam.VP); gl.uniform3fv(U.cam, cam.eye); gl.uniform3fv(U.tgt, [cam.tgt[0], cam.tgt[1] + 10, cam.tgt[2]]); gl.uniform3fv(U.fog, sky_.fog); gl.uniform3fv(U.sunCol, sky_.sun); gl.uniform3fv(U.ambCol, sky_.amb);
-    gl.uniform3fv(U.sunDir, SUN); gl.uniform3fv(U.skyCol, sky_.zen); gl.uniform1f(U.night, 1 - sky_.d); gl.uniform1f(U.shOn, sh ? 1 : 0);
+    gl.uniform3fv(U.sunDir, SUN); gl.uniform3fv(U.skyCol, sky_.zen); gl.uniform1f(U.night, 1 - sky_.d); gl.uniform1f(U.shOn, sh ? 1 : 0); gl.uniform1f(U.shadowSize, SH);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, shTex); gl.uniform1i(U.shadow, 1); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, gtex); gl.uniform1i(U.tex, 0); gl.uniform3f(U.texR, gR[0], gR[1], gR[2]);
     gl.disable(gl.DEPTH_TEST); gl.depthMask(false); gl.uniform1f(U.mode, 2); const E = cam.eye; drawConst(sky, [7000, 0, 0, E[0]], [0, 7000, 0, E[1]], [0, 0, 7000, E[2]]);
     gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.uniform1f(U.mode, 1); if (gtex) drawConst(ground, I0, I1, I2);
@@ -314,5 +411,5 @@ float dist=length(vW-cam);float f=1.0-exp(-pow(dist*0.00052,1.7));gl_FragColor=v
     if (PK && skinQ.length) { gl.useProgram(PK); gl.uniformMatrix4fv(UK.LVP, false, LVP || cam.VP); gl.uniform1f(UK.shOn, sh ? 1 : 0); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, shTex); drawSkinQueue(false); for (let i = 2; i < 5; i++) X(i); gl.useProgram(P1); gl.activeTexture(gl.TEXTURE0); }
     gl.depthMask(false); drawInst('t'); gl.depthMask(true); skinQ.length = 0;
   }
-  return { gl, M, cam, Q, CH, skinOK: () => !!PK, loadGLB, pose, drawSkinned, meshFromArray, instWrite, pushInst, setDetail: r => { detailR = r; }, STRIDE, setSky, setCamera, project, ray, draw, begin, render, setGround, bakeBegin, bakeAdd, bakeEnd, setQuality, perf, shadowsOn, sky: () => sky_ };
+  return { gl, M, cam, Q, CH, skinOK: () => !!PK, loadGLB, pose, drawSkinned, gearMesh, meshFromArray, instWrite, pushInst, setDetail: r => { detailR = r; }, STRIDE, setSky, setCamera, project, boundsVisible, ray, draw, begin, render, setGround, bakeBegin, bakeAdd, bakeEnd, setQuality, setRenderOptions, perf, shadowsOn, sky: () => sky_ };
 })();

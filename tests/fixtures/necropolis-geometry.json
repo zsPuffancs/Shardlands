@@ -1,0 +1,10 @@
+{
+  "approvedSourceCommit": "6dde9bd",
+  "assetCount": 38,
+  "quantization": 10000,
+  "canonicalGeometrySha256": "ebb737d858a7ad9018694d64c67c4c907b33f0548ee3eea8f4544e092f37956f",
+  "placementMd5": "6815e785fc2200e1c39f2918cbd26d18",
+  "historicalRawMd5": "39a39e86c5576e1d4cc0b83824f9c116",
+  "approvedSourceRawMd5OnNode26": "e8d513e26a0b9d1c9ea2c3fde0f597de",
+  "evidence": "Approved-source and current per-asset Float32 geometry are byte-identical on Node 26.13.0. Both reproduce the same canonical SHA256; the historical raw hash is not reproducible even from approved source on this runtime. Canonical geometry is quantized to 0.0001 units and derived from approved source, not substituted from current output. Placement retains its original exact hash."
+}

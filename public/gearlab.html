@@ -1,0 +1,56 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gear lab</title>
+<style>html,body{margin:0;height:100%;background:#222;overflow:hidden;font:13px sans-serif;color:#ddd}#c{width:100%;height:100%;display:block}
+#hud{position:fixed;left:8px;top:8px;background:#0009;padding:6px 9px;border-radius:4px;white-space:pre;pointer-events:none}</style></head>
+<body><canvas id="c"></canvas><div id="hud"></div>
+<script>function text(k, d) { return d; }</script>
+<script src="engine.js"></script><script src="equipment-kit.js"></script>
+<script>
+// Gear lab: preview of the equipment kit on animated characters. Dev tool, not linked from the game.
+// URL: ?anim=Run&t=0.3 (freeze at time t) &cam=front|side|back|three|top &shadows=0 &only=<slot> &zoom=1 &gear=0
+// Crowd (draw-call measurement): ?crowd=26 - that many bandits with ids 1..N, variants picked like the game; &gear=0 = plain models
+const qs = new URLSearchParams(location.search), lab = window.lab = { ready: false, errors: [] };
+(async () => {
+  const setKey = qs.get('set') || 'bandit', set = EquipKit.SETS[setKey];
+  const md = await GL.loadGLB('assets/chars/' + set.model + '.glb');
+  const rest = GL.pose(md, '', 0, null, 0, 1, new Float32Array(md.N * 16));
+  const rig = { names: md.names, parent: Array.from(md.parent), joints: md.joints, ibm: md.ibm, prims: md.prims, rest };
+  const slots = [{ label: 'base', v: null }, ...Object.keys(set.variants).map(v => ({ label: v, v })), { label: Object.keys(set.variants).pop() + ' (elite)', v: Object.keys(set.variants).pop(), elite: true }];
+  for (const s of slots) { if (!s.v) continue; try { const b = EquipKit.bake(rig, setKey, s.v, s.elite); s.gear = { hide: b.hide, mesh: GL.gearMesh(b.verts, EquipKit.PALETTE, EquipKit.PAL_W) }; s.tris = b.tris; s.tint = set.variants[s.v].tint; } catch (e) { lab.errors.push(e.message); console.error(e); } }
+  const ents = slots.map(() => ({ nodes: new Float32Array(md.N * 16) }));
+  GL.setQuality('high'); GL.Q.shadows = qs.get('shadows') !== '0'; GL.Q.shadowQuality = 'high';
+  const g = document.createElement('canvas'); g.width = g.height = 256; const x = g.getContext('2d'); x.fillStyle = '#5c5a52'; x.fillRect(0, 0, 256, 256); x.strokeStyle = '#4c4a44'; for (let i = 0; i <= 256; i += 16) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, 256); x.moveTo(0, i); x.lineTo(256, i); x.stroke(); }
+  GL.setGround(g, -1000, -1000, 2000);
+  lab.anim = qs.get('anim') || 'Idle'; lab.t = qs.has('t') ? +qs.get('t') : null; lab.cam = qs.get('cam') || 'front'; lab.only = qs.has('only') ? +qs.get('only') : -1; lab.withGear = qs.get('gear') !== '0';
+  lab.anims = Object.keys(md.anims); lab.slots = slots.map(s => s.label);
+  const H = 64 * 1.05 * 1.3, sc = H / md.height, gap = 52;
+  // crowd: the game's look per monster id (EquipKit.pick), elites every 6th
+  const crowd = qs.has('crowd') ? +qs.get('crowd') : 0, cache = {};
+  const crowdGear = (id, elite) => { const v = EquipKit.pick(setKey, id), k = v + elite; if (!(k in cache)) { const b = EquipKit.bake(rig, setKey, v, elite); cache[k] = { hide: b.hide, mesh: GL.gearMesh(b.verts, EquipKit.PALETTE, EquipKit.PAL_W), body: set.variants[v].tint, v }; } return cache[k]; };
+  const crowdEnts = Array.from({ length: crowd }, () => ({ nodes: new Float32Array(md.N * 16) }));
+  lab.crowdVariants = Array.from({ length: crowd }, (_, i) => EquipKit.pick(setKey, i + 1));
+  lab.frame = () => {
+    const now = performance.now() / 1000, an = md.anims[lab.anim], tt = lab.t !== null ? lab.t : (an ? now % an.dur : 0);
+    GL.begin(); GL.setSky(0.3);
+    const vis = slots.map((s, i) => i).filter(i => lab.only < 0 || lab.only === i), n = vis.length, cx = 0;
+    const E = { front: [0, 70, 260], side: [260, 70, 0], back: [0, 70, -260], top: [0, 300, 120], close: [0, 75, 120], three: [170, 90, 200] }[lab.cam] || [0, 70, 260];
+    const z = qs.has('zoom') ? +qs.get('zoom') : (n === 1 ? 0.5 : 1);
+    GL.setCamera([E[0] * z, E[1] * (z < 1 ? 0.9 : 1), E[2] * z], [0, 45, 0]);
+    if (crowd) {
+      GL.setCamera([0, 520, 560], [0, 0, 60]); const cols = Math.ceil(Math.sqrt(crowd));
+      crowdEnts.forEach((e, i) => { const g = lab.withGear ? crowdGear(i + 1, (i + 1) % 6 === 0) : null; GL.pose(md, i % 3 ? 'Run' : 'Dagger_Attack', (tt + i * 0.13) % 0.75, null, 0, 1, e.nodes);
+        GL.drawSkinned(md, e.nodes, (i % cols - (cols - 1) / 2) * 70, -md.minY * sc, (Math.floor(i / cols) - (cols - 1) / 2) * 70, i * 0.7, sc, g ? g.body : [1, .72, .68], [0, 0, 0], 1, null, g); });
+      GL.render(); lab.draws = GL.Q.draws;
+      document.getElementById('hud').textContent = `crowd ${crowd}  gear=${lab.withGear}  draws=${GL.Q.draws}  shadows=${GL.shadowsOn()}`; return;
+    }
+    vis.forEach((i, k) => {
+      const s = slots[i], e = ents[i]; GL.pose(md, lab.anim, tt, null, 0, 1, e.nodes);
+      const px = (k - (n - 1) / 2) * gap;
+      GL.drawSkinned(md, e.nodes, px, -md.minY * sc, 0, qs.has('yaw') ? +qs.get('yaw') : 0, sc, s.v ? s.tint : [1, .72, .68], [0, 0, 0], 1, null, lab.withGear ? s.gear : null);
+    });
+    GL.render(); lab.draws = GL.Q.draws;
+    document.getElementById('hud').textContent = `${lab.anim} t=${tt.toFixed(2)}  draws=${GL.Q.draws}  shadows=${GL.shadowsOn()}\n` + vis.map(i => slots[i].label + (slots[i].tris ? ' (' + slots[i].tris + ' tris)' : '')).join('  |  ') + (lab.errors.length ? '\nERR ' + lab.errors.join('; ') : '');
+  };
+  const loop = () => { lab.frame(); requestAnimationFrame(loop); }; lab.ready = true; loop();
+})().catch(e => { lab.errors.push(String(e)); document.getElementById('hud').textContent = 'ERR ' + e; });
+</script></body></html>

@@ -1,0 +1,8 @@
+'use strict';
+
+// Historical prices are immutable migration data, not balance tuning knobs.
+const LEGACY_CONSTRUCTION_COSTS = Object.freeze({ merchant: 250000, smith: 400000, mystic: 400000 });
+// Future Rulesets / Balance Registry entries can supply this same small configuration shape.
+const { SETTLEMENT_ECONOMY } = require('../balance/base');
+
+module.exports = { LEGACY_CONSTRUCTION_COSTS, SETTLEMENT_ECONOMY };

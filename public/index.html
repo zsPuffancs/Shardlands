@@ -1,150 +1,295 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Shardlands 3D</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Shardlands — Infinite Worlds</title>
+<link rel="icon" type="image/vnd.microsoft.icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="256x256" href="/icon-256.png">
+<link rel="apple-touch-icon" sizes="256x256" href="/icon-256.png">
 <style>
-:root{--bg:#120f0c;--panel:linear-gradient(180deg,#2a2119f2,#1a1410f2);--edge:#6b5233;--edge2:#3a2c1c;--gold:#e8bf55;--gold2:#a37a2c;--txt:#f1e7d4;--mut:#a79a85;--red:#d8423a;--blue:#3d86d8}
-*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:14px/1.4 "Segoe UI",system-ui,sans-serif;overflow:hidden;user-select:none}
+:root{--ui-text-scale:1;font-size:calc(clamp(14px,1.65vmin,19px) * var(--ui-text-scale));--bg:#120f0c;--panel:linear-gradient(180deg,#2a2119f2,#1a1410f2);--edge:#6b5233;--edge2:#3a2c1c;--gold:#e8bf55;--gold2:#a37a2c;--txt:#f1e7d4;--mut:#a79a85;--red:#d8423a;--blue:#3d86d8}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:0.875rem/1.4 "Segoe UI",system-ui,sans-serif;overflow:hidden;user-select:none}
 #c{position:fixed;inset:0;width:100vw;height:100vh;display:block}
 #labels,#floaters{position:fixed;inset:0;pointer-events:none;overflow:hidden}
-.lb{position:absolute;left:0;top:0;text-align:center;font-size:12px;font-weight:600;text-shadow:0 1px 2px #000,0 0 3px #000;white-space:nowrap;will-change:transform}
+.lb{position:absolute;left:0;top:0;text-align:center;font-size:0.75rem;font-weight:600;text-shadow:0 1px 2px #000,0 0 3px #000;white-space:nowrap;will-change:transform}
 .lb .hb{width:50px;height:5px;background:#000b;margin:2px auto 0;border-radius:3px;overflow:hidden;box-shadow:0 0 0 1px #0009}.lb .hb i{display:block;height:100%;background:linear-gradient(#ff6a5a,#a81e16)}
-.lb.pl .hb i{background:linear-gradient(#7ee87e,#22912e)}.lb.me{color:var(--gold)}.lb.npc{color:#ffe08a;font-size:13px}.lb.npc .hb,.lb.loot .hb{display:none}
-.lb.boss .hb{width:84px;height:7px}.lb.boss{font-size:13px}.lb.alpha .hb{width:64px;height:6px}.lb.alpha .hb i{background:linear-gradient(#ffb04a,#b4560e)}.lb.loot{font-size:11px}
-.ft{position:absolute;left:0;top:0;font-weight:800;font-size:16px;text-shadow:0 0 3px #000,0 1px 2px #000;white-space:nowrap;will-change:transform}
+.lb.pl .hb i{background:linear-gradient(#7ee87e,#22912e)}.lb.npc{color:#ffe08a;font-size:0.8125rem}.lb.npc .hb,.lb.loot .hb{display:none}
+.lb.boss .hb{width:84px;height:7px}.lb.boss{font-size:0.8125rem}.lb.alpha .hb{width:64px;height:6px}.lb.alpha .hb i{background:linear-gradient(#ffb04a,#b4560e)}.lb.loot{font-size:0.6875rem}
+/* Player nameplates */
+.lb.pl .n{color:#a9d9ff}
+.lb.pl.me{left:50%;margin-top:-.65rem}
+.mob-level{font-weight:700;white-space:nowrap}
+.lb .mob-level{font-size:0.6875rem}
+.mob-level--trivial{color:#a8a8a8}
+.mob-level--easy{color:#8de783}
+.mob-level--even{color:#ffe174}
+.mob-level--dangerous{color:#ff7979}
+.ft{position:absolute;left:0;top:0;font-weight:800;font-size:0.9375rem;text-shadow:0 0 3px #000,0 1px 2px #000;white-space:nowrap;will-change:transform}
+.ft--level{font-size:1.375rem}
+.ft--damage{font-size:calc(clamp(20px,2.8vmin,38px) * var(--ui-text-scale));text-shadow:0 0 4px #000,0 2px 3px #000}
+.ft--critical{font-size:calc(clamp(28px,3.8vmin,52px) * var(--ui-text-scale))}
 #hurtfx{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,#0000 45%,#c0141488 100%);opacity:0;transition:opacity .25s}
 #hurtfx.low{animation:pulse 1.1s infinite}@keyframes pulse{0%,100%{opacity:.25}50%{opacity:.7}}
 #zone{position:fixed;left:0;right:0;top:18%;text-align:center;pointer-events:none;opacity:0;transition:opacity .8s}
-#zone b{display:block;font:700 38px Georgia,serif;letter-spacing:5px;color:var(--gold);text-shadow:0 2px 10px #000,0 0 30px #0008}#zone span{color:#e8e0d0;text-shadow:0 1px 4px #000;letter-spacing:3px;font-size:15px}
+#zone b{display:block;font:700 2.375rem Georgia,serif;letter-spacing:5px;color:var(--gold);text-shadow:0 2px 10px #000,0 0 30px #0008}#zone span{color:#e8e0d0;text-shadow:0 1px 4px #000;letter-spacing:3px;font-size:0.9375rem}
 #zone.danger b{color:#ff4a3a}
 /* ---------- login ---------- */
 #login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#0000 30%,#000a 100%)}
-#login .box{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:30px;width:min(460px,92vw);box-shadow:0 10px 60px #000c,inset 0 1px 0 #ffffff14}
-h1{margin:0 0 2px;font:700 40px Georgia,serif;letter-spacing:6px;color:var(--gold);text-shadow:0 2px 12px #000}.sub{color:var(--mut);margin-bottom:16px;font-size:13px}
+#invite{margin:-8px 0 14px;font-size:.75rem;color:var(--mut);display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap}#invite[hidden]{display:none}#invite code{color:var(--gold);user-select:all;word-break:break-all}#invite button{padding:3px 10px;font-size:.75rem}
+#online-count{margin:-10px 0 12px;color:var(--gold);font-size:.8125rem}
+#login .box{max-width:calc(100vw - 24px);background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:30px;width:min(460px,92vw);box-shadow:0 10px 60px #000c,inset 0 1px 0 #ffffff14}
+h1{margin:0 0 2px;font:700 2.5rem Georgia,serif;letter-spacing:6px;color:var(--gold);text-shadow:0 2px 12px #000}.sub{color:var(--mut);margin-bottom:16px;font-size:0.8125rem}
 input,button,select{font:inherit;color:var(--txt);background:linear-gradient(#3a2e22,#2a2119);border:1px solid #6b5438;border-radius:7px;padding:8px 12px}
 input{width:100%;margin-bottom:10px;user-select:text;background:#16110d}button{cursor:pointer;transition:filter .12s}button:hover:not(:disabled){filter:brightness(1.25)}button:disabled{opacity:.4;cursor:default}
 button.pri{background:linear-gradient(#b07f22,#7a5414);border-color:var(--gold);font-weight:700;color:#fff6dc}
 .cls{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}.cls button{flex:1 1 90px;text-align:center;padding:10px 4px}.cls button.on{border-color:var(--gold);background:linear-gradient(#5e4620,#3a2b14);box-shadow:0 0 12px #e8bf5544}
-.cls small{display:block;color:var(--mut);font-size:11px;line-height:1.2;margin-top:2px}.cls i{display:block;width:14px;height:14px;border-radius:50%;margin:0 auto 4px;border:2px solid #0008}
+.cls small{display:block;color:var(--mut);font-size:0.6875rem;line-height:1.2;margin-top:2px}.cls i{display:block;width:14px;height:14px;border-radius:50%;margin:0 auto 4px;border:2px solid #0008}
 #go{width:100%;letter-spacing:2px;padding:12px}#err{color:#ff8a7a;min-height:20px;margin-top:8px}
 /* ---------- HUD ---------- */
 #hud{display:none}.panel{background:var(--panel);border:1px solid var(--edge);border-radius:10px;box-shadow:0 4px 20px #000a,inset 0 1px 0 #ffffff12}
 #pframe{position:fixed;left:12px;top:12px;width:300px;padding:10px 12px 10px 76px;pointer-events:none;min-height:86px}
-#portrait{position:absolute;left:10px;top:10px;width:56px;height:56px;border-radius:50%;border:2px solid var(--gold);background:radial-gradient(#4a3a26,#1a130c);display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 0 12px #000}
-#plvl{position:absolute;left:44px;top:50px;background:linear-gradient(#e8bf55,#9a6e1e);color:#1a1208;font-weight:800;font-size:12px;border-radius:10px;padding:0 6px;border:1px solid #000}
-#who{font-weight:700;font-size:15px}#who small{color:var(--mut);font-weight:400}
+#portrait{position:absolute;left:10px;top:10px;width:56px;height:56px;border-radius:50%;border:2px solid var(--gold);background:radial-gradient(#4a3a26,#1a130c);display:flex;align-items:center;justify-content:center;font-size:1.75rem;box-shadow:0 0 12px #000}
+#plvl{position:absolute;left:44px;top:50px;background:linear-gradient(#e8bf55,#9a6e1e);color:#1a1208;font-weight:800;font-size:0.75rem;border-radius:10px;padding:0 6px;border:1px solid #000}
+#who{font-weight:700;font-size:0.9375rem}#who small{color:var(--mut);font-weight:400}
 .bar{height:15px;background:#0009;border-radius:8px;margin:4px 0;overflow:hidden;position:relative;box-shadow:inset 0 1px 3px #000,0 0 0 1px #0007}.bar i{display:block;height:100%;transition:width .15s;border-radius:8px}
-.bar span{position:absolute;inset:0;text-align:center;font-size:11px;line-height:15px;text-shadow:0 1px 1px #000;font-weight:600}
+.bar span{position:absolute;inset:0;text-align:center;font-size:0.6875rem;line-height:15px;text-shadow:0 1px 1px #000;font-weight:600}
 #hp i{background:linear-gradient(#ff6a5a,#b0241a)}#mp i{background:linear-gradient(#6aa8ff,#1f5fb0)}
-#buffs{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.bf{font-size:11px;padding:1px 7px;border-radius:10px;background:#2a4a22;border:1px solid #7fb56a}
-#goldl{font-size:12px;color:#ffd77a;margin-top:2px}#sppill{color:#ffe97a;font-size:12px;display:none;animation:glow 1.6s infinite}@keyframes glow{50%{opacity:.55}}
+#buffs{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.bf{font-size:0.6875rem;padding:1px 7px;border-radius:10px;background:#2a4a22;border:1px solid #7fb56a}
+#goldl{font-size:0.75rem;color:#ffd77a;margin-top:2px}#sppill{color:#ffe97a;font-size:0.75rem;display:none;animation:glow 1.6s infinite}@keyframes glow{50%{opacity:.55}}
 #tgt{position:fixed;left:50%;top:12px;transform:translateX(-50%);width:340px;text-align:center;pointer-events:none;padding:6px 12px 8px;display:none}#tgt .bar{height:14px}#tgtn{font-weight:700}
-#tgt .tag{font-size:10px;font-weight:800;padding:0 6px;border-radius:8px;margin-left:6px;vertical-align:2px}
+#tgt .tag{font-size:0.625rem;font-weight:800;padding:0 6px;border-radius:8px;margin-left:6px;vertical-align:2px}
 #mapbox{position:fixed;right:12px;top:12px;width:186px;padding:8px;text-align:center}
 #mini{width:168px;height:168px;border-radius:50%;border:2px solid var(--gold2);box-shadow:0 0 0 3px #000a,0 2px 12px #000;display:block;margin:0 auto}
-#zname{font-weight:700;color:var(--gold);margin-top:6px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#zinfo{font-size:11px;color:var(--mut)}
-#mapbtns{display:flex;gap:5px;justify-content:center;margin-top:6px}#mapbtns button{padding:3px 8px;font-size:14px}
+#zname{font-weight:700;color:var(--gold);margin-top:6px;font-size:0.8125rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#zinfo{font-size:0.6875rem;color:var(--mut)}
+#mapbtns{display:flex;gap:5px;justify-content:center;margin-top:6px}#mapbtns button{padding:3px 8px;font-size:0.875rem}
 #toasts{position:fixed;left:50%;top:84px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;z-index:40}
 .toast{padding:7px 16px;border-radius:20px;background:#120e0aee;border:1px solid var(--edge);font-weight:700;box-shadow:0 4px 18px #000a;animation:tin .25s ease-out;transition:opacity .5s}@keyframes tin{from{transform:translateY(-10px);opacity:0}}
 #chat{position:fixed;left:12px;bottom:12px;width:min(430px,40vw)}
-#log{height:160px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;text-shadow:0 1px 2px #000;font-size:13px;pointer-events:none;padding:6px 8px;border-radius:8px;background:linear-gradient(#0000,#0005)}#log div{padding:1px 0}
+#log{height:160px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;text-shadow:0 1px 2px #000;font-size:0.8125rem;pointer-events:none;padding:6px 8px;border-radius:8px;background:linear-gradient(#0000,#0005)}#log div{padding:1px 0}
+#log.combat-log{display:block;overflow-y:auto;pointer-events:auto;overflow-wrap:anywhere}
+#chat-tabs{display:flex;flex-wrap:wrap;gap:4px;padding:0 4px 3px}
+#chat-tabs button{padding:3px 9px;font-size:.75rem;background:#120f0cdc;color:var(--mut);border-radius:6px}
+#chat-tabs button[aria-pressed="true"]{border-color:var(--gold2);color:var(--gold)}
 #chatin{display:none;margin:6px 0 0}
-#actionbar{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);padding:8px 10px 6px}
+#actionbar{position:fixed;z-index:21;left:50%;bottom:10px;transform:translateX(-50%);padding:8px 10px 6px}
 #hotbar{display:flex;gap:6px;align-items:flex-end}
-.sk{width:54px;height:54px;border:1px solid #7a5e38;border-radius:9px;background:radial-gradient(#3a2d1e,#1a130c);position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:inset 0 0 10px #000}
-.sk:hover{border-color:var(--gold)}.sk .key{position:absolute;left:3px;top:1px;font-size:10px;color:var(--gold);font-weight:800;text-shadow:0 0 2px #000}
-.sk em{position:absolute;right:3px;bottom:1px;font-style:normal;font-size:11px;font-weight:700;color:#fff;text-shadow:0 0 3px #000}.sk .rk{position:absolute;right:3px;top:1px;font-size:9px;color:#ffe97a}
+.sk{width:54px;height:54px;border:1px solid #7a5e38;border-radius:9px;background:radial-gradient(#3a2d1e,#1a130c);position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.5rem;box-shadow:inset 0 0 10px #000}
+.sk:hover{border-color:var(--gold)}.sk .key{position:absolute;left:3px;top:1px;font-size:0.625rem;color:var(--gold);font-weight:800;text-shadow:0 0 2px #000}
+.sk em{position:absolute;right:3px;bottom:1px;font-style:normal;font-size:0.6875rem;font-weight:700;color:#fff;text-shadow:0 0 3px #000}.sk .rk{position:absolute;right:3px;top:1px;font-size:0.5625rem;color:#ffe97a}
 .sk u{position:absolute;inset:0;border-radius:8px;text-decoration:none;background:conic-gradient(#000c calc(var(--p,0)*1%),transparent 0);pointer-events:none}.sk.lock{filter:grayscale(1) brightness(.5)}
-.sk .nm{position:absolute;bottom:-14px;left:-6px;right:-6px;text-align:center;font-size:9px;color:var(--mut);white-space:nowrap;overflow:hidden}
+.sk .nm{position:absolute;bottom:-14px;left:-6px;right:-6px;text-align:center;font-size:0.5625rem;color:var(--mut);white-space:nowrap;overflow:hidden}
 .gap{width:10px}
-#xpbar{height:9px;margin:16px 0 0;border-radius:5px}#xpbar i{background:linear-gradient(#f2cf5a,#9a7012)}#xpbar span{font-size:9px;line-height:9px}
+#xpbar{height:9px;margin:16px 0 0;border-radius:5px}#xpbar i{background:linear-gradient(#f2cf5a,#9a7012)}#xpbar span{font-size:0.5625rem;line-height:9px}
 #prompt{position:fixed;left:50%;bottom:118px;transform:translateX(-50%);padding:6px 14px;border-radius:18px;background:#120e0add;border:1px solid var(--gold2);display:none;font-weight:600}
 #prompt b{color:var(--gold);border:1px solid var(--gold2);border-radius:4px;padding:0 5px;margin-right:6px}
 /* ---------- windows ---------- */
-.win{position:fixed;display:none;flex-direction:column;max-height:calc(100vh - 40px);z-index:20}
+#game-windows{position:relative;z-index:20}
+.win{max-width:calc(100vw - 16px);position:fixed;display:none;flex-direction:column;max-height:calc(100vh - 40px);z-index:20}
 .win-h{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--edge2);cursor:move;background:linear-gradient(#3a2c1c,#2a2015);border-radius:10px 10px 0 0}
-.win-h b{font:700 15px Georgia,serif;letter-spacing:1px;color:var(--gold)}.win-h .x{background:none;border:none;font-size:18px;padding:0 4px;color:var(--mut)}.win-h .x:hover{color:#fff}
-.win-b{padding:10px 12px;overflow:auto}
-.row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #ffffff10}.row:last-child{border:0}.row .t{flex:1;min-width:0}.row .t small{display:block;color:var(--mut);font-size:11px}.row button{padding:3px 9px;font-size:12px}
-.ico{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;background:#0006;border:1px solid #5a4630;flex:none}
+.win-h b{font:700 0.9375rem Georgia,serif;letter-spacing:1px;color:var(--gold)}.win-h .x{background:none;border:none;font-size:1.125rem;padding:0 4px;color:var(--mut)}.win-h .x:hover{color:#fff}
+.win-b{overflow-wrap:anywhere;padding:10px 12px;overflow:auto}
+.row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #ffffff10}.row:last-child{border:0}.row .t{flex:1;min-width:0}.row .t small{display:block;color:var(--mut);font-size:0.6875rem}.row button{padding:3px 9px;font-size:0.75rem}
+.ico{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.125rem;background:#0006;border:1px solid #5a4630;flex:none}
 .pips{display:inline-flex;gap:2px;margin-left:6px}.pips i{width:9px;height:9px;border-radius:2px;background:#0008;border:1px solid #6b5438}.pips i.on{background:var(--gold);border-color:var(--gold)}
-.hd2{display:flex;justify-content:space-between;align-items:center;margin:10px 0 5px;color:var(--gold);font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}.hd2 button{padding:2px 8px;font-size:11px;text-transform:none;letter-spacing:0;font-weight:400}
+.hd2{display:flex;justify-content:space-between;align-items:center;margin:10px 0 5px;color:var(--gold);font-size:0.75rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase}.hd2 button{padding:2px 8px;font-size:0.6875rem;text-transform:none;letter-spacing:0;font-weight:400}
 #eqwrap{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
-.slot{aspect-ratio:1;border:2px solid #4a3a2a;border-radius:7px;background:radial-gradient(#2a2016,#120d09);display:flex;align-items:center;justify-content:center;font-size:20px;position:relative;cursor:pointer}
-.slot.empty{opacity:.32;cursor:default}.slot sup{position:absolute;right:3px;bottom:0;font-size:9px;color:#fff;text-shadow:0 0 2px #000}.slot:hover:not(.empty){filter:brightness(1.35)}
-.slot sub{position:absolute;left:3px;top:0;font-size:10px;color:#ffe97a;font-weight:800;text-shadow:0 0 2px #000}.slot.sel{outline:3px solid #ffe97a;outline-offset:-1px;filter:brightness(1.35)}
+.slot{aspect-ratio:1;border:2px solid #4a3a2a;border-radius:7px;background:radial-gradient(#2a2016,#120d09);display:flex;align-items:center;justify-content:center;font-size:1.25rem;position:relative;cursor:pointer}
+.slot.empty{opacity:.32;cursor:default}.slot sup{position:absolute;right:5px;top:3px;font-size:0.625rem;font-weight:700;line-height:1;color:#fff;text-shadow:0 0 2px #000,0 1px 2px #000;pointer-events:none}.slot sup.up{color:#7dff8a}.slot sup.dn{color:#ff8a7a}.slot:hover:not(.empty){filter:brightness(1.35)}
+.slot sub{position:absolute;left:3px;top:0;font-size:0.625rem;color:#ffe97a;font-weight:800;text-shadow:0 0 2px #000}.slot.sel{outline:3px solid #ffe97a;outline-offset:-1px;filter:brightness(1.35)}
 .slot.pick{outline:2px solid #fff;outline-offset:1px}
+#bag-pages:empty{display:none}
 #bag{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
-#gst{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px;font-size:12px;margin-top:8px;color:var(--mut);background:#0004;padding:6px 8px;border-radius:7px}#gst b{color:var(--txt);float:right}
-#inl{display:flex;flex-wrap:wrap;gap:5px}.chip{display:flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid #6b5438;border-radius:14px;background:#2a2016;cursor:pointer;font-size:12px}.chip:hover{filter:brightness(1.3)}.chip i{width:10px;height:10px;border-radius:50%;display:inline-block}
-#mergebar{display:none;margin:4px 0 8px;padding:7px 9px;border:1px dashed #a37a2c;border-radius:7px;font-size:12px;align-items:center;justify-content:space-between;gap:8px;background:#e8bf5510}
+#gst{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px;font-size:0.75rem;margin-top:8px;color:var(--mut);background:#0004;padding:6px 8px;border-radius:7px}#gst b{color:var(--txt);float:right}
+#inl{display:flex;flex-wrap:wrap;gap:5px}.chip{display:flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid #6b5438;border-radius:14px;background:#2a2016;cursor:pointer;font-size:0.75rem}.chip:hover{filter:brightness(1.3)}.chip i{width:10px;height:10px;border-radius:50%;display:inline-block}
+#mergebar{display:none;margin:4px 0 8px;padding:7px 9px;border:1px dashed #a37a2c;border-radius:7px;font-size:0.75rem;align-items:center;justify-content:space-between;gap:8px;background:#e8bf5510}
 #mergeBtn.on{background:linear-gradient(#b07f22,#7a5414);border-color:var(--gold)}
 #bagfull{color:#ff8a6a}
-.itemcard{background:#0005;border:1px solid #5a4630;border-radius:8px;padding:10px;font-size:12px}
-.itemcard .nm{font-size:14px;font-weight:700}.ln{display:flex;justify-content:space-between;gap:10px}.up{color:#6fe39a}.dn{color:#ff7a6a}.mu{color:var(--mut)}
-#smres{min-height:22px;text-align:center;font-weight:800;margin-top:8px;font-size:15px}
-#tip{position:fixed;z-index:100000;pointer-events:none;display:none;min-width:200px;max-width:270px;background:#100c09f4;border:1px solid #8a6d3a;border-radius:8px;padding:9px 11px;font-size:12px;box-shadow:0 6px 22px #000d}
-#tip b.nm{font-size:14px;display:block}
-#dead{position:fixed;inset:0;align-items:center;justify-content:center;flex-direction:column;font:700 46px Georgia,serif;color:#ff6a5a;background:radial-gradient(#3008,#000b);text-shadow:0 2px 6px #000;pointer-events:none;display:none;z-index:30}#dead small{font:16px system-ui;color:#fff}
-#perf{position:fixed;left:50%;top:60px;transform:translateX(-50%);display:none;font:11px monospace;color:#9f9;background:#000a;padding:3px 8px;border-radius:4px;pointer-events:none;z-index:50}
-kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1px solid #7a5e38;border-bottom-width:2px;border-radius:4px;background:#2a2016;font:11px monospace;color:var(--gold)}
-.ctl{display:grid;grid-template-columns:auto 1fr;gap:5px 10px;font-size:12px;align-items:center}
-.tabs{display:flex;gap:4px;margin-bottom:8px}.tabs button{flex:1;padding:5px;font-size:12px}.tabs button.on{border-color:var(--gold);background:linear-gradient(#5e4620,#3a2b14);color:#ffe9a8}
-.kb{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;font-size:12px}.kb button{min-width:64px;padding:3px 8px;font:12px monospace;color:var(--gold)}.kb button.wait{border-color:#fff;color:#fff;animation:glow 1s infinite}
-.vrow{display:flex;align-items:center;gap:10px}.vrow input[type=range]{flex:1;margin:0}.vrow span{width:38px;text-align:right;font-size:12px;color:var(--mut)}
-</style></head><body>
+.itemcard{background:#0005;border:1px solid #5a4630;border-radius:8px;padding:10px;font-size:0.75rem}
+.itemcard .nm{font-size:0.875rem;font-weight:700}.ln{display:flex;justify-content:space-between;gap:10px}.up{color:#6fe39a}.dn{color:#ff7a6a}.mu{color:var(--mut)}
+#smith-auto-dialog{width:min(420px,calc(100vw - 32px));padding:18px;color:var(--txt)}
+#smith-auto-dialog::backdrop{background:#080503ad}
+#smith-auto-title{margin:0 0 8px;color:var(--gold);font:700 1.125rem Georgia,serif}
+#smith-auto-message{margin:0 0 14px;line-height:1.5}
+.smith-dialog-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+#smith-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}#smith-actions button{flex:1 1 125px}
+#smres{min-height:22px;text-align:center;font-weight:800;margin-top:8px;font-size:0.9375rem}
+#tip{position:fixed;z-index:100000;pointer-events:none;display:none;min-width:200px;max-width:270px;background:#100c09f4;border:1px solid #8a6d3a;border-radius:8px;padding:9px 11px;font-size:0.75rem;box-shadow:0 6px 22px #000d}
+#tip b.nm{font-size:0.875rem;display:block}
+#dead{position:fixed;inset:0;align-items:center;justify-content:center;flex-direction:column;font:700 2.875rem Georgia,serif;color:#ff6a5a;background:radial-gradient(#3008,#000b);text-shadow:0 2px 6px #000;pointer-events:none;display:none;z-index:30}#dead small{font:1rem system-ui;color:#fff}
+#perf{position:fixed;left:50%;top:60px;transform:translateX(-50%);display:none;font:0.6875rem monospace;color:#9f9;background:#000a;padding:3px 8px;border-radius:4px;pointer-events:none;z-index:50}
+kbd{display:inline-block;min-width:20px;text-align:center;padding:0 5px;border:1px solid #7a5e38;border-bottom-width:2px;border-radius:4px;background:#2a2016;font:0.6875rem monospace;color:var(--gold)}
+.ctl{display:grid;grid-template-columns:auto 1fr;gap:5px 10px;font-size:0.75rem;align-items:center}
+.tabs{display:flex;gap:4px;margin-bottom:8px}.tabs button{flex:1;padding:5px;font-size:0.75rem}.tabs button.on{border-color:var(--gold);background:linear-gradient(#5e4620,#3a2b14);color:#ffe9a8}
+.kb{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;font-size:0.75rem}.kb button{min-width:64px;padding:3px 8px;font:0.75rem monospace;color:var(--gold)}.kb button.wait{border-color:#fff;color:#fff;animation:glow 1s infinite}
+.vrow{display:flex;align-items:center;gap:10px}.vrow input[type=range]{flex:1;margin:0}.vrow span{width:38px;text-align:right;font-size:0.75rem;color:var(--mut)}
+.text-scale-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px}
+.text-scale-row input[type=range]{grid-column:1/-1;min-width:0;margin:0;padding:0;accent-color:var(--gold)}
+#text-scale-value{white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums;color:var(--gold)}
+
+</style>
+<link rel="stylesheet" href="ui.css"><link rel="stylesheet" href="responsive-ui.css"><link rel="stylesheet" href="portal-ui.css"></head><body>
 <canvas id="c"></canvas><div id="labels"></div><div id="floaters"></div><div id="hurtfx"></div><div id="zone"><b></b><span></span></div><div id="toasts"></div><div id="tip"></div><div id="perf"></div>
-<div id="login"><div class="box"><h1>SHARDLANDS</h1><div class="sub" id="srv">Connecting…</div>
-<input id="name" maxlength="14" placeholder="Hero name" autofocus autocomplete="off">
-<input id="pw" type="password" maxlength="32" placeholder="Password (optional - protects your hero)" autocomplete="off">
+<div id="login"><div class="box"><h1>SHARDLANDS</h1><div class="sub" id="srv"><span data-text="login.connecting">Connecting…</span></div><div class="sub" id="uni" style="color:#ffd24a;font-size:0.75rem"></div>
+<div id="invite" hidden><span data-text="login.invite">Invite friends:</span> <code id="invite-link"></code> <button id="invite-copy" type="button"><span data-text="login.copy">Copy link</span></button> <span id="invite-status" aria-live="polite" style="color:#8fd18f"></span></div>
+<div id="online-count" aria-live="polite" hidden></div>
+<input id="name" maxlength="14" placeholder="Hero name" data-placeholder-text="login.name" autofocus autocomplete="off">
+<input id="pw" type="password" maxlength="32" placeholder="Password (optional - protects your hero)" data-placeholder-text="login.password" autocomplete="off">
+<select data-language aria-label="Language" data-label-text="settings.language"><option value="en">English</option><option value="hu">Magyar</option></select>
 <div class="cls" id="cls"></div>
-<button id="go" class="pri">ENTER THE SHARDLANDS</button><div id="err"></div></div></div>
+<button id="go" class="pri"><span data-text="login.enter">ENTER THE SHARDLANDS</span></button><div id="err"></div></div></div>
 
 <div id="hud">
   <div class="panel" id="pframe"><div id="portrait">⚔️</div><div id="plvl">1</div>
     <div id="who"></div><div class="bar" id="hp"><i></i><span></span></div><div class="bar" id="mp"><i></i><span></span></div>
-    <div id="goldl"></div><div id="buffs"></div><div id="sppill">★ Skill points available - press K</div></div>
-  <div class="panel" id="tgt"><span id="tgtn"></span><div class="bar"><i style="background:linear-gradient(#ff6a5a,#a81e16)"></i><span></span></div></div>
-  <div class="panel" id="mapbox"><canvas id="mini" width="320" height="320"></canvas><div id="zname"></div><div id="zinfo"></div>
-    <div id="mapbtns"><button data-open="invp" title="Inventory (I)">🎒</button><button data-open="skillp" title="Skills (K)">📜</button><button data-open="setw" title="Settings (O)">⚙️</button></div></div>
-  <div id="chat"><div id="log"></div><input id="chatin" maxlength="120" placeholder="Say something… (/help for commands)"></div>
+    <div id="goldl"></div><div id="buffs"></div><div id="sppill"><span data-text="hud.skillPoints">★ Skill points available - press K</span></div></div>
+  <div class="panel" id="tgt"><span id="tgtn"></span><div class="bar"><i style="background:linear-gradient(#ff6a5a,#a81e16)"></i><span></span></div><div id="tgtmods" hidden></div><div id="bossdetail" hidden></div></div><div id="castwarn" role="alert"></div><div id="bossnotice" role="status"></div>
+  <div class="panel" id="mapbox"><div id="mapwrap"><canvas id="mini" width="320" height="320"></canvas><button id="maplegend-btn" type="button" title="Map legend" data-title-text="ux.legendTitle" aria-label="Map legend">?</button></div><div id="maplegend"><div><i class="lg circle" style="--c:#55cfff"></i><span data-text="legend.players">Heroes</span></div><div><i class="lg circle" style="--c:#ffe292"></i><span data-text="legend.npcs">Village NPCs</span></div><div><i class="lg ring" style="--c:#ba85ff"></i><span data-text="legend.portal">World Portal</span></div><div><i class="lg diamond" style="--c:#ffd24a"></i><span data-text="legend.worldBoss">World Boss</span></div><div><i class="lg diamond" style="--c:#ff4949"></i><span data-text="legend.boss">Boss</span></div><div><i class="lg square" style="--c:#cf9aff"></i><span data-text="legend.stone">Spirit Stone</span></div><div><i class="lg triangle" style="--c:#ffac42"></i><span data-text="legend.alpha">Alpha</span></div><div><i class="lg dot" style="--c:#d6c69c"></i><span data-text="legend.monster">Monster</span></div><div><i class="lg dot" style="--c:#ffd24a"></i><span data-text="legend.loot">Rare loot</span></div></div><div id="zname"></div><div id="zinfo"></div>
+    <div id="mapbtns"><button data-open="invp" title="Inventory (I)" data-title-text="panel.inventoryShortcut">🎒</button><button data-open="skillp" title="Skills (K)" data-title-text="panel.skillsShortcut">📜</button><button data-open="teamw" title="Team (Y)" data-title-text="panel.teamShortcut">👥</button><button data-open="worldw" title="World information" data-title-text="panel.worldInfo">🗺️</button><button data-open="chronw" title="Chronicle (H)" data-title-text="panel.chronicleShortcut">🏛️</button><button data-open="setw" title="Settings (O)" data-title-text="panel.settingsShortcut">⚙️</button></div></div>
+  <div id="chat">
+    <div id="log"></div>
+    <div id="chat-tabs" role="group" aria-label="Chat filters" data-label-text="chat.filters">
+      <button type="button" data-chat-filter="all" data-text="chat.all" aria-controls="log" aria-pressed="true">All</button>
+      <button type="button" data-chat-filter="player" data-text="chat.player" aria-controls="log" aria-pressed="false">Chat</button>
+      <button type="button" data-chat-filter="loot" data-text="chat.loot" aria-controls="log" aria-pressed="false">Loot</button>
+      <button type="button" data-chat-filter="combat" data-text="chat.combat" aria-controls="log" aria-pressed="false">Combat</button>
+      <button type="button" data-chat-filter="system" data-text="chat.system" aria-controls="log" aria-pressed="false">System</button>
+    </div>
+    <input id="chatin" maxlength="120" placeholder="Say something… (/help for commands)" data-placeholder-text="chat.placeholder">
+  </div>
   <div class="panel" id="actionbar"><div id="hotbar">
     <div class="sk" data-sk="1"><span class="ic"></span><b class="key">1</b><i class="rk"></i><u></u><div class="nm"></div></div>
-    <div class="sk" data-sk="2"><span class="ic">💚</span><b class="key">2</b><i class="rk"></i><u></u><div class="nm"></div></div>
-    <div class="sk" data-sk="3"><span class="ic">🔥</span><b class="key">3</b><i class="rk"></i><u></u><div class="nm"></div></div><div class="gap"></div>
-    <div class="sk" data-it="hp"><span class="ic">❤️</span><b class="key">Q</b><em></em><div class="nm">Health</div></div>
-    <div class="sk" data-it="mp"><span class="ic">💧</span><b class="key">E</b><em></em><div class="nm">Mana</div></div>
-    <div class="sk" data-it="hp2"><span class="ic">💖</span><b class="key">R</b><em></em><div class="nm">Greater HP</div></div>
-    <div class="sk" data-it="ret"><span class="ic">🏠</span><b class="key">T</b><em></em><div class="nm">Return</div></div></div>
+    <div class="sk" data-sk="2"><span class="ic"></span><b class="key">2</b><i class="rk"></i><u></u><div class="nm"></div></div>
+    <div class="sk" data-sk="3"><span class="ic"></span><b class="key">3</b><i class="rk"></i><u></u><div class="nm"></div></div><div class="gap"></div>
+    <div class="sk" data-it="hp"><span class="ic"></span><b class="key">Q</b><em></em><div class="nm"><span data-text="hotbar.health">Health</span></div></div>
+    <div class="sk" data-it="mp"><span class="ic"></span><b class="key">E</b><em></em><div class="nm"><span data-text="hotbar.mana">Mana</span></div></div>
+    <div class="sk" data-it="hp2"><span class="ic"></span><b class="key">R</b><em></em><div class="nm"><span data-text="hotbar.greaterHealth">Greater HP</span></div></div>
+    <div class="sk" data-it="ret"><span class="ic"></span><b class="key">T</b><em></em><div class="nm"><span data-text="hotbar.return">Return</span></div></div></div>
     <div class="bar" id="xpbar"><i></i><span></span></div></div>
   <div id="prompt"></div>
 </div>
 
-<div class="win panel" id="invp" style="left:12px;top:120px;width:372px"><div class="win-h"><b>Inventory</b><span><span id="gld" style="color:#ffd77a;font-size:12px;margin-right:8px"></span><button class="x" data-close>✕</button></span></div><div class="win-b">
-  <div class="hd2" style="margin-top:0">Equipped</div><div id="eqwrap"></div><div id="gst"></div>
-  <div class="hd2">Bag <span id="bagc" class="mu" style="text-transform:none"></span><span><button id="mergeBtn" title="Pick 3 bag items of the same colour (any slot, any level) and fuse them into 1 item of the next colour at your level ±20%">⚗ Merge</button> <button id="autoMerge" title="Merge every set of 3 common / uncommon items">Auto ≤ green</button> <button id="autoMerge2" title="Merge every set of 3 common / uncommon / rare items">Auto ≤ blue</button></span></div>
-  <div id="mergebar"><span id="mergeinfo"></span><button id="mergeGo" class="pri" disabled>Merge!</button></div><div id="bag"></div><div id="bagfull" style="font-size:11px;margin-top:4px"></div>
-  <div class="hd2">Consumables <span class="mu" style="text-transform:none">click to use</span></div><div id="inl"></div></div></div>
-<div class="win panel" id="skillp" style="left:400px;top:120px;width:340px"><div class="win-h"><b>Skills</b><span><span id="spn" style="font-size:12px;margin-right:8px"></span><button class="x" data-close>✕</button></span></div><div class="win-b" id="skl"></div></div>
-<div class="win panel" id="shopw" style="right:210px;top:120px;width:340px"><div class="win-h"><b>🏪 Merchant</b><button class="x" data-close>✕</button></div><div class="win-b">
-  <div class="mu" style="font-size:12px;margin-bottom:6px">"Potions, elixirs and scrolls! I also buy your unwanted gear."</div><div id="shl"></div>
-  <div class="hd2">Sell gear</div><div class="row"><div class="t">Sell all common &amp; uncommon<small>Or Shift-click / right-click a bag item while I'm open</small></div><button id="junk">Sell junk</button></div>
-  <div class="row"><div class="t">Sell everything up to rare<small>Keeps epic &amp; legendary</small></div><button id="junk2">Sell ≤ blue</button></div></div></div>
-<div class="win panel" id="smithw" style="right:210px;top:120px;width:380px"><div class="win-h"><b>⚒ Blacksmith</b><button class="x" data-close>✕</button></div><div class="win-b">
-  <div class="mu" style="font-size:12px;margin-bottom:6px">"Bring me any piece of gear. Every + adds 10% to its stats (weapons +15% damage). From +5 a failure costs a level."</div>
-  <div class="hd2" style="margin-top:2px">Pick an item</div><div id="smpick" style="display:grid;grid-template-columns:repeat(8,1fr);gap:5px"></div>
-  <div id="smcard" style="margin-top:10px"></div><button id="smgo" class="pri" style="width:100%;margin-top:8px" disabled>Upgrade</button><div id="smres"></div></div></div>
-<div class="win panel" id="setw" style="left:50%;top:80px;width:400px;margin-left:-200px"><div class="win-h"><b>⚙ Settings</b><button class="x" data-close>✕</button></div><div class="win-b">
-  <div class="tabs"><button data-stab="snd" class="on">🔊 Sound</button><button data-stab="gfx">🖥 Graphics</button><button data-stab="keys">⌨ Key bindings</button></div>
+<div id="game-windows">
+<div class="win panel" id="invp" style="left:12px;top:120px;width:372px"><div class="win-h"><b><span data-text="panel.inventory">Inventory</span></b><span><span id="gld" style="color:#ffd77a;font-size:0.75rem;margin-right:8px"></span><button class="x" data-close>✕</button></span></div><div class="win-b">
+  <div class="hd2" style="margin-top:0"><span data-text="inventory.equipped">Equipped</span></div><div id="eqwrap"></div><div id="gst"></div>
+  <div class="hd2"><span data-text="inventory.bag">Bag </span><span id="bagc" class="mu" style="text-transform:none"></span><span><button id="mergeBtn" title="Fuse items of one colour into 1 item of the next colour (item level = average of the merged items): 2 common, 3 uncommon, 4 rare, 5 epic or 15 legendary" data-title-text="inventory.mergeHintCounts"><span data-text="inventory.merge">⚗ Merge</span></button> <button id="autoMerge" title="Merge every common and uncommon set (2 common, 3 uncommon)" data-title-text="inventory.autoGreenHintCounts"><span data-text="inventory.autoGreen">Auto ≤ green</span></button> <button id="autoMerge2" title="Merge every set up to rare (2 common, 3 uncommon, 4 rare)" data-title-text="inventory.autoBlueHintCounts"><span data-text="inventory.autoBlue">Auto ≤ blue</span></button> <button id="autoMerge3" title="Merge every set up to epic - 5 epics become a legendary" data-title-text="inventory.autoPurpleHintCounts"><span data-text="inventory.autoPurple">Auto ≤ purple</span></button> <button id="autoMerge4" title="Merge every set up to legendary - 15 legendaries become a mythic" data-title-text="inventory.autoOrangeHint"><span data-text="inventory.autoOrange">Auto ≤ orange</span></button></span></div>
+  <div id="mergebar"><span id="mergeinfo"></span><button id="mergeGo" class="pri" disabled><span data-text="inventory.mergeConfirm">Merge!</span></button></div>
+  <div id="bag-tools">
+    <div class="bag-search-row"><input id="bag-search" type="search" maxlength="128" autocomplete="off" aria-label="Search bag" placeholder="Search bag…" data-label-text="inventory.search" data-placeholder-text="inventory.searchPlaceholder"><button id="bag-clear" type="button" aria-label="Clear search" title="Clear search" data-label-text="inventory.clearSearch" data-title-text="inventory.clearSearch">✕</button></div>
+    <div class="bag-sort-row"><label for="bag-sort" data-text="inventory.sort">Sort</label><select id="bag-sort"></select><button id="bag-reset" type="button" data-text="inventory.resetAll">Reset all</button></div>
+    <details id="bag-filter-panel"><summary><span data-text="inventory.filters">Filters</span> <span id="bag-filter-count"></span></summary><div id="bag-filter-controls"></div></details>
+    <div id="bag-matches" role="status" aria-live="polite"></div>
+  </div>
+  <div id="bag-pages" class="tabs" role="group" aria-label="Bag pages" data-label-text="inventory.bagPages"></div><div id="bag"></div><div id="bagfull" style="font-size:0.6875rem;margin-top:4px"></div>
+</div></div>
+<div class="win panel" id="skillp" style="left:400px;top:120px;width:340px"><div class="win-h"><b><span data-text="panel.skills">Skills</span></b><span><span id="spn" style="font-size:0.75rem;margin-right:8px"></span><button class="x" data-close>✕</button></span></div><div class="win-b" id="skl"></div></div>
+<div class="win panel" id="shopw" style="right:210px;top:120px;width:340px"><div class="win-h"><b><span data-text="npc.merchant">🏪 Merchant</span></b><button class="x" data-close>✕</button></div><div class="win-b">
+  <div class="mu" style="font-size:0.75rem;margin-bottom:6px"><span data-text="shop.intro">"Potions, elixirs and scrolls! I also buy your unwanted gear."</span></div><div id="shl"></div>
+  <div class="hd2"><span data-text="shop.sellGear">Sell gear</span></div><div class="row"><div class="t"><span data-text="shop.sellCommon">Sell all common &amp; uncommon</span><small><span data-text="shop.sellHint">Or Shift-click / right-click a bag item while I'm open</span></small></div><button id="junk"><span data-text="shop.sellJunk">Sell junk</span></button></div>
+  <div class="row"><div class="t"><span data-text="shop.sellRare">Sell everything up to rare</span><small><span data-text="shop.keepRare">Keeps epic &amp; legendary</span></small></div><button id="junk2"><span data-text="shop.sellBlue">Sell ≤ blue</span></button></div></div></div>
+<div class="win panel" id="smithw" style="right:210px;top:120px;width:380px"><div class="win-h"><b><span data-text="npc.smith">⚒ Blacksmith</span></b><button class="x" data-close>✕</button></div><div class="win-b">
+  <div class="tabs" id="smtabs"><button data-smtab="up" class="on"><span data-text="smith.tabUpgrade">Upgrade</span></button><button data-smtab="myth"><span data-text="smith.tabMythic">Mythic merge</span></button></div>
+  <div id="smup">
+  <div class="mu" style="font-size:0.75rem;margin-bottom:6px"><span data-text="smith.intro">"Bring me any piece of gear. Every + adds 10% to its stats (weapons +15% damage). From +5 a failure costs a level."</span></div>
+  <div class="hd2" style="margin-top:2px"><span data-text="smith.pick">Pick an item</span></div><div id="smpick" style="display:grid;grid-template-columns:repeat(8,1fr);gap:5px"></div>
+  <div id="smcard" style="margin-top:10px"></div>
+  <div id="smith-actions">
+    <button id="smgo" class="pri" disabled><span data-text="smith.upgrade">Upgrade</span></button>
+    <button id="smauto" disabled><span data-text="smith.autoUpgrade">Auto Upgrade</span></button>
+  </div><div id="smres" aria-live="polite"></div></div>
+  <div id="smmyth" style="display:none">
+    <div class="mu" style="font-size:0.75rem;margin-bottom:6px"><span data-text="smith.mythicIntro">"Give me three Mythics you don't want and a million gold. I'll melt them into one new Mythic - any slot, at their average item level."</span></div>
+    <div class="hd2"><span data-text="smith.pickMythics">Pick 3 Mythics from your bag</span></div><div id="mmpick" class="pickgrid"></div>
+    <div id="mminfo" class="itemcard" style="margin-top:10px"></div>
+    <button id="mmgo" class="pri" style="width:100%;margin-top:8px" disabled><span data-text="smith.mythicGo">Fuse into a new Mythic</span></button><div id="mmres" aria-live="polite"></div>
+  </div></div></div>
+<div class="win panel" id="mysticw" style="right:210px;top:120px;width:380px"><div class="win-h"><b><span data-text="npc.mystic">🔮 Soul Mystic</span></b><span><span id="mysouls" style="color:#c9a0ff;font-size:0.8125rem;margin-right:8px"></span><button class="x" data-close>✕</button></span></div><div class="win-b">
+  <div class="tabs" id="mytabs"><button data-mytab="re" class="on"><span data-text="mystic.tabReroll">Reroll</span></button><button data-mytab="af"><span data-text="mystic.tabAffix">Affix</span></button></div>
+  <div id="myre">
+  <div class="mu" style="font-size:0.75rem;margin-bottom:6px"><span data-text="mystic.intro">"Bring me souls and I will reshape your gear. Every stat is rolled again - for better or worse."</span></div>
+  <div class="hd2" style="margin-top:2px"><span data-text="mystic.pick">Pick an item</span></div><div id="mypick" style="display:grid;grid-template-columns:repeat(8,1fr);gap:5px;max-height:220px;overflow:auto"></div>
+  <div id="mycard" style="margin-top:10px"></div><button id="mygo" class="pri" style="width:100%;margin-top:8px" disabled>Reroll</button><div id="myres"></div></div>
+  <div id="myaf" style="display:none">
+    <div class="mu" style="font-size:0.75rem;margin-bottom:6px"><span data-text="mystic.affixIntro">"A soul bound into a weapon, ring or amulet gives it a lasting gift - and a new name."</span></div>
+    <div class="hd2"><span data-text="mystic.pickAffixItem">Pick a weapon, ring or amulet</span></div><div id="afpick" class="pickgrid"></div>
+    <div class="hd2" style="margin-top:8px"><span data-text="mystic.pickAffix">Pick an affix</span></div><div id="afopts" class="afopts"></div>
+    <div id="afcard" style="margin-top:8px"></div><button id="afgo" class="pri" style="width:100%;margin-top:8px" disabled>Affix</button><button id="auto-affix-open" type="button" style="width:100%;margin-top:6px" disabled data-text="autoAffix.title">Auto Affix</button><div id="afres" aria-live="polite"></div>
+  </div></div></div>
+<div class="win panel" id="worldw" style="right:210px;top:300px;width:340px"><div class="win-h"><b><span data-text="panel.worldInfoTitle">🗺 World</span></b><button class="x" data-close>✕</button></div><div class="win-b" id="worldb"></div></div>
+<div id="uxconfirm" role="dialog" aria-modal="true" aria-labelledby="uxconfirm-msg"><div class="panel"><p id="uxconfirm-msg"></p><div class="row2"><button id="uxconfirm-yes" class="pri" type="button">OK</button><button id="uxconfirm-no" type="button"><span data-text="ux.cancel">Cancel</span></button></div></div></div>
+<div id="tutorial" class="panel" role="dialog" aria-labelledby="tut-title"><div class="tut-top"><b id="tut-title"></b><span id="tut-count" class="mu"></span></div><p id="tut-body"></p><div class="row2"><button id="tut-skip" type="button"><span data-text="tutorial.skip">Skip tutorial</span></button><span style="flex:1"></span><button id="tut-back" type="button"><span data-text="tutorial.back">Back</span></button><button id="tut-next" class="pri" type="button">Next</button></div></div>
+<div class="win panel" id="teamw" style="left:400px;top:120px;width:320px"><div class="win-h"><b><span data-text="panel.team">👥 Team</span></b><button class="x" data-close>✕</button></div><div class="win-b" id="teamb"></div></div>
+<div class="win panel" id="tradew" style="left:50%;top:80px;width:520px;margin-left:-260px"><div class="win-h"><b><span data-text="panel.trade">🤝 Trade</span></b><button class="x" data-close>✕</button></div><div class="win-b">
+  <div class="mu" id="trwith" style="margin-bottom:6px"></div>
+  <div class="trcols"><div><div class="hd2"><span data-text="trade.yourOffer">Your offer</span></div><div id="trmine" class="pickgrid trgrid"></div><label class="trgold">💰 <input id="trgold" type="number" min="0" step="1" placeholder="0"> <span data-text="trade.gold">gold</span></label></div>
+  <div><div class="hd2"><span data-text="trade.theirOffer">Their offer</span></div><div id="trtheirs" class="pickgrid trgrid"></div><div class="trgold">💰 <b id="trtheirgold">0g</b></div></div></div>
+  <div class="hd2" style="margin-top:8px"><span data-text="trade.yourBag">Your bag - click to offer</span></div><div id="trpick" class="pickgrid" style="max-height:170px;overflow:auto"></div>
+  <div id="trstate" style="margin-top:8px;font-size:0.8125rem"></div>
+  <div style="display:flex;gap:6px;margin-top:8px"><button id="trok" class="pri" style="flex:1"><span data-text="trade.accept">Accept trade</span></button><button id="trcancel"><span data-text="trade.cancel">Cancel</span></button></div>
+  <div class="mu" style="font-size:0.6875rem;margin-top:6px"><span data-text="trade.safety">Any change to an offer takes back both acceptances. Only bag items can be traded.</span></div>
+</div></div>
+<div id="askbar" class="panel"><span id="askmsg"></span><button data-ask="yes" class="pri"><span data-text="ask.accept">Accept</span></button><button data-ask="no"><span data-text="ask.decline">Decline</span></button></div>
+<div class="win panel" id="campw" style="left:50%;top:110px;width:400px;margin-left:-200px"><div class="win-h"><b><span data-text="npc.camp">🏕 Encampment board</span></b><button class="x" data-close>✕</button></div><div class="win-b" id="campb"></div></div>
+<div class="win panel" id="portalw" style="left:50%;top:70px;margin-left:-390px"><div class="win-h"><b><span data-text="npc.portal">🌀 World Portal</span></b><button class="x" data-close>✕</button></div><div class="win-b" id="portalb"></div></div>
+<div class="win panel" id="chronw" style="left:50%;top:70px;width:460px;margin-left:-230px"><div class="win-h"><b><span data-text="panel.chronicle">🏛 Chronicle</span></b><button class="x" data-close>✕</button></div><div class="win-b" id="chronb"></div></div>
+<div class="win panel" id="setw" style="left:50%;top:80px;width:400px;margin-left:-200px"><div class="win-h"><b><span data-text="panel.settings">⚙ Settings</span></b><button class="x" data-close>✕</button></div><div class="win-b">
+  <div class="tabs"><button data-stab="snd" class="on"><span data-text="settings.sound">🔊 Sound</span></button><button data-stab="gfx"><span data-text="settings.graphics">🖥 Graphics</span></button><button data-stab="keys"><span data-text="settings.keys">⌨ Key bindings</span></button><button data-stab="log"><span data-text="settings.log">Chat log</span></button></div>
   <div data-spage="snd">
-    <div class="row"><div class="t">Master volume</div></div><div class="vrow"><input type="range" id="vol" min="0" max="100"><span id="volv"></span></div>
-    <div class="row"><div class="t">Combat sounds<small>Hits, spells, monsters</small></div></div><div class="vrow"><input type="range" id="volc" min="0" max="100"><span id="volcv"></span></div>
-    <div class="row"><div class="t">Interface sounds<small>Clicks, loot, coins, level-ups</small></div></div><div class="vrow"><input type="range" id="volu" min="0" max="100"><span id="voluv"></span></div>
-    <div class="row"><div class="t">Mute everything</div><input type="checkbox" id="mutechk" style="width:auto;margin:0"></div></div>
+    <div class="row"><div class="t"><span data-text="settings.masterVolume">Master volume</span></div></div><div class="vrow"><input type="range" id="vol" min="0" max="100"><span id="volv"></span></div>
+    <div class="row"><div class="t"><span data-text="settings.combatVolume">Combat sounds</span><small><span data-text="settings.combatHint">Hits, spells, monsters</span></small></div></div><div class="vrow"><input type="range" id="volc" min="0" max="100"><span id="volcv"></span></div>
+    <div class="row"><div class="t"><span data-text="settings.interfaceVolume">Interface sounds</span><small><span data-text="settings.interfaceHint">Clicks, loot, coins, level-ups</span></small></div></div><div class="vrow"><input type="range" id="volu" min="0" max="100"><span id="voluv"></span></div>
+    <label class="row"><span class="t" data-text="settings.mute">Mute everything</span><input type="checkbox" id="mutechk"></label></div>
   <div data-spage="gfx" style="display:none">
-    <div class="row"><div class="t">Quality<small>Auto lowers resolution / shadows / view distance when the frame rate drops</small></div><select id="gfxsel"><option value="auto">Auto</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
-    <div class="row"><div class="t">Show FPS counter</div><input type="checkbox" id="fpschk" style="width:auto;margin:0"></div></div>
-  <div data-spage="keys" style="display:none"><div class="mu" style="font-size:12px;margin-bottom:6px">Click a key, then press the new key (Esc cancels). WASD / arrows always move, Enter opens chat.</div><div class="kb" id="kbl"></div>
-    <button id="kbreset" style="margin-top:8px;width:100%">Reset to defaults</button></div></div></div>
-<div id="dead">You died…<small id="deadsec"></small></div>
-<script src="engine.js"></script><script src="game.js"></script><script src="world.js"></script><script src="ui.js"></script>
+    <div class="row"><label class="t" data-text="settings.language">Language</label><select data-language aria-label="Language" data-label-text="settings.language"><option value="en">English</option><option value="hu">Magyar</option></select></div>
+    <div class="row text-scale-row">
+      <label for="text-scale" data-text="settings.textScale">Text size</label>
+      <output id="text-scale-value" for="text-scale">100%</output>
+      <input type="range" id="text-scale" min="85" max="130" step="5">
+    </div>
+    <div class="row"><div class="t"><span data-text="settings.quality">Quality</span><small><span data-text="settings.autoHint">Auto lowers resolution / shadows / view distance when the frame rate drops</span></small></div><select id="gfxsel"><option value="auto" data-text="quality.auto">Auto</option><option value="low" data-text="quality.low">Low</option><option value="medium" data-text="quality.medium">Medium</option><option value="high" data-text="quality.high">High</option></select></div>
+    <div class="row"><span class="t" data-text="settings.fpsLimit">Frame rate limit</span><select id="fpslimit"><option value="30">30 FPS</option><option value="60">60 FPS</option><option value="120">120 FPS</option><option value="0" data-text="settings.unlimited">Unlimited</option></select></div>
+    <div class="row"><span class="t" data-text="settings.resolution">3D resolution</span><select id="renderscale"><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option></select></div>
+    <div class="row"><span class="t" data-text="settings.shadows">Shadows</span><select id="shadowquality"><option value="off" data-text="common.off">Off</option><option value="low" data-text="quality.low">Low</option><option value="high" data-text="quality.high">High</option></select></div>
+    <label class="row"><span class="t" data-text="settings.fps">Show FPS counter</span><input type="checkbox" id="fpschk"></label>
+    <div class="hd2" style="margin-top:10px"><span data-text="settings.accessibility">Interface and accessibility</span></div>
+    <label class="row"><span class="t"><span data-text="settings.rarityMarks">Rarity letters on items</span><small><span data-text="settings.rarityMarksHint">C U R E L M in the corner of each item, so rarity does not depend on colour</span></small></span><input type="checkbox" id="rarity-marks"></label>
+    <label class="row"><span class="t"><span data-text="settings.reduceMotion">Reduce motion</span><small><span data-text="settings.reduceMotionHint">No camera shake or strong red flashes; damage numbers barely move</span></small></span><input type="checkbox" id="reduce-motion"></label>
+    <div class="row"><button id="tutorial-again" type="button"><span data-text="settings.tutorialAgain">Show the tutorial again</span></button><button id="windows-reset" type="button"><span data-text="settings.windowsReset">Reset window positions</span></button></div></div>
+  <div data-spage="log" style="display:none">
+    <div class="mu" data-text="settings.logHint">Choose which messages appear in the chat log. Floating text and notifications stay visible.</div>
+    <label class="row"><span class="t" data-text="settings.logDamageDealt">Damage dealt</span><input type="checkbox" data-log-option="damageDealt"></label>
+    <label class="row"><span class="t" data-text="settings.logDamageTaken">Damage taken</span><input type="checkbox" data-log-option="damageTaken"></label>
+    <label class="row"><span class="t" data-text="settings.logHealing">Healing</span><input type="checkbox" data-log-option="healing"></label>
+    <label class="row"><span class="t" data-text="settings.logLoot">Loot messages</span><input type="checkbox" data-log-option="loot"></label>
+    <label class="row"><span class="t" data-text="settings.logSystem">System messages</span><input type="checkbox" data-log-option="system"></label>
+  </div>
+  <div data-spage="keys" style="display:none"><div class="mu" style="font-size:0.75rem;margin-bottom:6px"><span data-text="settings.keysHint">Click a key, then press the new key (Esc cancels). WASD or ↑/↓ move. ←/→ turn the camera. Enter opens chat.</span></div><div class="kb" id="kbl"></div>
+    <button id="kbreset" style="margin-top:8px;width:100%"><span data-text="settings.resetKeys">Reset to defaults</span></button></div></div></div>
+</div>
+<dialog id="smith-auto-dialog" class="panel" aria-labelledby="smith-auto-title" aria-describedby="smith-auto-message">
+  <form method="dialog">
+    <h2 id="smith-auto-title" data-text="smith.autoUpgrade">Auto Upgrade</h2>
+    <p id="smith-auto-message"></p>
+    <div class="smith-dialog-actions">
+      <button value="cancel" autofocus data-text="smith.autoCancel">Cancel</button>
+      <button class="pri" value="confirm" data-text="smith.autoStart">Start upgrading</button>
+    </div>
+  </form>
+</dialog>
+<div id="dead"><span data-text="hud.died">You died…</span><small id="deadsec"></small></div>
+<div id="bag-item-menu" class="panel" role="menu" hidden><button id="bag-destroy-action" class="danger" role="menuitem" type="button" data-text="inventory.destroy">Destroy item</button><button id="bag-menu-close" role="menuitem" type="button" data-text="ux.cancel">Cancel</button></div>
+<dialog id="bag-destroy-dialog" class="panel" aria-labelledby="bag-destroy-title" aria-describedby="bag-destroy-warning"><form method="dialog">
+  <h2 id="bag-destroy-title" data-text="inventory.destroyConfirm">Destroy this item?</h2><div id="bag-destroy-item"></div><p id="bag-destroy-warning" data-text="inventory.destroyWarning">This permanently removes the item. You receive nothing in return.</p>
+  <div id="bag-destroy-extra"><label><input id="bag-destroy-check" type="checkbox"><span data-text="inventory.destroyUnderstand">I understand this cannot be undone.</span></label><label for="bag-destroy-phrase" id="bag-destroy-phrase-label"></label><input id="bag-destroy-phrase" type="text" autocomplete="off" maxlength="32"></div>
+  <div class="bag-dialog-actions"><button value="cancel" autofocus data-text="ux.cancel">Cancel</button><button id="bag-destroy-confirm" class="danger" type="button" disabled data-text="inventory.destroy">Destroy item</button></div>
+</form></dialog>
+<div class="win panel" id="journalw" style="left:50%;top:90px;width:470px;margin-left:-235px"><div class="win-h"><b data-text="adventure.title">Adventurer's Journal</b><button class="x" data-close aria-label="Close" data-label-text="autoAffix.close">✕</button></div><div class="win-b">
+  <div class="tabs"><button type="button" id="journal-contracts" data-text="adventure.contracts">Village contracts</button><button type="button" id="journal-bestiary" data-text="adventure.bestiary">Bestiary</button><button type="button" id="journal-refresh" data-text="adventure.refresh">Refresh</button></div>
+  <label id="journal-search-label"><span data-text="adventure.search">Search discovered enemies</span><input id="journal-search" type="search" maxlength="80" autocomplete="off"></label><div id="journal-content" aria-live="polite"></div>
+</div></div>
+<div class="win panel" id="autoaffixw" style="left:50%;top:90px;width:420px;margin-left:-210px"><div class="win-h"><b data-text="autoAffix.title">Auto Affix</b><button type="button" class="x" data-close aria-label="Close Auto Affix" data-label-text="autoAffix.close">✕</button></div><div class="win-b">
+  <label for="aa-item" data-text="autoAffix.item">Selected item</label><select id="aa-item"></select><div id="aa-card"></div>
+  <div class="aa-fields"><label><span data-text="autoAffix.target">Target affix</span><select id="aa-key"></select></label><label><span data-text="autoAffix.minimum">Minimum acceptable value (%)</span><input id="aa-min" type="number" min="0" step="0.1" inputmode="decimal"></label><label><span data-text="autoAffix.maxAttempts">Maximum attempts</span><input id="aa-attempts" type="number" min="1" step="1" value="100"></label><label><span data-text="autoAffix.maxSouls">Maximum Souls spending</span><input id="aa-budget" type="number" min="0" step="1" value="1000"></label></div>
+  <div id="aa-estimate"></div><p id="aa-notice" role="status" aria-live="polite"></p><h3 id="aa-status-title" data-text="autoAffix.statistics">Live / last run statistics</h3><div id="aa-statistics"></div>
+  <p class="aa-help" data-text="autoAffix.safety">Closing this window cancels rolling. Best roll is informational only; the last roll stays on the item.</p><div class="aa-actions"><button type="button" id="aa-start" class="pri" disabled data-text="autoAffix.start">Start rolling</button><button type="button" id="aa-stop" disabled data-text="autoAffix.stop">Stop rolling</button><button type="button" data-close data-text="autoAffix.close">Close window</button></div>
+</div></div>
+<script src="text.js"></script><script src="locales/hu.js"></script><script src="engine.js"></script><script src="state-delta.js"></script><script src="settlement.js"></script><script src="bag-view.js"></script><script src="forge-math.js"></script><script src="affix-math.js"></script><script src="affix-usage.js"></script><script src="resource-bars.js"></script><script src="game.js"></script><script src="village-kit.js"></script><script src="village.js"></script><script src="equipment-kit.js"></script><script src="vegetation.js"></script><script src="world.js"></script><script src="ui.js"></script><script src="portal-ui.js"></script><script src="inventory-qol.js"></script><script src="auto-affix-ui.js"></script><script src="ux.js"></script><script src="adventure-ui.js"></script><script src="responsive-ui.js"></script>
 </body></html>

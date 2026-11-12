@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.MONSTER_POLICY = exports.COMBAT_POLICY = exports.LOOT_POLICY = exports.GOLD_POLICY = exports.PROGRESSION_POLICY = exports.SETTLEMENT_ECONOMY = exports.BASE_RATES = exports.DEFAULT_FORGE_POLICY = void 0;
+var forge_1 = require("../../shared/generated/forge");
+Object.defineProperty(exports, "DEFAULT_FORGE_POLICY", { enumerable: true, get: function () { return forge_1.DEFAULT_FORGE_POLICY; } });
+const registry_1 = require("./registry");
+exports.BASE_RATES = Object.freeze({ xpRate: 1, goldRate: 1, gearDropRate: .8, potionDropRate: 1, rarityBoost: 0, monsterHp: 1.6, monsterDamage: 1.4, deathZoneMonsters: 1800, deathGoldLoss: .05, deathGoldKillCap: 12, respawnSeconds: 11 });
+exports.SETTLEMENT_ECONOMY = (0, registry_1.freeze)({ version: 1, baseCosts: { merchant: 250000, smith: 400000, mystic: 400000 }, startingTier: 8, scalingCoefficient: .06, scalingExponent: .7 });
+exports.PROGRESSION_POLICY = Object.freeze({ wisdomMultiplier: 1.5 });
+exports.GOLD_POLICY = Object.freeze({ normalCostFraction: .065, variation: .20 });
+exports.LOOT_POLICY = Object.freeze({ gearBaseChance: .14, gearTierIncrement: .02 });
+exports.COMBAT_POLICY = Object.freeze({ recoveryDamageMultiplier: 1.25 });
+exports.MONSTER_POLICY = Object.freeze({ hpPerDepth: .05, damagePerDepth: .08, worldExponent: .7 });

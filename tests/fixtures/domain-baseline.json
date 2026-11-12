@@ -1,0 +1,823 @@
+{
+  "baselineCommit": "142ecac",
+  "seed": "DOMAIN-REGRESSION",
+  "history": {
+    "elements": {},
+    "bossKills": {},
+    "stones": 0,
+    "deaths": 0,
+    "mythics": 0,
+    "events": 0
+  },
+  "resourceCases": [
+    {
+      "value": 50,
+      "maximum": 100,
+      "amount": 20,
+      "healed": 70,
+      "damaged": 30,
+      "percent": 50
+    },
+    {
+      "value": 99.5,
+      "maximum": 100,
+      "amount": 1,
+      "healed": 100,
+      "damaged": 98.5,
+      "percent": 99.5
+    },
+    {
+      "value": 10,
+      "maximum": 100,
+      "amount": 20,
+      "healed": 30,
+      "damaged": -10,
+      "percent": 10
+    },
+    {
+      "value": -5,
+      "maximum": 100,
+      "amount": 2,
+      "healed": -3,
+      "damaged": -7,
+      "percent": 0
+    }
+  ],
+  "worlds": [
+    {
+      "generatorVersion": 1,
+      "tier": 8,
+      "descriptor": {
+        "tier": 8,
+        "kind": "frontier",
+        "playable": false,
+        "biome": "necropolis",
+        "element": "undead",
+        "name": "Quorenros Necropolis",
+        "levels": [
+          60,
+          81
+        ],
+        "families": [
+          "skeleton",
+          "shade",
+          "wraith"
+        ],
+        "stones": 26,
+        "modifiers": [
+          "swift-packs"
+        ],
+        "worldBoss": {
+          "type": "wb8",
+          "archetype": "boneking",
+          "name": "Quororen Gravecaller",
+          "signature": "summon"
+        },
+        "generatorVersion": 1,
+        "levelRangeVersion": 1,
+        "snapshot": {
+          "elements": {},
+          "bossKills": {},
+          "stones": 0,
+          "deaths": 0,
+          "mythics": 0,
+          "events": 0
+        }
+      }
+    },
+    {
+      "generatorVersion": 1,
+      "tier": 100,
+      "descriptor": {
+        "tier": 100,
+        "kind": "frontier",
+        "playable": false,
+        "biome": "glacier",
+        "element": "frost",
+        "name": "Moruren Frostmarch",
+        "levels": [
+          3065,
+          3105
+        ],
+        "families": [
+          "icegolem",
+          "frostfang",
+          "yeti"
+        ],
+        "stones": 40,
+        "modifiers": [
+          "restless-dead",
+          "long-nights",
+          "thin-air"
+        ],
+        "worldBoss": {
+          "type": "wb100",
+          "archetype": "frostwyrm",
+          "name": "Selarros the Rimebound",
+          "signature": "breath"
+        },
+        "generatorVersion": 1,
+        "levelRangeVersion": 1,
+        "snapshot": {
+          "elements": {},
+          "bossKills": {},
+          "stones": 0,
+          "deaths": 0,
+          "mythics": 0,
+          "events": 0
+        }
+      }
+    },
+    {
+      "generatorVersion": 1,
+      "tier": 10000,
+      "descriptor": {
+        "tier": 10000,
+        "kind": "frontier",
+        "playable": false,
+        "biome": "volcanic",
+        "element": "fire",
+        "name": "Halegath Caldera",
+        "levels": [
+          10000,
+          10000
+        ],
+        "families": [
+          "drake",
+          "golem",
+          "hellhound"
+        ],
+        "stones": 40,
+        "modifiers": [
+          "thin-air",
+          "restless-dead",
+          "rich-veins"
+        ],
+        "worldBoss": {
+          "type": "wb10000",
+          "archetype": "elderdrake",
+          "name": "Ithaezul Flamecaller",
+          "signature": "breath"
+        },
+        "generatorVersion": 1,
+        "levelRangeVersion": 1,
+        "snapshot": {
+          "elements": {},
+          "bossKills": {},
+          "stones": 0,
+          "deaths": 0,
+          "mythics": 0,
+          "events": 0
+        }
+      }
+    },
+    {
+      "generatorVersion": 2,
+      "tier": 8,
+      "descriptor": {
+        "tier": 8,
+        "kind": "frontier",
+        "playable": false,
+        "biome": "wildwood",
+        "element": "beast",
+        "name": "Balaeros Wildwood",
+        "levels": [
+          60,
+          81
+        ],
+        "families": [
+          "spider",
+          "boar",
+          "wolf"
+        ],
+        "stones": 32,
+        "modifiers": [
+          "restless-dead"
+        ],
+        "worldBoss": {
+          "type": "wb8",
+          "archetype": "alphawolf",
+          "name": "Baleren the Ravenous",
+          "signature": "charge"
+        },
+        "difficulty": {
+          "worldAffixes": [
+            "restless-dead"
+          ],
+          "encounterAffixes": [],
+          "combatAffixes": [],
+          "anomalies": {
+            "budget": 1,
+            "enabled": false
+          }
+        },
+        "generatorVersion": 2,
+        "levelRangeVersion": 1,
+        "dangerSpec": {
+          "version": 1,
+          "profile": "wildwood",
+          "parameters": {
+            "baseline": 0.4,
+            "noise": 0.17,
+            "territories": 4,
+            "extremes": 1,
+            "respites": 4
+          },
+          "noiseSize": 8,
+          "noise": [
+            0.3692059866152704,
+            0.18011689092963934,
+            0.7282052240334451,
+            -0.6954401722177863,
+            0.9474517931230366,
+            -0.09916164958849549,
+            -0.5496035804972053,
+            -0.555364528670907,
+            0.9799496210180223,
+            -0.8571599517017603,
+            0.3213846222497523,
+            -0.7310463506728411,
+            0.1051815734244883,
+            0.8539011999964714,
+            0.2444474552758038,
+            0.8821032894775271,
+            -0.20733365882188082,
+            0.45750359632074833,
+            0.6558542652055621,
+            -0.665741431992501,
+            -0.42947558779269457,
+            -0.420284865424037,
+            0.8806658806279302,
+            -0.86764270439744,
+            -0.8815366514027119,
+            -0.666788904927671,
+            0.6939916163682938,
+            0.2283218433149159,
+            -0.23684372194111347,
+            0.9314859695732594,
+            -0.6238876986317337,
+            -0.45775212720036507,
+            -0.4245917182415724,
+            0.2727390299551189,
+            0.4718123818747699,
+            -0.012082372792065144,
+            0.5519035756587982,
+            0.3870503716170788,
+            -0.5634835851378739,
+            -0.21227170433849096,
+            -0.6232102429494262,
+            0.6839457787573338,
+            0.11843093251809478,
+            -0.2048053117468953,
+            0.9055989370681345,
+            -0.7569848685525358,
+            0.8348662792705,
+            0.27839388977736235,
+            -0.4084267052821815,
+            -0.935746037401259,
+            0.64606296364218,
+            -0.22158156894147396,
+            -0.33102038549259305,
+            0.05520152673125267,
+            0.4777937442995608,
+            -0.44229153636842966,
+            0.2424511006101966,
+            -0.8936272575519979,
+            -0.2918336186558008,
+            -0.5690804882906377,
+            0.23375476524233818,
+            -0.8979325341060758,
+            -0.21015615668147802,
+            -0.17641948675736785
+          ],
+          "threats": [
+            {
+              "id": "territory:0",
+              "x": 0.3799567448181807,
+              "y": 0.6317535650972821,
+              "radius": 0.11917711921269075,
+              "strength": 0.29874908629804847,
+              "kind": "territory"
+            },
+            {
+              "id": "territory:1",
+              "x": 0.7968661196925652,
+              "y": 0.2520999232370277,
+              "radius": 0.08351128600304947,
+              "strength": 0.34203321583569046,
+              "kind": "territory"
+            },
+            {
+              "id": "territory:2",
+              "x": 0.5663789073639377,
+              "y": 0.8634679697363851,
+              "radius": 0.1550707390229218,
+              "strength": 0.2898599429428578,
+              "kind": "territory"
+            },
+            {
+              "id": "territory:3",
+              "x": 0.3777055591850303,
+              "y": 0.678736308930036,
+              "radius": 0.15240796686615796,
+              "strength": 0.23031944699585438,
+              "kind": "territory"
+            },
+            {
+              "id": "anomaly:0",
+              "x": 0.613004397378303,
+              "y": 0.26075051130713106,
+              "radius": 0.05021545724361204,
+              "strength": 0.65,
+              "kind": "anomaly"
+            }
+          ],
+          "respites": [
+            {
+              "id": "respite:0",
+              "x": 0.4228872334191608,
+              "y": 0.8229160415041475,
+              "radius": 0.06366278525209054,
+              "strength": 0.42
+            },
+            {
+              "id": "respite:1",
+              "x": 0.5617278938134569,
+              "y": 0.7543414004746234,
+              "radius": 0.0934348716272507,
+              "strength": 0.42
+            },
+            {
+              "id": "respite:2",
+              "x": 0.3146940415456927,
+              "y": 0.23268593541612098,
+              "radius": 0.05546566616510972,
+              "strength": 0.42
+            },
+            {
+              "id": "respite:3",
+              "x": 0.2016023739442489,
+              "y": 0.7808037219684963,
+              "radius": 0.07360201691626572,
+              "strength": 0.42
+            }
+          ],
+          "routePhase": 3.3172919310270816
+        },
+        "progressionVersion": 1,
+        "snapshot": {
+          "elements": {},
+          "bossKills": {},
+          "stones": 0,
+          "deaths": 0,
+          "mythics": 0,
+          "events": 0
+        }
+      }
+    },
+    {
+      "generatorVersion": 2,
+      "tier": 100,
+      "descriptor": {
+        "tier": 100,
+        "kind": "frontier",
+        "playable": false,
+        "biome": "voidscar",
+        "element": "void",
+        "name": "Balemir Abyss",
+        "levels": [
+          3065,
+          3105
+        ],
+        "families": [
+          "voidknight",
+          "shade",
+          "voidweaver"
+        ],
+        "stones": 32,
+        "modifiers": [
+          "armored-elites",
+          "twin-stones",
+          "rich-veins"
+        ],
+        "worldBoss": {
+          "type": "wb100",
+          "archetype": "deathlord",
+          "name": "Fenaelis the Unseen",
+          "signature": "meteor"
+        },
+        "difficulty": {
+          "worldAffixes": [
+            "armored-elites",
+            "twin-stones",
+            "rich-veins"
+          ],
+          "encounterAffixes": [],
+          "combatAffixes": [],
+          "anomalies": {
+            "budget": 1,
+            "enabled": false
+          }
+        },
+        "generatorVersion": 2,
+        "levelRangeVersion": 1,
+        "dangerSpec": {
+          "version": 1,
+          "profile": "voidscar",
+          "parameters": {
+            "baseline": 0.52,
+            "noise": 0.2,
+            "territories": 6,
+            "extremes": 3,
+            "respites": 2
+          },
+          "noiseSize": 8,
+          "noise": [
+            -0.3663390469737351,
+            0.20318946428596973,
+            -0.7624791949056089,
+            0.8236832655966282,
+            0.9193103327415884,
+            0.34988930355757475,
+            0.6012937244959176,
+            0.7478489843197167,
+            0.20983596611768007,
+            0.17345090070739388,
+            0.3162314025685191,
+            0.9185969843529165,
+            -0.00601379806175828,
+            0.9630811400711536,
+            0.23638484859839082,
+            -0.3110041003674269,
+            0.9562196107581258,
+            -0.2668957430869341,
+            -0.4811717374250293,
+            0.27984971133992076,
+            0.9111264203675091,
+            -0.3842539703473449,
+            -0.3380660102702677,
+            0.1579203517176211,
+            -0.4108374919742346,
+            0.7609273218549788,
+            0.6562769757583737,
+            0.2819119365885854,
+            0.07974497973918915,
+            0.3858577087521553,
+            0.7706243442371488,
+            -0.19764755386859179,
+            0.0431642634794116,
+            -0.8704506400972605,
+            0.7833044156432152,
+            -0.06423339527100325,
+            0.2590344185009599,
+            0.9740891768597066,
+            -0.6450024880468845,
+            0.5490843988955021,
+            0.44331783801317215,
+            0.4118216806091368,
+            0.6571306730620563,
+            0.59360939450562,
+            -0.04275229386985302,
+            0.020883196499198675,
+            -0.19811358070001006,
+            -0.422739673871547,
+            -0.9651959002949297,
+            0.44154922757297754,
+            -0.49438062589615583,
+            -0.3934758002869785,
+            -0.033374677412211895,
+            -0.7584951384924352,
+            -0.8520180755294859,
+            -0.4981030118651688,
+            0.001243633683770895,
+            0.9585602818988264,
+            -0.7446801881305873,
+            -0.3578039729036391,
+            -0.10138156404718757,
+            0.8860915713012218,
+            0.8797172531485558,
+            -0.5954186054877937
+          ],
+          "threats": [
+            {
+              "id": "territory:0",
+              "x": 0.7202169070949876,
+              "y": 0.14600990803604308,
+              "radius": 0.15148125746985897,
+              "strength": 0.22901643831282856,
+              "kind": "territory"
+            },
+            {
+              "id": "territory:1",
+              "x": 0.6770243277178284,
+              "y": 0.15983730312853678,
+              "radius": 0.1467751607997343,
+              "strength": 0.22693463187664747,
+              "kind": "territory"
+            },
+            {
+              "id": "territory:2",
+              "x": 0.8341522698851905,
+              "y": 0.6212880673669711,
+              "radius": 0.10782795136561618,
+              "strength": 0.3539216980338097,
+              "kind": "territory"
+            },
+            {
+              "id": "territory:3",
+              "x": 0.7456713528766648,
+              "y": 0.7133354365424946,
+              "radius": 0.12644849114585668,
+              "strength": 0.22938070695847274,
+              "kind": "territory"
+            },
+            {
+              "id": "territory:4",
+              "x": 0.20921500497792633,
+              "y": 0.6020794277273878,
+              "radius": 0.11709491936955602,
+              "strength": 0.22100121293216946,
+              "kind": "territory"
+            },
+            {
+              "id": "territory:5",
+              "x": 0.13784408882789323,
+              "y": 0.44793375118604223,
+              "radius": 0.10331930567976087,
+              "strength": 0.25417037393897773,
+              "kind": "territory"
+            },
+            {
+              "id": "anomaly:0",
+              "x": 0.11627557283731349,
+              "y": 0.5193116692391107,
+              "radius": 0.06282178143272177,
+              "strength": 0.65,
+              "kind": "anomaly"
+            },
+            {
+              "id": "anomaly:1",
+              "x": 0.13463990827580008,
+              "y": 0.5650875797306443,
+              "radius": 0.04606778535991907,
+              "strength": 0.65,
+              "kind": "anomaly"
+            },
+            {
+              "id": "anomaly:2",
+              "x": 0.5639941359508065,
+              "y": 0.740014187022769,
+              "radius": 0.07061517697409726,
+              "strength": 0.65,
+              "kind": "anomaly"
+            }
+          ],
+          "respites": [
+            {
+              "id": "respite:0",
+              "x": 0.2656025841620906,
+              "y": 0.6138090842306109,
+              "radius": 0.08145965286297724,
+              "strength": 0.42
+            },
+            {
+              "id": "respite:1",
+              "x": 0.772013376422725,
+              "y": 0.6856368930945105,
+              "radius": 0.09794519460527226,
+              "strength": 0.42
+            }
+          ],
+          "routePhase": 2.2635845577369307
+        },
+        "progressionVersion": 1,
+        "snapshot": {
+          "elements": {},
+          "bossKills": {},
+          "stones": 0,
+          "deaths": 0,
+          "mythics": 0,
+          "events": 0
+        }
+      }
+    },
+    {
+      "generatorVersion": 2,
+      "tier": 10000,
+      "descriptor": {
+        "tier": 10000,
+        "kind": "frontier",
+        "playable": false,
+        "biome": "voidscar",
+        "element": "void",
+        "name": "Zanath Voidscar",
+        "levels": [
+          10000,
+          10000
+        ],
+        "families": [
+          "voidknight",
+          "voidweaver",
+          "shade"
+        ],
+        "stones": 32,
+        "modifiers": [
+          "armored-elites",
+          "swift-packs",
+          "twin-stones"
+        ],
+        "worldBoss": {
+          "type": "wb10000",
+          "archetype": "deathlord",
+          "name": "Haluvyn Voidheart",
+          "signature": "meteor"
+        },
+        "difficulty": {
+          "worldAffixes": [
+            "armored-elites",
+            "swift-packs",
+            "twin-stones"
+          ],
+          "encounterAffixes": [],
+          "combatAffixes": [],
+          "anomalies": {
+            "budget": 1,
+            "enabled": false
+          }
+        },
+        "generatorVersion": 2,
+        "levelRangeVersion": 1,
+        "dangerSpec": {
+          "version": 1,
+          "profile": "voidscar",
+          "parameters": {
+            "baseline": 0.52,
+            "noise": 0.2,
+            "territories": 6,
+            "extremes": 3,
+            "respites": 2
+          },
+          "noiseSize": 8,
+          "noise": [
+            -0.11879922123625875,
+            -0.9825843167491257,
+            0.8750393600203097,
+            0.20006760954856873,
+            0.11178228864446282,
+            -0.7393095730803907,
+            0.005148452240973711,
+            -0.9041784624569118,
+            0.0028119697235524654,
+            0.39867697143927217,
+            0.6060644728131592,
+            -0.0138746895827353,
+            -0.5350597128272057,
+            -0.18038860894739628,
+            0.40119001222774386,
+            -0.023907209746539593,
+            -0.6471286215819418,
+            0.3551616012118757,
+            0.2901362073607743,
+            0.6270841639488935,
+            -0.9121039547026157,
+            -0.40934225358068943,
+            -0.22488175053149462,
+            0.8612691713497043,
+            0.9549862900748849,
+            0.15918111382052302,
+            0.012848179321736097,
+            -0.006041398737579584,
+            0.7944348342716694,
+            0.12341659097000957,
+            -0.8143676375038922,
+            0.8828794667497277,
+            -0.5584068414755166,
+            0.06215741252526641,
+            -0.5505901607684791,
+            0.4348082123324275,
+            0.4225923027843237,
+            0.9634160348214209,
+            0.49490251392126083,
+            -0.4784071771427989,
+            0.9785658395849168,
+            -0.12517886236310005,
+            0.8730700137093663,
+            -0.4895316818729043,
+            -0.24224303709343076,
+            0.4426909047178924,
+            -0.8711431422270834,
+            0.48067684145644307,
+            0.02602343214675784,
+            -0.4439835553057492,
+            -0.5014611524529755,
+            0.30083222314715385,
+            0.0007356209680438042,
+            0.7559063620865345,
+            -0.530952132306993,
+            -0.07638202421367168,
+            0.5998921715654433,
+            -0.7515087001956999,
+            -0.3181866481900215,
+            0.07440528692677617,
+            0.778890935704112,
+            -0.3682556743733585,
+            -0.07699339278042316,
+            -0.36419693380594254
+          ],
+          "threats": [
+            {
+              "id": "territory:0",
+              "x": 0.6746916113363295,
+              "y": 0.8671902053980313,
+              "radius": 0.12377655398566276,
+              "strength": 0.25298807363957165,
+              "kind": "territory"
+            },
+            {
+              "id": "territory:1",
+              "x": 0.3908341482840646,
+              "y": 0.7755835911421606,
+              "radius": 0.12034840900218115,
+              "strength": 0.24119969170540573,
+              "kind": "territory"
+            },
+            {
+              "id": "territory:2",
+              "x": 0.7054293910008863,
+              "y": 0.4559909375449134,
+              "radius": 0.13688439370831476,
+              "strength": 0.211446933709085,
+              "kind": "territory"
+            },
+            {
+              "id": "territory:3",
+              "x": 0.45872505146991566,
+              "y": 0.7148060963727345,
+              "radius": 0.15851367437746378,
+              "strength": 0.26781315725296734,
+              "kind": "territory"
+            },
+            {
+              "id": "territory:4",
+              "x": 0.7396165269431538,
+              "y": 0.22063369492881713,
+              "radius": 0.11512851004954427,
+              "strength": 0.30368979591876266,
+              "kind": "territory"
+            },
+            {
+              "id": "anomaly:0",
+              "x": 0.5336267781996367,
+              "y": 0.14267084333648944,
+              "radius": 0.06283263265620917,
+              "strength": 0.65,
+              "kind": "anomaly"
+            },
+            {
+              "id": "anomaly:1",
+              "x": 0.4411666985916112,
+              "y": 0.7842611728023825,
+              "radius": 0.06392424887046218,
+              "strength": 0.65,
+              "kind": "anomaly"
+            },
+            {
+              "id": "anomaly:2",
+              "x": 0.6449833413566656,
+              "y": 0.15898840259409314,
+              "radius": 0.05419523472315632,
+              "strength": 0.65,
+              "kind": "anomaly"
+            }
+          ],
+          "respites": [
+            {
+              "id": "respite:0",
+              "x": 0.8175630300431723,
+              "y": 0.3920205762488243,
+              "radius": 0.08584925828850828,
+              "strength": 0.42
+            },
+            {
+              "id": "respite:1",
+              "x": 0.3873706540815171,
+              "y": 0.7291509001173078,
+              "radius": 0.08514213911257684,
+              "strength": 0.42
+            }
+          ],
+          "routePhase": 5.24026505146761
+        },
+        "progressionVersion": 1,
+        "snapshot": {
+          "elements": {},
+          "bossKills": {},
+          "stones": 0,
+          "deaths": 0,
+          "mythics": 0,
+          "events": 0
+        }
+      }
+    }
+  ]
+}

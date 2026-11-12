@@ -1,0 +1,8 @@
+{
+  "forging": { "costBase": 200 },
+  "progression": { "wisdomMultiplier": 2 },
+  "gold": { "normalCostFraction": 0.13 },
+  "loot": { "gearBaseChance": 0.2 },
+  "combat": { "recoveryDamageMultiplier": 2 },
+  "monsters": { "hpPerDepth": 0.1, "damagePerDepth": 0.16 }
+}

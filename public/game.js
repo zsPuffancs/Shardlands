@@ -1,11 +1,14 @@
 // Shardlands 3D client core: world, models, camera, input, effects, networking.
 const $ = id => document.getElementById(id), D = GL.draw, M = GL.M;
-const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const esc = value => String(value).replace(/[&<>"']/g, character => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+})[character]);
 const hex = h => [parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255];
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-const RC_CSS = ['#d8d8d8', '#4ee26a', '#4da3ff', '#b25cff', '#ff9d2e'], RCV = RC_CSS.map(hex);
+const RC_CSS = ['#d8d8d8', '#4ee26a', '#4da3ff', '#b25cff', '#ff9d2e', '#ff4560'], RCV = RC_CSS.map(hex);
 let WORLD = null, ZT = [], I = null, me = null, pl = [], mo = [], lo = [], ws, sel = 'blade', keys = {}, held = false, lastHold = null, serverTm = 0, dt = 0.016, intent = null;
 const ents = new Map(), floaters = [], fxs = [], parts = [], labels = new Map();
+let serverReceivedAt = 0;
 const cam = { yaw: 0, pitch: 0.82, dist: 440, x: 3600, z: 3600, shake: 0 };
 const S = { rx: 0, ry: 0, x: 0, y: 0, yaw: 0, ph: 0, mv: 0, atkT: -9999, flash: 0, id: 0 };
 const send = o => ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
@@ -15,8 +18,44 @@ let seed = 1337; const R = () => (seed = (seed * 16807) % 2147483647) / 21474836
 let lamps = [], lava = [];
 function zoneOf(x, z) { const d = Math.hypot(x - WORLD.CX, z - WORLD.CY); if (d < WORLD.V) return -1; for (let i = 0; i < ZT.length; i++) if (d < ZT[i].max) return i; return ZT.length - 1; }
 const ZCOL = ['#4f7a38', '#2f4f2d', '#6b5f52', '#4d2620', '#c3d0db', '#2b1f3c', '#1c0f10'];
+// Generated regions borrow the scenery of a founding zone: a zone's "look" is that zone's index.
+const lookIndex = i => i < 0 ? i : (ZT[i].look === undefined ? i : ZT[i].look);
+const lookZoneOf = (x, z) => lookIndex(zoneOf(x, z));
+let snapNext = false;
+// Switch to (or refresh) the map this client is on. Positions are always local to the current map.
+function setWorld(world, arrived) {
+  const changed = !WORLD || world.map !== WORLD.map, shape = s => s && JSON.stringify([s.kind, s.style, s.layout, s.stalls, s.built]), rebuilt = !changed && shape(world.settlement) !== shape(WORLD.settlement);
+  const fundsChanged = !changed && !rebuilt && JSON.stringify(world.settlement && world.settlement.funds) !== JSON.stringify(WORLD.settlement && WORLD.settlement.funds);
+  const st = world.settlement || { kind: 'village', style: 'timber', built: {} };
+  world.layout = Settlement.layout(st.kind, st.style, st.built, st.layout, st.stalls);
+  WORLD = world; ZT = world.tiers;
+  window.PortalUI?.worldChanged(world);
+  // A stall was built on this map: redraw the settlement, keep everything else.
+  if (rebuilt) { bakeWorld(); buildGround(); if (isOpen('campw')) buildCamp(); }
+  // Only the donations changed: refresh the board, the 3D settlement stays as it is.
+  if (fundsChanged && isOpen('campw')) buildCamp();
+  if (!changed) return;
+  intent = null; pendingNpc = null; nearNpcK = null; held = false; lastHold = null;
+  keys = {}; lastDir = [0, 0]; rotating = false;
+  for (const label of labels.values()) label.el.remove(); labels.clear();
+  for (const key of Object.keys(MODEL)) if (/^wb\d+$/.test(key)) delete MODEL[key];
+  S.an = null; S.nodes = null; S.nodesMd = null; S.moveSpeed = 0; S.mv = 0; S.atkT = -9999; S.attackFacingUntil = 0;
+  for (const npc of Object.values(NPCE)) { npc.an = null; npc.nodes = null; npc.nodesMd = null; }
+  bakeWorld(); buildGround(); ents.clear(); fxs.length = 0; parts.length = 0; mobRows.clear(); mobIds = []; playerRows.clear(); lootRows.clear(); mo = []; lo = []; pl = [];
+  for (const f of floaters) f.el.remove(); floaters.length = 0; snapNext = true; lastZone = -9;
+  if (arrived) { banner(world.map ? zoneName(ZT[0].name) : text('portal.founding', 'The Founding Lands'), world.map ? text('portal.arrivedTier', 'World Tier {tier}', { tier: world.map + 7 }) : text('zone.safe', 'Safe zone')); sfx('lvl'); }
+}
+// The anvil on the Blacksmith's cart (village) or forge stall (encampment), behind the smith.
+function smithAnvilPosition() {
+  const anvil = typeof cartPoint === 'function' && cartPoint('smith', typeof VillageKit !== 'undefined' && VillageKit.isActive() ? -30 : -10, typeof VillageKit !== 'undefined' && VillageKit.isActive() ? 4 : 0);
+  if (anvil) return anvil;
+  const smith = WORLD.npcs.smith || { x: WORLD.CX, y: WORLD.CY };
+  return { x: smith.x, z: smith.y };
+}
+
+// ---- settlement: drawn by village.js (bakeSettlement, settlementLayout, paintSettlementGround) ----
 function bakeWorld() {
-  seed = 1337; const { W, H, CX, CY, V } = WORLD, B = GL.bakeAdd; lamps = []; lava = []; GL.bakeBegin();
+  seed = ((WORLD.universe && WORLD.universe.seedNumber) || 1337) + (WORLD.map || 0) * 7919; const zoneOf = lookZoneOf; const { W, H, CX, CY, V } = WORLD, B = GL.bakeAdd; lamps = []; lava = []; GL.bakeBegin();
   const NZ = ZT.length, roadEnd = ZT[Math.max(0, NZ - 2)].max, area = W * H / 25e6;
   const onRoad = (x, z, w) => [0, 1, 2, 3].some(k => { const a = k * 1.5708, px = Math.cos(a), pz = Math.sin(a), t = (x - CX) * px + (z - CY) * pz, dd = Math.abs((x - CX) * -pz + (z - CY) * px); return t > 0 && t < roadEnd && dd < (w || 46); });
   const G = (b, v) => { const k = (R() - .5) * v; return [b[0] + k, b[1] + k * 1.3, b[2] + k * .7]; }, up = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
@@ -68,49 +107,25 @@ function bakeWorld() {
     B(M.tuft, x, 0, z, 7 + R() * 4, 6 + R() * 6, 7 + R() * 4, r, 0, zn === 0 ? G([.3, .62, .24], .14) : G([.16, .38, .24], .08));
   }
   }
-  for (let i = 0; i < 110; i++) { const a = R() * 6.283, d = ZT[3].min + 50 + R() * (ZT[3].max - ZT[3].min - 100), x = CX + Math.cos(a) * d, z = CY + Math.sin(a) * d, r = 25 + R() * 55; if (onRoad(x, z, 80)) continue; lava.push({ x, z, r }); B(M.disc, x, .9, z, r, 1, r, 0, 0, [1, .36, .05], .95); B(M.ring, x, 1.1, z, r * 1.14, 1, r * 1.14, 0, 0, [.13, .09, .08]); }
+  if (NZ > 3) for (let i = 0; i < 110; i++) { const a = R() * 6.283, d = ZT[3].min + 50 + R() * (ZT[3].max - ZT[3].min - 100), x = CX + Math.cos(a) * d, z = CY + Math.sin(a) * d, r = 25 + R() * 55; if (onRoad(x, z, 80)) continue; lava.push({ x, z, r }); B(M.disc, x, .9, z, r, 1, r, 0, 0, [1, .36, .05], .95); B(M.ring, x, 1.1, z, r * 1.14, 1, r * 1.14, 0, 0, [.13, .09, .08]); }
   if (NZ > 6) for (let i = 0; i < 160; i++) { const x = R() * W, z = R() * H; if (zoneOf(x, z) !== 6) continue; const r = 25 + R() * 60; lava.push({ x, z, r }); B(M.disc, x, .9, z, r, 1, r, 0, 0, [.55, .04, .04], .9); B(M.ring, x, 1.1, z, r * 1.12, 1, r * 1.12, 0, 0, [.06, .03, .03]); }
   if (NZ > 4) for (let i = 0; i < 70; i++) { const a = R() * 6.283, d = ZT[4].min + 60 + R() * (ZT[4].max - ZT[4].min - 120), x = CX + Math.cos(a) * d, z = CY + Math.sin(a) * d, r = 30 + R() * 60; if (onRoad(x, z, 80)) continue; B(M.disc, x, .8, z, r, 1, r * .8, a, 0, [.7, .88, 1], .25); }
   const per = (W + H) * 2, step = 62; for (let t = 0; t < per; t += step) { const e = t % W, q = Math.floor(t / W), p = q === 0 ? [e, 0] : q === 1 ? [W, e] : q === 2 ? [W - e, H] : [0, H - e]; B(M.trunk, p[0], 0, p[1], 8, 100, 8, 0, 0, [.17, .14, .15]); B(M.octa, p[0], 112, p[1], 5.5, 11, 5.5, 0, 0, [1, .22, .12], 1); }
-  // ---- village ----
-  const roof = [[.68, .22, .16], [.24, .38, .58], [.5, .36, .16]], wood = [.38, .25, .14], stone = [.55, .55, .57];
-  for (let i = 0; i < 9; i++) {
-    const a = i / 9 * 6.2832 + 0.2, x = CX + Math.cos(a) * 158, z = CY + Math.sin(a) * 158, yaw = Math.atan2(CX - x, CY - z), c = Math.cos(yaw), s = Math.sin(yaw), at = (lx, lz) => [x + c * lx + s * lz, z - s * lx + c * lz];
-    B(M.box, x, 3, z, 50, 6, 40, yaw, 0, stone); B(M.box, x, 17, z, 46, 24, 36, yaw, 0, [.88, .8, .64]); B(M.box, x, 29, z, 48, 2.4, 38, yaw, 0, wood); B(M.gable, x, 29, z, 54, 22, 44, yaw, 0, roof[i % 3]);
-    for (const [lx, lz] of [[-23, 18], [23, 18], [-23, -18], [23, -18]]) { const q = at(lx, lz); B(M.box, q[0], 17, q[1], 2.6, 24, 2.6, yaw, 0, wood); }
-    let q = at(0, 18.6); B(M.box, q[0], 13, q[1], 10, 18, 1.4, yaw, 0, [.3, .19, .1]); q = at(3.4, 19.4); B(M.octa, q[0], 13, q[1], .9, .9, .9, 0, 0, [.9, .75, .3]);
-    for (const lx of [-14, 14]) { q = at(lx, 18.6); B(M.box, q[0], 18, q[1], 7, 7, 1.2, yaw, 0, [1, .85, .45], .8); q = at(lx, 19); B(M.box, q[0], 18, q[1], 8.4, 1, 1.4, yaw, 0, wood); B(M.box, q[0], 18, q[1], 1, 8.4, 1.4, yaw, 0, wood); }
-    q = at(13, -8); B(M.box, q[0], 46, q[1], 7, 14, 7, yaw, 0, [.5, .42, .4]);
-  }
-  for (let i = 0; i < 64; i++) {
-    const a = i / 64 * 6.2832, a2 = (i + 1) / 64 * 6.2832, off = Math.abs(((a + .049) % 1.5708) - .7854); if (off > .64) continue; const r = V - 4, x = CX + Math.cos(a) * r, z = CY + Math.sin(a) * r, x2 = CX + Math.cos(a2) * r, z2 = CY + Math.sin(a2) * r;
-    B(M.box, x, 8, z, 3.2, 16, 3.2, a, 0, wood); const am = (a + a2) / 2, yw = Math.atan2(-Math.cos(am), -Math.sin(am)), len = Math.hypot(x2 - x, z2 - z); B(M.box, (x + x2) / 2, 11, (z + z2) / 2, len, 2, 1.4, yw, 0, wood); B(M.box, (x + x2) / 2, 6, (z + z2) / 2, len, 2, 1.4, yw, 0, wood);
-  }
-  for (let i = 0; i < 12; i++) { const a = i / 12 * 6.2832 + .26, r = i % 3 === 0 ? 95 : V - 16, x = CX + Math.cos(a) * r, z = CY + Math.sin(a) * r; lamps.push({ x, z }); B(M.trunk, x, 0, z, 2, 30, 2, 0, 0, [.2, .2, .22]); B(M.box, x, 32, z, 6, 1, 6, 0, 0, [.2, .2, .22]); B(M.cone6, x, 38, z, 5, 4, 5, 0, 0, [.2, .2, .22]); }
-  for (let k = 0; k < 4; k++) { const a = k * 1.5708, px = Math.cos(a), pz = Math.sin(a); for (const s of [-1, 1]) { const x = CX + px * (V + 6) - pz * s * 34, z = CY + pz * (V + 6) + px * s * 34; B(M.trunk, x, 0, z, 2.4, 62, 2.4, 0, 0, wood); B(M.box, x, 46, z, 1.2, 26, 13, -a, 0, k % 2 ? [.75, .15, .15] : [.85, .68, .2], .1); B(M.octa, x, 65, z, 2.6, 4, 2.6, 0, 0, [.9, .75, .3]); } }
-  const wx = CX - 72, wz = CY + 68; B(M.cyl, wx, 0, wz, 16, 12, 16, 0, 0, stone); B(M.disc, wx, 10.4, wz, 13, 1, 13, 0, 0, [.2, .45, .8], .3); for (const s of [-1, 1]) B(M.box, wx + s * 14, 20, wz, 2.4, 40, 2.4, 0, 0, wood); B(M.gable, wx, 38, wz, 38, 10, 26, 0, 0, roof[0]); B(M.box, wx, 34, wz, 28, 1.6, 1.6, 0, 0, wood);
-  const sx = CX, sz = CY - 16; B(M.box, sx, 9, sz, 52, 18, 15, 0, 0, [.5, .33, .18]); B(M.box, sx, 18.6, sz, 55, 1.6, 18, 0, 0, [.62, .44, .25]); for (const s of [-1, 1]) for (const t of [-1, 1]) B(M.box, sx + s * 25, 24, sz + t * 10 - 4, 2.2, 48, 2.2, 0, 0, wood);
-  for (let i = 0; i < 6; i++) B(M.box, sx - 25 + i * 10, 49 - .1, sz - 4, 10.2, 1.6, 30, 0, .22, i % 2 ? [.86, .2, .16] : [.95, .92, .85]);
-  for (const [dx, c] of [[-18, [.9, .3, .25]], [-8, [.3, .6, .9]], [4, [.5, .85, .4]], [15, [.95, .8, .3]]]) { B(M.cyl, sx + dx, 19.4, sz + 2, 2, 5, 2, 0, 0, c, .25); B(M.octa, sx + dx, 26, sz + 2, 1.4, 1.8, 1.4, 0, 0, [.9, .9, .9]); }
-  for (const [dx, dz, q] of [[-40, -8, 12], [-42, 8, 9], [-34, 3, 7]]) B(M.box, sx + dx, q / 2, sz + dz, q, q, q, dx * .1, 0, [.56, .4, .22]);
-  // smithy: forge, chimney, anvil, grindstone, weapon rack, awning
-  const fx = CX + 92, fz = CY - 22; B(M.box, fx, 9, fz, 26, 18, 20, .4, 0, [.36, .34, .36]); B(M.box, fx + 4, 34, fz - 4, 10, 32, 10, .4, 0, [.3, .28, .3]);
-  B(M.box, CX + 56, 5, CY - 6, 9, 10, 7, .4, 0, [.3, .3, .33]); B(M.box, CX + 56, 11.5, CY - 6, 17, 3.4, 8, .4, 0, [.22, .22, .25]); B(M.cone, CX + 64.5, 11.5, CY - 9.5, 2.6, 6, 2.6, .4, 1.5708, [.22, .22, .25]);
-  B(M.cyl, CX + 104, 0, CY + 10, 9, 3, 9, 0, 1.5708, [.55, .52, .5]); B(M.box, CX + 104, 7, CY + 10, 2, 14, 12, 0, 0, wood);
-  for (let i = 0; i < 4; i++) B(M.box, CX + 38 + i * 6, 16, CY + 38, 1.4, 30, 1.4, 0, .15, [.7, .72, .78]); B(M.box, CX + 47, 24, CY + 38, 30, 2, 3, 0, 0, wood);
-  for (const s of [-1, 1]) for (const t of [-1, 1]) B(M.box, CX + 74 + s * 30, 22, CY - 8 + t * 22, 2.4, 44, 2.4, 0, 0, wood); B(M.box, CX + 74, 46, CY - 8, 66, 2, 50, 0, -.12, [.4, .3, .22]);
+  bakeSettlement(B, R);
   GL.bakeEnd();
 }
 function buildGround() {
   const SZ = WORLD.W + 400, X0 = -200, N = 2048, cv = document.createElement('canvas'); cv.width = cv.height = N; const g = cv.getContext('2d'), t = v => (v - X0) / SZ * N, sc = N / SZ;
-  g.fillStyle = '#08090a'; g.fillRect(0, 0, N, N); g.fillStyle = ZCOL[Math.min(6, ZT.length - 1)]; g.fillRect(t(0), t(0), WORLD.W * sc, WORLD.H * sc);
+  g.fillStyle = '#08090a'; g.fillRect(0, 0, N, N); g.fillStyle = ZCOL[Math.min(6, lookIndex(ZT.length - 1))]; g.fillRect(t(0), t(0), WORLD.W * sc, WORLD.H * sc);
   try { g.filter = 'blur(6px)'; } catch (e) {}
   const disc = (r, c) => { g.fillStyle = c; g.beginPath(); g.arc(t(WORLD.CX), t(WORLD.CY), r * sc, 0, 7); g.fill(); };
   const last = ZT[ZT.length - 1].outer ? ZT.length - 2 : ZT.length - 1;
-  for (let i = last; i >= 0; i--) disc(ZT[i].max, ZCOL[i] || '#444'); disc(ZT[0].min, '#648a44');
+  for (let i = last; i >= 0; i--) disc(ZT[i].max, ZCOL[lookIndex(i)] || '#444');
+  if (!WORLD.map) disc(ZT[0].min, settlementPalette(settlementLayout()).ground);
+  paintSettlementGround(g, t, sc);
   g.strokeStyle = 'rgba(150,128,88,.6)'; g.lineWidth = 38 * sc; g.lineCap = 'round'; const re = ZT[last].max;
   for (let k = 0; k < 4; k++) { const a = k * 1.5708; g.beginPath(); g.moveTo(t(WORLD.CX), t(WORLD.CY)); g.lineTo(t(WORLD.CX + Math.cos(a) * re), t(WORLD.CY + Math.sin(a) * re)); g.stroke(); }
-  try { g.filter = 'blur(2px)'; } catch (e) {} g.fillStyle = '#9a8a66'; g.beginPath(); g.arc(t(WORLD.CX), t(WORLD.CY), WORLD.V * sc, 0, 7); g.fill(); g.fillStyle = '#b3a37c'; g.beginPath(); g.arc(t(WORLD.CX), t(WORLD.CY), 60 * sc, 0, 7); g.fill();
+  try { g.filter = 'blur(2px)'; } catch (e) {} paintSettlementGround(g, t, sc);
   try { g.filter = 'none'; } catch (e) {} g.strokeStyle = 'rgba(200,40,40,.8)'; g.lineWidth = 6; g.strokeRect(t(0), t(0), WORLD.W * sc, WORLD.H * sc);
   GL.setGround(cv, X0, X0, SZ);
 }
@@ -286,7 +301,7 @@ const MODEL = {
   deathlord: { fn: human, kind: 'deathlord', sc: 2.4, robe: hex('#121014'), body: hex('#1a1a1e'), leg: hex('#101012'), skin: hex('#d8d0c0'), top: 72 },
   stone: { top: 92 },
 };
-function modelFor(ty, t) { let o = MODEL[ty]; if (t.st) return o || (MODEL[ty] = { top: t.shape === 'obelisk' ? 104 : 92 }); if (!o) { const c = hex(t.c || '#cccccc'), k = Math.max(.6, t.r / 15); o = MODEL[ty] = { fn: beast, kind: 'wolf', sc: k, body: c, leg: mix(c, [0, 0, 0], .4), top: 40 }; } return o; }
+function modelFor(ty, t) { let o = MODEL[ty] || (t.as && MODEL[t.as] && (MODEL[ty] = MODEL[t.as])); if (o && t.wb && !o.wbScaled) o = MODEL[ty] = { ...o, sc: (o.sc || 1) * 1.5, wbScaled: 1 }; if (t.st) return o || (MODEL[ty] = { top: t.shape === 'obelisk' ? 104 : 92 }); if (!o) { const c = hex(t.c || '#cccccc'), k = Math.max(.6, t.r / 15); o = MODEL[ty] = { fn: beast, kind: 'wolf', sc: k, body: c, leg: mix(c, [0, 0, 0], .4), top: 40 }; } return o; }
 function drawPlayer(e, cls, w, dead, rg) {
   const cm = classModel(cls); if (cm && drawChar(e, cm, { dead, rage: rg, wemc: w ? WCOL[w].map(v => v * Math.min(.6, .06 * w)) : null, tint: I.classes[cls] && I.classes[cls].tint }, performance.now())) return;
   if (dead) { D(M.box, e.rx, 3, e.ry, 22, 6, 12, 0, 0, [.45, .45, .5]); D(M.box, e.rx, 20, e.ry, 14, 30, 5, 0, 0, [.55, .55, .6]); D(M.cyl, e.rx, 35, e.ry - 2.5, 7, 5, 7, 0, 1.5708, [.55, .55, .6]); return; }
@@ -300,8 +315,8 @@ window.Shardlands = { MODEL, addModel: (id, def) => { MODEL[id] = def; }, human,
 // ---------- dynamic world bits + loot ----------
 const ICOL = {}; const itemCol = k => ICOL[k] || (ICOL[k] = hex((I && I.items[k] && I.items[k].color) || '#cccccc'));
 const itemColCss = k => (I && I.items[k] && I.items[k].color) || '#cccccc';
-const NPCE = { merchant: { rx: 0, ry: 0, yaw: 0, x: 0, y: 0, ph: 0, mv: 0, atkT: -9999, flash: 0, id: 3 }, smith: { rx: 0, ry: 0, yaw: -2.2, x: 0, y: 0, ph: 0, mv: 0, atkT: -9999, flash: 0, id: 4 } };
-const NPCNAME = { merchant: '🏪 Merchant', smith: '⚒ Blacksmith' };
+const NPCE = { merchant: { rx: 0, ry: 0, yaw: 0, x: 0, y: 0, ph: 0, mv: 0, atkT: -9999, flash: 0, id: 3 }, smith: { rx: 0, ry: 0, yaw: -2.2, x: 0, y: 0, ph: 0, mv: 0, atkT: -9999, flash: 0, id: 4 }, mystic: { rx: 0, ry: 0, yaw: -.6, x: 0, y: 0, ph: 0, mv: 0, atkT: -9999, flash: 0, id: 5 } };
+const NPCNAME = { merchant: '🏪 Merchant', smith: '⚒ Blacksmith', mystic: '🔮 Soul Mystic', portal: '🌀 World Portal', camp: '🏕 Encampment board' };
 let pendingNpc = null, nearNpcK = null;
 const npcDist = k => { const n = WORLD.npcs[k]; return Math.hypot(S.rx - n.x, S.ry - n.y); };
 function drawWorld(now) {
@@ -309,17 +324,33 @@ function drawWorld(now) {
   for (const l of lamps) { if (Math.abs(l.x - cam.x) > 1500 || Math.abs(l.z - cam.z) > 1500) continue; const f = Math.sin(now / 90 + l.x) * .6; D(M.ball, l.x, 35 + f * .4, l.z, 3 + f * .3, 3.6 + f * .4, 3 + f * .3, 0, 0, [1, .68, .22], 1); if (nt > .3) D(M.disc, l.x, 1.5, l.z, 70, 1, 70, 0, 0, [1, .6, .2], 1, .07 * nt); }
   if (Math.random() < .3) for (const l of lava) if (Math.abs(l.x - cam.x) < 700 && Math.abs(l.z - cam.z) < 700 && Math.random() < .12) { const a = Math.random() * 6.28, d = Math.random() * l.r * .8; burst(l.x + Math.cos(a) * d, 2, l.z + Math.sin(a) * d, 1, [1, .5, .1], 30, 1.6, 2, 1, -40); }
   if (Math.abs(CX - cam.x) > 1800 || Math.abs(CY - cam.z) > 1800) return;
-  const fx = CX + 92, fz = CY - 22, f = Math.sin(now / 70); D(M.ball, fx - 8, 20 + f, fz + 4, 6 + f * .5, 7 + f, 6 + f * .5, 0, 0, [1, .5, .1], 1); if (Math.random() < .25) burst(fx - 8, 24, fz + 4, 1, [1, .6, .15], 26, 1.3, 1.3, 1, -70); if (Math.random() < .2) burst(fx + 4, 52, fz - 4, 1, [.35, .33, .33], 18, 2.4, 3, 0, -50);
+  // the coals on the Blacksmith's cart glow and smoke (only where the smith is)
+  const kitOn = typeof VillageKit !== 'undefined' && VillageKit.isActive(); if (kitOn) VillageKit.draw(now, cam, !!WORLD.npcs.portal);
+  const coals = !kitOn && WORLD.npcs.smith && cartPoint('smith', 10, 0); if (coals) { const f = Math.sin(now / 70); D(M.ball, coals.x, 21 + f * .5, coals.z, 4 + f * .3, 4 + f * .5, 4 + f * .3, 0, 0, [1, .5, .1], 1); if (Math.random() < .25) burst(coals.x, 24, coals.z, 1, [1, .6, .15], 26, 1.3, 1.3, 1, -70); if (Math.random() < .15) burst(coals.x, 30, coals.z, 1, [.35, .33, .33], 18, 2.4, 3, 0, -50); }
+  // every NPC faces the portal (the yaw comes from the shared layout via the server)
+  for (const key of ['merchant', 'smith', 'mystic']) if (WORLD.npcs[key] && Number.isFinite(WORLD.npcs[key].yaw)) NPCE[key].yaw = WORLD.npcs[key].yaw;
   const mN = WORLD.npcs.merchant, sN = WORLD.npcs.smith, me_ = NPCE.merchant, sm = NPCE.smith;
-  me_.rx = mN.x; me_.ry = mN.y; me_.mv = 0; if (!drawChar(me_, 'Cleric', { h: 66 }, now)) human(me_, { sc: 1, kind: 'npc', body: hex('#6a4a8a'), leg: hex('#3a2a4a'), skin: SKIN, hair: [.35, .2, .1] });
-  sm.rx = sN.x; sm.ry = sN.y; sm.mv = 0; if (now - sm.atkT > 1700) { sm.atkT = now; sm.skill = false; setTimeout(() => { if (Math.hypot(cam.x - sN.x, cam.z - sN.y) < 700) burst(CX + 58, 14, CY - 5, 7, [1, .75, .3], 120, .5, 1.2, 1); }, 260); }
-  if (!drawChar(sm, 'Monk', { h: 68, tint: [1, .92, .85] }, now)) human(sm, { sc: 1.08, kind: 'smith', body: hex('#7a5a3a'), leg: hex('#3a2e24'), skin: hex('#d9a27a'), arm: hex('#d9a27a'), wide: 11, pad: 0 });
-  if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc', NPCNAME.merchant + (nearNpcK === 'merchant' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', mN.x, 98, mN.y + 11, 0, 150);
-  if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc2', NPCNAME.smith + (nearNpcK === 'smith' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', sN.x, 98, sN.y, 0, 150);
+  if (mN) { me_.rx = mN.x; me_.ry = mN.y; me_.mv = 0; } if (mN && !drawChar(me_, 'Cleric', { h: 66 }, now)) human(me_, { sc: 1, kind: 'npc', body: hex('#6a4a8a'), leg: hex('#3a2a4a'), skin: SKIN, hair: [.35, .2, .1] });
+  if (sN) { sm.rx = sN.x; sm.ry = sN.y; sm.mv = 0; } if (sN && now - sm.atkT > 1700) { sm.atkT = now; sm.skill = false; setTimeout(() => {
+    const anvil = smithAnvilPosition();
+    if (Math.hypot(cam.x - sN.x, cam.z - sN.y) < 700) burst(anvil.x, 14, anvil.z, 7, [1, .75, .3], 120, .5, 1.2, 1);
+  }, 260); }
+  if (sN && !drawChar(sm, 'Monk', { h: 68, tint: [1, .92, .85] }, now)) human(sm, { sc: 1.08, kind: 'smith', body: hex('#7a5a3a'), leg: hex('#3a2e24'), skin: hex('#d9a27a'), arm: hex('#d9a27a'), wide: 11, pad: 0 });
+  { const cN = WORLD.npcs.camp; if (cN && Math.hypot(cam.x - cN.x, cam.z - cN.y) < 650) label('npc5', esc(WORLD.settlement && WORLD.settlement.kind === 'village' ? text('npc.villageBoard', '📜 Village board') : text('npc.camp', NPCNAME.camp)) + (nearNpcK === 'camp' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', cN.x, 50, cN.y, 0, 150); }
+  { const pN = WORLD.npcs.portal; if (pN && kitOn) { if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc4', esc(text('npc.portal', NPCNAME.portal)) + (nearNpcK === 'portal' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', pN.x, 215, pN.y, 0, 150); }
+    else if (pN) { const pu = .9 + Math.sin(now / 260) * .1; D(M.disc, pN.x, 1.2, pN.y, 34, 1, 34, 0, 0, [.12, .05, .25], .6); D(M.ring, pN.x, 2, pN.y, 37 * pu, 1, 37 * pu, -now / 500, 0, [.75, .6, 1], 1);
+    for (let i = 0; i < 4; i++) { const k = (now / 1100 + i / 4) % 1, r = 31 * (1 - k * .6); D(M.ring, pN.x, 5 + k * 78, pN.y, r, 1, r, now / 300 + i, 0, [.55, .4, 1], 1, (1 - k) * .9); }
+    if (Math.random() < .4) burst(pN.x + (Math.random() - .5) * 44, 6, pN.y + (Math.random() - .5) * 44, 1, [.6, .45, 1], 30, 1.4, 1.5, 1, -70);
+    if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc4', esc(text('npc.portal', NPCNAME.portal)) + (nearNpcK === 'portal' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', pN.x, 104, pN.y, 0, 150); } }
+  { const yN = WORLD.npcs.mystic, my = NPCE.mystic; if (yN) { my.rx = yN.x; my.ry = yN.y; my.x = yN.x; my.y = yN.y; my.ph = now / 400; if (!drawChar(my, 'Wizard', { h: 66, tint: [.62, .45, .95], emc: [.06, .02, .12] }, now)) human(my, { sc: 1.05, kind: 'merchant', body: hex('#5a3a8a'), leg: hex('#2a1e3a'), skin: hex('#d9b08a'), arm: hex('#5a3a8a'), wide: 10, pad: 0 }); if (Math.random() < .25) burst(yN.x + Math.sin(now / 300) * 14, 40 + Math.cos(now / 200) * 8, yN.y + Math.cos(now / 300) * 14, 1, [.6, .35, 1], 30, 1, 1.2, .8, -40);
+    if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc3', esc(text('npc.mystic', NPCNAME.mystic)) + (nearNpcK === 'mystic' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', yN.x, 98, yN.y, 0, 150); } }
+  if (mN && Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc', esc(text('npc.merchant', NPCNAME.merchant)) + (nearNpcK === 'merchant' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', mN.x, 98, mN.y + 11, 0, 150);
+  if (sN && Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc2', esc(text('npc.smith', NPCNAME.smith)) + (nearNpcK === 'smith' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', sN.x, 98, sN.y, 0, 150);
 }
 function drawLoot(L, now) {
   const b = Math.sin(now / 260 + L.id) * 2.5, rot = now / 700 + L.id, x = L.x, z = L.y;
-  if (L.k === 'gold') { D(M.cyl, x, 1, z, 7, 2.2, 7, 0, 0, [1, .82, .2], .5); D(M.cyl, x + 5, 3.4, z + 3, 6, 2.2, 6, rot, 0, [1, .85, .25], .5); D(M.cyl, x - 4, 1, z + 5, 6, 2.2, 6, 0, 0, [.95, .75, .15], .5); }
+  if (L.k === 'souls') { const fl = Math.sin(now / 160 + L.id) * 1.5; D(M.ball, x, 12 + b + fl, z, 7, 9, 7, rot, 0, [.55, .25, 1], 1, .85); D(M.ball, x, 13 + b + fl, z, 4, 5.5, 4, 0, 0, [.85, .7, 1], 1); if (Math.random() < .2) burst(x, 14 + b, z, 1, [.6, .35, 1], 40, .9, 1.4, 1, -60); }
+  else if (L.k === 'gold') { D(M.cyl, x, 1, z, 7, 2.2, 7, 0, 0, [1, .82, .2], .5); D(M.cyl, x + 5, 3.4, z + 3, 6, 2.2, 6, rot, 0, [1, .85, .25], .5); D(M.cyl, x - 4, 1, z + 5, 6, 2.2, 6, 0, 0, [.95, .75, .15], .5); }
   else if (L.k === 'item') { const c = itemCol(L.i); D(M.ball, x, b * .4 + 8, z, 5.4, 6.4, 5.4, rot, 0, c, .5); D(M.cyl, x, b * .4 + 13, z, 2.2, 4, 2.2, 0, 0, [.9, .9, .92]); D(M.cyl, x, b * .4 + 17, z, 2.6, 2, 2.6, 0, 0, [.55, .38, .2]); }
   else {
     const c = RCV[L.r], e = .35 + L.r * .13, y = 12 + b;
@@ -340,54 +371,170 @@ function drawLoot(L, now) {
 }
 
 // ---------- effects ----------
-function addRing(x, z, r0, r1, col, dur, y, emis) { fxs.push({ k: 'ring', x, z, r0, r1, col, t0: performance.now(), dur, y: y || 2, emis: emis === undefined ? 1 : emis }); }
-function addProj(x0, z0, x1, z1, col, dur, h) { fxs.push({ k: 'proj', x: x0, z: z0, x1, z1, col, t0: performance.now(), dur, h: h || 40 }); }
+const MAX_PARTICLES = 700, MAX_EFFECTS = 256, WARNING_RESERVE = 64;
+const isWarningEffect = effect => ['tele', 'tcone', 'tline', 'portal'].includes(effect.k);
+function addParticle(particle) { if (parts.length >= MAX_PARTICLES) return false; parts.push(particle); return true; }
+function addEffect(effect) {
+  const warning = isWarningEffect(effect);
+  if (!warning && fxs.length >= MAX_EFFECTS - WARNING_RESERVE) return false;
+  if (fxs.length < MAX_EFFECTS) { fxs.push(effect); return true; }
+  if (!warning) return false;
+  let replace = fxs.findIndex(current => !isWarningEffect(current));
+  if (replace < 0) {
+    const distance = value => Math.max(0, Math.hypot(value.x - S.rx, value.z - S.ry) - (value.r || 0));
+    let farthest = distance(effect);
+    for (let i = 0; i < fxs.length; i++) if (distance(fxs[i]) > farthest) { farthest = distance(fxs[i]); replace = i; }
+  }
+  if (replace < 0) return false;
+  fxs[replace] = effect; return true;
+}
+function addRing(x, z, r0, r1, col, dur, y, emis) { addEffect({ k: 'ring', x, z, r0, r1, col, t0: performance.now(), dur, y: y || 2, emis: emis === undefined ? 1 : emis }); }
+function addProj(x0, z0, x1, z1, col, dur, h) { addEffect({ k: 'proj', x: x0, z: z0, x1, z1, col, t0: performance.now(), dur, h: h || 40 }); }
 function burst(x, y, z, n, col, spd, life, size, emis, grav) {
-  for (let i = 0; i < n && parts.length < 700; i++) { const a = Math.random() * 6.283, u = Math.sqrt(Math.random()), s = spd * (.4 + Math.random() * .6); parts.push({ x, y, z, vx: Math.cos(a) * s * u, vy: (Math.random() * .9 + .25) * spd, vz: Math.sin(a) * s * u, t0: performance.now(), life: life * (.6 + Math.random() * .6), col, size, emis: emis === undefined ? .8 : emis, g: grav === undefined ? 520 : grav }); }
+  for (let i = 0; i < n && parts.length < MAX_PARTICLES; i++) { const a = Math.random() * 6.283, u = Math.sqrt(Math.random()), s = spd * (.4 + Math.random() * .6); addParticle({ x, y, z, vx: Math.cos(a) * s * u, vy: (Math.random() * .9 + .25) * spd, vz: Math.sin(a) * s * u, t0: performance.now(), life: life * (.6 + Math.random() * .6), col, size, emis: emis === undefined ? .8 : emis, g: grav === undefined ? 520 : grav }); }
 }
 const FXC = { blade: [1, 1, 1], archer: [.5, 1, .5], mage: [.7, .5, 1], heal: [.4, 1, .6], lvl: [1, .9, .3], rage: [1, .3, .2], buff: [.5, .8, 1] };
 window.Shardlands.FXC = FXC;
-const FLOATCOL = { dmg: '#fff', hurt: '#ff5a4a', gold: '#e2b64a', xp: '#9fd0ff', heal: '#6fe39a', mana: '#6fb0ff', lvl: '#ffe97a', loot: '#d9a8ff' };
+const FLOATER_STYLE = { dmg: 'damage', hurt: 'hurt', gold: 'gold', xp: 'xp', heal: 'heal', mana: 'mana', lvl: 'level', loot: 'loot', souls: 'loot' };
+function faceAttackTarget(entity, event, now) {
+  if (!Number.isFinite(event.tx) || !Number.isFinite(event.ty)) return;
+  entity.yaw = Math.atan2(event.tx - event.x, event.ty - event.y);
+  if (!isMelee(event.s)) entity.attackFacingUntil = now + 650;
+}
 function onEvent(f) {
   const now = performance.now(), E = f.a && (I && f.a === I.id ? S : ents.get(f.a));
-  if (f.k === 'warn') { fxWarn(f); if (E) { E.atkT = now + 500; E.skill = true; } return; }
+  if (f.k === 'warn') { fxWarn(f); if (E) { E.atkT = now + 500; E.skill = true; } castWarning(f); return; }
   if (f.k === 'slam') { fxSlam(f); return; }
-  if (f.k === 'fx') { if (E && I.classes[f.s]) { E.atkT = now; E.skill = true; } fxSkill(f, E); return; }
-  if (f.k === 'atk') { if (E) { E.atkT = now; E.skill = false; E.yaw = Math.atan2(f.tx - E.rx, f.ty - E.ry); } fxAttack(f, E); return; }
+  if (f.k === 'phase') { if (typeof bossPhaseNotice === 'function') bossPhaseNotice(f); return; }
+  if (f.k === 'fx') { if (E && I.classes[f.s]) { E.atkT = now; E.skill = true; faceAttackTarget(E, f, now); } fxSkill(f, E); return; }
+  if (f.k === 'atk') { if (E) { E.atkT = now; E.skill = false; faceAttackTarget(E, f, now); } fxAttack(f, E); return; }
   if (f.k === 'die') { const t = I.types[f.v], c = hex(t ? t.c : '#cccccc'), big = t && (t.boss || f.b); burst(f.x, 18, f.y, big ? 70 : 22, c, 200, 1.1, 2.2, .25, 560); addRing(f.x, f.y, 4, big ? 80 : 40, big ? [1, .7, .3] : [.85, .85, .85], 500, 14, .2); sfx(big ? 'boss' : 'die', f.x, f.y); return; }
   if (f.k === 'hurt') {
     const A = f.a && ents.get(f.a); if (A) { A.atkT = now; A.skill = false; A.yaw = Math.atan2(f.x - A.rx, f.y - A.ry); fxClaw(f.x, f.y, A.yaw); }
-    if (me && f.x === Math.round(me.x) && f.y === Math.round(me.y)) { S.flash = now; hurtFlash(f.v > me.mh * .15); cam.shake = Math.min(7, 2 + f.v / Math.max(1, me.mh) * 40); sfx('hurt'); } else sfx('hurt', f.x, f.y);
+    if (me && f.combatPlayerId === I.id) { S.flash = now; hurtFlash(f.v > me.mh * .15); cam.shake = document.body.classList.contains('reduce-motion') ? 0 : Math.min(7, 2 + f.v / Math.max(1, me.mh) * 40); sfx('hurt'); } else sfx('hurt', f.x, f.y);
     burst(f.x, 30, f.y, 6, [.9, .15, .1], 120, .5, 1.8, .3);
   }
   if (f.k === 'dmg') { burst(f.x, 24, f.y, f.c ? 12 : 5, f.c ? [1, .8, .2] : [1, 1, .9], f.c ? 190 : 110, .45, 1.7, .9); sfx(f.c ? 'crit' : 'hit', f.x, f.y); }
   if (f.k === 'gold') { burst(f.x, 20, f.y, 8, [1, .85, .2], 150, .7, 1.8, .9); sfx('coin', f.x, f.y); }
   if (f.k === 'loot') { burst(f.x, 20, f.y, 10 + (f.r || 0) * 5, RCV[f.r || 0], 160, .8, 1.7, .9); sfx('loot', f.x, f.y, f.r || 0); }
+  if (f.k === 'souls') { burst(f.x, 20, f.y, 14, [.6, .35, 1], 140, .9, 1.8, 1, -80); sfx('heal', f.x, f.y); }
   if (f.k === 'heal' || f.k === 'mana') sfx('heal', f.x, f.y);
-  const col = f.k === 'loot' ? RC_CSS[f.r || 0] : f.k === 'dmg' && f.c ? '#ffd23f' : FLOATCOL[f.k]; if (!col || floaters.length > 60) return;
-  const el = document.createElement('div'); el.className = 'ft'; el.textContent = f.v; el.style.color = col; el.style.fontSize = (f.c ? 24 : f.k === 'lvl' ? 22 : 15) + 'px'; $('floaters').appendChild(el);
-  floaters.push({ el, x: f.x + (f.k === 'dmg' || f.k === 'hurt' ? (Math.random() - .5) * 24 : 0), z: f.y, h: f.k === 'dmg' || f.k === 'hurt' ? 38 : 56, t0: now, life: f.k === 'loot' || f.k === 'lvl' ? 1600 : 950 });
+  if (I && f.pickupBy === I.id) log('*', f.text || f.v, 'loot');
+  if (I && f.combatPlayerId === I.id) logCombatEvent(f);
+  const style = f.k === 'dmg' && f.c ? 'critical' : FLOATER_STYLE[f.k];
+  if (!style || floaters.length > 60) return;
+  const isDamage = f.k === 'dmg' || f.k === 'hurt';
+  // Shapes as well as colours: ✦ crit, − damage taken, + healing and mana. Other heroes' hits are smaller.
+  let message = f.text || f.v;
+  if (typeof f.v === 'number' && !f.text) {
+    const n = GameText.number(Math.round(f.v));
+    message = f.k === 'dmg' ? (f.c ? '✦ ' + n + '!' : n) : f.k === 'hurt' ? '−' + n : f.k === 'heal' || f.k === 'mana' ? '+' + n : message;
+  } else if (f.k === 'heal' && typeof f.v === 'string') message = f.v + ' ♥';
+  const mine = !I || !f.combatPlayerId || f.combatPlayerId === I.id;
+  // Numbers that appear at the same spot at the same moment stack upwards instead of covering each other.
+  let lift = 0;
+  if (isDamage) for (const other of floaters) if (other.isDamage && now - other.t0 < 450 && Math.abs(other.x - f.x) < 50 && Math.abs(other.z - f.y) < 50) lift++;
+  const el = document.createElement('div');
+  el.className = 'ft' + (f.k === 'hurt' ? ' ft--hurt' : '') + (f.k === 'heal' || f.k === 'mana' ? ' ft--restore' : '') + (!mine && f.k === 'dmg' ? ' ft--other' : '');
+  GameText.present(el, { message, style, color: f.k === 'loot' ? RC_CSS[f.r || 0] : f.k === 'souls' ? '#c9a0ff' : undefined });
+  $('floaters').appendChild(el);
+  floaters.push({
+    el, isDamage, lift: Math.min(5, lift) * 18, x: f.x + (isDamage ? (Math.random() - .5) * 24 : 0), z: f.y,
+    h: isDamage ? 38 : 56, t0: now, life: f.k === 'loot' || f.k === 'lvl' || f.k === 'souls' ? 1600 : 950,
+  });
 }
 
 // ---------- networking ----------
+const uiReceiver = StateDelta.createReceiver(channel => send({ t: 'uiSync', channel }));
 function join() {
-  audio(); sfx('click'); $('err').textContent = '';
-  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
-  ws.onopen = () => ws.send(JSON.stringify({ t: 'join', name: $('name').value, cls: sel, pw: $('pw').value }));
-  ws.onmessage = e => onMsg(JSON.parse(e.data));
-  ws.onclose = () => { if (I) log('*', 'Disconnected from server. Refresh to reconnect.'); else $('err').textContent = 'Could not connect.'; };
+  if (ws && ws.readyState !== WebSocket.CLOSED) return;
+  uiReceiver.reset();
+  audio(); sfx('click'); GameText.present($('err'), { message: '' });
+  const socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+  ws = socket;
+  const request = { t: 'join', name: $('name').value, cls: sel, pw: $('pw').value, mobDeltas: true, meDeltas: true, stateDeltas: true, listDeltas: true, mobFieldDeltas: true, uiDeltas: true };
+  socket.onopen = () => socket.send(JSON.stringify(request));
+  socket.onmessage = e => {
+    if (ws !== socket) return;
+    const message = JSON.parse(e.data);
+    onMsg(message);
+    if (message.t === 'err' && !I) socket.close();
+  };
+  socket.onclose = () => {
+    if (ws !== socket) return;
+    ws = null;
+    if (I) log('*', text("login.disconnected", "Disconnected from server. Refresh to reconnect."));
+    else if (!$('err').textContent) $('err').textContent = text("login.failed", "Could not connect.");
+  };
+}
+const mobRows = new Map();
+let mobIds = [];
+function updateMobSnapshot(message) {
+  if (!message.mo && !message.md && !message.mi && !message.mf) return;
+  const decode = a => ({ id: a[0], ty: I.tl[a[1]], x: a[2], y: a[3], hp: a[4], mh: a[5], l: a[6], al: a[7], phase: a[8] || 0, castType: a[9] || '', castStart: a[10] || 0, castEnd: a[11] || 0, recoverEnd: a[12] || 0, enrageAt: a[13] || 0 });
+  if (message.mo) {
+    mobRows.clear();
+    mobIds = message.mo.map(row => row[0]);
+  }
+  for (const row of message.mo || message.md || []) mobRows.set(row[0], decode(row));
+  for (const patch of message.mf || []) {
+    const monster = mobRows.get(patch[0]); if (!monster) continue;
+    const fields = ['ty', 'x', 'y', 'hp', 'mh', 'l', 'al', 'phase', 'castType', 'castStart', 'castEnd', 'recoverEnd', 'enrageAt']; let offset = 2;
+    for (let bit = 0; bit < fields.length; bit++) if (patch[1] & (1 << bit)) {
+      const value = patch[offset++]; monster[fields[bit]] = bit === 0 ? I.tl[value] : value;
+    }
+  }
+  if (message.mi) {
+    mobIds = message.mi;
+    const visible = new Set(mobIds);
+    for (const id of mobRows.keys()) if (!visible.has(id)) mobRows.delete(id);
+  }
+  mo = mobIds.map(id => mobRows.get(id));
+}
+const playerRows = new Map(), lootRows = new Map();
+function applyEntityList(cache, message, fullKey, changedKey, removedKey) {
+  if (Object.hasOwn(message, fullKey)) {
+    cache.clear(); for (const row of message[fullKey]) cache.set(row.id, row);
+  } else {
+    for (const id of message[removedKey] || []) cache.delete(id);
+    for (const row of message[changedKey] || []) cache.set(row.id, row);
+  }
+  return [...cache.values()];
+}
+function applyOwnSnapshot(current, message) {
+  return { ...(message.sf ? {} : current), ...message.me };
 }
 function onMsg(m) {
-  if (m.t === 'err') $('err').textContent = m.m;
+  m = uiReceiver.receive(m); if (!m) return;
+  if (m.t === 'err') GameText.present($('err'), { message: m.text || m.m });
   else if (m.t === 'init') {
-    I = m; ZT = m.world.tiers; WORLD.npcs = m.world.npcs; WORLD.npcRange = m.world.npcRange; S.id = m.id; cam.dist = 440; cam.pitch = 0.82; cam.yaw = 0; $('login').style.display = 'none'; if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); $('hud').style.display = 'block';
-    hudInit(); log('*', m.resumed ? 'Welcome back, ' + m.name + '!' : 'Welcome, ' + m.name + '! Loot drops on the ground - walk over it. Talk to the Merchant and the Blacksmith in the village (click them or press F).');
+    clearTimeout(onlineCountTimer);
+    I = m; setWorld(m.world); S.id = m.id; cam.dist = 440; cam.pitch = 0.82; cam.yaw = 0; $('login').style.display = 'none'; if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); $('hud').style.display = 'block';
+    hudInit(); log('*', m.resumed ? text("login.welcomeBack", "Welcome back, ") + m.name + '!' : text("login.welcome", "Welcome, ") + m.name + text("login.welcomeHint", "! Loot drops on the ground - walk over it. Talk to the Merchant and the Blacksmith in the village (click them or press F)."));
   } else if (m.t === 'inv') onInv(m);
-  else if (m.t === 'toast') toast(m.m, m.c); else if (m.t === 'forge') onForge(m);
-  else if (m.t === 'chat') log(m.n, m.m); else if (m.t === 'msg') log('*', m.m);
+  else if (m.t === 'destroyPreview' || m.t === 'destroyResult') onDestroyMessage(m);
+  else if (m.t === 'autoAffixPreview' || m.t === 'autoAffixStatus') onAutoAffixMessage(m);
+  else if (m.t === 'toast') toast(m.text || m.m, m.c); else if (m.t === 'forge') onForge(m); else if (m.t === 'reroll') onReroll(m); else if (m.t === 'universe') onUniverse(m.u); else if (m.t === 'portal') window.PortalUI?.receive(m);
+  else if (m.t === 'team') onTeam(m); else if (m.t === 'trade') onTrade(m); else if (m.t === 'mythicMerge') onMythicMerge(m); else if (m.t === 'affix') onAffix(m);
+  else if (m.t === 'teamInvite') showAsk('team', text('team.invitedYou', '{name} invites you to a team.', { name: m.from })); else if (m.t === 'tradeRequest') showAsk('trade', text('trade.requestedYou', '{name} wants to trade with you.', { name: m.from }));
+  else if (m.t === 'affixCaps') { if (I) I.affixCaps = m.caps; }
+  else if (m.t === 'adventure' || m.t === 'adventureUpdate') onAdventureMessage(m);
+  else if (m.t === 'types') { if (I) { I.types = m.types; I.tl = m.tl; } } else if (m.t === 'map') { setWorld(m.world, m.arrived); if (isOpen('journalw')) send({ t: 'adventure', op: 'inspect' }); }
+  else if (m.t === 'chat') log(m.n, m.text || m.m, m.channel); else if (m.t === 'msg') log('*', m.text || m.m);
   else if (m.t === 's') {
-    if (!me) { S.rx = m.me.x; S.ry = m.me.y; cam.x = m.me.x; cam.z = m.me.y; } serverTm = m.tm; me = m.me; pl = m.pl; lo = m.lo;
-    const tl = I.tl; mo = m.mo.map(a => ({ id: a[0], ty: tl[a[1]], x: a[2], y: a[3], hp: a[4], mh: a[5], l: a[6], al: a[7] }));
+    const nextMe = applyOwnSnapshot(me, m);
+    if (!me || snapNext) { snapNext = false; S.rx = nextMe.x; S.ry = nextMe.y; cam.x = nextMe.x; cam.z = nextMe.y; }
+    if (nextMe.dead && !me?.dead) {
+      intent = null;
+      pendingNpc = null;
+      held = false;
+      lastDir = [0, 0];
+    }
+    serverTm = m.tm; serverReceivedAt = performance.now(); me = nextMe;
+    if (m.sf) { playerRows.clear(); lootRows.clear(); }
+    if (m.pl || m.pd || m.pr) pl = applyEntityList(playerRows, m, 'pl', 'pd', 'pr');
+    if (m.lo || m.ld || m.lr) lo = applyEntityList(lootRows, m, 'lo', 'ld', 'lr');
+    updateMobSnapshot(m);
     const seen = new Set();
     for (const o of mo.concat(pl)) {
       seen.add(o.id); let e = ents.get(o.id);
@@ -403,76 +550,167 @@ function onMsg(m) {
 // ---------- input ----------
 const GFX = ['auto', 'low', 'medium', 'high'];
 addEventListener('keydown', e => {
-  if (!I) return; const ci = $('chatin');
+  if (!I || $('smith-auto-dialog').open) return; const ci = $('chatin');
+  if (e.key === 'Enter' && e.target?.closest('#chat-tabs')) return;
   if (document.activeElement === ci) { if (e.key === 'Enter') { if (ci.value.trim()) send({ t: 'chat', m: ci.value }); ci.value = ''; ci.style.display = 'none'; ci.blur(); } else if (e.key === 'Escape') { ci.style.display = 'none'; ci.blur(); } return; }
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    if (e.repeat) return;
+    // Close the topmost window, prompt or tooltip. Settings open with O or the gear button.
+    uxEscape();
+    return;
+  }
   if (e.target && e.target.tagName === 'INPUT' && e.target.type !== 'checkbox' && e.target.type !== 'range') return;
   const k = e.key.toLowerCase();
   if (k === 'enter') { ci.style.display = 'block'; ci.focus(); keys = {}; e.preventDefault(); return; }
   const act = actionOf(k);
+  if (e.repeat && ['skills', 'inv', 'team', 'history', 'settings', 'mute', 'talk', 'gfx', 'fps'].includes(act)) return;
+  if (act === 'attack') {
+    if (e.target?.closest('button, select, input, textarea, [contenteditable]')) return;
+    e.preventDefault();
+    if (!e.repeat) attackNearby();
+    return;
+  }
   if (act === 'skill1' || act === 'skill2' || act === 'skill3') send({ t: 'skill', n: +act.slice(5) });
   if (act === 'hp' || act === 'mp' || act === 'hp2' || act === 'ret') send({ t: 'use', i: act });
-  if (act === 'skills') togglePanel('skillp'); if (act === 'inv') togglePanel('invp'); if (act === 'settings') togglePanel('setw'); if (act === 'mute') toggleMute(); if (k === 'escape') closeAll();
+  if (act === 'skills') togglePanel('skillp'); if (act === 'inv') togglePanel('invp'); if (act === 'history') togglePanel('chronw'); if (act === 'team') togglePanel('teamw'); if (act === 'settings') togglePanel('setw'); if (act === 'mute') toggleMute();
   if (act === 'talk' && nearNpcK) openNpc(nearNpcK);
-  if (act === 'gfx') { const n = GFX[(GFX.indexOf(GL.Q.mode) + 1) % GFX.length]; GL.setQuality(n); toast('Graphics: ' + n + (n === 'auto' ? ' (adapts to frame rate)' : '')); }
+  if (act === 'gfx') { const n = GFX[(GFX.indexOf(GL.Q.mode) + 1) % GFX.length]; GL.setQuality(n); toast(text('settings.qualityChanged', 'Graphics: {quality}', { quality: qualityName(n) })); }
   if (act === 'fps') { const p = $('perf'); p.style.display = p.style.display === 'block' ? 'none' : 'block'; }
   if ('wasd'.includes(k) && k.length === 1 || k.startsWith('arrow')) { keys[k] = 1; e.preventDefault(); }
 });
 addEventListener('keyup', e => { delete keys[e.key.toLowerCase()]; });
-addEventListener('blur', () => { keys = {}; held = false; });
+addEventListener('blur', () => { keys = {}; held = false; rotating = false; });
 const cv = $('c'); let rotating = false, lx = 0, ly = 0, lastDir = [0, 0], lastSend = 0;
 cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('wheel', e => { cam.dist = Math.max(160, Math.min(950, cam.dist * (e.deltaY > 0 ? 1.08 : 0.92))); e.preventDefault(); }, { passive: false });
-cv.addEventListener('mousedown', e => { if (e.button === 2 || e.button === 1) { rotating = true; lx = e.clientX; ly = e.clientY; } else { held = true; lastHold = e; click(e); } });
+cv.addEventListener('mousedown', e => { if (e.button === 2 || e.button === 1) { rotating = true; lx = e.clientX; ly = e.clientY; } else if (me && !me.dead) { held = true; lastHold = e; click(e); } });
 addEventListener('mouseup', () => { rotating = false; held = false; });
 addEventListener('mousemove', e => { if (rotating) { cam.yaw -= (e.clientX - lx) * 0.006; cam.pitch = Math.max(0.28, Math.min(1.38, cam.pitch + (e.clientY - ly) * 0.005)); lx = e.clientX; ly = e.clientY; } if (held) lastHold = e; });
 function groundHit(e) { const r = GL.ray(e.clientX, e.clientY); if (r.d[1] >= -0.001) return null; const t = -r.o[1] / r.d[1]; return { x: r.o[0] + r.d[0] * t, z: r.o[2] + r.d[2] * t }; }
 function raySphere(r, cx, cy, cz, rad) { const c = [cx - r.o[0], cy - r.o[1], cz - r.o[2]], tc = c[0] * r.d[0] + c[1] * r.d[1] + c[2] * r.d[2]; if (tc < 0) return -1; const d2 = c[0] * c[0] + c[1] * c[1] + c[2] * c[2] - tc * tc; return d2 < rad * rad ? tc : -1; }
-function moveTo(x, y) { send({ t: 'move', x, y }); intent = { x, y }; }
+function moveTo(x, y) { x = Math.max(20, Math.min(WORLD.W - 20, x)); y = Math.max(20, Math.min(WORLD.H - 20, y)); send({ t: 'move', x, y }); intent = { x, y }; }
+function attackTarget(targetId, chase = true) {
+  send({ t: 'target', id: targetId, chase });
+  if (chase) {
+    intent = null;
+    pendingNpc = null;
+    held = false;
+  }
+  sfx('click');
+}
+
+function attackNearby() {
+  if (!me || me.dead) return;
+  let nearest = null, nearestDistance = Infinity;
+  for (const monster of mo) {
+    if (monster.hp <= 0) continue;
+    const radius = Math.round(I.types[monster.ty].r * (monster.al ? 1.3 : 1));
+    const distance = Math.hypot(monster.x - me.x, monster.y - me.y);
+    if (distance > me.rng + radius) continue;
+    if (monster.id === me.tg) {
+      attackTarget(monster.id, false);
+      return;
+    }
+    if (distance < nearestDistance) {
+      nearest = monster;
+      nearestDistance = distance;
+    }
+  }
+  if (nearest) attackTarget(nearest.id, false);
+}
+
 function click(e) {
   if (!I || !me || me.dead) return; const r = GL.ray(e.clientX, e.clientY); let best = null, bt = 1e9;
   for (const k in WORLD.npcs) { const n = WORLD.npcs[k], tc = raySphere(r, n.x, 32, n.y, 30); if (tc > 0 && tc < bt) { bt = tc; best = k; } }
   if (best) { held = false; if (npcDist(best) < WORLD.npcRange - 40) openNpc(best); else { const n = WORLD.npcs[best]; moveTo(n.x, n.y + 36); pendingNpc = best; } return; }
   for (const m of mo) { const E = ents.get(m.id); if (!E) continue; const t = I.types[m.ty], pr = t.r * (m.al ? 1.3 : 1) * 1.4 + 12, tc = raySphere(r, E.rx, pr * .9, E.ry, pr * 1.22); if (tc > 0 && tc < bt) { bt = tc; best = m; } }
-  if (best) { send({ t: 'target', id: best.id }); intent = null; pendingNpc = null; held = false; sfx('click'); return; }
+  if (best) { attackTarget(best.id); return; }
   for (const L of lo) { const tc = raySphere(r, L.x, 10, L.y, 26); if (tc > 0 && tc < bt) { bt = tc; best = L; } }
   if (best) { moveTo(best.x, best.y); pendingNpc = null; held = false; addRing(best.x, best.y, 4, 22, [1, .9, .4], 500, 2); return; }
   const g = groundHit(e); if (g) { moveTo(g.x, g.z); pendingNpc = null; addRing(g.x, g.z, 4, 16, [1, .85, .3], 600, 2); }
 }
 setInterval(() => { if (held && lastHold && me && !me.dead) { const g = groundHit(lastHold); if (g) moveTo(g.x, g.z); } }, 130);
 function wantDir() {
-  const f = (keys.w ? 1 : 0) - (keys.s ? 1 : 0), r = (keys.d ? 1 : 0) - (keys.a ? 1 : 0); if (!f && !r) return [0, 0];
-  const x = -Math.sin(cam.yaw) * f + Math.cos(cam.yaw) * r, z = -Math.cos(cam.yaw) * f - Math.sin(cam.yaw) * r, l = Math.hypot(x, z); return [x / l, z / l];
+  const forward = (keys.w || keys.arrowup ? 1 : 0) - (keys.s || keys.arrowdown ? 1 : 0);
+  const sideways = (keys.d ? 1 : 0) - (keys.a ? 1 : 0);
+  if (!forward && !sideways) return [0, 0];
+  const x = -Math.sin(cam.yaw) * forward + Math.cos(cam.yaw) * sideways;
+  const z = -Math.cos(cam.yaw) * forward - Math.sin(cam.yaw) * sideways;
+  const length = Math.hypot(x, z);
+  return [x / length, z / length];
 }
 
 // is a world point (roughly) on screen? used to skip drawing monsters the camera cannot see
 function onScreen(x, z, m) { const p = GL.project(x, 30, z); return p && p.x > -m && p.x < innerWidth + m && p.y > -m && p.y < innerHeight + m; }
 
 // ---------- labels ----------
+function monsterLevelLabel(level, playerLevel) {
+  const difference = level - playerLevel;
+  let threat = 'even';
+  if (difference <= -5) threat = 'trivial';
+  else if (difference <= 0) threat = 'easy';
+  else if (difference >= 4) threat = 'dangerous';
+
+  const threatNames = { trivial: 'Much lower level', easy: 'Same or lower level', even: 'Slightly higher level', dangerous: 'Higher level' };
+  const title = text('mob.threat.' + threat, threatNames[threat]);
+  return '<span class="mob-level mob-level--' + threat + '" title="' + esc(title) + '">' +
+    esc(text('zone.levelShort', 'Lv ') + level) + '</span>';
+}
+
 function label(id, html, cls, x, y, z, hpv, wd, color) {
   let L = labels.get(id); if (!L) { const el = document.createElement('div'); el.className = 'lb ' + cls; el.innerHTML = '<div class="n"></div><div class="hb"><i></i></div>'; $('labels').appendChild(el); L = { el, n: el.firstChild, i: el.querySelector('i'), h: '', w: -1, wd: 0, vis: true }; labels.set(id, L); }
   L.used = true; const p = GL.project(x, y, z); if (!p || p.x < -100 || p.x > innerWidth + 100 || p.y < -40 || p.y > innerHeight + 40) { if (L.vis) { L.vis = false; L.el.style.display = 'none'; } return; }
-  const w = wd || 90; if (!L.vis) { L.vis = true; L.el.style.display = 'block'; } L.el.style.transform = 'translate(' + ((p.x - w / 2) | 0) + 'px,' + ((p.y - 14) | 0) + 'px)'; if (L.wd !== w) { L.wd = w; L.el.style.width = w + 'px'; }
+  const w = wd || 90;
+  if (!L.vis) { L.vis = true; L.el.style.display = 'block'; }
+  const horizontalOffset = id === 'me' ? '-50%' : ((p.x - w / 2) | 0) + 'px';
+  const transform = 'translate(' + horizontalOffset + ',' + ((p.y - 14) | 0) + 'px)';
+  if (L.transform !== transform) { L.transform = transform; L.el.style.transform = transform; }
+  if (L.wd !== w) { L.wd = w; L.el.style.width = w + 'px'; }
   const hh = html + '|' + (color || ''); if (L.h !== hh) { L.h = hh; L.n.innerHTML = html; if (color) L.el.style.color = color; }
-  const pc = Math.round(hpv * 100); if (pc !== L.w) { L.w = pc; L.i.style.width = pc + '%'; }
+  SharedResources.updateResourceBar(L.i.parentElement, hpv, 1, undefined, { step: 1, label: L.n.textContent });
 }
 
 // ---------- main loop ----------
 let last = performance.now(), lastZone = -9, zoneCheck = 0, miniT = 0, perfT = 0;
 const mini = $('mini').getContext('2d');
-function animate(e, mx, my, d) { const sp = Math.hypot(mx, my) / d; e.mv += (Math.min(1, sp / 120) - e.mv) * Math.min(1, d * 14); if (Math.hypot(mx, my) > .12) { const ty = Math.atan2(mx, my); let a = ty - e.yaw; a = Math.atan2(Math.sin(a), Math.cos(a)); e.yaw += a * Math.min(1, d * 12); } e.ph += sp * d * 0.1; }
+function animate(e, mx, my, d) { const sp = Math.hypot(mx, my) / Math.max(.001, d); e.moveSpeed = (e.moveSpeed || 0) + (sp - (e.moveSpeed || 0)) * Math.min(1, d * 14); e.mv += (Math.min(1, sp / 120) - e.mv) * Math.min(1, d * 14); if (Math.hypot(mx, my) > .12 && performance.now() >= (e.attackFacingUntil || 0)) { const ty = Math.atan2(mx, my); let a = ty - e.yaw; a = Math.atan2(Math.sin(a), Math.cos(a)); e.yaw += a * Math.min(1, d * 12); } e.ph += sp * d * 0.1; }
 function smoothEnt(e, d) { const dx = e.x - e.rx, dy = e.y - e.ry; if (Math.hypot(dx, dy) > 400) { e.rx = e.x; e.ry = e.y; return; } const k = 1 - Math.pow(0.0005, d), mx = dx * k, my = dy * k; e.rx += mx; e.ry += my; animate(e, mx, my, d); }
 function updateSelf(d) { // client-side prediction: our own hero reacts instantly, then eases toward the server position
   const ox = S.rx, oy = S.ry; let vx = 0, vz = 0;
-  if (me.tg || me.dead) intent = null;
+  if (me.dead) intent = null;
   if (!me.dead) { const w = wantDir(); if (w[0] || w[1]) { vx = w[0] * me.spd; vz = w[1] * me.spd; intent = null; } else if (intent) { const dx = intent.x - S.rx, dz = intent.y - S.ry, l = Math.hypot(dx, dz); if (l > 8) { vx = dx / l * me.spd; vz = dz / l * me.spd; } else intent = null; } }
   const ex = me.x - S.rx, ez = me.y - S.ry;
-  if (Math.hypot(ex, ez) > 230) { S.rx = me.x; S.ry = me.y; }
+  const authoritativeReset = Math.hypot(ex, ez) > 230;
+  if (authoritativeReset) { S.rx = me.x; S.ry = me.y; }
   else if (vx || vz) { S.rx += vx * d; S.ry += vz * d; const k = Math.min(1, d * 2.2); S.rx += (me.x - S.rx) * k; S.ry += (me.y - S.ry) * k; }
   else { const k = 1 - Math.pow(0.00003, d); S.rx += ex * k; S.ry += ez * k; }
-  S.rx = Math.max(20, Math.min(WORLD.W - 20, S.rx)); S.ry = Math.max(20, Math.min(WORLD.H - 20, S.ry)); animate(S, S.rx - ox, S.ry - oy, d);
+  S.rx = Math.max(20, Math.min(WORLD.W - 20, S.rx)); S.ry = Math.max(20, Math.min(WORLD.H - 20, S.ry));
+  // Same collision as the server, so walking into a house or the wall does not rubber-band.
+  if (WORLD.layout) {
+    const e = { x: S.rx, y: S.ry };
+    // An explicit server correction is a new baseline, not a predicted walk through scenery.
+    const blocked = authoritativeReset
+      ? Settlement.collide(e, WORLD.layout, WORLD.CX, WORLD.CY, 11)
+      : Settlement.moveWithCollision(e, WORLD.layout, WORLD.CX, WORLD.CY, 11, { x: ox, y: oy });
+    if (blocked) { S.rx = e.x; S.ry = e.y; }
+  }
+  animate(S, S.rx - ox, S.ry - oy, d);
 }
+let nextFrameAt = 0, wasHidden = false;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { keys = {}; held = false; rotating = false; lastDir = [0, 0]; send({ t: 'dir', x: 0, y: 0 }); }
+  wasHidden = true;
+});
 function frame(now) {
-  requestAnimationFrame(frame); const raw = now - last; dt = Math.min(0.05, raw / 1000); last = now; GL.perf(raw);
+  requestAnimationFrame(frame);
+  if (document.hidden) { wasHidden = true; return; }
+  if (wasHidden) { last = now - 1000 / (GL.Q.fpsLimit || 60); nextFrameAt = now; wasHidden = false; }
+  const interval = GL.Q.fpsLimit ? 1000 / GL.Q.fpsLimit : 0;
+  if (interval && now + .5 < nextFrameAt) return;
+  if (interval) nextFrameAt = Math.max(nextFrameAt + interval, now);
+  else nextFrameAt = now;
+  const raw = now - last; dt = Math.min(0.05, raw / 1000); last = now; GL.perf(raw);
   if (me && !me.dead) {
     if (keys.arrowleft) cam.yaw += dt * 1.8; if (keys.arrowright) cam.yaw -= dt * 1.8;
     const d = wantDir(), ch = Math.abs(d[0] - lastDir[0]) + Math.abs(d[1] - lastDir[1]) > 0.06, zero = !d[0] && !d[1];
@@ -495,26 +733,34 @@ function frame(now) {
       const [hd, m, e, t] = vis[i]; let o = modelFor(m.ty, t); if (m.al && !t.st) o = o._a || (o._a = Object.assign({}, o, { sc: (o.sc || 1) * 1.3 }));
       if (m.id === me.tg) { const pu = 1 + Math.sin(now / 150) * .1, rr = (t.r * (m.al ? 1.3 : 1) + 12) * pu; D(M.ring, e.rx, 2.5, e.ry, rr, 1, rr, now / 600, 0, [1, .2, .2], 1, .95); }
       if (m.al) { const rr = t.r * 1.3 + 14 + Math.sin(now / 200 + m.id) * 3; D(M.ring, e.rx, 2, e.ry, rr, 1, rr, -now / 700, 0, [1, .55, .1], 1, .7); }
-      const mc = MOBCHAR[m.ty]; if (t.st) stoneModel(e, t); else if (mc && CHARS[mc.m] && nChar < 26 && hd < 750) { nChar++; drawChar(e, mc.m, { h: 64 * mc.sc * (m.al ? 1.3 : 1), tint: mc.tint, emc: mc.emc }, now); } else if (i < full || hd < 420) { if (blob) D(M.disc, e.rx, 1, e.ry, t.r * 1.1, 1, t.r * 1.1, 0, 0, [0, 0, 0], 0, .3); o.fn(e, o); } else lod(e, t, o, m.al);
+      const mc = MOBCHAR[m.ty] || (t.as && MOBCHAR[t.as]); if (t.st) stoneModel(e, t); else if (mc && CHARS[mc.m] && nChar < 26 && hd < 750) { nChar++; const gr = mc.gear && !t.wb && !t.boss ? gearFor(CHARS[mc.m], mc.gear, m.id, m.al) : null; drawChar(e, mc.m, { h: 64 * mc.sc * (m.al ? 1.3 : 1) * (t.wb ? 1.5 : 1), tint: gr ? gr.body : mc.tint, emc: mc.emc, gear: gr }, now); } else if (i < full || hd < 420) { if (blob) D(M.disc, e.rx, 1, e.ry, t.r * 1.1, 1, t.r * 1.1, 0, 0, [0, 0, 0], 0, .3); o.fn(e, o); } else lod(e, t, o, m.al);
       if ((hd < 620 && nl < 45) || m.id === me.tg || ((t.boss || m.al || t.st) && hd < 1100)) {
-        nl++; const dl = (m.l || 0) - me.l, lc = t.st ? t.c : t.boss ? '#ffd24a' : m.al ? '#ffb04a' : dl >= 5 ? '#ff6a6a' : dl >= 2 ? '#ffb04a' : dl > -5 ? '#ffffff' : '#9ab';
-        label('m' + m.id, '<span style="color:' + lc + '">' + (t.boss ? '★ ' : m.al ? 'Alpha ' : '') + esc(t.n) + '</span> <span style="color:#aaa;font-size:10px">Lv' + m.l + '</span>', t.boss ? 'mob boss' : m.al ? 'mob alpha' : 'mob', e.rx, Math.min(260, (o.top || 56) * (o.sc || 1)) + 16, e.ry, m.hp / m.mh, t.boss ? 150 : m.al ? 130 : 110);
+        nl++;
+        const nameColor = t.st ? t.c : t.boss ? '#ffd24a' : m.al ? '#ffb04a' : '#fff';
+        label('m' + m.id, '<span style="color:' + nameColor + '">' + (t.wb ? '👑 ' : t.boss ? '★ ' : m.al ? esc(text("mob.alpha", "Alpha ")) : '') + esc(mobName(m.ty, t.n)) + '</span> ' + monsterLevelLabel(m.l, me.l), t.boss ? 'mob boss' : m.al ? 'mob alpha' : 'mob', e.rx, Math.min(260, (o.top || 56) * (o.sc || 1)) + 16, e.ry, m.hp / m.mh, t.boss ? 150 : m.al ? 130 : 110);
       }
     }
-    for (const o of pl) { const e = ents.get(o.id); if (!onScreen(e.rx, e.ry, 160)) continue; drawPlayer(e, o.c, o.w, o.d, o.rg); label('p' + o.id, esc(o.n) + ' <span style="color:#aaa">Lv' + o.l + '</span>', 'pl', e.rx, 92, e.ry, o.hp / o.mh, 120); }
-    drawPlayer(S, I.cls, me.w, me.dead, me.buf.rage); label('me', esc(I.name) + ' <span style="color:#ccc">Lv' + me.l + '</span>', 'pl me', S.rx, 92, S.ry, me.hp / me.mh, 120);
+    for (const o of pl) { const e = ents.get(o.id); if (!onScreen(e.rx, e.ry, 160)) continue; drawPlayer(e, o.c, o.w, o.d, o.rg); label('p' + o.id, esc(o.n) + ' <span style="color:#aaa">' + esc(text("zone.levelShort", "Lv ")) + o.l + '</span>', 'pl', e.rx, 92, e.ry, o.hp / o.mh, 120); }
+    drawPlayer(S, I.cls, me.w, me.dead, me.buf.rage);
+    const heroNameplate = '<span class="hero-name">' + esc(I.name) + '</span><span class="hero-level">' +
+      esc(text('zone.levelShort', 'Lv ') + me.l) + '</span>';
+    label('me', heroNameplate, 'pl me', S.rx, 92, S.ry, me.hp / me.mh, 120);
     if (intent) D(M.ring, intent.x, 1.6, intent.y, 9, 1, 9, now / 300, 0, [1, .85, .3], 1, .5);
-    if (now - zoneCheck > 400) { zoneCheck = now; const z = zoneOf(S.rx, S.ry); if (z !== lastZone) { if (lastZone !== -9) banner(z < 0 ? 'Dawnhearth' : ZT[z].name, z < 0 ? 'Safe zone' : 'Levels ' + ZT[z].lv[0] + ' - ' + ZT[z].lv[1] + (ZT[z].outer ? ' · enter at your own risk' : ''), z >= 0 && ZT[z].outer); lastZone = z; } }
+    if (now - zoneCheck > 400) { zoneCheck = now; const z = zoneOf(S.rx, S.ry); if (z !== lastZone) { if (lastZone !== -9) banner(zoneName(z < 0 ? 'Dawnhearth' : ZT[z].name), z < 0 ? text("zone.safe", "Safe zone") : text("zone.levels", "Levels ") + ZT[z].lv[0] + ' - ' + ZT[z].lv[1] + (ZT[z].outer ? text("zone.danger", " · enter at your own risk") : ''), z >= 0 && ZT[z].outer); lastZone = z; } }
     nearNpcK = null; let nd = WORLD.npcRange - 30; for (const k in WORLD.npcs) { const d = npcDist(k); if (d < nd) { nd = d; nearNpcK = k; } }
     if (pendingNpc && npcDist(pendingNpc) < WORLD.npcRange - 40) { openNpc(pendingNpc); pendingNpc = null; }
-    if (isOpen('shopw') && npcDist('merchant') > WORLD.npcRange + 60) closeWin('shopw'); if (isOpen('smithw') && npcDist('smith') > WORLD.npcRange + 60) closeWin('smithw');
-    const pr = nearNpcK && !isOpen(nearNpcK === 'merchant' ? 'shopw' : 'smithw') ? '<b>F</b>Talk to the ' + (nearNpcK === 'merchant' ? 'Merchant' : 'Blacksmith') : '';
+    for (const k in NPCWIN) if (WORLD.npcs[k] && isOpen(NPCWIN[k]) && npcDist(k) > WORLD.npcRange + 60) closeWin(NPCWIN[k]);
+    const pr = nearNpcK && !isOpen(NPCWIN[nearNpcK]) ? '<b>' + esc(keyName(BINDS.talk)) + '</b>' + esc(text('prompt.' + nearNpcK, { merchant: 'Talk to the Merchant', smith: 'Talk to the Blacksmith', mystic: 'Talk to the Soul Mystic', portal: 'Use the World Portal', camp: 'Build the encampment' }[nearNpcK])) : '';
     if (pr !== _hc.prompt) { _hc.prompt = pr; $('prompt').innerHTML = pr; $('prompt').style.display = pr ? 'block' : 'none'; }
   }
   for (const [k, L] of labels) if (!L.used) { L.el.remove(); labels.delete(k); }
   drawFx(now); updateFloaters(now); GL.render();
   if (now - miniT > 180) { miniT = now; drawMini(); }
-  if (now - perfT > 500) { perfT = now; const p = $('perf'); if (p.style.display === 'block') p.textContent = GL.Q.fps + ' fps · ' + GL.Q.mode + ' · res ' + Math.round(GL.Q.scale * 100) + '% · shadows ' + (GL.shadowsOn() ? 'on' : 'off') + ' · ' + GL.Q.draws + ' draws / ' + GL.Q.inst + ' parts · ' + decorStats + ' plants'; }
+  if (now - perfT > 500) { perfT = now; const p = $('perf'); if (p.style.display === 'block') p.textContent = text('performance.summary', '{fps} FPS · {quality} · res {resolution}% · shadows {shadows} · {draws} draws / {parts} parts · {plants} plants', {
+    fps: GL.Q.fps, quality: qualityName(GL.Q.mode), resolution: Math.round(GL.Q.scale * GL.Q.resolution * 100),
+    shadows: GL.shadowsOn() ? text('common.on', 'on') : text('common.off', 'off'),
+    draws: GL.Q.draws, parts: GL.Q.inst, plants: decorStats,
+  }); }
 }
 function drawFx(now) {
   for (let i = fxs.length - 1; i >= 0; i--) {
@@ -533,32 +779,120 @@ function drawFx(now) {
 function updateFloaters(now) {
   for (let i = floaters.length - 1; i >= 0; i--) {
     const f = floaters[i], a = (now - f.t0) / f.life; if (a >= 1) { f.el.remove(); floaters.splice(i, 1); continue; }
-    const p = GL.project(f.x, f.h + a * 40, f.z); if (!p) { f.el.style.display = 'none'; continue; }
-    f.el.style.display = 'block'; f.el.style.opacity = a < .7 ? 1 : 1 - (a - .7) / .3; f.el.style.transform = 'translate(' + ((p.x - 20) | 0) + 'px,' + ((p.y - 10) | 0) + 'px)';
+    const p = GL.project(f.x, f.h + a * (document.body.classList.contains('reduce-motion') ? 10 : 40), f.z); if (!p) { f.el.style.display = 'none'; continue; }
+    f.el.style.display = 'block';
+    f.el.style.opacity = a < .7 ? 1 : 1 - (a - .7) / .3;
+    const x = (p.x - (f.isDamage ? 0 : 20)) | 0;
+    f.el.style.transform = 'translate(' + x + 'px,' + ((p.y - 10 - (f.lift || 0)) | 0) + 'px)' + (f.isDamage ? ' translateX(-50%)' : '');
   }
 }
 function drawMini() {
-  if (!me) return; const g = mini, N = 320, s = N / WORLD.W, c = N / 2;
-  g.fillStyle = ZCOL[Math.min(6, ZT.length - 1)]; g.fillRect(0, 0, N, N);
-  for (let i = ZT.length - 1; i >= 0; i--) { if (ZT[i].outer) continue; g.fillStyle = ZCOL[i] || '#444'; g.beginPath(); g.arc(c, c, ZT[i].max * s, 0, 7); g.fill(); }
-  g.fillStyle = '#e8bf55'; g.beginPath(); g.arc(c, c, WORLD.V * s, 0, 7); g.fill();
-  for (const m of mo) { const t = I.types[m.ty]; if (t.st) { g.fillStyle = t.c; g.fillRect(m.x * s - 2.5, m.y * s - 2.5, 5, 5); } else if (t.boss) { g.fillStyle = '#f33'; g.beginPath(); g.arc(m.x * s, m.y * s, 4.5, 0, 7); g.fill(); g.strokeStyle = '#fd4'; g.lineWidth = 1.5; g.stroke(); } else if (m.al) { g.fillStyle = '#ffb04a'; g.beginPath(); g.arc(m.x * s, m.y * s, 3, 0, 7); g.fill(); } }
-  g.fillStyle = '#ffd24a'; for (const L of lo) if (L.k === 'gear' && L.r >= 2) g.fillRect(L.x * s - 1.5, L.y * s - 1.5, 3, 3);
-  g.fillStyle = '#4af'; for (const o of pl) g.fillRect(o.x * s - 2.5, o.y * s - 2.5, 5, 5);
-  g.save(); g.translate(S.rx * s, S.ry * s); g.rotate(-cam.yaw + 3.14159); g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(0, -8); g.lineTo(5.5, 6); g.lineTo(-5.5, 6); g.closePath(); g.fill(); g.stroke(); g.restore();
-  const z = zoneOf(S.rx, S.ry); setT('zname', z < 0 ? 'Dawnhearth' : ZT[z].name); setT('zinfo', (z < 0 ? 'Safe zone' : 'Lv ' + ZT[z].lv[0] + '-' + ZT[z].lv[1]) + ' · ' + Math.round(S.rx) + ', ' + Math.round(S.ry)); $('zname').style.color = z >= 0 && ZT[z].outer ? '#ff5a4a' : '';
+  if (!me) return;
+  const g = mini, N = g.canvas.width, c = N / 2, scale = N / 2400;
+  const px = x => c + (x - S.rx) * scale, py = y => c + (y - S.ry) * scale;
+  g.clearRect(0, 0, N, N); g.save();
+  g.beginPath(); g.arc(c, c, c, 0, Math.PI * 2); g.clip();
+  g.fillStyle = ZCOL[Math.min(6, lookIndex(ZT.length - 1))] || '#444'; g.fillRect(0, 0, N, N);
+  for (let i = ZT.length - 1; i >= 0; i--) {
+    if (ZT[i].outer || ZT[i].generated) continue;
+    g.fillStyle = ZCOL[lookIndex(i)] || '#444'; g.beginPath(); g.arc(px(WORLD.CX), py(WORLD.CY), ZT[i].max * scale, 0, Math.PI * 2); g.fill();
+  }
+  g.fillStyle = '#9a8a66'; g.beginPath(); g.arc(px(WORLD.CX), py(WORLD.CY), WORLD.V * scale, 0, Math.PI * 2); g.fill();
+  function dot(x, y, color, radius) { g.fillStyle = color; g.beginPath(); g.arc(px(x), py(y), radius, 0, Math.PI * 2); g.fill(); }
+  // Important markers get their own shape and a dark outline, so they read without relying on colour (see the map legend).
+  function mark(x, y, shape, color, r) {
+    const X = px(x), Y = py(y); g.fillStyle = color; g.strokeStyle = '#120d08'; g.lineWidth = 1.5; g.beginPath();
+    if (shape === 'diamond') { g.moveTo(X, Y - r); g.lineTo(X + r, Y); g.lineTo(X, Y + r); g.lineTo(X - r, Y); g.closePath(); }
+    else if (shape === 'square') g.rect(X - r * .8, Y - r * .8, r * 1.6, r * 1.6);
+    else if (shape === 'triangle') { g.moveTo(X, Y - r); g.lineTo(X + r, Y + r * .8); g.lineTo(X - r, Y + r * .8); g.closePath(); }
+    else g.arc(X, Y, r, 0, Math.PI * 2);
+    if (shape === 'ring') { g.lineWidth = 3; g.strokeStyle = color; g.stroke(); g.lineWidth = 1; g.strokeStyle = '#120d08'; g.stroke(); return; }
+    g.fill(); g.stroke();
+  }
+  for (const monster of mo) {
+    const type = I.types[monster.ty]; if (!type) continue;
+    if (type.boss) mark(monster.x, monster.y, 'diamond', type.wb ? '#ffd24a' : '#ff4949', type.wb ? 7 : 5.5); else if (type.st) mark(monster.x, monster.y, 'square', '#cf9aff', 4); else if (monster.al) mark(monster.x, monster.y, 'triangle', '#ffac42', 3.5); else dot(monster.x, monster.y, '#d6c69c', 2);
+  }
+  for (const drop of lo) if (drop.k === 'gear' && drop.r >= 2) dot(drop.x, drop.y, '#ffd24a', 2);
+  for (const other of pl) mark(other.x, other.y, 'circle', '#55cfff', 3.5);
+  for (const [key, npc] of Object.entries(WORLD.npcs)) mark(npc.x, npc.y, key === 'portal' ? 'ring' : 'circle', key === 'portal' ? '#ba85ff' : '#ffe292', key === 'portal' ? 5 : 3);
+  g.save(); g.translate(c, c); g.rotate(-S.yaw + Math.PI); g.fillStyle = '#fff'; g.strokeStyle = '#211a12'; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(0, -9); g.lineTo(6, 7); g.lineTo(0, 4); g.lineTo(-6, 7); g.closePath(); g.fill(); g.stroke(); g.restore();
+  g.font = 'bold 16px sans-serif'; g.textAlign = 'center'; g.fillStyle = '#fff0bd'; g.fillText('N', c, 20);
+  g.restore();
+  const z = zoneOf(S.rx, S.ry); setT('zname', zoneName(z < 0 ? 'Dawnhearth' : ZT[z].name)); setT('zinfo', (z < 0 ? text("zone.safe", "Safe zone") : text("zone.levelShort", "Lv ") + ZT[z].lv[0] + '-' + ZT[z].lv[1]) + ' · ' + Math.round(S.rx) + ', ' + Math.round(S.ry)); $('zname').style.color = z >= 0 && ZT[z].outer ? '#ff5a4a' : '';
 }
 
 // ---------- boot ----------
 function loadScript(src) { return new Promise(r => { const s = document.createElement('script'); s.src = src; s.onload = s.onerror = () => r(); document.body.appendChild(s); }); }
+function renderLoginClasses(classes) {
+  $('cls').innerHTML = Object.keys(classes).map(id => {
+    const characterClass = classes[id];
+    return '<button data-c="' + esc(id) + '" class="' + (id === sel ? 'on' : '') + '"><i style="background:' +
+      (characterClass.color || '#ccc') + '"></i>' + esc(className(id, characterClass.name)) +
+      '<small>' + esc(text('class.' + id + '.description', characterClass.desc || '')) + '</small></button>';
+  }).join('');
+  document.querySelectorAll('#cls button').forEach(button => button.onclick = () => {
+    sel = button.dataset.c;
+    document.querySelectorAll('#cls button').forEach(option => option.classList.toggle('on', option === button));
+  });
+}
+
+const ONLINE_COUNT_REFRESH_MS = 10000;
+let onlineCountTimer, displayedOnlineCount;
+
+function showOnlineCount(count) {
+  const counter = $('online-count');
+  counter.hidden = !Number.isInteger(count) || count < 0;
+  if (counter.hidden || displayedOnlineCount === count) return;
+  displayedOnlineCount = count;
+  GameText.present(counter, { message: { key: 'login.onlineCount', fallback: 'Online players: {count}', values: { count } } });
+}
+
+// Public link from the host's Cloudflare tunnel, with one-click copy.
+let inviteLink = '';
+function showInvite(link) {
+  inviteLink = typeof link === 'string' ? link : '';
+  $('invite').hidden = !inviteLink; $('invite-link').textContent = inviteLink;
+}
+async function copyInvite() {
+  if (!inviteLink) return;
+  let copied = false;
+  try { await navigator.clipboard.writeText(inviteLink); copied = true; } catch {
+    const field = document.createElement('textarea'); field.value = inviteLink; field.style.position = 'fixed'; field.style.opacity = '0'; document.body.appendChild(field); field.select();
+    try { copied = document.execCommand('copy'); } catch {} field.remove();
+  }
+  const status = $('invite-status');
+  status.textContent = copied ? text('login.copied', 'Copied!') : text('login.copyFailed', 'Select the link and copy it');
+  clearTimeout(copyInvite.timer); copyInvite.timer = setTimeout(() => { status.textContent = ''; }, 2500);
+}
+$('invite-copy').addEventListener('click', copyInvite);
+async function refreshOnlineCount() {
+  if (I) return;
+  try {
+    const response = await fetch('/api/info', { cache: 'no-store' });
+    const info = response.ok ? await response.json() : {};
+    if (!I) { showOnlineCount(info.online); showInvite(info.invite); }
+  } catch {
+    if (!I) showOnlineCount();
+  }
+  if (!I) onlineCountTimer = setTimeout(refreshOnlineCount, ONLINE_COUNT_REFRESH_MS);
+}
+
 async function boot() {
-  let info; try { info = await (await fetch('/api/info')).json(); } catch (e) { $('srv').textContent = 'Server not reachable.'; return; }
-  WORLD = info.world; ZT = WORLD.tiers; document.title = info.serverName + ' - Shardlands 3D'; $('srv').textContent = info.serverName + ' · private server';
-  const keysC = Object.keys(info.classes); sel = keysC[0];
-  $('cls').innerHTML = keysC.map((k, i) => '<button data-c="' + k + '" class="' + (i ? '' : 'on') + '"><i style="background:' + (info.classes[k].color || '#ccc') + '"></i>' + esc(info.classes[k].name) + '<small>' + esc(info.classes[k].desc || '') + '</small></button>').join('');
-  document.querySelectorAll('#cls button').forEach(b => b.onclick = () => { sel = b.dataset.c; document.querySelectorAll('#cls button').forEach(x => x.classList.toggle('on', x === b)); });
+  GameText.init();
+  let info; try { info = await (await fetch('/api/info')).json(); } catch (e) { $('srv').textContent = text("login.unreachable", "Server not reachable."); return; }
+  WORLD = info.world; ZT = WORLD.tiers; showUniverseLine(); $('srv').textContent = text('login.server', '{server} · private server', { server: info.serverName });
+  showOnlineCount(info.online); showInvite(info.invite);
+  onlineCountTimer = setTimeout(refreshOnlineCount, ONLINE_COUNT_REFRESH_MS);
+  sel = Object.keys(info.classes)[0];
+  renderLoginClasses(info.classes);
+  document.addEventListener('game-language-change', () => {
+    renderLoginClasses(info.classes);
+    $('srv').textContent = text('login.server', '{server} · private server', { server: info.serverName });
+  });
   $('go').onclick = join; $('name').onkeydown = $('pw').onkeydown = e => { if (e.key === 'Enter') join(); };
-  $('srv').textContent = info.serverName + ' · loading world…'; await loadNature(); bakeWorld(); buildGround(); $('srv').textContent = info.serverName + ' · private server'; loadChars();
+  $('srv').textContent = text('login.loadingWorld', '{server} · loading world…', { server: info.serverName }); await loadNature(); bakeWorld(); buildGround(); $('srv').textContent = text('login.server', '{server} · private server', { server: info.serverName }); loadChars();
   for (const s of info.scripts) await loadScript('plugins/' + s);
   requestAnimationFrame(frame);
 }

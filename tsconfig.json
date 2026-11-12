@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "strict": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "declaration": true,
+    "outDir": "src/balance/generated",
+    "rootDir": "src/balance/typed",
+    "forceConsistentCasingInFileNames": true,
+    "noEmitOnError": true,
+    "newLine": "lf"
+  },
+  "include": ["src/balance/typed/**/*.ts"]
+}

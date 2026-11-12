@@ -1,0 +1,36 @@
+/* Shardlands UI pack - drop-in styles. Paths assume this file sits next to the ../../public/ui/ folder.
+   All art is original and released as CC0 (public domain). */
+.sl-panel   { border: 40px solid transparent; border-image: url(../../public/ui/panel.png) 80 fill / 40px stretch; padding: 4px 6px; color: #f1e7d4; }
+.sl-plain   { border: 24px solid transparent; border-image: url(../../public/ui/panel-plain.png) 48 fill / 24px stretch; }
+.sl-tooltip { border: 28px solid transparent; border-image: url(../../public/ui/tooltip.png) 56 fill / 28px stretch; padding: 0 2px; margin: -10px; color: #f1e7d4; }
+.sl-header  { border-style: solid; border-width: 0 30px; border-image: url(../../public/ui/panel-header.png) 0 60 fill / 0 30px stretch; height: 40px; line-height: 41px; text-align: center;
+              font: 700 15px Georgia, serif; letter-spacing: 2px; color: #fff0b8; text-shadow: 0 1px 2px #000; }
+.sl-btn     { border: 12px solid transparent; border-image: url(../../public/ui/button.png) 24 fill / 12px stretch; padding: 0 6px; min-height: 36px; background: none;
+              font: 600 13px "Segoe UI", sans-serif; color: #f1e7d4; text-shadow: 0 1px 1px #000; cursor: pointer; line-height: 12px; }
+.sl-btn:hover    { border-image-source: url(../../public/ui/button-hover.png); }
+.sl-btn:active   { border-image-source: url(../../public/ui/button-pressed.png); }
+.sl-btn:disabled { border-image-source: url(../../public/ui/button-disabled.png); color: #7a7068; cursor: default; }
+.sl-btn.primary  { border-image-source: url(../../public/ui/button-primary.png); color: #2a1a06; text-shadow: 0 1px 0 #ffe9a8; }
+.sl-btn.danger   { border-image-source: url(../../public/ui/button-danger.png); }
+.sl-close   { width: 28px; height: 28px; border: 0; background: url(../../public/ui/close.png) 0 0 / 100% 100%; cursor: pointer; }
+.sl-tab     { border: 12px solid transparent; border-bottom-width: 4px; border-image: url(../../public/ui/tab.png) 24 24 8 24 fill / 12px 12px 4px 12px stretch; background: none; color: #a79a85; padding: 0 4px; }
+.sl-tab.on  { border-image-source: url(../../public/ui/tab-active.png); color: #fff0b8; }
+.sl-bar     { position: relative; height: 22px; border: 8px solid transparent; border-image: url(../../public/ui/bar-frame.png) 16 fill / 8px stretch; }
+.sl-bar > i { position: absolute; left: -5px; top: -5px; bottom: -5px; border-radius: 4px; background: url(../../public/ui/bar-fill-hp.png) 0 0 / 100% 100%; }
+.sl-bar.mp > i { background-image: url(../../public/ui/bar-fill-mp.png); } .sl-bar.xp > i { background-image: url(../../public/ui/bar-fill-xp.png); } .sl-bar.boss > i { background-image: url(../../public/ui/bar-fill-boss.png); }
+.sl-bar > b { position: absolute; inset: -8px 0; text-align: center; font: 600 11px/22px "Segoe UI", sans-serif; color: #fff; text-shadow: 0 1px 2px #000; }
+.sl-slot    { width: 52px; height: 52px; background: url(../../public/ui/slot.png) 0 0 / 100% 100%; display: grid; place-items: center; position: relative; }
+.sl-slot img { width: 76%; height: 76%; }
+.sl-slot.uncommon { background-image: url(../../public/ui/slot-uncommon.png); } .sl-slot.rare { background-image: url(../../public/ui/slot-rare.png); } .sl-slot.epic { background-image: url(../../public/ui/slot-epic.png); }
+.sl-slot.legendary { background-image: url(../../public/ui/slot-legendary.png); } .sl-slot.set { background-image: url(../../public/ui/slot-set.png); } .sl-slot.unique { background-image: url(../../public/ui/slot-unique.png); }
+.sl-slot:hover::after { content: ""; position: absolute; inset: 0; background: url(../../public/ui/slot-hover.png) 0 0 / 100% 100%; }
+.sl-key     { position: absolute; left: 3px; top: 3px; min-width: 16px; height: 14px; border: 5px solid transparent; border-image: url(../../public/ui/keycap.png) 12 fill / 5px stretch; font: 700 9px/4px "Segoe UI", sans-serif; color: #fff0b8; text-align: center; }
+.sl-hotbar  { border: 24px solid transparent; border-image: url(../../public/ui/hotbar.png) 48 fill / 24px stretch; display: inline-flex; gap: 6px; padding: 0 2px; }
+.sl-input   { border: 10px solid transparent; border-image: url(../../public/ui/input.png) 20 fill / 10px stretch; background: none; color: #f1e7d4; padding: 0 2px; height: 32px; outline: none; }
+.sl-check   { appearance: none; width: 24px; height: 24px; background: url(../../public/ui/checkbox.png) 0 0 / 100%; vertical-align: middle; cursor: pointer; } .sl-check:checked { background-image: url(../../public/ui/checkbox-on.png); }
+.sl-divider { height: 14px; background: url(../../public/ui/divider.png) center / auto 100% no-repeat, linear-gradient(90deg, transparent, #a37a2c 15%, #e8bf55 50%, #a37a2c 85%, transparent) center / 100% 1px no-repeat; margin: 8px 0; }
+.sl-cursor  { cursor: url(../../public/ui/cursor.png) 3 2, auto; } .sl-cursor-attack { cursor: url(../../public/ui/cursor-attack.png) 3 3, crosshair; }
+.sl-cursor-talk { cursor: url(../../public/ui/cursor-talk.png) 3 2, pointer; } .sl-cursor-loot { cursor: url(../../public/ui/cursor-loot.png) 16 16, pointer; }
+input[type=range].sl-range { appearance: none; height: 12px; background: url(../../public/ui/slider-track.png) 0 0 / 100% 100%; }
+input[type=range].sl-range::-webkit-slider-thumb { appearance: none; width: 22px; height: 22px; background: url(../../public/ui/slider-knob.png) 0 0 / 100%; border: 0; }
+input[type=range].sl-range::-moz-range-thumb { width: 22px; height: 22px; background: url(../../public/ui/slider-knob.png) 0 0 / 100%; border: 0; }

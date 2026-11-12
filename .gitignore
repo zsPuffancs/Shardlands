@@ -1,0 +1,18 @@
+# Server-generated saves and local settings
+/saves.json
+/plugin-data.json
+/rates.json
+/saves.json.*.tmp
+/plugin-data.json.*.tmp
+/universe.json
+/universe.json.*.tmp
+/universe-backup-*.json
+/save-journal.json
+/save-journal.json.tmp
+/*.json.recovery.tmp
+/tunnel.json
+# cloudflared for the invite link (large binary, download separately)
+/tools/
+/cloudflared*
+/node_modules/
+/reports/
