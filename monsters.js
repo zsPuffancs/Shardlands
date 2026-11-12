@@ -1,4 +1,5 @@
 'use strict';
+const { resetStoneRewards } = require('./stone-rewards');
 const { MAX_PLAYER_LEVEL, encounterBaseXp, encounterCategory } = require('./xp-economy');
 const { monsterGoldScaling } = require('./gold-rewards');
 const { ENEMY_SCALING, monsterStats } = require('./enemy-scaling');
@@ -211,6 +212,7 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick,
   }
 
   function respawnMonster(monster) {
+    resetStoneRewards(monster);
     monster.combatEpoch = (monster.combatEpoch || 0) + 1; monster.combatActive = false; monster.partyDamageScale = 1;
     monster.phase = 0; monster.fightStart = 0; monster.recoverUntil = 0;
     monster.dead = 0;

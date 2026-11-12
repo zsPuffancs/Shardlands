@@ -39,13 +39,15 @@ The level requirement remains exactly `Q(L) = floor(55 * L^1.85)`. World Tier ne
 |---|---:|---:|
 | Normal | 2.5% of Q | 20% |
 | Alpha | 7.5% | 30% |
-| Spirit Stone | 10% | 35% |
+| Spirit Stone | 20% | 45% |
 | Regular boss | 15% | 45% |
 | World Boss | 25% | 60% |
-| Summoned | 0 | 0 |
+| Boss/unauthorized summon | 0 | 0 |
+| Authorized Stone guardian | 30% of normal | 30% of normal |
+| Authorized Stone Alpha guardian | 50% of normal | 50% of normal |
 | Future anomaly | 10% | 25% |
 
-The early fraction blends continuously toward the standard fraction with `t=max(0,1-(L-1)/9)` and `fraction=standard+(early-standard)*t^2`. This keeps the first few levels brisk without making early special enemies less rewarding than ordinary ones. Summoned takes priority over all other flags; an anomaly flag has its own budget, followed by stone, World Boss, boss, Alpha and normal. Existing custom `template.xp` values no longer set combat rewards; plugins should use the documented XP hook.
+The early fraction blends continuously toward the standard fraction with `t=max(0,1-(L-1)/9)` and `fraction=standard+(early-standard)*t^2`. This keeps the first few levels brisk without making early special enemies less rewarding than ordinary ones. Summoned defaults to zero; only a valid lifecycle permit lets combat use the normal category at 30%/50% for Stone guardians. An anomaly flag has its own budget, followed by stone, World Boss, boss, Alpha and normal. Existing custom `template.xp` values no longer set combat rewards; plugins should use the documented XP hook. See [Spirit Stone reward bounds](STONE-REWARDS.md) for the later Stone farming rebalance; older generated reports predate that policy.
 
 Let `gap=playerLevel-monsterLevel`. All categories, including bosses and stones, share these rules:
 

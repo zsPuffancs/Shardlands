@@ -393,6 +393,30 @@
     return polar(lay.arrival.angle, lay.arrival.r[0]);
   }
 
+  const COLLISION_EPSILON = 1e-6;
+  // Signed distance gives a round body round corners, rather than inflating a rectangle into a larger square.
+  function obstaclePenetration(x, y, obstacle, radius) {
+    if (obstacle.type === 'circle') return Math.max(0, obstacle.r + radius - Math.hypot(x - obstacle.x, y - obstacle.y));
+    const local = toLocal(obstacle, x, y), widthDistance = Math.abs(local.u) - obstacle.w / 2, depthDistance = Math.abs(local.v) - obstacle.d / 2;
+    const distance = Math.hypot(Math.max(0, widthDistance), Math.max(0, depthDistance)) + Math.min(0, Math.max(widthDistance, depthDistance));
+    return Math.max(0, radius - distance);
+  }
+  function collisionPenetrations(entity, lay, cx, cy, radius) {
+    const x = entity.x - cx, y = entity.y - cy;
+    const depths = lay.obstacles.map(obstacle => obstaclePenetration(x, y, obstacle, radius));
+    if (lay.wall) {
+      const half = lay.wall.thickness / 2 + radius;
+      for (const segment of lay.wall.segments) {
+        const dx = segment.x2 - segment.x1, dy = segment.y2 - segment.y1, lengthSquared = dx * dx + dy * dy || 1;
+        const along = Math.max(0, Math.min(1, ((x - segment.x1) * dx + (y - segment.y1) * dy) / lengthSquared));
+        depths.push(Math.max(0, half - Math.hypot(x - segment.x1 - dx * along, y - segment.y1 - dy * along)));
+      }
+      for (const tower of lay.wall.towers) depths.push(Math.max(0, tower.r + radius - Math.hypot(x - tower.x, y - tower.y)));
+    }
+    return depths;
+  }
+  const isPenetrating = depths => depths.some(depth => depth > COLLISION_EPSILON);
+
   // Push an entity out of buildings, carts and the wall. Positions are world coordinates; cx, cy is the settlement centre.
   // prev (the position before this move) decides which side of the wall the entity belongs on.
   function collide(entity, lay, cx, cy, radius, prev) {
@@ -401,18 +425,26 @@
     const lx0 = entity.x - cx, ly0 = entity.y - cy;
     if (Math.abs(lx0) > lay.reach || Math.abs(ly0) > lay.reach) return false;
     let lx = lx0, ly = ly0;
+    // Revisit earlier obstacles: resolving a neighbour or a wall can push back into one already checked.
+    for (let pass = 0; pass < 8; pass++) {
+    let adjusted = false;
     for (const o of lay.obstacles) {
       if (Math.abs(lx - o.x) > o.br + radius || Math.abs(ly - o.y) > o.br + radius) continue;
       if (o.type === 'circle') {
         const dx = lx - o.x, dy = ly - o.y, dist = Math.hypot(dx, dy), min = o.r + radius;
-        if (dist < min) { const k = dist > 0.01 ? dx / dist : 1, j = dist > 0.01 ? dy / dist : 0; lx = o.x + k * min; ly = o.y + j * min; moved = true; }
+        if (dist < min - COLLISION_EPSILON) { const k = dist > 0.01 ? dx / dist : 1, j = dist > 0.01 ? dy / dist : 0; lx = o.x + k * min; ly = o.y + j * min; moved = adjusted = true; }
       } else {
-        const c = Math.cos(o.yaw), s = Math.sin(o.yaw), dx = lx - o.x, dy = ly - o.y;
+        const c = Math.cos(o.yaw || 0), s = Math.sin(o.yaw || 0), dx = lx - o.x, dy = ly - o.y;
         // the rect is drawn turned by yaw about the vertical axis: local u along its width, v along its depth
-        const u = dx * c - dy * s, v = dx * s + dy * c, hw = o.w / 2 + radius, hd = o.d / 2 + radius;
-        if (Math.abs(u) < hw && Math.abs(v) < hd) {
-          let nu = u, nv = v; if (hw - Math.abs(u) < hd - Math.abs(v)) nu = Math.sign(u || 1) * hw; else nv = Math.sign(v || 1) * hd;
-          lx = o.x + nu * c + nv * s; ly = o.y - nu * s + nv * c; moved = true;
+        const u = dx * c - dy * s, v = dx * s + dy * c, hw = o.w / 2, hd = o.d / 2;
+        const nearestU = Math.max(-hw, Math.min(hw, u)), nearestV = Math.max(-hd, Math.min(hd, v));
+        const du = u - nearestU, dv = v - nearestV, distance = Math.hypot(du, dv);
+        if (distance < radius - COLLISION_EPSILON) {
+          let nu = u, nv = v;
+          if (distance > COLLISION_EPSILON) { nu = nearestU + du / distance * radius; nv = nearestV + dv / distance * radius; }
+          else if (hw - Math.abs(u) < hd - Math.abs(v)) nu = Math.sign(u || 1) * (hw + radius);
+          else nv = Math.sign(v || 1) * (hd + radius);
+          lx = o.x + nu * c + nv * s; ly = o.y - nu * s + nv * c; moved = adjusted = true;
         }
       }
     }
@@ -424,16 +456,18 @@
         for (const sgm of wall.segments) {
           const ex = sgm.x2 - sgm.x1, ey = sgm.y2 - sgm.y1, L2 = ex * ex + ey * ey || 1, t = Math.max(0, Math.min(1, ((lx - sgm.x1) * ex + (ly - sgm.y1) * ey) / L2));
           const qx = sgm.x1 + ex * t, qy = sgm.y1 + ey * t, dist = Math.hypot(lx - qx, ly - qy);
-          if (dist >= half) continue;
+          if (dist >= half - COLLISION_EPSILON) continue;
           // which side: the side the entity came from (inside if it was inside before)
           const side = Math.sign(ex * (ref.y - sgm.y1) - ey * (ref.x - sgm.x1)) || 1, nx = -ey / Math.sqrt(L2) * side, ny = ex / Math.sqrt(L2) * side;
           const along = (lx - qx) * nx + (ly - qy) * ny;
           if (t > 0 && t < 1) { const push = half - along; lx += nx * push; ly += ny * push; }
           else { const k = dist > 0.01 ? (lx - qx) / dist : nx, j = dist > 0.01 ? (ly - qy) / dist : ny; lx = qx + k * half; ly = qy + j * half; }
-          moved = true;
+          moved = adjusted = true;
         }
-        for (const t of wall.towers) { const dx = lx - t.x, dy = ly - t.y, dist = Math.hypot(dx, dy), min = t.r + radius; if (dist < min) { const k = dist > .01 ? dx / dist : 1, j = dist > .01 ? dy / dist : 0; lx = t.x + k * min; ly = t.y + j * min; moved = true; } }
+        for (const t of wall.towers) { const dx = lx - t.x, dy = ly - t.y, dist = Math.hypot(dx, dy), min = t.r + radius; if (dist < min - COLLISION_EPSILON) { const k = dist > .01 ? dx / dist : 1, j = dist > .01 ? dy / dist : 0; lx = t.x + k * min; ly = t.y + j * min; moved = adjusted = true; } }
       }
+    }
+    if (!adjusted) break;
     }
     if (moved) { entity.x = cx + lx; entity.y = cy + ly; }
     return moved;
@@ -452,8 +486,15 @@
     const reach = lay.reach + radius;
     if (Math.min(fromX, toX) > reach || Math.max(fromX, toX) < -reach || Math.min(fromY, toY) > reach || Math.max(fromY, toY) < -reach) return false;
     const start = { x: prev.x, y: prev.y };
-    // Newly built scenery may occupy the old position. Resolve that separately from walking.
-    if (collide(start, lay, cx, cy, radius, prev) && Math.hypot(start.x - prev.x, start.y - prev.y) > 1e-6) { entity.x = start.x; entity.y = start.y; return true; }
+    // A saved/previous position can already overlap neighbouring solids. Only accept a short, fully clear correction.
+    const startCorrected = collide(start, lay, cx, cy, radius, prev);
+    if (startCorrected && Math.hypot(start.x - prev.x, start.y - prev.y) <= radius * 2 &&
+        !isPenetrating(collisionPenetrations(start, lay, cx, cy, radius))) { entity.x = start.x; entity.y = start.y; return true; }
+    let recoveryDepths = null;
+    if (startCorrected) {
+      const depths = collisionPenetrations(prev, lay, cx, cy, radius);
+      if (isPenetrating(depths)) recoveryDepths = depths;
+    }
     const dx = entity.x - prev.x, dy = entity.y - prev.y, distance = Math.hypot(dx, dy), stepSize = Math.max(1, radius / 2);
     if (!Number.isFinite(distance)) { entity.x = prev.x; entity.y = prev.y; return true; }
     if (!distance) return false;
@@ -463,9 +504,17 @@
     for (let index = 0; index < steps; index++) {
       const before = { x: entity.x, y: entity.y };
       entity.x += stepX; entity.y += stepY;
-      blocked = collide(entity, lay, cx, cy, radius, before) || blocked;
+      if (recoveryDepths) {
+        // Permit backing out of an old overlap, but never deeper into any solid or into a new one.
+        const depths = collisionPenetrations(entity, lay, cx, cy, radius);
+        if (depths.some((depth, i) => depth > recoveryDepths[i] + COLLISION_EPSILON)) { entity.x = before.x; entity.y = before.y; return true; }
+        recoveryDepths = isPenetrating(depths) ? depths : null; blocked = true;
+        continue;
+      }
+      const corrected = collide(entity, lay, cx, cy, radius, before);
+      blocked = corrected || blocked;
       // Intersecting inflated obstacles must not turn a small walk into a large push.
-      if (Math.hypot(entity.x - before.x, entity.y - before.y) > allowance) { entity.x = before.x; entity.y = before.y; return true; }
+      if (Math.hypot(entity.x - before.x, entity.y - before.y) > allowance || corrected && isPenetrating(collisionPenetrations(entity, lay, cx, cy, radius))) { entity.x = before.x; entity.y = before.y; return true; }
     }
     return blocked;
   }

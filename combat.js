@@ -10,6 +10,7 @@ const { CLASSES, critCh, critMul, defRed, playerDmg, rank, passive, gearLifestea
 const { XP_BALANCE, levelGapScale, encounterCategory, encounterShare } = require('./xp-economy');
 const { createEncounterParticipation } = require('./encounter-participation');
 const { deathGoldPenalty } = require('./death-gold');
+const { prepareStoneRewards, claimMonsterRewards } = require('./stone-rewards');
 const XP_LEVEL_GAP_LIMIT = XP_BALANCE.overlevelCutoff;
 const canEarnMonsterXp = (hero, monster) => levelGapScale(hero.lvl, monster.lvl) > 0;
 const { SUMMON_LIFETIME_MS, createSummons } = require('./summons');
@@ -49,6 +50,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
       monster.awake = true;
       if (!template.stone && !monster.target) monster.target = player.id;
       if (template.stone) {
+        prepareStoneRewards(monster);
         const step = Math.ceil((monster.hp / monster.mh) * 5);
         while (monster.stoneStep > step && monster.hp > 0) {
           monster.stoneStep--;
@@ -57,7 +59,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
           const requests = [];
           for (let i = 0; i < Math.min(12, 5 + monster.tier); i++) { const angle = rnd(0, Math.PI * 2), radius = rnd(60, 140); requests.push({ type: pick(TIERS[monster.tier].types), x: monster.x + Math.cos(angle) * radius, y: monster.y + Math.sin(angle) * radius, options: guardianLevels }); }
           if (monster.stoneStep <= 3) requests.push({ type: pick(TIERS[monster.tier].types), x: monster.x + rnd(-60, 60), y: monster.y + rnd(-60, 60), options: { alpha: true, ...guardianLevels } });
-          for (const guardian of summons.spawnBatch(monster, requests)) guardian.target = player.id;
+          for (const guardian of summons.spawnBatch(monster, requests, { kind: 'stone', stage: monster.stoneStep })) guardian.target = player.id;
           ev('fx', monster.x, monster.y, 160, { s: 'summon' });
         }
       }
@@ -66,6 +68,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
   }
   function killMob(player, monster) {
     const template = MOBTYPES[monster.ty];
+    const reward = claimMonsterRewards(monster, template, mobs);
     monster.dead = Date.now() + (template.stone ? 90000 : template.boss ? 180000 : monster.alpha ? 90000 : rint(rates.respawnSeconds * 750, rates.respawnSeconds * 1350));
     if (player.target === monster.id) {
       player.target = 0;
@@ -76,15 +79,15 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     const contributors = participation.recipients(monster, Date.now());
     for (const hero of contributors) adventure?.kill(hero, monster);
     const xpSharers = contributors.filter(hero => canEarnMonsterXp(hero, monster));
-    const category = encounterCategory(monster, template);
+    const category = monster.summoned && reward.xp > 0 ? 'normal' : encounterCategory(monster, template);
     if (rates.xpRate > 0) for (const hero of xpSharers) {
-      const amount = encounterShare({ playerLevel: hero.lvl, monsterLevel: monster.lvl, category, members: xpSharers.length, healthScale: monster.ps || 1 });
+      const amount = encounterShare({ playerLevel: hero.lvl, monsterLevel: monster.lvl, category, members: xpSharers.length, healthScale: monster.ps || 1, rewardScale: reward.xp });
       if (amount > 0) gainXp(hero, amount, { source: 'combat', serverRate: rates.xpRate, members: xpSharers.length, healthScale: monster.ps || 1 });
     }
     dropLoot(player, monster, sharers); ev('die', monster.x, monster.y, monster.ty, { b: monster.alpha ? 1 : 0 });
     if (template.boss) { broadcast({ t: 'chat', n: '*', m: messageText("server.bossSlain", "{player} has slain {monster}!", { player: player.name, monster: messageText('monster.' + monster.ty, template.name) }) }); broadcast({ t: 'toast', m: messageText("server.bossSlain", "{player} has slain {monster}!", { player: player.name, monster: messageText('monster.' + monster.ty, template.name) }), c: '#ffd24a' }); }
     // Reward hooks (including direct plugin item grants) only run for nonsummoned enemies.
-    if (!monster.summoned) fire('kill', player, monster);
+    if (!monster.summoned && reward.xp > 0) fire('kill', player, monster);
     if (monster.summoned) mobs.delete(monster.id);
   }
   function hurtPlayer(player, monster, damage, now) {

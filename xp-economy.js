@@ -1,4 +1,5 @@
 'use strict';
+const { STONE_REWARDS } = require('./stone-rewards');
 // Shared production XP mathematics. This module never reads time, players, saves or World Tier.
 const MAX_PLAYER_LEVEL = 10000;
 const XP_BALANCE = Object.freeze({
@@ -7,8 +8,8 @@ const XP_BALANCE = Object.freeze({
   underlevelCurve: Object.freeze([[10, 1], [15, .90], [25, .55], [40, .22], [60, .02]].map(Object.freeze)),
   relativeBudgetCap: 1.5,
   earlyTaperLevel: 10,
-  fractions: Object.freeze({ normal: .025, alpha: .075, stone: .10, boss: .15, worldBoss: .25, summoned: 0, anomaly: .10 }),
-  earlyFractions: Object.freeze({ normal: .20, alpha: .30, stone: .35, boss: .45, worldBoss: .60, summoned: 0, anomaly: .25 }),
+  fractions: Object.freeze({ normal: .025, alpha: .075, stone: STONE_REWARDS.completion.matureXpFraction, boss: .15, worldBoss: .25, summoned: 0, anomaly: .10 }),
+  earlyFractions: Object.freeze({ normal: .20, alpha: .30, stone: STONE_REWARDS.completion.earlyXpFraction, boss: .45, worldBoss: .60, summoned: 0, anomaly: .25 }),
   maxEncounterFraction: .75, gearSoftCapPercent: 100, wisdomMultiplier: 1.5,
   pluginMultiplierCap: 2, serverRateCap: 1000000, partySizeCap: 5, partyHpPerMember: .45, partyDamagePerMember: .08,
   partyEfficiencyPerMember: .05, sharingRadius: 1000, minimumDamageFraction: .01, participationWindowMs: 45000,
@@ -53,14 +54,14 @@ function levelGapScale(playerLevel, monsterLevel) {
   return validLevel(playerLevel) && validLevel(monsterLevel) && playerLevel < MAX_PLAYER_LEVEL ? gapMultiplier(playerLevel - monsterLevel) : 0;
 }
 const encounterBaseXp = (level, category) => validLevel(level) ? xpNeed(level) * categoryFraction(category, level) : 0;
-function encounterShare({ playerLevel, monsterLevel, category = 'normal', members = 1, healthScale = partyHpScale(members) }) {
+function encounterShare({ playerLevel, monsterLevel, category = 'normal', members = 1, healthScale = partyHpScale(members), rewardScale = 1 }) {
   const relative = levelGapScale(playerLevel, monsterLevel);
-  if (!relative) return 0;
+  if (!relative || !Number.isFinite(rewardScale) || rewardScale <= 0) return 0;
   // A far stronger monster cannot import its entire high-level XP budget into a low-level hero.
   const reference = Math.min(monsterLevel, playerLevel + XP_BALANCE.underlevelMinimumWindow, MAX_PLAYER_LEVEL);
   const fraction = categoryFraction(category, reference);
   const base = Math.min(xpNeed(reference), xpNeed(playerLevel) * XP_BALANCE.relativeBudgetCap) * fraction;
-  return base * relative * partyAllocation(members, healthScale);
+  return Math.min(Number.MAX_SAFE_INTEGER, base * rewardScale) * relative * partyAllocation(members, healthScale);
 }
 function gearXpMultiplier(bonus) {
   if (!Number.isFinite(bonus) || bonus <= 0) return 1;

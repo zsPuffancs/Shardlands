@@ -155,8 +155,6 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   button, .sk, .slot { touch-action: manipulation; }
   #login { padding: calc(var(--viewport-top) + var(--safe-top) + 8px) calc(var(--safe-right) + 8px) calc(var(--viewport-bottom) + var(--safe-bottom) + 8px) calc(var(--safe-left) + 8px); }
   #login .box { width: min(420px, 100%); max-height: calc(var(--viewport-height) - var(--safe-top) - var(--safe-bottom) - 16px); overflow-y: auto; padding: 8px; border-width: 14px; border-image-width: 14px; }
-  #login h1 { font-size: clamp(22px, 6vw, 34px); letter-spacing: 2px; }
-  #login .sub { margin-bottom: 10px; }
   .cls button { min-height: 42px; padding: 6px 4px; }
   #tutorial, #uxconfirm > .panel, #smith-auto-dialog, #bag-destroy-dialog {
     width: min(420px, calc(var(--viewport-width) - var(--safe-left) - var(--safe-right) - 16px));

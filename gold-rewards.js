@@ -38,5 +38,13 @@ function distributeGold(budget, bonuses = [0]) {
   const total = Math.min(MAX_CURRENCY, Math.max(0, Math.round(budget))), share = Math.floor(total / bonuses.length), remainder = total - share * bonuses.length;
   return bonuses.map((bonus, index) => applyGoldFind(share + (index < remainder ? 1 : 0), bonus));
 }
-function monsterGoldRewards(options) { return distributeGold(monsterGoldBudget(options), options.bonuses || [0]); }
+function monsterGoldRewards(options) {
+  const scale = options.rewardScale ?? 1;
+  if (scale === 1) return distributeGold(monsterGoldBudget(options), options.bonuses || [0]);
+  // Guardian/completion scaling precedes rates, Gold Find and the existing shared-pool rounding.
+  const rate = options.rate ?? 1;
+  const budget = Number.isFinite(scale) && scale >= 0 && Number.isFinite(rate) && rate >= 0
+    ? product(product(monsterGoldBudget({ ...options, rate: 1 }), scale), Math.min(RATE_BOUNDS.goldRate, rate)) : 0;
+  return distributeGold(budget, options.bonuses || [0]);
+}
 module.exports = { GOLD_BALANCE, FRONTIER_MODEL, FOUNDING_MODEL, goldCategory, frontierAverageGold, monsterGoldScaling, monsterGoldBudget, applyGoldFind, distributeGold, monsterGoldRewards };

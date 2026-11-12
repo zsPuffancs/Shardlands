@@ -2,6 +2,7 @@
 const { SpatialIndex } = require('./spatial-index');
 const { mapOf } = require('./game-world');
 const { partyDamageScale } = require('./xp-economy');
+const { savedStoneStep } = require('./stone-rewards');
 
 // Definitions remain in universe storage; live entities are a bounded, player-driven working set.
 function createEncounterRuntime({ players, mobs, spawnMob, maxActive = 2048, maxPerMap = 512, activationRadius = 1700, unloadAfterMs = 30000, onError = error => console.error('[generation]', error) }) {
@@ -16,7 +17,7 @@ function createEncounterRuntime({ players, mobs, spawnMob, maxActive = 2048, max
     let group = regionsByMap.get(map.index); if (!group) regionsByMap.set(map.index, group = new Set()); group.add(region);
   }
   function save(region, id, monster, now = Date.now()) {
-    region.storage()[id] = { health: monster.mh > 0 ? monster.hp / monster.mh : 1, deadUntil: monster.dead || 0, stoneStep: monster.stoneStep, ps: monster.ps || 1, partyDamageScale: monster.partyDamageScale || 1, slamT: monster.slamT || 0,
+    region.storage()[id] = { health: monster.mh > 0 ? monster.hp / monster.mh : 1, deadUntil: monster.dead || 0, stoneStep: savedStoneStep(monster), ps: monster.ps || 1, partyDamageScale: monster.partyDamageScale || 1, slamT: monster.slamT || 0,
       fightElapsed: monster.fightStart ? Math.max(0, Math.min(86400000, now - monster.fightStart)) : null,
       recoveryLeft: Math.max(0, Math.min(2000, (monster.recoverUntil || 0) - now)) };
   }

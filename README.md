@@ -19,7 +19,7 @@ Console commands are defined in `server-console.js`. Give each `Command` a name,
 - Real 3D models: Quaternius CC0 characters (animated heroes, NPCs, bandits, goblins, orcs, void knights) and nature packs (forests, farms, rocks, flowers per zone).
 - Map is twice as wide (10600 x 10600). Every zone has more room, 10-30 Spirit Stones (more in the harder zones) and 5-30 Alphas.
 - Harder and slower: monsters have more HP and hit harder, the XP curve is steeper.
-- Spirit Stones are a real fight: waves of guardians (plus Alpha guardians) as they crack, a shockwave you have to dodge, 4-7 rare+ items, potions, category-budgeted XP and extra gold. Summoned guardians grant no XP.
+- Spirit Stones are a real fight: guardian waves, shockwaves, 5–10 Uncommon-or-better equipment rolls, 3–6 Souls, potions, stronger completion XP and extra gold. Authorized guardians give 30% of normal XP/gold; Alpha guardians give 50% plus a small Soul chance. Rewards are limited to one set of waves per Stone life. Boss summons remain rewardless. See [Spirit Stone reward policy](docs/STONE-REWARDS.md).
 - Bosses have signature attacks with their own telegraphs: charge (red lane), fire/frost/void breath (red cone), meteor rain (red circles), summon portal, ground slam.
 - New hero attack effects: sword slashes, arrows with trails, magic bolts, whirlwind, arrow fan, arcane nova.
 - 10 passive skills (up to 99 ranks each): Vitality, Might, Swiftness, Precision (crit chance), Brutality (crit damage), Bloodthirst (lifesteal), Iron Skin (defence), Haste (attack speed), Focus (mana), Fortune (gold find).
@@ -87,9 +87,9 @@ whose item level is the average of the merged items (slot of the first item). Th
 5 epic → legendary, 15 legendary → mythic. Mythics can't be merged. Auto-merge buttons go up to green, blue, purple or orange.
 
 ## Souls
-Spirit Stones, Alphas and bosses drop 1-5 souls each (purple orb). Souls show next to your gold and are spent at the Soul Mystic.
+Spirit Stones drop 3–6 Souls, ordinary Alphas and bosses retain their 1–5 Soul drops, and World Bosses retain 5–10. Souls show next to your gold and are spent at the Soul Mystic.
 
-Summoned guardians and boss adds generate no gold, Souls, equipment or consumables, including rewards from the standard plugin kill hook. Normal encounter rewards and the existing zero-XP policy for summons are unchanged. Starter weapons are granted to new characters and migrated pre-equipment saves only; reconnecting with an empty equipped weapon slot does not create another item.
+Boss adds generate no rewards. Stone guardians use bounded 30%/50% normal XP/gold payouts and reduced loot; Alpha guardians have an 8% chance for one Soul. Unrestricted plugin kill rewards remain disabled for all summons. Starter weapons are granted to new characters and migrated pre-equipment saves only; reconnecting with an empty equipped weapon slot does not create another item.
 
 ## Skills
 1 point per level. Active skills (keys 1-3) go to rank 5, passives to rank **99**. Open with K and switch tabs.
