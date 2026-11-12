@@ -47,7 +47,8 @@ function createPortalDirectory({ maps, regions, players, worldTier, mapOf, found
   function canTravel(index) { return Number.isSafeInteger(index) && index >= 0 && unlocked(byIndex.get(index)); }
   function availableEntries() {
     if (availableRevision !== revision || availableTier !== worldTier()) {
-      available = entries.filter(unlocked); availableRevision = revision; availableTier = worldTier();
+      // Reverse the cached ascending index before filtering/pagination, not just each visible page.
+      available = entries.filter(unlocked).reverse(); availableRevision = revision; availableTier = worldTier();
     }
     return available;
   }
@@ -70,7 +71,7 @@ function createPortalDirectory({ maps, regions, players, worldTier, mapOf, found
     }
     const terms = numericQuery ? [] : request.query.split(/\s+/).filter(Boolean);
     const matches = request.scope === 'all' && requestedTier === undefined && !terms.length ? candidates : candidates.filter(entry => unlocked(entry) && terms.every(term => entry.search.includes(term)));
-    if (request.scope === 'favorites') matches.sort((a, b) => a.metadata.index - b.metadata.index);
+    if (request.scope === 'favorites') matches.sort((a, b) => b.metadata.tier - a.metadata.tier || b.metadata.index - a.metadata.index);
     const total = matches.length, pages = Math.max(1, Math.ceil(total / request.limit)), page = Math.min(request.page, pages);
     return { t: 'portal', op: 'list', requestId: request.requestId, page, limit: request.limit, pages, total,
       unlockedTotal: available.length,

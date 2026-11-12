@@ -20,7 +20,7 @@ The existing `portal` WebSocket message now supports a one-based paginated listi
 {"t":"portal","op":"list","requestId":42,"page":1,"limit":12,"query":"glacier","scope":"all"}
 ```
 
-Optional `tier` requests a direct World Tier lookup. Optional `scope` is `all`, `favorites` or `recent`. The latter two supply `indices`, a bounded list of preferred map IDs. Recent results retain the input order; favorite/all results use destination order. `tier` and numeric queries look up the shared Founding Lands destination for values 1–7.
+Optional `tier` requests a direct World Tier lookup. Optional `scope` is `all`, `favorites` or `recent`. The latter two supply `indices`, a bounded list of preferred map IDs. Recent results retain the input order; favorite/all results list the highest World Tier first, including filtered searches and across page boundaries. The Founding Lands appear last in those lists and remain available through their dedicated shortcut. `tier` and numeric queries look up the shared Founding Lands destination for values 1–7.
 
 The response retains `t`, `here`, `tier` and `maps`, with additional navigation metadata:
 
