@@ -1,6 +1,10 @@
 # Root wrapper removal audit
 
 Status: all 44 audited wrappers removed. No root compatibility wrapper retained. Canonical implementations and both root launchers preserved.
+This audit records the 263-test wrapper-removal checkpoint, later committed/pushed
+as 5adfac7. Subsequent stabilization resolved the nine historical failures and
+expanded policy consumers; see STABILIZATION.md and MODERNIZATION-STATUS.md for
+current all-pass results. The removal map and compatibility boundary below remain valid.
 
 ## Pre-deletion evidence
 

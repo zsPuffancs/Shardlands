@@ -89,7 +89,9 @@ These groups intentionally include payout/state consumers, not just formula file
 
 Registry entry: src/balance/index.js. Typed defaults/validation/contracts live in
 src/balance/typed/, with committed generated/ CommonJS/declarations. Configurable
-domains are rates, settlement and worldGeneration. Other existing policy constants
+domains now include rates, settlement, worldGeneration, forging, progression,
+gold, loot, combat and monsters; STABILIZATION.md lists their exact supported
+parameters and production consumers. Other existing policy constants
 (XP_BALANCE, ENEMY_SCALING, GOLD_BALANCE, STONE_REWARDS, forge rates, rarity and region
 parameters) remain in production domains and are exposed by a read-only formulaCatalog().
 Unsupported policy overrides throw rather than being silently ignored. This is an
@@ -131,8 +133,11 @@ are distinct. Atlas endpoints must retain loopback/Host/origin/proxy restriction
 
 Strict TypeScript is used for Registry and shared resource/entity contracts.
 Generated CommonJS is committed, preserving node server.js without installation.
-The only browser-generated artifact is public/resource-bars.js, a UMD wrapper of
-the same dependency-free TS resource module. Existing client scripts remain globals.
+The browser-generated artifacts are public/resource-bars.js and public/forge-math.js,
+UMD wrappers of the same dependency-free typed resource/forge modules used by Node.
+ForgeClientConfig adds policy metadata while preserving the existing upRate array.
+Policy instances flow through server factories and world-view metadata explicitly;
+there is no mutable global configuration. Existing client scripts remain globals.
 ResourceBar encapsulates DOM caching and accessibility; configuration preserves
 HUD/nameplate rounding and existing CSS transitions. Pure server arithmetic retains
 overkill/death semantics, while display clamping is separate. Composed service

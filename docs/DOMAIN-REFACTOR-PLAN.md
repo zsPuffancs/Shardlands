@@ -6,6 +6,9 @@ from intentionally different gameplay policies.
 The P1 health/presentation and category/template work, plus P2 World Boss identity/
 progression helpers, are now implemented and regression-tested. P3 remains a
 roadmap; this work does not claim to have converted the whole client/server to TS.
+The stabilization pass also migrated forge math and its client-init contract to TS,
+and connected per-instance forge/Wisdom/gold/loot/recovery/depth policies. Full
+equipment stat contexts, status controllers and general snapshot types remain next.
 
 | Priority | Exact implementations | Duplication / proposed change |
 |---|---|---|

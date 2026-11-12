@@ -1,5 +1,6 @@
 'use strict';
 const { dropSpecification } = require('./loot-math');
+const { GOLD_POLICY, LOOT_POLICY } = require('../balance/base');
 
 const { MAX_CURRENCY, MAX_ITEM_STACK, MAX_GEAR_DROPS, positiveAmount, credit } = require('../shared/safety-limits');
 const { nearby } = require('../shared/spatial-index');
@@ -12,7 +13,7 @@ const { STONE_REWARDS, takeLootPermit } = require('./stone-rewards');
 const { SLOTS, RARITY } = require('./equipment');
 const { ITEMS, CLASSES, goldFind } = require('../player/characters');
 
-function createLoot({ loot, players, allocateId, rates, ev, say, toast, broadcast, addGear, genGear, rollRarity, gearRecipient = player => player, onPickup = () => {} }) {
+function createLoot({ loot, players, allocateId, rates, ev, say, toast, broadcast, addGear, genGear, rollRarity, gearRecipient = player => player, onPickup = () => {}, goldPolicy = GOLD_POLICY, lootPolicy = LOOT_POLICY }) {
   function dropAt(x, y, details, owner) {
     const drop = Object.assign({ id: allocateId(), x: Math.round(x), y: Math.round(y), owner: owner || 0, free: Date.now() + (owner ? 25000 : 0), exp: Date.now() + 180000 }, details);
     clampWorld(drop); loot.set(drop.id, drop); return drop;
@@ -31,7 +32,7 @@ function createLoot({ loot, players, allocateId, rates, ev, say, toast, broadcas
     const frontierGold = monster.goldModel === FRONTIER_MODEL || !monster.goldModel && generated;
     // Alpha guardians receive 50% of NORMAL gold, not 50% of an already multiplied Alpha budget.
     const goldMonster = guardian ? { ...monster, alpha: 0, gm: monster.alpha && !frontierGold ? monster.gm / GOLD_BALANCE.legacyAlphaMultiplier : monster.gm } : monster;
-    const goldRewards = monsterGoldRewards({ monster: goldMonster, template, generated, rate: rates.goldRate ?? 0, rewardScale: reward.gold, roll: Math.random(), bonuses: sharers.map(goldFind) });
+    const goldRewards = monsterGoldRewards({ monster: goldMonster, template, generated, rate: rates.goldRate ?? 0, rewardScale: reward.gold, roll: Math.random(), bonuses: sharers.map(goldFind), policy: goldPolicy });
     for (let index = 0; index < sharers.length; index++) {
       const hero = sharers[index], gold = goldRewards[index];
       if (gold <= 0) continue;
@@ -43,7 +44,7 @@ function createLoot({ loot, players, allocateId, rates, ev, say, toast, broadcas
     if (guardian) {
       if (reward.soulChance && Math.random() < reward.soulChance) dropMonster(monster.x + rnd(-30, 30), monster.y + rnd(-30, 30), { kind: 'souls', v: reward.souls, name: reward.souls + (reward.souls === 1 ? ' soul' : ' souls') }, player.id);
     } else if (stone || boss || alpha) { const souls = worldBoss ? rint(5, 10) : stone ? rint(...STONE_REWARDS.completion.souls) : rint(1, 5); dropMonster(monster.x + rnd(-30, 30), monster.y + rnd(-30, 30), { kind: 'souls', v: souls, name: souls + (souls === 1 ? ' soul' : ' souls') }, player.id); }
-    const specification = dropSpecification(monster, template, rates, reward);
+    const specification = dropSpecification(monster, template, rates, reward, lootPolicy);
     const consumableCount = specification.potionCount || (Math.random() < specification.potionChance ? 1 : 0);
     for (let i = 0; i < consumableCount; i++) {
       const pool = Object.keys(ITEMS).filter(k => ITEMS[k].w > 0 && (k !== 'hp2' || monster.tier >= 1));

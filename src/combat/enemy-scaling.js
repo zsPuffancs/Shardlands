@@ -1,4 +1,5 @@
 'use strict';
+const { MONSTER_POLICY, COMBAT_POLICY } = require('../balance/base');
 // Enemy scaling: one place that decides how much health and damage a monster has.
 //
 // A monster's numbers are derived from a power budget: what a reference hero of the monster's level, who has
@@ -33,7 +34,7 @@ const ENEMY_SCALING = Object.freeze({
   // Every world after the founding lands (World Tier 8+) is harder than the last: sublinear, never flat.
   // factor = 1 + perDepth x depth^exponent, depth = World Tier - 7. Damage grows faster than health on purpose:
   // deeper worlds should hit harder rather than turn monsters into damage sponges.
-  world: Object.freeze({ firstFrontierTier: 8, exponent: 0.7, hpPerDepth: 0.05, dmgPerDepth: 0.08 }),
+  world: Object.freeze({ firstFrontierTier: 8, exponent: MONSTER_POLICY.worldExponent, hpPerDepth: MONSTER_POLICY.hpPerDepth, dmgPerDepth: MONSTER_POLICY.damagePerDepth }),
   // Extra health per extra party member (2-5 heroes). Bosses grow more so a group cannot melt them;
   // damage only grows by xp-economy's partyDamagePerMember so joining a group is not a punishment.
   partyHpPerMember: Object.freeze({ normal: 0.45, alpha: 0.5, stone: 0.5, boss: 0.6, worldBoss: 0.7 }),
@@ -48,7 +49,7 @@ const ENEMY_SCALING = Object.freeze({
       Object.freeze({ below: 0.3, castInterval: 0.55, castDamage: 1.3, attackSpeed: 1.25 }),
     ]),
     // After a telegraphed attack the boss recovers: it stands still, does not hit, and takes extra damage.
-    recoverMs: 1300, finalPhaseRecoverMs: 900, punishBonus: 1.25,
+    recoverMs: 1300, finalPhaseRecoverMs: 900, punishBonus: COMBAT_POLICY.recoveryDamageMultiplier,
     // World Bosses grow more dangerous the longer a fight lasts.
     worldBossEnrage: Object.freeze({ afterMs: 120000, attackSpeed: 1.25, castDamage: 1.2, castInterval: 0.85 }),
   }),
@@ -113,9 +114,9 @@ function referencePower(level) {
 
 // ---------- monster numbers ----------
 const worldDepth = worldTier => Math.max(0, (Number.isFinite(worldTier) ? Math.floor(worldTier) : 1) - ENEMY_SCALING.world.firstFrontierTier + 1);
-function worldFactor(worldTier) {
-  const { world } = ENEMY_SCALING, depth = worldDepth(worldTier), curve = depth ** world.exponent;
-  return { depth, hp: 1 + world.hpPerDepth * curve, dmg: 1 + world.dmgPerDepth * curve };
+function worldFactor(worldTier, policy = MONSTER_POLICY) {
+  const depth = worldDepth(worldTier), curve = depth ** policy.worldExponent;
+  return { depth, hp: 1 + policy.hpPerDepth * curve, dmg: 1 + policy.damagePerDepth * curve };
 }
 function categoryMultiplier(category, worldTier = 1) {
   const spec = ENEMY_SCALING.categories[category] || ENEMY_SCALING.categories.normal;
@@ -125,9 +126,9 @@ function categoryMultiplier(category, worldTier = 1) {
 }
 // Health and damage of one monster, before rates.monsterHp / rates.monsterDamage and party scaling.
 // archetype: { hp, dmg } identity factors (see monsters.js character()).
-function monsterStats({ level, category = 'normal', worldTier = 1, archetype = { hp: 1, dmg: 1 } }) {
+function monsterStats({ level, category = 'normal', worldTier = 1, archetype = { hp: 1, dmg: 1 }, monsterPolicy = MONSTER_POLICY }) {
   level = levelOf(level);
-  const power = referencePower(level), world = worldFactor(worldTier), mult = categoryMultiplier(category, worldTier);
+  const power = referencePower(level), world = worldFactor(worldTier, monsterPolicy), mult = categoryMultiplier(category, worldTier);
   const [low, high] = ENEMY_SCALING.archetypeRange, clamp = v => Math.max(low, Math.min(high, Number.isFinite(v) ? v : 1));
   const hp = power.dps * ramp(ENEMY_SCALING.normalTimeToKill, level) * clamp(archetype.hp) * mult.hp * world.hp / ENEMY_SCALING.defaultRates.monsterHp;
   const dmg = power.ehp / ramp(ENEMY_SCALING.normalHitsToKill, level) * clamp(archetype.dmg) * mult.dmg * world.dmg / ENEMY_SCALING.defaultRates.monsterDamage;

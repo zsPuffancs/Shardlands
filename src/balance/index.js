@@ -1,9 +1,9 @@
 'use strict';
 const registry = require('./generated/registry');
-const { BASE_RATES, SETTLEMENT_ECONOMY } = require('./base');
+const { BASE_RATES, SETTLEMENT_ECONOMY, DEFAULT_FORGE_POLICY, PROGRESSION_POLICY, GOLD_POLICY, LOOT_POLICY, COMBAT_POLICY, MONSTER_POLICY } = require('./base');
 const { RATE_BOUNDS, MAX_CURRENCY } = require('../shared/safety-limits');
 const { HARD_BUDGETS } = require('../world/world-generation');
-const environment = registry.freeze({ base: { rates: BASE_RATES, settlement: SETTLEMENT_ECONOMY, worldGeneration: { budgets: {}, spacing: {}, danger: {} } }, rateBounds: RATE_BOUNDS, generationBudgets: HARD_BUDGETS, maxCurrency: MAX_CURRENCY });
+const environment = registry.freeze({ base: { rates: BASE_RATES, settlement: SETTLEMENT_ECONOMY, worldGeneration: { budgets: {}, spacing: {}, danger: {} }, forging: DEFAULT_FORGE_POLICY, progression: PROGRESSION_POLICY, gold: GOLD_POLICY, loot: LOOT_POLICY, combat: COMBAT_POLICY, monsters: MONSTER_POLICY }, rateBounds: RATE_BOUNDS, generationBudgets: HARD_BUDGETS, maxCurrency: MAX_CURRENCY });
 /** @param {{ ruleset?: import('./generated/types').RulesetName, overrides?: import('./generated/types').DeepPartial<import('./generated/types').Balance> }} [input] */
 const resolveBalance = input => registry.resolveBalance(environment, input);
 const resolveLiveUpdate = (current, patch) => registry.resolveLiveUpdate(environment, current, patch);

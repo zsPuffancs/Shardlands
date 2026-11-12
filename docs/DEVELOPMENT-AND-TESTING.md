@@ -36,9 +36,9 @@ This flag needs a Node version supporting system CA loading; otherwise install t
 appropriate organization CA. Do not disable certificate verification.
 
 Authored TypeScript lives in src/balance/typed/ and src/shared/typed/. Builds emit
-CommonJS/declarations to their generated/ siblings. The build then wraps the
-shared resource implementation as public/resource-bars.js for the global-script
-browser client. check:shared-ui detects stale browser output. Neither generated/
+CommonJS/declarations to their generated/ siblings. The build then wraps shared
+resource/forge implementations as public/resource-bars.js and public/forge-math.js
+for the global-script browser client. check:shared-ui detects stale browser output. Neither generated/
 nor the browser artifact is a place to hand-edit code. Existing JavaScript remains
 CommonJS or browser globals; strict checking does not cover the entire legacy app.
 
@@ -91,9 +91,11 @@ For a focused component run:
 
 ```text
 node --test tests/resources.test.js tests/entities.test.js
+node --test tests/balance-consumers.test.js tests/stone-lifecycle.test.js
 ```
 
-The old full-suite failures are recorded in MODERNIZATION-STATUS.md. Do not present
+The nine historical failures were resolved; see STABILIZATION.md for each cause,
+the approved-source geometry evidence and the current all-pass counts. Do not present
 a nonzero full-suite exit as success, weaken assertions, change balance or rewrite
 golden fixtures to hide them. Compare failing names and values with the baseline.
 The new domain-baseline.json fixture was generated from 142ecac source with a
@@ -121,13 +123,17 @@ admins, port or other unrelated fields):
 }
 ```
 
-Supported configurable domains are rates, settlement and worldGeneration. Rates
+Supported domains are rates, settlement, worldGeneration, forging, progression,
+gold, loot, combat and monsters. STABILIZATION.md lists every new policy parameter,
+its unchanged default, actual consumer, restart classification and remaining
+read-only coefficients. The typed forge policy is also sent to clients so displayed
+prices/chances match authoritative manual/automatic charges. Rates
 use existing technical ceilings. Settlement validates its costs, coefficient,
 exponent, Tier and fixed schema version. Generation validates known budget/spacing/
 danger keys. Unknown keys, nonfinite and unsafe values fail before opening saves.
 The formulaCatalog() API exposes actual production XP/combat/equipment/gold/forge/
 party/contracts constants read-only. They are not ignored override knobs: attempting
-unsupported XP or forging policy overrides is rejected. Add further knobs only
+unsupported XP requirement/gap or equipment stat policy overrides is rejected. Add further knobs only
 when production consumers are migrated to accept their resolved policy explicitly.
 
 Legacy rates.json is a compatibility layer applied after Registry resolution:
@@ -164,6 +170,16 @@ the config.json balance wrapper). A checked-in example is available:
 ```text
 npm run simulate:balance -- --ruleset Custom --overrides docs/examples/balance-overrides.json --levels 100,10000 --tiers 8,10000 --json reports/balance-custom.json --csv reports/balance-custom.csv --markdown reports/balance-custom.md
 ```
+
+An explicit gameplay-policy demonstration (not an activated/default rebalance):
+
+```text
+npm run simulate:balance -- --ruleset Custom --overrides docs/examples/balance-gameplay-overrides.json --json reports/gameplay.json --csv reports/gameplay.csv --markdown reports/gameplay.md
+```
+
+The same patches belong under config.json balance.overrides to configure a server;
+the example file is never loaded automatically. New policy domains require restart.
+Existing project/generation snapshots and legacy rates.json precedence still apply.
 
 These commands generate descriptors/plans through production functions using a
 synthetic seed and frozen zero-history snapshot. They never unlock regions, spawn

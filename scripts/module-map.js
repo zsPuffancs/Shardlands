@@ -57,6 +57,7 @@ function inventory() {
     for (const generated of [base + '.js', base + '.d.ts']) if (known.has(generated)) edges.push({ from: generated, to: file, kind: 'generated-from' });
   }
   if (known.has('public/resource-bars.js')) edges.push({ from: 'public/resource-bars.js', to: 'src/shared/typed/resources.ts', kind: 'generated-from' });
+  if (known.has('public/forge-math.js')) edges.push({ from: 'public/forge-math.js', to: 'src/shared/typed/forge.ts', kind: 'generated-from' });
   const localEdges = edges.filter(edge => (edge.kind === 'local' || edge.kind === 'browser-script') && known.has(edge.to));
   // Strongly connected components report potential cycles, including deferred imports.
   const adjacency = new Map(files.map(file => [file, []]));

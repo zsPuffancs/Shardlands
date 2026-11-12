@@ -11,6 +11,7 @@ const xp = require('../../progression/xp-economy');
 const scaling = require('../../combat/enemy-scaling');
 
 const { BASE_RATES } = require('../base');
+const { COMBAT_POLICY } = require('../base');
 const DEFAULT_RATES = { monsterHp: BASE_RATES.monsterHp, monsterDamage: BASE_RATES.monsterDamage };
 const CLASSES = ['blade', 'archer', 'mage'];
 const CAST_HIT = 1.6;       // average telegraphed attack (slam 1.8, breath 1.7, charge 1.5, meteor 1.4)
@@ -29,7 +30,7 @@ function heroHealing(player) {
 
 // Spawn one monster the way the live game does. Levels 60+ are spawned on a temporary generated frontier zone
 // for the given World Tier (8+); lower levels use the founding zone for that level.
-function spawn({ category, level, worldTier, type, rates = DEFAULT_RATES }) {
+function spawn({ category, level, worldTier, type, rates = DEFAULT_RATES, monsterPolicy }) {
   const { TIERS, MOBTYPES } = monsters, mobs = new Map(), restore = []; let id = 0, tier, monsterType = type;
   const generated = level >= 60 || worldTier >= 8;
   try {
@@ -47,7 +48,7 @@ function spawn({ category, level, worldTier, type, rates = DEFAULT_RATES }) {
       const before = MOBTYPES[monsterType];
       if ((category === 'worldBoss') !== !!before.worldBoss) { MOBTYPES[monsterType] = { ...before, worldBoss: category === 'worldBoss' }; restore.push(() => { MOBTYPES[monsterType] = before; }); }
     }
-    const spawner = monsters.createMonsterSpawner({ mobs, rates, world: { width: 10600, height: 10600, centerX: 5300, centerY: 5300 }, allocateId: () => ++id, rnd: (a, b) => (a + b) / 2, rint: a => a, pick: list => list[0] });
+    const spawner = monsters.createMonsterSpawner({ mobs, rates, monsterPolicy, world: { width: 10600, height: 10600, centerX: 5300, centerY: 5300 }, allocateId: () => ++id, rnd: (a, b) => (a + b) / 2, rint: a => a, pick: list => list[0] });
     const monster = spawner.spawnMob(monsterType, 6000, 6000, tier, { level, alpha: category === 'alpha' });
     return { monster, template: { ...MOBTYPES[monsterType] } };
   } finally { for (const undo of restore.reverse()) undo(); }
@@ -55,9 +56,9 @@ function spawn({ category, level, worldTier, type, rates = DEFAULT_RATES }) {
 
 // One encounter against one class. The party all hit the monster; its pressure lands on one hero.
 // dodge: share of telegraphed attacks the hero steps out of. pack: number of monsters attacking at once.
-function encounterFor({ cls, heroLevel, monsterLevel = heroLevel, worldTier, category = 'normal', party = 1, rarity = 2, plus = 3, dodge = 0.5, pack = 1, rates = DEFAULT_RATES, monsterType }) {
+function encounterFor({ cls, heroLevel, monsterLevel = heroLevel, worldTier, category = 'normal', party = 1, rarity = 2, plus = 3, dodge = 0.5, pack = 1, rates = DEFAULT_RATES, monsterType, monsterPolicy, combatPolicy = COMBAT_POLICY }) {
   const heroes = Array.from({ length: party }, (_, i) => scaling.referenceHero({ level: heroLevel, cls, rarity, plus, id: i + 1 }));
-  const { monster, template } = spawn({ category, level: monsterLevel, worldTier, rates, type: monsterType });
+  const { monster, template } = spawn({ category, level: monsterLevel, worldTier, rates, type: monsterType, monsterPolicy });
   const health = monster.mh * scaling.partyHealthScale(monster.cat, party), dmgScale = xp.partyDamageScale(party);
   const target = heroes[0], reduction = 1 - characters.defRed(target), hit = monster.dmg * rates.monsterDamage * dmgScale * reduction;
   let partyDps = heroes.reduce((sum, hero) => sum + scaling.heroDps(hero), 0), incoming;
@@ -68,7 +69,7 @@ function encounterFor({ cls, heroLevel, monsterLevel = heroLevel, worldTier, cat
       const cycle = CAST_GAP_MS * phase.castInterval + CAST_TIME_MS, recover = scaling.recoverMs(index), uptime = Math.max(0, 1 - (CAST_TIME_MS + recover) / cycle);
       autos += PHASE_SHARE[index] * hit * 1000 / (1100 / phase.attackSpeed) * uptime;
       casts += PHASE_SHARE[index] * hit * CAST_HIT * phase.castDamage * (1 - dodge) * 1000 / cycle;
-      punish += PHASE_SHARE[index] * (recover / cycle) * (scaling.ENEMY_SCALING.boss.punishBonus - 1);
+      punish += PHASE_SHARE[index] * (recover / cycle) * (combatPolicy.recoveryDamageMultiplier - 1);
     });
     incoming = autos + casts; partyDps *= 1 + punish;
   } else incoming = hit * 1000 / (monster.alpha ? 950 : 1100) * pack;

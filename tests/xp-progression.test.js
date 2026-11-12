@@ -169,7 +169,7 @@ test('planned stone levels drive real HP, category XP, runtime reload and respaw
   const restored = [...mobs.values()][0]; assert.equal(restored.lvl, 145); assert.equal(restored.hp, restored.mh / 2); assert.equal(restored.stoneStep, 3);
 });
 
-test('stone guardian waves inherit parent levels and remain XP-free, including alpha guardians', t => {
+test('stone guardian waves inherit parent levels and pay bounded 30%/50% normal XP once', t => {
   const original = TIERS[0]; TIERS[0] = { ...original, progressionVersion: 1 }; t.after(() => { TIERS[0] = original; });
   const mobs = new Map(), spawn = spawner(mobs), player = { id: 1, name: 'Hero', cls: 'archer', lvl: 145, xp: 0, gold: 0, eq: {}, bag: [], inv: {}, sk: newSk(), buf: {}, x: 6000, y: 6000 };
   stats(player); player.hp = player.maxhp; player.mp = player.maxmp;
@@ -179,12 +179,16 @@ test('stone guardian waves inherit parent levels and remain XP-free, including a
   combat.hitMob(player, stone, stone.mh * .65);
   const guardians = [...mobs.values()].filter(mob => mob.summoned);
   assert.ok(guardians.length); assert.ok(guardians.some(mob => mob.alpha)); assert.ok(stone.stoneStep < 5);
+  const expected = [];
   for (const guardian of guardians) {
-    assert.equal(guardian.lvl, stone.lvl); assert.equal(guardian.xp, 0);
+    const rewardScale = guardian.alpha ? .5 : .3;
+    assert.equal(guardian.lvl, stone.lvl); assert.equal(guardian.xp, xp.encounterBaseXp(guardian.lvl, 'normal') * rewardScale);
     assert.equal(xp.encounterCategory(guardian, MOBTYPES[guardian.ty]), 'summoned');
+    expected.push(xp.encounterShare({ playerLevel: player.lvl, monsterLevel: guardian.lvl, category: 'normal', rewardScale }));
+    combat.hitMob(player, guardian, guardian.mh * 2);
     combat.hitMob(player, guardian, guardian.mh * 2);
   }
-  assert.deepEqual(awards, []);
-  combat.hitMob(player, stone, stone.mh * 2); assert.equal(awards.length, 1);
-  assert.equal(awards[0], xp.encounterShare({ playerLevel: 145, monsterLevel: 145, category: 'stone' }));
+  assert.deepEqual(awards, expected);
+  combat.hitMob(player, stone, stone.mh * 2); assert.equal(awards.length, expected.length + 1);
+  assert.equal(awards.at(-1), xp.encounterShare({ playerLevel: 145, monsterLevel: 145, category: 'stone' }));
 });

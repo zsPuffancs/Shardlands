@@ -17,7 +17,7 @@ const FOUNDING_TIERS = TIERS.length;
 // Which founding zone a biome borrows its scenery from on the client.
 const LOOK_FOR = { volcanic: 3, glacier: 4, voidscar: 5, wildwood: 1, warfields: 2, necropolis: 6 };
 
-function createRegions({ universe, players, mobs, spawnMob, config = {}, populateZone, refreshMobTypes, send, say, ev }) {
+function createRegions({ worldView = worldInfo, universe, players, mobs, spawnMob, config = {}, populateZone, refreshMobTypes, send, say, ev }) {
   const portalDirectory = createPortalDirectory({ maps, regions: universe.state.regions, players, worldTier: () => universe.state.worldTier, mapOf, foundingTiers: FOUNDING_TIERS });
   const version2 = universe.state.generatorVersion === 2;
   const runtime = version2 ? createEncounterRuntime({ players, mobs, spawnMob, ...(config.worldGeneration?.activation || {}) }) : null;
@@ -65,7 +65,7 @@ function createRegions({ universe, players, mobs, spawnMob, config = {}, populat
     const types = mobTypesForClient(MOBTYPES), { types: typeList } = refreshMobTypes();
     for (const player of players.values()) {
       send(player.c, { t: 'types', types, tl: typeList });
-      send(player.c, { t: 'map', world: worldInfo(mapOf(player)) });
+      send(player.c, { t: 'map', world: worldView(mapOf(player)) });
     }
   }
   function unlock(tier) { if (openRegion(tier)) announce(); }
@@ -113,7 +113,7 @@ function createRegions({ universe, players, mobs, spawnMob, config = {}, populat
       universe.save();
       say(player, messageText('server.stallDonated', 'You gave {gold} gold towards the {stall}. {left} gold still needed.', { gold: amount, stall: Settlement.STALL_NAMES[key], stallKey: key, left: remaining - amount }));
       ev('fx', board.x, board.y, 40, { s: 'buff' });
-      for (const other of players.values()) if (mapOf(other) === map) send(other.c, { t: 'map', world: worldInfo(map) });
+      for (const other of players.values()) if (mapOf(other) === map) send(other.c, { t: 'map', world: worldView(map) });
       return;
     }
     const donors = Object.keys(fund.donors).sort((a, b) => fund.donors[b] - fund.donors[a] || fund.reached[a] - fund.reached[b]);
@@ -126,7 +126,7 @@ function createRegions({ universe, players, mobs, spawnMob, config = {}, populat
     else universe.recordOnce('stall:' + map.regionTier + ':' + key, 'stallFunded', donors, { stall: Settlement.STALL_NAMES[key], stallKey: key, region: region.name, gold: cost, count: donors.length });
     ev('fx', board.x, board.y, 70, { s: 'lvl' });
     // Everyone on this map sees the new stall and its NPC at once.
-    for (const other of players.values()) if (mapOf(other) === map) send(other.c, { t: 'map', world: worldInfo(map) });
+    for (const other of players.values()) if (mapOf(other) === map) send(other.c, { t: 'map', world: worldView(map) });
   }
   return { buildStall, openRegion, openUnlockedRegions, unlock, portalList, travel, tick: runtime ? runtime.tick : () => {}, checkpoint: runtime ? runtime.checkpoint : () => {} };
 }

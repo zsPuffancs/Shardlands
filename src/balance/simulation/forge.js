@@ -1,5 +1,5 @@
 'use strict';
-const { UP_RATE, upCostFor, upgradeOutcome } = require('../../../public/forge-math');
+const { DEFAULT_FORGE_POLICY, upCostFor, upgradeOutcome } = require('../../../public/forge-math');
 function solve(matrix, values) {
   const rows = matrix.map((row, index) => [...row, values[index]]), size = rows.length;
   for (let column = 0; column < size; column++) {
@@ -17,20 +17,20 @@ function solve(matrix, values) {
   return rows.map(row => row[size]);
 }
 // Absorbing target state. Below +5, failure stays; at +5+, it moves back one.
-function forgeExpectation({ ilvl, slot = 'weapon', start = 0, target = 9 }) {
+function forgeExpectation({ ilvl, slot = 'weapon', start = 0, target = 9, policy = DEFAULT_FORGE_POLICY }) {
   if (!Number.isInteger(ilvl) || ilvl < 1 || ilvl > 10000 || !Number.isInteger(start) || !Number.isInteger(target) || start < 0 || target > 9 || start > target) throw new RangeError('Invalid forge scenario');
   if (start === target) return { attempts: 0, gold: 0, attemptsByState: [], goldByState: [] };
   const matrix = Array.from({ length: target }, (_, state) => {
     const row = Array.from({ length: target }, (_, column) => state === column ? 1 : 0);
-    const probability = UP_RATE[state];
+    const probability = policy.successRates[state];
     for (const [roll, weight] of [[0, probability], [1, 1 - probability]]) {
-      const destination = upgradeOutcome(state, roll).plus;
+      const destination = upgradeOutcome(state, roll, policy).plus;
       if (destination < target) row[destination] -= weight;
     }
     return row;
   });
   const attemptsByState = solve(matrix, Array(target).fill(1));
-  const goldByState = solve(matrix, Array.from({ length: target }, (_, plus) => upCostFor({ ilvl, slot, plus })));
+  const goldByState = solve(matrix, Array.from({ length: target }, (_, plus) => upCostFor({ ilvl, slot, plus }, policy)));
   return { attempts: attemptsByState[start], gold: goldByState[start], attemptsByState, goldByState };
 }
 module.exports = { forgeExpectation };

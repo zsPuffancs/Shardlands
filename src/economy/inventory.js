@@ -1,5 +1,5 @@
 'use strict';
-const { upgradeOutcome } = require('../../public/forge-math');
+const ForgeMath = require('../../public/forge-math');
 const { restoreResource } = require('../shared/generated/resources');
 const crypto = require('node:crypto');
 const { createAutoAffixJobs } = require('./auto-affix-jobs');
@@ -8,7 +8,7 @@ const { MAX_ITEM_STACK, FORGE_ATTEMPTS_PER_TICK, FORGE_ATTEMPTS_PER_JOB, validAm
 const { localizedText: messageText, gearText, isLocalizedText } = require('../shared/localized-text');
 
 const { NPCS, CX, CY, nearNpc, inVillage, rnd, placeInVillage, npcPosition, mapOf } = require('../world/game-world');
-const { BASES, SLOTS, RARITY, MYTHIC, MERGE_COST, REROLL_COST, AFFIXES, AFFIX_SLOTS, AFFIX_COST, MYTHIC_MERGE_COUNT, MYTHIC_MERGE_GOLD, itemView, UP_RATE, upCostFor, sellValue } = require('./equipment');
+const { BASES, SLOTS, RARITY, MYTHIC, MERGE_COST, REROLL_COST, AFFIXES, AFFIX_SLOTS, AFFIX_COST, MYTHIC_MERGE_COUNT, MYTHIC_MERGE_GOLD, itemView, sellValue } = require('./equipment');
 // Elixirs and scrolls stack: each one adds its duration, up to this much time left.
 const BUFF_CAP_MS = 5 * 60 * 1000;
 const BUFF_DURATION = { atk: 60000, def: 60000, spd: 60000, xp: 300000 };
@@ -18,7 +18,9 @@ const { CLASSES, ITEMS, SKILLS, newSk, stats, defRed, critCh, critMul, goldFind,
 const BAG_PAGE_SIZE = 30;
 const BAGMAX = BAG_PAGE_SIZE * 3;
 
-function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerollGear, applyAffix, isItemReserved = () => false, persistPlayer = () => {}, isPlayerOnline }) {
+function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerollGear, applyAffix, isItemReserved = () => false, persistPlayer = () => {}, isPlayerOnline, forgePolicy = ForgeMath.DEFAULT_FORGE_POLICY }) {
+  const upCostFor = item => ForgeMath.upCostFor(item, forgePolicy);
+  const upgradeOutcome = (plus, roll) => ForgeMath.upgradeOutcome(plus, roll, forgePolicy);
   const autoAffixJobs = createAutoAffixJobs({ applyAffix, send, sendInventory: sendInv, refreshStats: refreshGearStats, persistPlayer, isPlayerOnline, isItemReserved: (player, uid) => isItemReserved(player, uid) || forgeJobs.get(player.id)?.uid === uid });
   const autoAffixBusy = (player, uid) => autoAffixJobs.isReserved(player, uid);
   const rejectAutoAffixConflict = player => say(player, messageText('autoAffix.busy', 'Stop Auto Affix before changing this item.'));

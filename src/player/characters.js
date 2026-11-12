@@ -1,5 +1,6 @@
 'use strict';
 const { restoreResource } = require('../shared/generated/resources');
+const { PROGRESSION_POLICY } = require('../balance/base');
 
 const { MAX_SAFE_AMOUNT, LEVEL_UPS_PER_TICK, validAmount, credit } = require('../shared/safety-limits');
 const { localizedText: messageText } = require('../shared/localized-text');
@@ -74,13 +75,13 @@ const critCh = player => Math.min(0.8, 0.12 + (player.g.crit || 0) / 100 + passi
 const dmgMul = (player, now) => (1 + passive(player, 'might')) * (now < player.buf.atk ? 1.3 : 1) * (now < player.buf.rage ? 1.2 + 0.05 * player.sk.frenzy : 1);
 const playerDmg = player => ((6 + player.lvl * 2.6) * CLASSES[player.cls].atk + (player.g.dmg || 0)) * dmgMul(player, Date.now());
 
-function createProgression({ fire, ev, say, toast, broadcast, sendInv }) {
+function createProgression({ fire, ev, say, toast, broadcast, sendInv, progressionPolicy = PROGRESSION_POLICY }) {
   const pendingLevels = new Map();
   const processingAwards = new WeakSet();
   function gainXp(player, xp, context = {}) {
     if (!validLevel(player.lvl) || player.lvl >= MAX_PLAYER_LEVEL || processingAwards.has(player)) return 0;
     const combat = context.source === 'combat', limit = combat ? encounterLimit(player.lvl, context) : MAX_SAFE_AMOUNT;
-    const boosted = applyXpBonuses(xp, { gearBonus: 0, wisdom: Date.now() < player.buf?.xp, serverRate: combat ? context.serverRate : 1, limit });
+    const boosted = applyXpBonuses(xp, { gearBonus: 0, wisdom: Date.now() < player.buf?.xp, serverRate: combat ? context.serverRate : 1, limit, wisdomMultiplier: progressionPolicy.wisdomMultiplier });
     if (!boosted) return 0;
     const award = { v: boosted, source: combat ? 'combat' : 'direct' };
     processingAwards.add(player);

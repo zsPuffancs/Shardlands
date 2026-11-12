@@ -7,6 +7,7 @@ const { MAX_CURRENCY } = require('../src/shared/safety-limits');
 const { newSk, stats, goldFind } = require('../src/player/characters');
 const { createGameSaves } = require('../src/server/persistence');
 const noop = () => {};
+const { finishStone } = require('./helpers/stone-encounter');
 function hero(id = 1, bonus = 0) { const player = { id, name: 'Hero' + id, c: {}, cls: 'archer', lvl: 100, xp: 1234, sp: 25, gold: 777, souls: 123, eq: {}, bag: [], inv: {}, sk: newSk(), buf: {}, x: 6000, y: 6000 }; stats(player); player.hp = player.maxhp; player.mp = player.maxmp; player.g.gf = bonus; return player; }
 function spawn(type = 'wolf', level = 100, generated = true, alpha = false) {
   const previous = TIERS[7]; if (generated) TIERS[7] = { ...TIERS[0], generated: true, scale: true, lv: [level, level] };
@@ -86,6 +87,7 @@ test('Fortune Gold Find (gear gold find ignored) stays active in live pickup and
 
 test('zero rates suppress gold only, while extreme levels, rates and bonuses remain integer safe', () => {
   const player = hero(), service = lootService([player], 0), monster = spawn('stone', 100);
+  assert.equal(finishStone(monster).kind, 'stone');
   fixedRandom(() => service.dropLoot(player, monster)); assert.ok(![...service.loot.values()].some(drop => drop.kind === 'gold')); assert.ok([...service.loot.values()].some(drop => drop.kind === 'souls'));
   for (const level of [1, 10000, 10001, -1, 0, Infinity, NaN, Number.MAX_SAFE_INTEGER]) for (const rate of [0, .001, 1, 1e6, Number.MAX_VALUE, Infinity, NaN, -1]) for (const bonus of [0, 300, Number.MAX_VALUE, Infinity, NaN, -100]) {
     const result = gold.monsterGoldRewards({ monster: { lvl: level, goldModel: gold.FRONTIER_MODEL, tier: Number.MAX_SAFE_INTEGER }, template: { worldBoss: true }, rate, bonuses: [bonus] })[0]; assert.ok(Number.isSafeInteger(result) && result >= 0 && result <= MAX_CURRENCY);

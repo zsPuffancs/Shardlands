@@ -9,6 +9,7 @@ const { createSummons } = require('../src/combat/summons');
 const { newSk, stats, createProgression } = require('../src/player/characters');
 const { NPCS, addMap } = require('../src/world/game-world');
 const noop = () => {};
+const { finishStone } = require('./helpers/stone-encounter');
 function hero(npc = 'merchant') { const p = { id: 1, c: {}, cls: 'archer', lvl: 1, xp: 0, sp: 0, eq: {}, bag: [], sk: newSk(), buf: {}, inv: { hp: 1 }, souls: 0, gold: 1000000, x: NPCS[npc].x, y: NPCS[npc].y }; stats(p); p.hp = p.maxhp; p.mp = p.maxmp; return p; }
 function inventory(extra = {}) { return createInventory({ send: noop, say: noop, toast: noop, broadcast: noop, ev: noop, fire: noop, genGear: noop, rerollGear: noop, ...extra }); }
 test('legacy over-cap stacks remain intact; new credit cannot overflow safe integers', () => {
@@ -17,12 +18,17 @@ test('legacy over-cap stacks remain intact; new credit cannot overflow safe inte
 });
 test('rate limits apply both to config assignments and subsequent admin/plugin writes', () => {
   const rates = boundedRateSettings({ xpRate: 1, gearDropRate: 1, deathGoldLoss: .1 }); rates.gearDropRate = 1e300; assert.equal(rates.gearDropRate, 1000);
-  rates.xpRate = Infinity; assert.equal(rates.xpRate, 1); rates.deathGoldLoss = 999; assert.equal(rates.deathGoldLoss, 1);
+  rates.xpRate = Infinity; assert.equal(rates.xpRate, 1); rates.deathGoldLoss = 999; assert.equal(rates.deathGoldLoss, .05);
+  rates.deathGoldLoss = NaN; assert.equal(rates.deathGoldLoss, .05);
+  rates.deathGoldLoss = 0; assert.equal(rates.deathGoldLoss, 0);
 });
 test('high-tier stones generate at most ten equipment drops', () => {
   const loot = new Map(); let id = 0, gear = 0;
   const service = createLoot({ loot, players: new Map(), allocateId: () => ++id, rates: { goldRate: 0, gearDropRate: 1e200, potionDropRate: 0 }, ev: noop, say: noop, toast: noop, broadcast: noop, addGear: noop, genGear: () => { gear++; return { name: 'Item', rar: 2 }; }, rollRarity: () => 2 });
-  service.dropLoot(hero(), { ty: 'stone', tier: 1000000, lvl: 100, gm: 1, x: 6000, y: 6000 }); assert.equal(gear, 10);
+  const stone = { id: 1, ty: 'stone', tier: 1000000, lvl: 100, gm: 1, x: 6000, y: 6000 };
+  assert.equal(finishStone(stone).kind, 'stone');
+  service.dropLoot(hero(), stone); assert.equal(gear, 10);
+  service.dropLoot(hero(), stone); assert.equal(gear, 10, 'spent completion permit cannot pay twice');
 });
 test('partial pickup leaves excess on the ground and a full stack does not consume gold', () => {
   const p = hero(), loot = new Map(); p.inv.hp = MAX_ITEM_STACK - 1; let id = 0;

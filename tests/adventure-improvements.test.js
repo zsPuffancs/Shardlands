@@ -92,9 +92,10 @@ test('contracts count eligible kills only and concurrent reward claims pay once 
   await service.handle(player, { op: 'accept', kind: 'clear' });
   const monster = { ty: 'wolf', lvl: 10, x: 6000, y: 6000 };
   service.kill(player, { ...monster, summoned: true }); service.kill(player, { ...monster, lvl: 1 });
-  // Level 1 still counts for a level 10 hero (gap 9); gap 13 must not.
-  player.lvl = 20; service.kill(player, { ...monster, lvl: 7 }); assert.equal(player.data.adventure.active.progress, 1); player.lvl = 10;
-  for (let i = 1; i < CONTRACTS.clear.target; i++) service.kill(player, monster);
+  // The current XP policy permits gap 13; gap 25 is the first excluded level.
+  player.lvl = 20; service.kill(player, { ...monster, lvl: 7 }); assert.equal(player.data.adventure.active.progress, 2);
+  player.lvl = 40; service.kill(player, { ...monster, lvl: 15 }); assert.equal(player.data.adventure.active.progress, 2); player.lvl = 10;
+  for (let i = 2; i < CONTRACTS.clear.target; i++) service.kill(player, monster);
   await Promise.all([service.handle(player, { op: 'claim' }), service.handle(player, { op: 'claim' })]);
   assert.equal(player.souls, 2); assert.equal(player.gold, 1000); assert.equal(player.xp, 99); assert.equal(player.data.adventure.claimed.length, 1); assert.equal(player.data.adventure.active, null);
   await service.handle(player, { op: 'accept', kind: 'clear' }); assert.equal(player.data.adventure.active, null);
@@ -108,7 +109,8 @@ test('bestiary records only encountered families and actually collected drops, p
   await service.handle(player, { op: 'inspect' }); const view = packets.at(-1); assert.deepEqual(Object.keys(view.entries), ['wolf']); assert.equal(view.entries.wolf.kills, 1); assert.equal(view.entries.wolf.drops.gold, 40);
   const restored = hero(); restored.data = JSON.parse(JSON.stringify(player.data)); await service.handle(restored, { op: 'inspect' }); assert.equal(packets.at(-1).entries.wolf.kills, 1);
   let catalog; vm.runInNewContext(fs.readFileSync(require.resolve('../public/locales/hu'), 'utf8'), { GameText: { addCatalog: (code, entries) => { catalog = entries; } } });
-  for (const file of ['../src/progression/adventure', '../public/adventure-ui']) for (const match of fs.readFileSync(require.resolve(file), 'utf8').matchAll(/(?:text|localizedText)\('((?:adventure|boss|affix|team)\.[^']+)'/g)) assert.ok(Object.hasOwn(catalog, match[1]), match[1]);
+  for (const file of ['../src/progression/adventure', '../public/adventure-ui']) for (const match of fs.readFileSync(require.resolve(file), 'utf8').matchAll(/(?:text|localizedText)\('((?:adventure|boss|affix|team)\.[^']+)'\s*[,)]/g)) assert.ok(Object.hasOwn(catalog, match[1]), match[1]);
+  for (const category of ['normal', 'alpha', 'stone', 'boss', 'worldBoss']) assert.ok(Object.hasOwn(catalog, 'adventure.category.' + category), category);
 });
 
 test('journal updates batch changed entries at 250ms and unsupported future journals do not break combat', async () => {

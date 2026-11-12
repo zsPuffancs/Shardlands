@@ -12,6 +12,7 @@
   "typedShared": {
     "resources": "src/shared/typed/resources.ts",
     "entities": "src/shared/typed/entities.ts",
+    "forge": "src/shared/typed/forge.ts",
     "browserResources": "public/resource-bars.js"
   },
   "domains": {

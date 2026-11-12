@@ -23,8 +23,8 @@ function participate(game) { for (const player of game.roster) game.combat.hitMo
 
 test('Spirit Stone party rewards use individual penalties and pay each participant exactly once', () => {
   const game = setup(2, { levels: [100, 110] }); game.monster.ty = 'stone';
-  // Stages have their own real-spawner integration test; isolate the payout path here.
-  game.monster.stoneStep = 0;
+  // Fresh lifecycle: zero is an already-spent encounter, not a way to skip waves.
+  game.monster.stoneStep = 5;
   participate(game); game.combat.hitMob(game.roster[0], game.monster, 1e9);
   const expected = game.roster.map(player => [player.id, xp.calculateEncounterXp({ playerLevel: player.lvl, monsterLevel: 100, category: 'stone', members: 2, healthScale: game.monster.ps })]);
   assert.deepEqual(game.awards, expected); assert.ok(expected[1][1] < expected[0][1]);
@@ -198,6 +198,7 @@ test('all live encounter categories match the centralized reward policy', () => 
       const game = setup(), monster = game.monster;
       monster.ty = category === 'stone' ? 'stone' : category === 'boss' ? 'alphawolf' : category === 'worldBoss' ? 'economyworldboss' : 'wolf';
       monster.alpha = category === 'alpha'; monster.summoned = category === 'summoned'; monster.anomaly = category === 'anomaly';
+      if (category === 'stone') monster.stoneStep = 5;
       game.combat.hitMob(game.roster[0], monster, 1e9);
       assert.equal(game.roster[0].xp, xp.calculateEncounterXp({ playerLevel: 100, monsterLevel: 100, category }), category); assert.equal(game.drops.length, 1);
     }

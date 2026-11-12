@@ -5,6 +5,7 @@ exports.settingMode = settingMode;
 exports.freeze = freeze;
 exports.resolveBalance = resolveBalance;
 exports.resolveLiveUpdate = resolveLiveUpdate;
+const forge_1 = require("../../shared/generated/forge");
 // Preset names reserve configuration identities, not unapproved balance changes.
 exports.RULESETS = Object.freeze({
     Normal: Object.freeze({}), Hardcore: Object.freeze({}), Accelerated: Object.freeze({}), Custom: Object.freeze({}),
@@ -18,6 +19,8 @@ function settingMode(path) {
         return modes[path];
     if (path.startsWith('rates.'))
         return 'live';
+    if (['forging.', 'progression.', 'gold.', 'loot.', 'combat.', 'monsters.'].some(prefix => path.startsWith(prefix)))
+        return 'restart-required';
     if (path.startsWith('worldGeneration.') || path.startsWith('settlement.'))
         return 'generation-locked';
     throw new RangeError('Unknown setting path: ' + path);
@@ -39,7 +42,12 @@ function merge(target, patch, path = '') {
         const existing = target[key];
         if (value === undefined)
             throw new TypeError('Undefined balance value: ' + path + key);
-        if (existing && typeof existing === 'object')
+        if (Array.isArray(existing)) {
+            if (!Array.isArray(value) || value.length !== existing.length)
+                throw new RangeError('Invalid balance array: ' + path + key);
+            target[key] = [...value];
+        }
+        else if (existing && typeof existing === 'object')
             merge(existing, value, path + key + '.');
         else
             target[key] = value;
@@ -75,6 +83,24 @@ function resolveBalance(environment, input = {}) {
         merge(values, request.overrides);
     for (const [key, value] of Object.entries(values.rates))
         number(value, 'rates.' + key, 0, environment.rateBounds[key]);
+    number(values.forging.costBase, 'forging.costBase', 1, 1e6);
+    number(values.forging.costExponent, 'forging.costExponent', 0, 2);
+    number(values.forging.levelDivisor, 'forging.levelDivisor', 1, 10000);
+    number(values.forging.nonWeaponMultiplier, 'forging.nonWeaponMultiplier', .01, 10);
+    values.forging.successRates.forEach((value, index) => number(value, 'forging.successRates.' + index, .05, 1));
+    for (const slot of ['weapon', 'armor']) {
+        number((0, forge_1.upCostFor)({ ilvl: 1, plus: 0, slot }, values.forging), 'forging.minimumPrice', 1, environment.maxCurrency, true);
+        number((0, forge_1.upCostFor)({ ilvl: 10000, plus: 8, slot }, values.forging), 'forging.maximumPrice', 1, environment.maxCurrency, true);
+    }
+    number(values.progression.wisdomMultiplier, 'progression.wisdomMultiplier', 1, 10);
+    number(values.gold.normalCostFraction, 'gold.normalCostFraction', 0, 1);
+    number(values.gold.variation, 'gold.variation', 0, 1);
+    number(values.loot.gearBaseChance, 'loot.gearBaseChance', 0, 1);
+    number(values.loot.gearTierIncrement, 'loot.gearTierIncrement', 0, 1);
+    number(values.combat.recoveryDamageMultiplier, 'combat.recoveryDamageMultiplier', 1, 10);
+    number(values.monsters.hpPerDepth, 'monsters.hpPerDepth', 0, 10);
+    number(values.monsters.damagePerDepth, 'monsters.damagePerDepth', 0, 10);
+    number(values.monsters.worldExponent, 'monsters.worldExponent', 0, 1);
     const settlement = values.settlement;
     // Existing persisted cost schema is version 1. New versions require a migration.
     number(settlement.version, 'settlement.version', environment.base.settlement.version, environment.base.settlement.version, true);
@@ -99,7 +125,7 @@ function resolveLiveUpdate(environment, current, patch) {
     const check = (value, path = '') => {
         for (const [key, child] of Object.entries(record(value, path || 'patch'))) {
             const next = path ? path + '.' + key : key;
-            if (child && typeof child === 'object')
+            if (child && typeof child === 'object' && !Array.isArray(child))
                 check(child, next);
             else if (settingMode(next) !== 'live')
                 throw new RangeError('Setting requires restart or a new persisted snapshot: ' + next);

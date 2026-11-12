@@ -80,7 +80,7 @@ const tierOf = (x, y) => {
 let universeIdentity = () => null;
 const attachUniverse = provider => { universeIdentity = provider; };
 // The world as one client sees it: always in coordinates local to that map.
-function worldInfo(map) {
+function worldInfo(map, { monsterPolicy, combatPolicy } = {}) {
   map = map || maps[0];
   const local = key => { const npc = npcPosition(map, key); return { x: npc.x - map.x0, y: npc.y - map.y0, name: npc.name, yaw: npc.yaw }; };
   const npcs = {}; for (const key in NPCS) if (npcAvailable(map, key)) npcs[key] = local(key); if (portalOpen()) npcs.portal = local('portal');
@@ -89,9 +89,9 @@ function worldInfo(map) {
     funds: Object.fromEntries(Object.entries((map.settlement && map.settlement.funds) || {}).map(([key, fund]) => [key, fund.donors])) };
   const zones = map.index === 0 ? TIERS.filter(t => !t.generated).map(t => ({ name: t.name, min: t.min, max: t.max, lv: t.lv, outer: !!t.outer }))
     : [{ name: TIERS[map.tier].name, min: REGION_SAFE_RADIUS, max: 99999, lv: TIERS[map.tier].lv, outer: false, look: map.look, generated: true }];
-  const depth = worldFactor(map.regionTier || 1);
+  const depth = worldFactor(map.regionTier || 1, monsterPolicy);
   const scaling = { worldHp: depth.hp, worldDamage: depth.dmg, worldBossSize: WORLD_BOSS_SIZE, bossHp: ENEMY_SCALING.categories.boss.hp, worldBossHp: ENEMY_SCALING.categories.worldBoss.hp,
-    partyHp: ENEMY_SCALING.partyHpPerMember, partyDamage: XP_BALANCE.partyDamagePerMember, punishBonus: ENEMY_SCALING.boss.punishBonus };
+    partyHp: ENEMY_SCALING.partyHpPerMember, partyDamage: XP_BALANCE.partyDamagePerMember, punishBonus: combatPolicy?.recoveryDamageMultiplier ?? ENEMY_SCALING.boss.punishBonus };
   return { universe: universeIdentity(), map: map.index, maps: maps.length, W: map.w, H: map.h, CX: map.cx - map.x0, CY: map.cy - map.y0, V: layoutOf(map).safe, settlement, npcs, npcRange: NPC_RANGE, tiers: zones, scaling };
 }
 

@@ -142,10 +142,11 @@ test('every biome has its own identity on the same layouts', () => {
 
 test('the approved dark (Necropolis) village is unchanged: same geometry and placement as before the biome styles', () => {
   const crypto = require('node:crypto'), { kit } = loadKit(), b = kit.build('dark');
-  const geo = crypto.createHash('md5'); for (const k of Object.keys(b).sort()) for (const m of b[k].meshes) { geo.update(k + m.mat); geo.update(Buffer.from(new Float32Array(m.mesh.arr).buffer)); }
+  const reference = require('./fixtures/necropolis-geometry.json');
+  const geo = crypto.createHash('sha256'); for (const k of Object.keys(b).sort()) for (const m of b[k].meshes) geo.update(JSON.stringify([k, m.mat, Array.from(new Float32Array(m.mesh.arr), value => Math.round(value * reference.quantization))]));
   const place = crypto.createHash('md5');
   for (const id of Settlement.LAYOUT_IDS) { kit.place(Settlement.layout('village', 'dark', {}, id), 1000, 2000, 'dark'); place.update(JSON.stringify(kit.placements().map(p => [p.key, +p.x.toFixed(3), +p.z.toFixed(3), +p.yaw.toFixed(4), +p.sx.toFixed(4), +p.sy.toFixed(4), +p.sz.toFixed(4)]))); }
-  assert.deepEqual([Object.keys(b).length, geo.digest('hex'), place.digest('hex')], DARK_FINGERPRINT);
+  assert.deepEqual([Object.keys(b).length, geo.digest('hex'), place.digest('hex')], [reference.assetCount, reference.canonicalGeometrySha256, reference.placementMd5]);
 });
-// measured on the dark kit as approved (commit 6dde9bd), before the biome styles were added
-const DARK_FINGERPRINT = [38, "39a39e86c5576e1d4cc0b83824f9c116", "6815e785fc2200e1c39f2918cbd26d18"];
+// The approved-source raw hash is runtime-sensitive; provenance and unchanged
+// placement are retained in necropolis-geometry.json, with subpixel canonicalization.

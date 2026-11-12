@@ -1,6 +1,7 @@
 'use strict';
 const { rewardCategory } = require('../shared/generated/entities');
 const { STONE_REWARDS } = require('../economy/stone-rewards');
+const { PROGRESSION_POLICY } = require('../balance/base');
 // Shared production XP mathematics. This module never reads time, players, saves or World Tier.
 const MAX_PLAYER_LEVEL = 10000;
 const XP_BALANCE = Object.freeze({
@@ -11,7 +12,7 @@ const XP_BALANCE = Object.freeze({
   earlyTaperLevel: 10,
   fractions: Object.freeze({ normal: .025, alpha: .075, stone: STONE_REWARDS.completion.matureXpFraction, boss: .15, worldBoss: .25, summoned: 0, anomaly: .10 }),
   earlyFractions: Object.freeze({ normal: .20, alpha: .30, stone: STONE_REWARDS.completion.earlyXpFraction, boss: .45, worldBoss: .60, summoned: 0, anomaly: .25 }),
-  maxEncounterFraction: .75, gearSoftCapPercent: 100, wisdomMultiplier: 1.5,
+  maxEncounterFraction: .75, gearSoftCapPercent: 100, wisdomMultiplier: PROGRESSION_POLICY.wisdomMultiplier,
   pluginMultiplierCap: 2, serverRateCap: 1000000, partySizeCap: 5, partyHpPerMember: .45, partyDamagePerMember: .08,
   partyEfficiencyPerMember: .05, sharingRadius: 1000, minimumDamageFraction: .01, participationWindowMs: 45000,
 });
@@ -69,9 +70,9 @@ function gearXpMultiplier(bonus) {
   const cap = XP_BALANCE.gearSoftCapPercent;
   return 1 + cap / 100 * (bonus / (cap + bonus));
 }
-function applyXpBonuses(amount, { gearBonus = 0, wisdom = false, serverRate = 1, limit = Number.MAX_SAFE_INTEGER } = {}) {
+function applyXpBonuses(amount, { gearBonus = 0, wisdom = false, serverRate = 1, limit = Number.MAX_SAFE_INTEGER, wisdomMultiplier = PROGRESSION_POLICY.wisdomMultiplier } = {}) {
   if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(serverRate) || serverRate <= 0 || !Number.isFinite(limit) || limit <= 0) return 0;
-  const value = amount * gearXpMultiplier(gearBonus) * (wisdom ? XP_BALANCE.wisdomMultiplier : 1) * Math.min(XP_BALANCE.serverRateCap, serverRate);
+  const value = amount * gearXpMultiplier(gearBonus) * (wisdom ? wisdomMultiplier : 1) * Math.min(XP_BALANCE.serverRateCap, serverRate);
   return Math.max(0, Math.min(Number.MAX_SAFE_INTEGER, Math.floor(limit), Math.round(value)));
 }
 function finalizeXpAward(beforeHook, proposed, { combat = false, limit = Number.MAX_SAFE_INTEGER } = {}) {

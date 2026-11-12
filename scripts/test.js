@@ -4,9 +4,9 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const groups = {
-  unit: ['architecture', 'root-imports', 'balance-registry', 'balance-simulation', 'resources', 'entities'],
+  unit: ['architecture', 'root-imports', 'balance-registry', 'balance-simulation', 'balance-consumers', 'resources', 'entities', 'stone-lifecycle'],
   integration: ['architecture-startup', 'balance-config'],
-  balance: ['balance-registry', 'balance-simulation', 'resources', 'entities', 'enemy-scaling', 'item-soft-cap', 'xp-region-levels'],
+  balance: ['balance-registry', 'balance-simulation', 'balance-consumers', 'resources', 'entities', 'stone-lifecycle', 'enemy-scaling', 'item-soft-cap', 'xp-region-levels'],
   determinism: ['world-generation', 'danger-atlas'],
 };
 const group = process.argv[2] || 'all';

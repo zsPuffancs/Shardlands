@@ -1,5 +1,6 @@
 'use strict';
 const { restoreResource, subtractResource } = require('../shared/generated/resources');
+const { COMBAT_POLICY } = require('../balance/base');
 
 const { nearby } = require('../shared/spatial-index');
 const { localizedText: messageText } = require('../shared/localized-text');
@@ -17,7 +18,7 @@ const canEarnMonsterXp = (hero, monster) => levelGapScale(hero.lvl, monster.lvl)
 const { SUMMON_LIFETIME_MS, createSummons } = require('./summons');
 const { ENEMY_SCALING, bossPhase, bossPressure, recoverMs } = require('./enemy-scaling');
 
-function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLoot, broadcast, say, teams, adventure }) {
+function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLoot, broadcast, say, teams, adventure, combatPolicy = COMBAT_POLICY, goldPolicy }) {
   const summons = createSummons({ mobs, spawnMob });
   const participation = createEncounterParticipation({ players, teams }), processingHits = new WeakSet();
   function hitMob(player, monster, damage) {
@@ -28,7 +29,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
       if (criticalHit) damage *= critMul(player);
       // A boss recovering from a telegraphed attack is open: hits land harder (the punish window).
       const punished = monster.boss && monster.recoverUntil > Date.now();
-      if (punished) damage *= ENEMY_SCALING.boss.punishBonus;
+      if (punished) damage *= combatPolicy.recoveryDamageMultiplier;
       damage = Math.max(1, Math.round(damage * rnd(0.9, 1.1)));
       const hit = { v: damage, crit: criticalHit };
       fire('damage', player, monster, hit);
@@ -100,7 +101,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     player.hp = subtractResource(player.hp, damage); ev('hurt', player.x, player.y, damage, { a: monster.id, combatPlayerId: player.id, monsterType: monster.ty });
     if (player.hp <= 0) {
       player.hp = 0; player.dead = now + 5000; player.target = 0; player.chasingTarget = false;
-      const loss = deathGoldPenalty(player, rates);
+      const loss = deathGoldPenalty(player, rates, goldPolicy);
       if (loss > 0) player.gold -= loss;
       say(player, messageText("server.died", "You died. Lost {gold} gold. Respawning in the village...", { gold: loss })); fire('death', player, monster);
       for (const attacker of mobs.values()) if (attacker.target === player.id) attacker.target = 0;

@@ -1,4 +1,5 @@
 'use strict';
+const { forgeClientConfig, DEFAULT_FORGE_POLICY } = require('../../public/forge-math');
 
 const { localizedText: messageText, isLocalizedText } = require('../shared/localized-text');
 
@@ -8,11 +9,11 @@ const { CX, CY, rnd, worldInfo, clampWorld, maps, mapOf } = require('../world/ga
 const { MOBTYPES } = require('../combat/monsters');
 const { mobTypesForClient } = require('../multiplayer/snapshots');
 const { CLASSES, ITEMS, MAXRANK, PMAX, PASSIVE_EFFECT, newSk, stats } = require('./characters');
-const { SLOTS, STATDEF, UP_RATE, RARITY, AFFIXES, AFFIX_SLOTS, AFFIX_COST, MYTHIC_MERGE_COUNT, MYTHIC_MERGE_GOLD, sanitize } = require('../economy/equipment');
+const { SLOTS, STATDEF, RARITY, AFFIXES, AFFIX_SLOTS, AFFIX_COST, MYTHIC_MERGE_COUNT, MYTHIC_MERGE_GOLD, sanitize } = require('../economy/equipment');
 const { BAGMAX, BAG_PAGE_SIZE } = require('../economy/inventory');
 const { AFFIX_CAPS } = require('./characters');
 
-function createPlayerSessions({ config, players, mobs, saves, allocateId, refreshMobTypes, universe, regions, teams, adventure, send, say, broadcast, fire, commands, skill, learnSkill, inventory, savePlayer, resyncUi }) {
+function createPlayerSessions({ worldView = worldInfo, config, players, mobs, saves, allocateId, refreshMobTypes, universe, regions, teams, adventure, send, say, broadcast, fire, commands, skill, learnSkill, inventory, savePlayer, resyncUi, forgePolicy = DEFAULT_FORGE_POLICY }) {
   const isAdminName = name => config.admins.some(a => String(a).toLowerCase() === name.toLowerCase());
   const isAdmin = player => Boolean(player.ph && isAdminName(player.name));
   const clamp1 = v => Math.max(-1, Math.min(1, +v || 0));
@@ -79,7 +80,7 @@ function createPlayerSessions({ config, players, mobs, saves, allocateId, refres
     players.set(player.id, player);
     const { types: typeList } = refreshMobTypes();
     const types = mobTypesForClient(MOBTYPES);
-    send(connection, { t: 'init', id: player.id, name: player.name, cls: player.cls, world: worldInfo(mapOf(player)), types, tl: typeList, classes: CLASSES, items: ITEMS, maxRank: MAXRANK, pMax: PMAX, passiveEffect: PASSIVE_EFFECT, affixes: Object.fromEntries(Object.entries(AFFIXES).map(([k, v]) => [k, { n: v.n, prefix: v.prefix }])), affixSlots: Object.keys(AFFIX_SLOTS), affixCost: AFFIX_COST, mythicMerge: { count: MYTHIC_MERGE_COUNT, gold: MYTHIC_MERGE_GOLD }, buffCapMs: 300000, bagMax: BAGMAX, bagPageSize: BAG_PAGE_SIZE, slots: SLOTS, rarity: RARITY.map(r => r.n), upRate: UP_RATE, stat: Object.fromEntries(Object.entries(STATDEF).map(([k, v]) => [k, { n: v.n, pct: !!v.pct }])), resumed: !!savedPlayer, server: config.serverName, admin: isAdmin(player) });
+    send(connection, { t: 'init', id: player.id, name: player.name, cls: player.cls, world: worldView(mapOf(player)), types, tl: typeList, classes: CLASSES, items: ITEMS, maxRank: MAXRANK, pMax: PMAX, passiveEffect: PASSIVE_EFFECT, affixes: Object.fromEntries(Object.entries(AFFIXES).map(([k, v]) => [k, { n: v.n, prefix: v.prefix }])), affixSlots: Object.keys(AFFIX_SLOTS), affixCost: AFFIX_COST, mythicMerge: { count: MYTHIC_MERGE_COUNT, gold: MYTHIC_MERGE_GOLD }, buffCapMs: 300000, bagMax: BAGMAX, bagPageSize: BAG_PAGE_SIZE, slots: SLOTS, rarity: RARITY.map(r => r.n), ...forgeClientConfig(forgePolicy), stat: Object.fromEntries(Object.entries(STATDEF).map(([k, v]) => [k, { n: v.n, pct: !!v.pct }])), resumed: !!savedPlayer, server: config.serverName, admin: isAdmin(player) });
     inventory.sendInv(player);
     send(connection, { t: 'affixCaps', caps: AFFIX_CAPS });
     broadcast({ t: 'chat', n: '*', m: messageText("server.joined", "{player} entered {server}.", { player: player.name, server: config.serverName }) });

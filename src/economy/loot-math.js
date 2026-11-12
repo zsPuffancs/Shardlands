@@ -1,14 +1,15 @@
 'use strict';
 const { MAX_GEAR_DROPS, positiveAmount } = require('../shared/safety-limits');
 const { STONE_REWARDS } = require('./stone-rewards');
+const { LOOT_POLICY } = require('../balance/base');
 // The production drop path and offline expectations share this policy.
-function dropSpecification(monster, template, rates, reward) {
+function dropSpecification(monster, template, rates, reward, policy = LOOT_POLICY) {
   const guardian = !!monster.summoned, stone = !!template.stone, boss = !!template.boss;
   const alpha = !!monster.alpha && !guardian, worldBoss = !!template.worldBoss;
   return {
     potionCount: stone || boss ? 4 : alpha ? 2 : 0,
     potionChance: Math.min(1, .16 * rates.potionDropRate * reward.loot),
-    gearChance: (.14 + .02 * Math.min(monster.tier, 6)) * rates.gearDropRate * reward.loot,
+    gearChance: (policy.gearBaseChance + policy.gearTierIncrement * Math.min(monster.tier, 6)) * rates.gearDropRate * reward.loot,
     fixedGearCount: stone ? 4 + STONE_REWARDS.completion.extraGear + Math.floor(monster.tier / 2) : worldBoss ? 7 : boss ? 5 : alpha ? 2 : null,
     gearCap: reward.maxGear ?? MAX_GEAR_DROPS,
     minimumRarity: worldBoss ? 3 : stone ? STONE_REWARDS.completion.minimumRarity : boss ? 2 : alpha ? 1 : 0,

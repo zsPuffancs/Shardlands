@@ -8,11 +8,13 @@ Implemented strict TS (including noImplicitOverride/noUncheckedIndexedAccess):
   ResourceBar DOM caching/accessibility and WeakMap-based presenter composition.
 - src/shared/typed/entities.ts: category union, discriminated encounter descriptor,
   World Boss identity/template/idempotent radius specialization and progression predicate.
+- src/shared/typed/forge.ts: canonical ForgeItem/ForgePolicy arithmetic and additive
+  ForgeClientConfig network boundary, used by server and generated browser module.
 
 Use `npm run build` to emit CommonJS/declarations next to each typed/ directory in
 generated/. Commit those artifacts so existing `node server.js` and launchers work
-without TypeScript installed. public/resource-bars.js is generated from the shared
-resource output, with a dependency-free UMD wrapper. `npm run check:shared-ui`
+without TypeScript installed. public/resource-bars.js and public/forge-math.js are
+generated from shared resource/forge outputs, with dependency-free UMD wrappers. `npm run check:shared-ui`
 detects drift. Never edit emitted JS by hand. `npm run typecheck` checks both TS
 projects; the rest of the browser is still JavaScript, not silently typechecked.
 
@@ -26,8 +28,10 @@ Next migrations, each requiring regression fixtures and focused verification:
 
 1. Typed snapshot/player/monster/equipment structural contracts around existing
    service boundaries, then extract the deferred reference-hero cycle.
-2. Explicit production-consumed XP/equipment/combat policy contexts before exposing
-   additional Registry overrides. Reject knobs until all consumers use them.
+2. Extend the implemented per-instance forge/Wisdom/frontier-gold/gear-chance/
+   recovery-hit/monster-depth contexts to equipment stat/affix/tooltips and full
+   XP/category/phase policies. Partition reference-power caches by policy before
+   exposing stat coefficients; reject knobs until all consumers use them.
 3. Inventory cells and tooltip controllers with UID/focus ownership, not generic
    HTML template replacements. Preserve current localization/visual appearance.
 4. Status effects, damage-number lifetime and notifications through composed

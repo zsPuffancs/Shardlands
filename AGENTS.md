@@ -54,9 +54,11 @@ callbacks and plugin hooks require manual inspection. Reported cycles can be laz
 and formulaCatalog(). Types/defaults/validation are authored in `src/balance/typed/`.
 Precedence: Base -> named Ruleset -> config.json balance.overrides -> validation.
 Normal/Hardcore/Accelerated/Custom initially inherit identical values.
-Supported configurable domains: rates, settlement, worldGeneration. Other formula
-constants are a read-only production catalog; unknown override knobs are rejected.
-Do not advertise unsupported XP/forge/stat policy overrides.
+Supported domains: rates, settlement, worldGeneration, forging, progression,
+gold, loot, combat, monsters. Read docs/STABILIZATION.md for the exact supported
+coefficients/consumers; other constants are a read-only default catalog.
+XP requirement/gap curves, equipment stat/rarity/affix scaling and boss phase/party
+policies still reject overrides. Never advertise a knob before all consumers use it.
 
 server-config adapts legacy rates.json *after* this resolution, preserving numeric
 hot reload, clamping, previous values on malformed input and bounded plugin/admin
@@ -71,8 +73,8 @@ Runtime remains CommonJS. TypeScript 5.9.3 is the only development dependency;
 `npm ci`, `npm run build`, `npm run typecheck`. No runtime dependencies or ESM
 migration. Authored TS: src/balance/typed/ and src/shared/typed/. Their generated/
 siblings are committed CommonJS/declarations for build-free server startup.
-Never hand-edit generated files. Build also emits public/resource-bars.js from
-the shared TS resource presenter; verify with `npm run check:shared-ui`.
+Never hand-edit generated files. Build also emits public/resource-bars.js and
+public/forge-math.js from shared TS sources; verify with `npm run check:shared-ui`.
 Strict/noImplicitOverride checking applies to new TS, not the entire legacy JS
 client. Preserve existing browser global/script order and shared UMD exports.
 See docs/TYPESCRIPT-ROADMAP.md and docs/DOMAIN-REFACTOR-PLAN.md.
@@ -81,6 +83,9 @@ Resource arithmetic/presentation: src/shared/typed/resources.ts. Raw damage keep
 overkill and fractional values; display normalization clamps separately. World Boss
 identity/template/category helpers: src/shared/typed/entities.ts. Spawn category
 and summoned/anomaly reward category intentionally have different precedence.
+Typed forge.ts owns pricing/transitions and the additive ForgeClientConfig network
+boundary. New policy objects are immutable per server, injected into services;
+worldInfo metadata must use those policies too. These policies require restart.
 
 ## Persistence and generation invariants
 
@@ -116,7 +121,8 @@ and summoned/anomaly reward category intentionally have different precedence.
   `node scripts/world-generation-stress.js 100`.
   See the developer guide for exports and known report limitations.
 - Never weaken assertions or rewrite golden fixtures to conceal regressions.
-  Compare against the recorded pre-migration failures.
+  Compare against the recorded pre-migration failures and their documented fixes;
+  the nine historical failures are now resolved (docs/STABILIZATION.md).
 - Do not commit/push, reset, discard work, migrate saves or regenerate worlds
   without authorization. Never include local saves, seeds, credentials or reports
   containing private game data in commits or agent context.

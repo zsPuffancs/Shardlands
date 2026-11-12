@@ -1,4 +1,5 @@
 'use strict';
+const { MONSTER_POLICY } = require('../balance/base');
 const { spawnCategory, markWorldBossTemplate, WORLD_BOSS_SIZE } = require('../shared/generated/entities');
 const { resetStoneRewards } = require('../economy/stone-rewards');
 const { MAX_PLAYER_LEVEL, encounterBaseXp, encounterCategory } = require('../progression/xp-economy');
@@ -113,7 +114,7 @@ const WORLD_BOSS_HEALTH = ENEMY_SCALING.categories.worldBoss.hp[0];
 function markWorldBoss(type) { markWorldBossTemplate(MOBTYPES[type]); }
 const STONE_DMG = [30, 70, 120, 180, 250, 330, 430];
 
-function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick, clampWorld }) {
+function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick, clampWorld, monsterPolicy = MONSTER_POLICY }) {
   const { width, height, centerX, centerY } = world;
   const maxHealth = monster => Math.max(1, Math.round(monster.hb * rates.monsterHp));
 
@@ -138,7 +139,7 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick,
     // Health and damage come from the level budget (enemy-scaling.js): category, World Tier and the type's identity.
     const category = spawnCategory(template, isAlpha);
     const identity = template.archetype || type, worldTier = tier + 1;
-    const scaled = monsterStats({ level: spawnLevel, category, worldTier, archetype: { hp: character(identity, 'hp'), dmg: character(identity, 'dmg') } });
+    const scaled = monsterStats({ level: spawnLevel, category, worldTier, archetype: { hp: character(identity, 'hp'), dmg: character(identity, 'dmg') }, monsterPolicy });
     const goldScaling = monsterGoldScaling({ level: spawnLevel, baseLevel, alpha: isAlpha, generated: !!zone.generated });
     if (clampWorld) { const point = { x, y }; clampWorld(point, zone.area); x = point.x; y = point.y; }
     else { x = Math.max(20, Math.min(width - 20, x)); y = Math.max(20, Math.min(height - 20, y)); }

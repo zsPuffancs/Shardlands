@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node local-server.js",
-    "build": "tsc -p tsconfig.json && tsc -p tsconfig.domain.json && node scripts/build-shared-ui.js",
+    "build": "tsc -p tsconfig.domain.json && tsc -p tsconfig.json && node scripts/build-shared-ui.js",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.domain.json --noEmit",
     "check:shared-ui": "node scripts/build-shared-ui.js --check",
     "test": "node scripts/test.js all",

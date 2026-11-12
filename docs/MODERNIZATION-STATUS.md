@@ -1,10 +1,32 @@
 # Modernization checkpoint: 2026-11-12
 
 Initial base: develop / 88c8345, Node v26.13.0, Windows PowerShell.
-Phase 1 was committed and pushed as 142ecac. Subsequent work described below is
-local until separately committed. No real saves/configuration regenerated or copied.
+Phase 1 was committed/pushed as 142ecac. The verified wrapper/typed architecture
+checkpoint was subsequently committed and pushed as **5adfac7**. Stabilization
+changes after that checkpoint remain local, per the current instruction. No real
+saves/configuration regenerated or copied.
 
-## Current implementation and verification
+## Latest stabilization result
+
+**271 tests, 271 passed, 0 failed**, compared with the 263/254/9 checkpoint.
+All nine historical failures have documented causes/corrections in STABILIZATION.md;
+no test was disabled and no production balance/geometry was changed to satisfy it.
+Two lifecycle regressions and six real-consumer policy tests were added.
+
+Build, strict typecheck and both shared-browser artifacts passed. Unit 36/36,
+balance 57/57, deterministic generation 25/25 and isolated server/plugin/save/
+launcher integration 4/4 passed.
+Default and explicit Custom simulations through Tier 10000 ran with 73 PASS,
+2 documented WARN, 0 FAIL; JSON/CSV/Markdown exports were produced.
+
+New TS domain slice: src/shared/typed/forge.ts owns canonical pricing/outcomes and
+ForgeClientConfig. Restart-required, validated policies now reach actual forge,
+Wisdom XP, frontier gold/death references, random gear chance, recovery hits and
+monster depth scaling, including client world metadata and simulation consumers.
+Read-only equipment stat/affix/rarity and full XP/category/phase policies remain
+explicitly rejected until their complete context/cache migration; see the roadmap.
+
+## Previous verified modernization checkpoint (historical)
 
 Root-wrapper cleanup: all 44 temporary compatibility files have now been removed.
 131 static imports across 22 files and the vegetation helper were migrated to
@@ -50,11 +72,12 @@ tables below retain the previous modernization checkpoint for comparison.
 | Default unified simulation | 73 PASS, 2 WARN, 0 FAIL; warnings are documented telemetry/absent-defense limitations |
 | Alternative presets/custom exports | Hardcore range and Custom override example ran; JSON/CSV/Markdown emitted; no failed invariants |
 
-Full logs and generated analytical reports are local ignored files in reports/.
-Old baseline failures below are unchanged and remain blockers to a wholly green
-full suite. No test assertions/golden fixtures were weakened or old failures hidden.
+At this historical checkpoint, logs/reports were local ignored files in reports/,
+and the nine baseline failures still blocked a wholly green suite. They have now
+been corrected with the provenance/fixture fixes documented in STABILIZATION.md;
+no test was disabled and no production balance/geometry change hid a regression.
 
-## Remaining scope and risks
+## Scope and risks recorded at that historical checkpoint
 
 - Registry policy overrides for XP/forge/equipment/combat coefficients are not
   implemented; only the explicitly supported configuration domains accept patches.
@@ -128,9 +151,11 @@ item-soft-cap, auto-affix, enemy-scaling, snapshot-deltas and
 trade-journal-regressions. The isolated baseline gold reproduction used original
 HEAD backend sources and the same historical Git objects; no estimates substituted.
 
-## Pre-existing full-suite failures retained
+## Historical nine-failure baseline (now resolved)
 
-These were present before any backend edit and remain unchanged afterward:
+These were present before modernization and retained at commit 5adfac7. They have
+since been resolved locally as documented in STABILIZATION.md; this table preserves
+the original observations rather than an expected-failure policy:
 
 | Test location | Observed baseline / investigation |
 |---|---|

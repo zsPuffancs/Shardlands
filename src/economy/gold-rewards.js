@@ -2,25 +2,26 @@
 const { spawnCategory } = require('../shared/generated/entities');
 // Pure monster-gold policy. No dependency on forge, XP, persistence or World Tier.
 const { MAX_CURRENCY, RATE_BOUNDS } = require('../shared/safety-limits');
-const GOLD_BALANCE = Object.freeze({ maxLevel: 10000, progressionCostBase: 100, progressionLevelDivisor: 12, normalCostFraction: .065, variation: .20, legacyExponent: 1.5, legacyAlphaMultiplier: 5, legacyStoneMultiplier: 1.5, multipliers: Object.freeze({ normal: 1, alpha: 4, stone: 8, boss: 80, worldBoss: 240 }) });
+const { GOLD_POLICY } = require('../balance/base');
+const GOLD_BALANCE = Object.freeze({ maxLevel: 10000, progressionCostBase: 100, progressionLevelDivisor: 12, ...GOLD_POLICY, legacyExponent: 1.5, legacyAlphaMultiplier: 5, legacyStoneMultiplier: 1.5, multipliers: Object.freeze({ normal: 1, alpha: 4, stone: 8, boss: 80, worldBoss: 240 }) });
 const FRONTIER_MODEL = 'frontier-linear-v1', FOUNDING_MODEL = 'founding-legacy-v1';
 const validLevel = level => Number.isSafeInteger(level) && level >= 1 && level <= GOLD_BALANCE.maxLevel;
 function product(a, b) { return Number.isFinite(a) && Number.isFinite(b) && a > 0 && b > 0 ? a > MAX_CURRENCY / b ? MAX_CURRENCY : a * b : 0; }
 function goldCategory(monster, template) { return spawnCategory(template, monster.alpha); }
-function frontierAverageGold(level, category = 'normal') {
+function frontierAverageGold(level, category = 'normal', policy = GOLD_POLICY) {
   if (!validLevel(level) || !Object.hasOwn(GOLD_BALANCE.multipliers, category)) return 0;
-  return GOLD_BALANCE.normalCostFraction * GOLD_BALANCE.progressionCostBase * (1 + level / GOLD_BALANCE.progressionLevelDivisor) * GOLD_BALANCE.multipliers[category];
+  return policy.normalCostFraction * GOLD_BALANCE.progressionCostBase * (1 + level / GOLD_BALANCE.progressionLevelDivisor) * GOLD_BALANCE.multipliers[category];
 }
 function monsterGoldScaling({ level, baseLevel, alpha = false, generated = false }) {
   if (generated) return { goldModel: FRONTIER_MODEL, gm: 1 };
   const gm = validLevel(level) && Number.isFinite(baseLevel) && baseLevel > 0 ? (level / baseLevel) ** GOLD_BALANCE.legacyExponent * (alpha ? GOLD_BALANCE.legacyAlphaMultiplier : 1) : 0;
   return { goldModel: FOUNDING_MODEL, gm: Number.isFinite(gm) ? Math.min(MAX_CURRENCY, gm) : 0 };
 }
-function monsterGoldBudget({ monster, template, generated = false, rate = 1, roll = .5 }) {
+function monsterGoldBudget({ monster, template, generated = false, rate = 1, roll = .5, policy = GOLD_POLICY }) {
   if (!validLevel(monster.lvl) || !Number.isFinite(rate) || rate <= 0 || !Number.isFinite(roll)) return 0;
   rate = Math.min(RATE_BOUNDS.goldRate, rate); roll = Math.max(0, Math.min(1, roll));
   const model = monster.goldModel || (generated ? FRONTIER_MODEL : FOUNDING_MODEL);
-  if (model === FRONTIER_MODEL) return product(frontierAverageGold(monster.lvl, goldCategory(monster, template)) * (1 - GOLD_BALANCE.variation + 2 * GOLD_BALANCE.variation * roll), rate);
+  if (model === FRONTIER_MODEL) return product(frontierAverageGold(monster.lvl, goldCategory(monster, template), policy) * (1 - policy.variation + 2 * policy.variation * roll), rate);
   if (model !== FOUNDING_MODEL) return 0;
   const range = monster.gb || template.gold;
   if (!Array.isArray(range) || range.length !== 2 || !range.every(value => Number.isSafeInteger(value) && value >= 0) || range[1] < range[0] || !Number.isFinite(monster.gm) || monster.gm < 0) return 0;

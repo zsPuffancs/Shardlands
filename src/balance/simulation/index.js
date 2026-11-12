@@ -29,7 +29,7 @@ function sampleGold(monster, template, options) {
 }
 function simulate(options = {}) {
   const resolved = resolveBalance({ ruleset: options.ruleset ?? 'Normal', overrides: options.overrides ?? {} });
-  const { rates } = resolved.values, levels = checkPoints(options.levels ?? CHECKPOINTS, 10000, 50, 'player levels');
+  const { rates, forging, progression: progressionPolicy, gold: goldPolicy, loot: lootPolicy, combat: combatPolicy, monsters: monsterPolicy } = resolved.values, levels = checkPoints(options.levels ?? CHECKPOINTS, 10000, 50, 'player levels');
   const tiers = checkPoints(options.tiers ?? CHECKPOINTS, 65542, 100, 'World Tiers');
   const seed = options.seed ?? 'SHARDLANDS-BALANCE';
   if (typeof seed !== 'string' || !seed.length || seed.length > 40) throw new RangeError('Seed must contain 1..40 characters');
@@ -47,38 +47,38 @@ function simulate(options = {}) {
   for (const level of levels) {
     const build = level < 30 ? { rarity: 0, plus: 0 } : { rarity: 2, plus: 3 };
     const hero = scaling.referenceHero({ level, ...build });
-    const forge = forgeExpectation({ ilvl: level });
+    const forge = forgeExpectation({ ilvl: level, policy: forging });
     const ranges = equipment.statRanges({ slot: 'weapon', ilvl: level, rar: build.rarity, stats: { dmg: 0 } });
     progression.push({ level, xpRequirement: xp.xpNeed(level), effectiveItemLevel: equipment.effectiveStatLevel(level), referenceHeroHp: hero.maxhp, referenceHeroDamage: playerDmg(hero), referenceDps: scaling.heroDps(hero), weaponDamageRange: ranges.dmg, forgeAttemptsTo9: forge.attempts, forgeGoldTo9: forge.gold });
     check('progression-' + level, finite(forge.gold) && finite(forge.attempts) && xp.xpNeed(level) > 0 && ranges.dmg.every(finite), 'Finite production progression, ranges and expected forge costs');
     for (const category of CATEGORIES) {
       const type = category === 'stone' ? 'doomstone' : undefined;
-      const { monster, template } = combatModel.spawn({ category, level, worldTier: 8, rates, type });
-      const encounter = combatModel.encounter({ heroLevel: level, monsterLevel: level, worldTier: 8, category, rates, ...build, monsterType: type });
+      const { monster, template } = combatModel.spawn({ category, level, worldTier: 8, rates, type, monsterPolicy });
+      const encounter = combatModel.encounter({ heroLevel: level, monsterLevel: level, worldTier: 8, category, rates, ...build, monsterType: type, monsterPolicy, combatPolicy });
       const rewardScale = category === 'stone' ? STONE_REWARDS.completion.gold : 1;
-      const meanGold = sampleGold(monster, template, { rate: rates.goldRate, rewardScale });
-      const referenceGoldFind = sampleGold(monster, template, { rate: rates.goldRate, rewardScale, bonuses: [100] });
+      const meanGold = sampleGold(monster, template, { rate: rates.goldRate, rewardScale, policy: goldPolicy });
+      const referenceGoldFind = sampleGold(monster, template, { rate: rates.goldRate, rewardScale, bonuses: [100], policy: goldPolicy });
       const xpAward = xp.calculateEncounterXp({ playerLevel: level, monsterLevel: level, category, serverRate: rates.xpRate });
-      const referencePrice = equipment.upCostFor({ ilvl: level, plus: 0, slot: 'weapon' });
-      const specification = dropSpecification(monster, template, rates, { loot: 1 });
+      const referencePrice = equipment.upCostFor({ ilvl: level, plus: 0, slot: 'weapon' }, forging);
+      const specification = dropSpecification(monster, template, rates, { loot: 1 }, lootPolicy);
       const probabilities = equipment.rarityProbabilities(specification.rarityBonus, rates.rarityBoost, specification.minimumRarity);
       const expectedDrops = expectedGearDrops(specification);
-      const budget = gold.monsterGoldBudget({ monster, template, rate: rates.goldRate, roll: .5 });
-      const partyGold = gold.monsterGoldRewards({ monster, template, rate: rates.goldRate, rewardScale, bonuses: [0, 0, 0, 0, 0], roll: .5 });
+      const budget = gold.monsterGoldBudget({ monster, template, rate: rates.goldRate, roll: .5, policy: goldPolicy });
+      const partyGold = gold.monsterGoldRewards({ monster, template, rate: rates.goldRate, rewardScale, bonuses: [0, 0, 0, 0, 0], roll: .5, policy: goldPolicy });
       const partyXp = xp.calculateEncounterXp({ playerLevel: level, monsterLevel: level, category, members: 5, healthScale: scaling.partyHealthScale(category, 5), serverRate: rates.xpRate });
       rows.push({ level, category, scenarioWorldTier: 8, monsterHp: monster.mh, monsterDamage: monster.dmg * rates.monsterDamage, monsterDefense: null,
-        xp: xpAward, killsPerLevel: xpAward ? xp.xpNeed(level) / xpAward : null, meanGold, goldWith100PercentFind: referenceGoldFind,
+        xp: xpAward, xpWithWisdom: xp.calculateEncounterXp({ playerLevel: level, monsterLevel: level, category, serverRate: rates.xpRate, wisdom: true, wisdomMultiplier: progressionPolicy.wisdomMultiplier }), killsPerLevel: xpAward ? xp.xpNeed(level) / xpAward : null, meanGold, goldWith100PercentFind: referenceGoldFind,
         modeledKillSeconds: encounter.ttk, modeledSecondsToDie: Number.isFinite(encounter.ttd) ? encounter.ttd : null,
         modeledGoldPerHour: meanGold * 3600 / encounter.ttk, modeledXpPerHour: xpAward * 3600 / encounter.ttk,
         normalUpgradePrice: referencePrice, killsForUpgrade: meanGold ? referencePrice / meanGold : null,
-        deathPenaltyAtMillionGold: deathGoldPenalty({ lvl: level, gold: 1000000 }, rates),
+        deathPenaltyAtMillionGold: deathGoldPenalty({ lvl: level, gold: 1000000 }, rates, goldPolicy),
         expectedGearDrops: expectedDrops, expectedConsumables: specification.potionCount || specification.potionChance,
         rarityProbabilities: probabilities, expectedDropsByRarity: probabilities.map(value => value * expectedDrops),
         referenceSaleValues: equipment.RARITY.map((_, rar) => equipment.sellValue({ ilvl: level, rar, plus: 0 })), partyGold, partyXpPerMember: partyXp });
       if (category === 'stone') {
-        const normal = combatModel.spawn({ category: 'normal', level, worldTier: 8, rates });
+        const normal = combatModel.spawn({ category: 'normal', level, worldTier: 8, rates, monsterPolicy });
         const guardianXp = policy => xp.calculateEncounterXp({ playerLevel: level, monsterLevel: level, category: 'normal', serverRate: rates.xpRate, rewardScale: policy.xp });
-        const guardianGold = policy => sampleGold(normal.monster, normal.template, { rate: rates.goldRate, rewardScale: policy.gold });
+        const guardianGold = policy => sampleGold(normal.monster, normal.template, { rate: rates.goldRate, rewardScale: policy.gold, policy: goldPolicy });
         rows.at(-1).stoneEncounterRewardCeiling = {
           xp: xpAward + STONE_REWARDS.maxGuardians * guardianXp(STONE_REWARDS.guardian) + STONE_REWARDS.maxAlphaGuardians * guardianXp(STONE_REWARDS.alpha),
           meanGold: meanGold + STONE_REWARDS.maxGuardians * guardianGold(STONE_REWARDS.guardian) + STONE_REWARDS.maxAlphaGuardians * guardianGold(STONE_REWARDS.alpha),
@@ -98,9 +98,9 @@ function simulate(options = {}) {
     try {
       const plan = buildRegionPlan(state, region), repeat = buildRegionPlan(state, region), validation = validateSpawnPlan(plan);
       const midpoint = Math.floor((region.levels[0] + region.levels[1]) / 2);
-      const probe = combatModel.spawn({ category: 'normal', level: midpoint, worldTier: tier, rates, type: region.families?.[0] });
+      const probe = combatModel.spawn({ category: 'normal', level: midpoint, worldTier: tier, rates, type: region.families?.[0], monsterPolicy });
       worlds.push({ tier, levels: region.levels, biome: region.biome ?? 'founding', generatorVersion: 2, counts: validation.counts, valid: validation.valid, errors: validation.errors,
-        midpointNormal: { level: midpoint, monsterHp: probe.monster.mh, monsterDamage: probe.monster.dmg * rates.monsterDamage, gold: sampleGold(probe.monster, probe.template, { rate: rates.goldRate }) },
+        midpointNormal: { level: midpoint, monsterHp: probe.monster.mh, monsterDamage: probe.monster.dmg * rates.monsterDamage, gold: sampleGold(probe.monster, probe.template, { rate: rates.goldRate, policy: goldPolicy }) },
         constructionCosts: constructionCostsForTier(tier, resolved.values.settlement) });
       check('world-' + tier, validation.valid && JSON.stringify(plan) === JSON.stringify(repeat), 'Production generation is deterministic and validates against production geometry/budgets');
     } catch (error) {
@@ -112,7 +112,7 @@ function simulate(options = {}) {
   check('monotonic-normal-gold', normal.every((row, index) => !index || row.meanGold + 1e-8 >= normal[index - 1].meanGold), 'Normal gold is nondecreasing across sampled levels');
   checks.push({ id: 'live-economy-telemetry', status: 'WARN', detail: 'No live travel/kill/respawn telemetry; reference income and sustainability ratios are analytical scenarios.' });
   checks.push({ id: 'monster-defense', status: 'WARN', detail: 'No standalone monster-defense stat exists in the current monster spawner; reported as null rather than invented.' });
-  if (!rates.goldRate || !rates.xpRate) checks.push({ id: 'disabled-rewards', status: 'WARN', detail: 'A reward rate is zero; null kills-to-goal values mean income/progression is disabled.' });
+  if (!rates.goldRate || !rates.xpRate || !goldPolicy.normalCostFraction) checks.push({ id: 'disabled-rewards', status: 'WARN', detail: 'A reward rate/factor is zero; null kills-to-goal values mean income/progression is disabled.' });
   const status = checks.some(row => row.status === 'FAIL') ? 'FAIL' : checks.some(row => row.status === 'WARN') ? 'WARN' : 'PASS';
   return { schemaVersion: 1, status, ruleset: resolved.ruleset, effectiveBalance: resolved.values, seed, assumptions, hardBudgets: HARD_BUDGETS, checks, progression, encounters: rows, worlds };
 }
