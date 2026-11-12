@@ -1,4 +1,13 @@
 'use strict';
+// Snapshot coordinates and NPC positions are both local to the current map.
+// This only controls buttons; the server revalidates every contract operation.
+function canManageContracts(player, world) {
+  if (!player || player.dead || !world?.npcs || !Number.isFinite(world.npcRange)) return false;
+  return ['camp', 'merchant', 'smith', 'mystic'].some(key => {
+    const npc = world.npcs[key];
+    return npc && Math.hypot(player.x - npc.x, player.y - npc.y) <= world.npcRange;
+  });
+}
 function affixUsageHtml(item, key = item?.afx?.k, value = item?.afx?.v) {
   if (!I || !item) return '';
   const usage = AffixUsage.evaluate(EQ, item, key, value, I.affixCaps);
@@ -6,7 +15,7 @@ function affixUsageHtml(item, key = item?.afx?.k, value = item?.afx?.v) {
   return '<div class="affix-usage">' + esc(text('affix.usage', 'Equipped total: {before}% → {after}% (gear cap: {cap}%). This value contributes {useful}%.', { before: usage.before.toFixed(1), after: usage.after.toFixed(1), cap: usage.cap, useful: usage.contribution.toFixed(1) })) + (usage.wasted > 0 ? '<br><strong>' + esc(text('affix.overCap', '{wasted}% exceeds the gear cap and adds no power.', { wasted: usage.wasted.toFixed(1) })) + '</strong>' : '') + '</div>';
 }
 const AdventureUI = (() => {
-  let view = null, tab = 'contracts', lastBossRender = 0, bossSignature = '';
+  let view = null, tab = 'contracts', lastBossRender = 0, bossSignature = '', lastContractAccess = null;
   const titles = { clear: 'Clear the wilderness', stone: 'Break Spirit Stones', boss: 'Defeat a boss' };
   const title = kind => text('adventure.' + kind, titles[kind] || kind);
   function action(op, label, kind, disabled = false) { return '<button type="button" class="pri" data-contract="' + op + '"' + (kind ? ' data-kind="' + kind + '"' : '') + (disabled ? ' disabled' : '') + '>' + esc(label) + '</button>'; }
@@ -28,7 +37,7 @@ const AdventureUI = (() => {
         return '<details class="itemcard" data-entry="' + esc(key) + '"' + (expanded.has(key) ? ' open' : '') + '><summary>' + esc(mobName(key, entry.name)) + ' · ' + esc(text('adventure.kills', '{count} kills', { count: GameText.number(entry.kills) })) + '</summary><p>' + esc(text('adventure.levels', 'Observed levels: {min}–{max}', { min: entry.minLevel ?? '—', max: entry.maxLevel ?? '—' })) + '</p><p>' + esc(Object.keys(entry.categories).map(category => text('adventure.category.' + category, { normal: 'Normal', alpha: 'Alpha', stone: 'Spirit Stone', boss: 'Boss', worldBoss: 'World Boss' }[category] || category)).join(' · ')) + '</p><p>' + esc(text('adventure.attacks', 'Signature attacks: {attacks}', { attacks: entry.attacks.length ? entry.attacks.map(attack => text('attack.' + attack, ATTACK_NAME[attack] || attack)).join(', ') : '—' })) + '</p><p>' + esc(text('adventure.drops', 'Collected drops:')) + ' ' + (drops || '—') + '</p></details>';
       }).join('') || '<p class="mu">' + esc(text('adventure.noEnemies', 'No matching enemies discovered. Fight enemies to record them; collect their loot to reveal drops.')) + '</p>';
     } else {
-      const here = view.map === WORLD.map, nearby = here && view.atSettlement && !me?.d;
+      const here = view.map === WORLD.map, nearby = here && canManageContracts(me, WORLD);
       html = '<p class="mu">' + esc(text('adventure.rules', 'Daily contracts reset at 00:00 UTC. One active contract; each contract can be rewarded once per region per day. Summoned enemies and foes 13+ levels below you do not count.')) + '</p><p>' + esc(text('adventure.return', 'Visit a village trader or an encampment board to manage contracts.')) + '</p>';
       if (view.active) {
         const active = view.active, offer = view.offers.find(offer => offer.kind === active.kind), done = offer && active.progress >= offer.target;
@@ -73,6 +82,10 @@ const AdventureUI = (() => {
   const previousHud = hud;
   hud = function () {
     previousHud(); const tick = performance.now(); if (tick - lastBossRender < 100) return; lastBossRender = tick;
+    if (isOpen('journalw')) {
+      const access = WORLD.map + '|' + canManageContracts(me, WORLD);
+      if (access !== lastContractAccess) { lastContractAccess = access; render(); }
+    } else lastContractAccess = null;
     const monster = me && mo.find(monster => monster.id === me.tg), type = monster && I.types[monster.ty], box = $('bossdetail');
     if (!type?.boss || tick - serverReceivedAt > 3000) { box.hidden = true; return; }
     box.hidden = false; const now = serverTm + Math.max(0, tick - serverReceivedAt);

@@ -414,7 +414,7 @@ document.addEventListener('click', e => {
   if (t.dataset.afx) { afKey = t.dataset.afx; buildMystic(); return; }
   if (t.id === 'afgo') { if (afSel && afKey) { send({ t: 'affix', uid: afSel, k: afKey }); $('afres').textContent = '…'; } return; }
   if (t.dataset.tr) { if (!TRADE) return; const u = t.dataset.tr, list = TRADE.mine.uids.slice(), k = list.indexOf(u); if (k >= 0) list.splice(k, 1); else list.push(u); send({ t: 'trade', op: 'offer', uids: list, gold: +$('trgold').value || 0 }); return; }
-  if (t.id === 'trok') { send({ t: 'trade', op: 'confirm' }); return; }
+  if (t.id === 'trok') { if (TRADE) send({ t: 'trade', op: 'confirm', id: TRADE.id, revision: TRADE.revision }); return; }
   if (t.id === 'trcancel') { send({ t: 'trade', op: 'cancel' }); return; }
   if (t.dataset.teamop) { const op = t.dataset.teamop; if (op === 'invite') { const n = $('teamname').value.trim(); if (n) send({ t: 'team', op: 'invite', name: n }); $('teamname').value = ''; } else send({ t: 'team', op, name: t.dataset.name }); return; }
   if (t.dataset.trwith) { send({ t: 'trade', op: 'request', name: t.dataset.trwith }); return; }

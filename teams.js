@@ -2,6 +2,7 @@
 // Teams of up to 5 heroes, and trading between members of the same team.
 // Teams live only while the members are online.
 const { localizedText: messageText, gearText } = require('./localized-text');
+const crypto = require('node:crypto');
 const { room, canSpend } = require('./safety-limits');
 const { mapOf } = require('./game-world');
 const { itemView } = require('./equipment');
@@ -121,7 +122,7 @@ function createTeams({ players, send, say, toast, fire, afterGearChange, isExter
     for (const side of ['a', 'b']) {
       const me = players.get(trade[side].id), other = trade[side === 'a' ? 'b' : 'a'], mine = trade[side];
       const otherPlayer = players.get(other.id); if (!me || !otherPlayer) continue;
-      send(me.c, { t: 'trade', open: true, with: otherPlayer.name,
+      send(me.c, { t: 'trade', open: true, id: trade.id, revision: trade.revision, with: otherPlayer.name,
         mine: { uids: mine.uids, gold: mine.gold, ok: mine.ok },
         theirs: { items: other.uids.map(uid => otherPlayer.bag.find(item => item.uid === uid)).filter(Boolean).map(itemView), gold: other.gold, ok: other.ok } });
     }
@@ -140,13 +141,38 @@ function createTeams({ players, send, say, toast, fire, afterGearChange, isExter
     const other = pending && pending.until > Date.now() ? players.get(pending.from) : null;
     if (!other || !sameTeam(player, other)) return say(player, messageText('trade.noRequest', 'Nobody asked you to trade.'));
     if (trades.has(player.id) || trades.has(other.id)) return say(player, messageText('trade.busy', 'One of you is already trading.'));
-    const trade = { id: nextTradeId++, a: { id: other.id, uids: [], gold: 0, ok: false }, b: { id: player.id, uids: [], gold: 0, ok: false } };
+    const trade = { id: nextTradeId++, revision: 0, a: { id: other.id, uids: [], gold: 0, ok: false }, b: { id: player.id, uids: [], gold: 0, ok: false } };
     trades.set(other.id, trade); trades.set(player.id, trade);
     sendTrade(trade);
   }
   function cancelTrade(player, reason) {
     const trade = trades.get(player.id); if (!trade) return;
     for (const side of ['a', 'b']) { trades.delete(trade[side].id); const p = players.get(trade[side].id); if (p) { send(p.c, { t: 'trade', open: false }); if (reason) say(p, reason); } }
+  }
+  const fingerprint = item => crypto.createHash('sha256').update(JSON.stringify(item)).digest('hex');
+  function captureOffer(side, player) {
+    side.items = new Map();
+    side.uids = side.uids.filter(uid => {
+      const matches = player.bag.filter(item => item.uid === uid), item = matches[0];
+      if (matches.length !== 1 || item.lk || isExternalItemReserved(player, uid)) return false;
+      side.items.set(uid, { item, fingerprint: fingerprint(item) }); return true;
+    });
+  }
+  function validateOffers(trade) {
+    const members = [players.get(trade.a.id), players.get(trade.b.id)];
+    if (members.some(player => !player)) return false;
+    const changed = ['a', 'b'].some((key, index) => trade[key].uids.some(uid => {
+      const matches = members[index].bag.filter(item => item.uid === uid), item = matches[0], accepted = trade[key].items?.get(uid);
+      return matches.length !== 1 || item.lk || isExternalItemReserved(members[index], uid) || !accepted || accepted.item !== item || accepted.fingerprint !== fingerprint(item);
+    }));
+    if (!changed) return true;
+    // Plugins or legacy operations may still mutate items: refresh the visible offer and
+    // require both players to review it again before any currency or equipment moves.
+    captureOffer(trade.a, members[0]); captureOffer(trade.b, members[1]);
+    trade.revision++;
+    trade.a.ok = false; trade.b.ok = false;
+    for (const member of members) say(member, messageText('trade.changedStats', 'An offered item changed. Review both offers and accept again.'));
+    sendTrade(trade); return false;
   }
   // Change your offer. Any change takes back both acceptances, so nobody can swap items after the other accepted.
   function offer(player, uids, gold) {
@@ -156,11 +182,19 @@ function createTeams({ players, send, say, toast, fire, afterGearChange, isExter
     if (wanted.some(uid => isExternalItemReserved(player, uid))) return say(player, messageText('autoAffix.busy', 'Stop Auto Affix before changing this item.'));
     mine.uids = wanted.filter(uid => player.bag.some(item => item.uid === uid && !item.lk));
     mine.gold = Math.max(0, Math.min(player.gold, Math.floor(Number(gold) || 0), MAX_GOLD));
+    captureOffer(mine, player);
+    trade.revision++;
     trade.a.ok = false; trade.b.ok = false;
     sendTrade(trade);
   }
-  function confirm(player) {
+  function confirm(player, request) {
     const trade = trades.get(player.id); if (!trade) return;
+    if (!validateOffers(trade)) return;
+    // A confirmation sent before an offer refresh must never accept the replacement offer.
+    if (request.id !== trade.id || request.revision !== trade.revision) {
+      say(player, messageText('trade.reviewOffer', 'The trade offer changed. Review the latest offer before accepting; refresh your game client if this message repeats.'));
+      sendTrade(trade); return;
+    }
     if (!trade.a.uids.length && !trade.b.uids.length && !trade.a.gold && !trade.b.gold) return say(player, messageText('trade.empty', 'Nothing is offered yet.'));
     trade[tradeSide(trade, player)].ok = true;
     if (trade.a.ok && trade.b.ok) return execute(trade);
@@ -171,6 +205,7 @@ function createTeams({ players, send, say, toast, fire, afterGearChange, isExter
     const a = players.get(trade.a.id), b = players.get(trade.b.id);
     const fail = message => { trade.a.ok = false; trade.b.ok = false; for (const p of [a, b]) if (p) say(p, message); sendTrade(trade); };
     if (!a || !b || !sameTeam(a, b)) return cancelTrade(a || b, messageText('trade.cancelled', 'The trade was cancelled.'));
+    if (!validateOffers(trade)) return;
     const itemsA = trade.a.uids.map(uid => a.bag.find(item => item.uid === uid)), itemsB = trade.b.uids.map(uid => b.bag.find(item => item.uid === uid));
     if (itemsA.some(item => !item) || itemsB.some(item => !item)) return fail(messageText('trade.changed', 'An offered item is no longer in the bag. Check the offers and accept again.'));
     if (itemsA.some(item => isExternalItemReserved(a, item.uid)) || itemsB.some(item => isExternalItemReserved(b, item.uid))) return fail(messageText('autoAffix.busy', 'Stop Auto Affix before changing this item.'));
@@ -207,7 +242,7 @@ function createTeams({ players, send, say, toast, fire, afterGearChange, isExter
       else if (op === 'accept') acceptTrade(player);
       else if (op === 'decline') { const from = player.tradeRequest && players.get(player.tradeRequest.from); player.tradeRequest = null; if (from) say(from, messageText('trade.declined', '{name} does not want to trade.', { name: player.name })); }
       else if (op === 'offer') offer(player, message.uids, message.gold);
-      else if (op === 'confirm') confirm(player);
+      else if (op === 'confirm') confirm(player, message);
       else if (op === 'cancel') cancelTrade(player, messageText('trade.cancelled', 'The trade was cancelled.'));
     },
   };

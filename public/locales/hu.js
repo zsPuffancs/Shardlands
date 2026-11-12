@@ -1,5 +1,8 @@
 // Hungarian display strings. See PLUGINS.md for adding another locale.
 GameText.addCatalog('hu', {
+  "trade.itemReserved": "Módosítás előtt vedd ki ezt a tárgyat a kereskedési ajánlatból.",
+  "trade.changedStats": "Egy felajánlott tárgy megváltozott. Nézzétek át mindkét ajánlatot, és fogadjátok el újra.",
+  "trade.reviewOffer": "A kereskedési ajánlat megváltozott. Elfogadás előtt nézd át a friss ajánlatot; ha ez az üzenet ismétlődik, frissítsd a játékkliensedet.",
   "adventure.title": "Kalandornapló",
   "adventure.contracts": "Falusi megbízások",
   "adventure.bestiary": "Bestiárium",

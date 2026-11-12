@@ -20,6 +20,11 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
   const autoAffixJobs = createAutoAffixJobs({ applyAffix, send, sendInventory: sendInv, refreshStats: refreshGearStats, persistPlayer, isPlayerOnline, isItemReserved: (player, uid) => isItemReserved(player, uid) || forgeJobs.get(player.id)?.uid === uid });
   const autoAffixBusy = (player, uid) => autoAffixJobs.isReserved(player, uid);
   const rejectAutoAffixConflict = player => say(player, messageText('autoAffix.busy', 'Stop Auto Affix before changing this item.'));
+  function rejectReservedChange(player, uids) {
+    if (uids.some(uid => autoAffixBusy(player, uid))) { rejectAutoAffixConflict(player); return true; }
+    if (uids.some(uid => isItemReserved(player, uid))) { say(player, messageText('trade.itemReserved', 'Remove this item from your trade offer before changing it.')); return true; }
+    return false;
+  }
   function handleAutoAffix(player, message) {
     if (message.op === 'inspect') return autoAffixJobs.inspect(player, message.uid, message.key);
     if (message.op === 'start') return autoAffixJobs.start(player, message);
@@ -108,7 +113,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
   }
   function doMerge(player, uids) {
     if (player.dead || !Array.isArray(uids) || uids.length < 2 || uids.length > 15 || new Set(uids).size !== uids.length) return;
-    if (uids.some(uid => autoAffixBusy(player, uid))) return rejectAutoAffixConflict(player);
+    if (rejectReservedChange(player, uids)) return;
     const items = uids.map(u => player.bag.find(i => i.uid === u)); if (items.some(i => !i)) return;
     if (items.some(i => i.lk)) return say(player, messageText('server.itemLocked', 'Locked items are protected. Unlock them first (Ctrl+click).'));
     if (items.some(i => i.rar !== items[0].rar)) return say(player, messageText("server.mergeRarity", "Pick items of the same rarity (colour) to merge."));
@@ -123,7 +128,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
   function autoMerge(player, maxRarity) {
     if (player.dead) return; maxRarity = Math.max(0, Math.min(MYTHIC - 1, maxRarity | 0)); let n = 0, used = 0, best = null;
     for (let r = 0; r <= maxRarity; r++) for (;;) {
-      const need = MERGE_COST[r], g = player.bag.filter(i => i.rar === r && !i.lk && !autoAffixBusy(player, i.uid)).sort((a, b) => a.ilvl - b.ilvl); if (g.length < need) break;
+      const need = MERGE_COST[r], g = player.bag.filter(i => i.rar === r && !i.lk && !autoAffixBusy(player, i.uid) && !isItemReserved(player, i.uid)).sort((a, b) => a.ilvl - b.ilvl); if (g.length < need) break;
       const result = mergeItems(player, g.slice(0, need)); n++; used += need; if (!best || result.rar > best.rar) best = result;
     }
     if (!n) return say(player, messageText("server.nothingToMergeCounts", "Nothing to merge: you need 2 Common, 3 Uncommon, 4 Rare, 5 Epic or 15 Legendary items of the same rarity."));
@@ -147,7 +152,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
   }
 
   function upgradeItem(player, uid, automatic = false) {
-    if (autoAffixBusy(player, uid)) return rejectAutoAffixConflict(player);
+    if (rejectReservedChange(player, [uid])) return;
     const rejectUpgrade = message => send(player.c, { t: 'forge', uid, m: message, pending: forgeJobs.has(player.id) });
     if (!nearNpc(player, 'smith')) return rejectUpgrade(messageText('server.upgradeAtSmith', 'Talk to the Blacksmith in the village to upgrade equipment.'));
     if (forgeJobs.has(player.id)) return rejectUpgrade(messageText('server.forgeBusy', 'Your automatic upgrade is still running.'));
@@ -201,7 +206,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
   }
 
   function rerollItem(player, uid) {
-    if (autoAffixBusy(player, uid)) return rejectAutoAffixConflict(player);
+    if (rejectReservedChange(player, [uid])) return;
     if (!nearNpc(player, 'mystic')) return say(player, messageText("server.rerollAtMystic", "Talk to the Soul Mystic in the village to reroll equipment."));
     let item = player.bag.find(i => i.uid === uid) || null; for (const slot of SLOTS) if (!item && player.eq[slot] && player.eq[slot].uid === uid) item = player.eq[slot];
     if (!item) return;
@@ -215,7 +220,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
 
   // Locked items cannot be sold, merged, fused or traded until they are unlocked.
   function lockItem(player, uid) {
-    if (autoAffixBusy(player, uid)) return rejectAutoAffixConflict(player);
+    if (rejectReservedChange(player, [uid])) return;
     let item = player.bag.find(i => i.uid === uid) || null;
     for (const slot of SLOTS) if (!item && player.eq[slot] && player.eq[slot].uid === uid) item = player.eq[slot];
     if (!item) return;
@@ -226,7 +231,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
   function mergeMythics(player, uids) {
     const reply = (message, extra) => send(player.c, { t: 'mythicMerge', m: message, ...extra });
     if (player.dead || !Array.isArray(uids) || uids.length !== MYTHIC_MERGE_COUNT || new Set(uids).size !== uids.length) return;
-    if (uids.some(uid => autoAffixBusy(player, uid))) return rejectAutoAffixConflict(player);
+    if (rejectReservedChange(player, uids)) return;
     if (!nearNpc(player, 'smith')) return reply(messageText('server.mythicMergeAtSmith', 'Only the Blacksmith can fuse Mythic items.'));
     const items = uids.map(uid => player.bag.find(item => item.uid === uid));
     if (items.some(item => item && item.lk)) return reply(messageText('server.itemLocked', 'Locked items are protected. Unlock them first (Ctrl+click).'));
@@ -245,7 +250,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
   }
   // Soul Mystic: put (or replace) the affix on a weapon, ring or amulet.
   function affixItem(player, uid, key) {
-    if (autoAffixBusy(player, uid)) return rejectAutoAffixConflict(player);
+    if (rejectReservedChange(player, [uid])) return;
     const reply = (message, extra) => send(player.c, { t: 'affix', m: message, ...extra });
     if (player.dead) return;
     if (!nearNpc(player, 'mystic')) return reply(messageText('server.affixAtMystic', 'Talk to the Soul Mystic in a village to add affixes.'));
@@ -267,7 +272,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     const item = player.bag[index];
     if (player.lvl < item.req) return say(player, messageText("server.equipLevel", "{item} requires level {level}.", { item: gearText(item.name), level: item.req }));
     const previousItem = player.eq[item.slot];
-    if (autoAffixBusy(player, item.uid) || previousItem && autoAffixBusy(player, previousItem.uid)) return rejectAutoAffixConflict(player);
+    if (rejectReservedChange(player, [item.uid, previousItem?.uid].filter(Boolean))) return;
     player.eq[item.slot] = item;
     player.bag.splice(index, 1);
     if (previousItem) player.bag.splice(index, 0, previousItem);
@@ -278,7 +283,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     if (!SLOTS.includes(slot) || player.dead) return;
     const item = player.eq[slot];
     if (!item) return;
-    if (autoAffixBusy(player, item.uid)) return rejectAutoAffixConflict(player);
+    if (rejectReservedChange(player, [item.uid])) return;
     if (player.bag.length >= BAGMAX) return say(player, messageText("server.bagFull", "Your bag is full."));
     player.eq[slot] = null;
     player.bag.push(item);
@@ -286,7 +291,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
   }
 
   function sellItem(player, itemId) {
-    if (autoAffixBusy(player, itemId)) return rejectAutoAffixConflict(player);
+    if (rejectReservedChange(player, [itemId])) return;
     if (!nearNpc(player, 'merchant')) return say(player, messageText("server.sellAtMerchant", "Sell items to the Merchant in the village."));
     const index = player.bag.findIndex(item => item.uid === itemId);
     if (index < 0) return;
@@ -303,7 +308,7 @@ function createInventory({ send, say, toast, broadcast, ev, fire, genGear, rerol
     if (!nearNpc(player, 'merchant')) return say(player, messageText("server.sellAtMerchant", "Sell items to the Merchant in the village."));
     const maxRarity = Math.max(0, Math.min(4, rarity | 0));
     let total = 0, soldCount = 0;
-    const selected = player.bag.filter(item => item.rar <= maxRarity && !item.lk && !autoAffixBusy(player, item.uid));
+    const selected = player.bag.filter(item => item.rar <= maxRarity && !item.lk && !autoAffixBusy(player, item.uid) && !isItemReserved(player, item.uid));
     for (const item of selected) {
       const value = sellValue(item);
       if (!validAmount(value) || value > room(player.gold) - total) return say(player, messageText('server.storageFull', 'Your currency or consumable storage limit has been reached.'));

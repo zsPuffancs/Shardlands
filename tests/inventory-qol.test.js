@@ -106,15 +106,16 @@ test('authenticated message dispatch only targets the connected hero and ignores
 });
 
 test('existing trade execution transfers stable UIDs once after a sorted view and protects locks on offer', () => {
-  const a = hero(), b = hero(2), players = new Map([[1, a], [2, b]]), events = [];
+  const a = hero(), b = hero(2), players = new Map([[1, a], [2, b]]), events = [], packets = [];
   a.bag = [item('a-low'), item('a-high', { rar: 4 }), item('locked', { lk: 1 })]; b.bag = [item('b')];
-  const teams = createTeams({ players, send: noop, say: noop, toast: noop, fire: (...args) => events.push(args), afterGearChange: noop });
+  const teams = createTeams({ players, send: (connection, packet) => packets.push(packet), say: noop, toast: noop, fire: (...args) => events.push(args), afterGearChange: noop });
+  const confirm = player => { const state = packets.findLast(packet => packet.t === 'trade' && packet.open); teams.handlers.trade(player, { op: 'confirm', id: state.id, revision: state.revision }); };
   teams.chatCommands.invite.fn(a, [b.name]); teams.chatCommands.accept.fn(b);
   teams.handlers.trade(a, { op: 'request', name: b.name }); teams.handlers.trade(b, { op: 'accept' });
   const selected = BagView.select(a.bag, { sort: 'rarity-desc' }, labels).items[0].uid;
   teams.handlers.trade(a, { op: 'offer', uids: [selected, 'locked'], gold: 5 }); teams.handlers.trade(b, { op: 'offer', uids: ['b'], gold: 2 });
   assert.equal(teams.isItemReserved(a, selected), true); assert.equal(teams.isItemReserved(a, 'locked'), false);
-  teams.handlers.trade(a, { op: 'confirm' }); teams.handlers.trade(b, { op: 'confirm' });
+  confirm(a); confirm(b);
   assert.deepEqual(a.bag.map(item => item.uid), ['a-low', 'locked', 'b']); assert.deepEqual(b.bag.map(item => item.uid), [selected]); assert.equal(a.gold, 9997); assert.equal(b.gold, 10003); assert.equal(events.filter(event => event[0] === 'trade').length, 1);
-  teams.handlers.trade(a, { op: 'confirm' }); assert.equal(events.filter(event => event[0] === 'trade').length, 1);
+  confirm(a); assert.equal(events.filter(event => event[0] === 'trade').length, 1);
 });
