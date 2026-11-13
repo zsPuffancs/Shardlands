@@ -14,7 +14,7 @@ Two placement systems exist side by side:
   village; approved and frozen too), and look 4, **Frostfang Peaks** (the founding ring and the glacier regions; approved and frozen), and look 2,
   **Ashen Barrens** (the founding ring and the warfields regions; approved and frozen), and look 6, **Deadlands** (the
   Death Zone ring and the necropolis regions; approved and frozen, including its bones and roots), and look 3, **Ember Wastes** (the
-  founding ring and the volcanic regions; awaiting playtest).
+  founding ring and the volcanic regions; approved and frozen).
 
 For a planned look, the uniform passes still draw their random numbers and place nothing, so every other look, the
 farmland and everything baked after the vegetation (zone specials, lava and ice pools) stays exactly as it was.
