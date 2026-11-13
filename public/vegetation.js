@@ -150,6 +150,48 @@
       ],
       bare: { scale: 700, below: .4, factor: .2 } },
     },
+    2: { // Ashen Barrens / warfields: harsh stony ground, rock formations, a few twisted or hardy trees, dry scrub in pockets
+      name: 'Ashen Barrens',
+      budget: 13,
+      trees: [
+        { models: seq('q1_DeadTree', 10), w: 3, size: [95, 140], tint: [.85, .8, .78] },
+        { models: seq('CommonTree_Dead', 5), w: 1.8, size: [105, 150] },
+        { models: seq('BirchTree_Dead', 5), w: .9, size: [105, 145] },
+        { models: seq('Willow_Dead', 5), w: .8, size: [100, 140] },
+        { models: seq('CommonTree_Autumn', 5), w: .7, size: [95, 130] },   // hardy, dry-leaved survivors
+      ],
+      spacing: { trunk: 36, canopy: 1.2, group: .8, apart: 170 },        // isolated trees; pairs and threes may touch
+      field: { scale: 900, fine: 300, grove: .58, open: .46 },            // trees only in the scrubby pockets
+      chance: { grove: .6, open: .2, thin: 0 },
+      cell: 80,
+      clearings: null,
+      copses: { cell: 700, chance: .3, count: [2, 3], r: [45, 85] },
+      roads: { clearance: 58, edge: 220, edgeChance: .3 },
+      village: 240,
+      understory: { chance: { grove: .6, open: .5, thin: .4 }, count: [1, 2], ring: [.5, 1.2], items: [
+        { models: ['Bush_1', 'Bush_2'], w: 2, size: [18, 30], tint: [.88, .74, .5] },
+        { models: seq('Rock', 7), w: 2, size: [12, 26], bySize: true, tint: [.88, .83, .78] },
+        { models: ['TreeStump'], w: 1, size: [13, 17], tint: [.8, .75, .7] },
+      ] },
+      groundProps: { cell: 240, chance: .3, groveSkip: 0, items: [
+        { models: ['WoodLog'], w: 1.6, size: [36, 54], bySize: true, tint: [.75, .7, .65] },  // fallen trunks and dead branches
+        { models: ['TreeStump'], w: 1.4, size: [12, 17], tint: [.8, .75, .7] },
+        { models: ['Bush_1', 'Bush_2'], w: 1.6, size: [16, 28], tint: [.88, .74, .5] },
+        { models: seq('Plant', 5), w: .8, size: [12, 18], tint: [.9, .8, .55] },
+      ] },
+      outcrops: { cell: 9999, chance: 0, count: [0, 0], r: [0, 0], models: seq('Rock', 7), size: [0, 0] },   // replaced by the formations
+      formations: { cell: 300, scale: 650, above: .5, chance: .72, elsewhere: .3, largeShare: .4, models: seq('Rock', 7),
+        tints: [[.9, .85, .8], [.78, .74, .7], [.95, .88, .78], [.7, .66, .64]],
+        large: { core: [2, 4], size: [62, 112], coreR: 42, spread: 95, stones: [6, 12] },
+        small: { core: [1, 2], size: [30, 56], coreR: 22, spread: 55, stones: [2, 6] },
+        stone: [9, 24] },
+      grass: { cell: 140, chance: { clearing: .3, thin: .2, open: .32, grove: .5 }, count: [4, 12], r: [22, 56], items: [
+        { models: ['Grass_Short'], w: 5, size: [8, 12], tint: [1.25, 1.05, .6] },
+        { models: seq('Rock', 7), w: 2.4, size: [5, 11], bySize: true, tint: [.86, .8, .74] },  // pebbles
+        { models: seq('Plant', 5), w: .8, size: [10, 15], tint: [.95, .82, .55] },
+      ],
+      bare: { scale: 820, below: .5, factor: .15 } },
+    },
   };
   const LOOKS = Object.keys(RECIPES).map(Number);
 
@@ -188,7 +230,7 @@
       const d = dims(name); if (!d) continue;
       const size = kind.size[0] + hash(seed, gx, gz, 26) * (kind.size[1] - kind.size[0]), r = size * d.w / d.h / 2;
       if (onRoad(x, z, R.roads.clearance + r * .8) || inClearing(x, z, r * .5)) continue; // canopy off the road and out of clearings
-      cand.push({ name, x, z, size, r, yaw: hash(seed, gx, gz, 27) * 6.2832, band: b, young: !!kind.young, pr: hash(seed, gx, gz, 28) + (b === 'grove' ? .45 : b === 'open' ? .2 : 0) }); // groves fill first, thin woodland last
+      cand.push({ name, x, z, size, r, tint: kind.tint || null, yaw: hash(seed, gx, gz, 27) * 6.2832, band: b, young: !!kind.young, pr: hash(seed, gx, gz, 28) + (b === 'grove' ? .45 : b === 'open' ? .2 : 0) }); // groves fill first, thin woodland last
     }
     // copses (optional): small groups of 2-3 trees round a point; they go first, and stand a little closer to each other
     const K = R.copses;
@@ -201,7 +243,7 @@
         const name = kind.models[Math.floor(hk(3) * kind.models.length)], dm = dims(name); if (!dm || !inLook(x, z) || nearVillage(x, z, R.village)) continue;
         const size = (kind.size[0] + hk(4) * (kind.size[1] - kind.size[0])) * (k ? .82 : 1), r = size * dm.w / dm.h / 2;
         if (onRoad(x, z, R.roads.clearance + r * .8)) continue;
-        cand.push({ name, x, z, size, r, yaw: hk(5) * 6.2832, band: 'grove', young: false, group, pr: 2 + h(6) });
+        cand.push({ name, x, z, size, r, tint: kind.tint || null, yaw: hk(5) * 6.2832, band: 'grove', young: false, group, pr: 2 + h(6) });
       }
     }
     const area = cells * R.cell * R.cell / 1e6, budget = Math.round(R.budget * area);
@@ -209,7 +251,7 @@
     const SG = 120, grid = new Map(), gKey = (x, z) => Math.floor(x / SG) + ',' + Math.floor(z / SG), trees = [];
     const fits = c => { const kx = Math.floor(c.x / SG), kz = Math.floor(c.z / SG); for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) for (const o of grid.get((kx + a) + ',' + (kz + b)) || []) { const same = c.group && c.group === o.group, need = same ? Math.max(R.spacing.trunk, R.spacing.group * (c.r + o.r)) : Math.max(R.spacing.trunk, R.spacing.apart || 0, R.spacing.canopy * (c.r + o.r)); if (Math.hypot(c.x - o.x, c.z - o.z) < need) return false; } return true; };
     for (const c of cand) { if (trees.length >= budget) break; if (!fits(c)) continue; trees.push(c); const k = gKey(c.x, c.z); (grid.get(k) || grid.set(k, []).get(k)).push(c); }
-    for (const t of trees) items.push({ name: t.name, x: t.x, z: t.z, size: t.size, yaw: t.yaw, tint: null, cat: 0, bySize: false, r: t.r });
+    for (const t of trees) items.push({ name: t.name, x: t.x, z: t.z, size: t.size, yaw: t.yaw, tint: t.tint || null, cat: 0, bySize: false, r: t.r });
 
     const piece = (list, x, z, h, cat, extra) => { const e = pick(list, h(1)), name = e.models[Math.floor(h(2) * e.models.length)], size = e.size[0] + h(3) * (e.size[1] - e.size[0]); items.push({ name, x, z, size, yaw: h(4) * 6.2832, tint: e.tint || null, cat, bySize: !!e.bySize, ...extra }); };
     const freeGround = (x, z, w) => inLook(x, z) && !onRoad(x, z, w) && !nearVillage(x, z, 60);
@@ -236,6 +278,24 @@
       const n = O.count[0] + Math.floor(h(3) * (O.count[1] - O.count[0] + 1));
       for (let k = 0; k < n; k++) { const hk = s => hash(seed, gx * 64 + k, gz, 90 + s), a = hk(1) * 6.2832, d = O.r[0] + hk(2) * (O.r[1] - O.r[0]) * (k ? 1 : 0), px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d;
         if (freeGround(px, pz, 44)) items.push({ name: O.models[Math.floor(hk(3) * O.models.length)], x: px, z: pz, size: (O.size[0] + hk(4) * (O.size[1] - O.size[0])) * (k ? .7 : 1.15), yaw: hk(5) * 6.2832, tint: null, cat: 1, bySize: true }); }
+    }
+    // rock formations (optional): a core of large rocks with smaller stones scattered round it; they gather where a
+    // 'rocky' noise field is high, so the land alternates between stony ground and quieter stretches
+    const FM = R.formations;
+    if (FM) for (let gx = 0; gx * FM.cell < W; gx++) for (let gz = 0; gz * FM.cell < H; gz++) {
+      const h = s => hash(seed, gx, gz, 180 + s), x = (gx + .1 + .8 * h(1)) * FM.cell, z = (gz + .1 + .8 * h(2)) * FM.cell;
+      const rocky = noise(seed, x, z, FM.scale, 7) > FM.above;
+      if (h(0) > FM.chance * (rocky ? 1 : FM.elsewhere) || !freeGround(x, z, 70)) continue;
+      const big = h(3) < (rocky ? FM.largeShare : FM.largeShare * .4), C2 = big ? FM.large : FM.small, tint = FM.tints[Math.floor(h(4) * FM.tints.length)];
+      const nCore = C2.core[0] + Math.floor(h(5) * (C2.core[1] - C2.core[0] + 1)), nStones = C2.stones[0] + Math.floor(h(6) * (C2.stones[1] - C2.stones[0] + 1)), lean = h(7) * 6.2832;
+      for (let k = 0; k < nCore + nStones; k++) {
+        const hk = s => hash(seed, gx * 64 + k, gz, 200 + s), core = k < nCore;
+        const a = core ? lean + hk(1) * 2.4 : hk(1) * 6.2832, d = core ? (k ? C2.coreR * (.4 + .6 * hk(2)) : 0) : C2.coreR * .8 + Math.pow(hk(2), .7) * C2.spread;
+        const px = x + Math.cos(a) * d * (core ? 1 : 1 + .35 * Math.cos(a - lean)), pz = z + Math.sin(a) * d;
+        if (!freeGround(px, pz, 44)) continue;
+        const sz = core ? C2.size : FM.stone, size = (sz[0] + hk(3) * (sz[1] - sz[0])) * (core && k ? .72 : 1);
+        items.push({ name: FM.models[Math.floor(hk(4) * FM.models.length)], x: px, z: pz, size, yaw: hk(5) * 6.2832, tint, cat: 1, bySize: true });
+      }
     }
     // grass and flowers in irregular patches: plenty in clearings and thin woodland, little under the groves
     const G = R.grass;

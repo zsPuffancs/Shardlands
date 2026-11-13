@@ -1,20 +1,20 @@
 'use strict';
 // Vegetation distribution (public/vegetation.js) as baked by the client (public/world.js bakeDecor), headless.
-// Meadows (look 0), Gloomwood (look 1) and Frostfang (look 4) use the new distribution; every other look must be untouched.
+// Meadows (look 0), Gloomwood (look 1), Ashen Barrens (look 2) and Frostfang (look 4) use the new distribution; every other look must be untouched.
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path');
 const Vegetation = require('../public/vegetation');
 const { bake, stats } = require('./helpers/vegetation-sim');
 const { fingerprint } = require('../scripts/vegetation-fingerprint');
 
-const MEADOWS = 0, GLOOM = 1, SNOW = 4;
+const MEADOWS = 0, GLOOM = 1, ASHEN = 2, SNOW = 4;
 // measured with the uniform scatter (commit a57e0bc) by scripts/vegetation-report.js
 const BEFORE = { founding: { perKm2: 118.2, nnMean: 46, open150: 0 }, region: { perKm2: 113.5, nnMean: 47, open150: 0 } };
 const founding = bake({ kind: 'founding' }), region = bake({ kind: 'region', look: GLOOM }, 1337, 3);
 
 test('only the planned biomes change: approved ones are frozen, every other biome, the farmland and the random stream are identical', () => {
   const now = fingerprint(), base = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/vegetation-baseline.json'), 'utf8'));
-  const approved = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/vegetation-approved.json'), 'utf8')); // playtested looks (Meadows, Gloomwood)
+  const approved = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/vegetation-approved.json'), 'utf8')); // playtested looks (Meadows, Gloomwood, Frostfang)
   const planned = new Set(Vegetation.LOOKS.map(String));
   for (const [k, v] of Object.entries(base)) {
     const look = k.split(':')[1];
@@ -22,7 +22,7 @@ test('only the planned biomes change: approved ones are frozen, every other biom
     else if (planned.has(look) && !k.endsWith('streamAfter')) assert.notEqual(now[k], v, k + ' uses the new distribution');
     else assert.equal(now[k], v, k + ' unchanged');
   }
-  assert.deepEqual(Vegetation.LOOKS, [MEADOWS, GLOOM, SNOW]);
+  assert.deepEqual(Vegetation.LOOKS, [MEADOWS, GLOOM, ASHEN, SNOW]);
   // the farmland outside the village is placed exactly as before
   const farm = r => JSON.stringify(r.placed.filter(p => /^(Wheat|Corn)/.test(p.name)).map(p => [p.name, +p.x.toFixed(2), +p.z.toFixed(2)]));
   assert.equal(farm(founding), farm(bake({ kind: 'founding' }, 1337, 0, { vegetation: false })));
@@ -208,4 +208,50 @@ test('Frostfang: deterministic per seed', () => {
   const sig = r => JSON.stringify(r.placed.filter(p => r.zoneOf(p.x, p.z) === SNOW).map(p => [p.name, +p.x.toFixed(2), +p.z.toFixed(2), +p.size.toFixed(2)]));
   assert.equal(sig(bake({ kind: 'region', look: SNOW }, 7, 3)), sig(snowRuns.find(r => r[0] === '7 region')[1]));
   assert.notEqual(sig(snowRuns.find(r => r[0] === '7 region')[1]), sig(snowRuns.find(r => r[0] === '99 region')[1]));
+});
+
+// ---------- Ashen Barrens / warfields (look 2: the founding ring and the warfields regions) ----------
+const ASHEN_BEFORE = { perKm2: 115.5 }; // uniform scatter, seed 1337 (113-118 over these seeds)
+const ashenRuns = SEEDS.flatMap(seed => [[seed + ' ring', seed === 1337 ? founding : meadowRuns.find(r => r[0] === seed)[1]], [seed + ' region', bake({ kind: 'region', look: ASHEN }, seed, 3)]]);
+const isFarm = p => /^(Wheat|Corn)/.test(p.name);
+
+test('Ashen Barrens: few, isolated trees (at most three together), a small fraction of before', () => {
+  for (const [label, run] of ashenRuns) {
+    const s = stats(run, ASHEN);
+    assert.ok(s.perKm2 >= 5 && s.perKm2 <= 15, label + ': ' + s.perKm2 + ' trees/km2');
+    assert.ok(s.perKm2 <= ASHEN_BEFORE.perKm2 * 0.15, label + ' under 15% of before');
+    const T = run.placed.filter(p => p.cat === 0 && run.zoneOf(p.x, p.z) === ASHEN);
+    for (const t of T) {
+      assert.ok(T.filter(o => Math.hypot(o.x - t.x, o.z - t.z) < 160).length <= 3, label + ': a group of more than three trees');
+      assert.ok(!run.onRoad(t.x, t.z, 58), label + ' trunk near a road'); assert.ok(Math.hypot(t.x - run.CX, t.z - run.CY) >= run.V + 240, label + ' tree at the village');
+    }
+    assert.ok(new Set(T.map(p => p.name.replace(/_\d+$/, ''))).size >= 4, label + ' twisted, dead and hardy kinds');
+  }
+});
+
+test('Ashen Barrens: exposed ground dominates; rocks are most of the detail, gathered in formations of every size', () => {
+  for (const [label, run] of ashenRuns) {
+    const s = stats(run, ASHEN); assert.ok(s.open150 >= 0.3 && s.open250 >= 0.15, label + ': open ' + Math.round(s.open150 * 100) + '% / ' + Math.round(s.open250 * 100) + '%');
+    const inA = p => run.zoneOf(p.x, p.z) === ASHEN && !isFarm(p), mid = run.placed.filter(p => p.cat === 1 && inA(p)), rocks = mid.filter(p => /^Rock_/.test(p.name));
+    assert.ok(rocks.length > (mid.length - rocks.length) * 1.5, label + ': ' + rocks.length + ' rocks among ' + mid.length + ' mid pieces');
+    assert.ok(rocks.filter(p => p.size >= 60).length >= 15 && rocks.filter(p => p.size < 25).length > rocks.length * 0.4, label + ': large cores and small stones');
+    const clustered = rocks.filter(r => rocks.some(o => o !== r && Math.abs(o.x - r.x) < 70 && Math.hypot(o.x - r.x, o.z - r.z) < 70)).length;
+    assert.ok(clustered / rocks.length >= 0.75, label + ': ' + Math.round(clustered / rocks.length * 100) + '% of the rocks stand in a formation');
+    // not a field of rocks: on a 100-unit grid most cells hold no rock at all
+    const cells = new Set(rocks.map(r => Math.floor(r.x / 100) + ',' + Math.floor(r.z / 100))); let n = 0, w = 0;
+    for (let x = 50; x < run.W; x += 100) for (let z = 50; z < run.H; z += 100) { if (run.zoneOf(x, z) !== ASHEN) continue; n++; if (cells.has(Math.floor(x / 100) + ',' + Math.floor(z / 100))) w++; }
+    assert.ok(w / n >= 0.08 && w / n <= 0.4, label + ': rocks in ' + Math.round(w / n * 100) + '% of the ground cells');
+  }
+});
+
+test('Ashen Barrens: dry scrub, logs and stumps in sparse pockets; nothing on roads; deterministic', () => {
+  for (const [label, run] of ashenRuns) {
+    const inA = p => run.zoneOf(p.x, p.z) === ASHEN && !isFarm(p), other = run.placed.filter(p => p.cat > 0 && inA(p)), ground = other.filter(p => p.cat === 2);
+    assert.ok(other.some(p => /^Bush/.test(p.name)) && other.some(p => /^WoodLog/.test(p.name)) && other.some(p => /^TreeStump/.test(p.name)) && ground.some(p => p.name === 'Grass_Short'), label + ' variety');
+    assert.ok(ground.length < 2600, label + ': ' + ground.length + ' ground pieces (before: 4400-8700)');
+    for (const p of other) assert.ok(!run.onRoad(p.x, p.z, 25), label + ' on a road');
+  }
+  const sig = r => JSON.stringify(r.placed.filter(p => r.zoneOf(p.x, p.z) === ASHEN).map(p => [p.name, +p.x.toFixed(2), +p.z.toFixed(2), +p.size.toFixed(2)]));
+  assert.equal(sig(bake({ kind: 'region', look: ASHEN }, 7, 3)), sig(ashenRuns.find(r => r[0] === '7 region')[1]));
+  assert.notEqual(sig(ashenRuns.find(r => r[0] === '7 region')[1]), sig(ashenRuns.find(r => r[0] === '99 region')[1]));
 });

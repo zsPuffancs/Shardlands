@@ -11,7 +11,8 @@ Two placement systems exist side by side:
 - **Distribution recipes** (`public/vegetation.js`): groves, open woodland and clearings. Used by the looks listed in
   `Vegetation.LOOKS`: look 1, **Gloomwood** (the founding ring and the wildwood regions; playtested and approved, its
   output is frozen by `tests/fixtures/vegetation-approved.json`), look 0, **Meadows** (the founding ring round the
-  village; approved and frozen too), and look 4, **Frostfang Peaks** (the founding ring and the glacier regions).
+  village; approved and frozen too), and look 4, **Frostfang Peaks** (the founding ring and the glacier regions; approved and frozen), and look 2,
+  **Ashen Barrens** (the founding ring and the warfields regions).
 
 For a planned look, the uniform passes still draw their random numbers and place nothing, so every other look, the
 farmland and everything baked after the vegetation (zone specials, lava and ice pools) stays exactly as it was.
@@ -47,6 +48,16 @@ The ground layer uses two more noise fields: **flower meadows** (patches of Flow
 ground** (grass chance cut to 12%), on top of grass patches of 8 to 22 tufts. Bushes, berry bushes, small mossy
 rocks, logs and stumps are scattered on a 175-unit grid, small rock groups on a 560-unit grid. The farmland round the
 village is untouched.
+
+## Ashen Barrens
+
+Harsh stony ground (look 2: the founding ring and the warfields regions). Trees only in the scrubby pockets of the
+density field: twisted q1_DeadTree, dead common, birch and willow trees and a few dry-leaved hardy CommonTree_Autumn,
+alone or in twos and threes, at least 170 apart otherwise (budget 13 per km2; 6 to 12 in practice). **Rock formations**
+replace the scattered rocks: on a 300-unit grid, mostly where a 'rocky' noise field is high, a core of 1 to 4 large
+rocks (up to 112) with 2 to 12 smaller stones spread to one side; four rock tints for variety. Dry bushes, stumps and
+small rocks round the trees; fallen trunks, stumps, dry bushes and dry plants scattered; sparse patches of dry grass,
+pebbles and dry plants, with a bare-ground field cutting them back. The farmland is untouched.
 
 ## Frostfang Peaks
 
