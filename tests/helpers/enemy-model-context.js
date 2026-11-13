@@ -2,7 +2,8 @@
 // A headless context for the procedural enemy models: the real part(), club(), mix(), hex() and MODEL table from
 // public/game.js, public/enemy-models.js on top, and a draw call that records every primitive.
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm'), assert = require('node:assert/strict'), crypto = require('node:crypto');
-const ROOT = path.join(__dirname, '../..'), read = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
+// Fixtures fingerprint canonical Git LF text, independent of Windows checkout CRLF.
+const ROOT = path.join(__dirname, '../..'), read = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/\r\n/g, '\n');
 function fnSource(src, name) { // a top-level function declaration, braces balanced
   const at = src.indexOf('\nfunction ' + name + '('); assert.ok(at >= 0, name + ' not found'); let i = src.indexOf('{', at), depth = 0;
   for (; i < src.length; i++) { if (src[i] === '{') depth++; else if (src[i] === '}' && --depth === 0) break; }

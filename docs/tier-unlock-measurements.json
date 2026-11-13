@@ -1,0 +1,149 @@
+{
+  "baseline": "b460c8072464aa5f26e5302660448b0ea039d0fa",
+  "stress": {
+    "node": "v26.13.0",
+    "cpu": "AMD Ryzen 5 7600X 6-Core Processor             ",
+    "seeds": 12,
+    "tiers": [
+      8,
+      40,
+      400
+    ],
+    "cases": 216,
+    "accepted": 170,
+    "exhausted": 46,
+    "recoveredByRetry": 36,
+    "attemptZeroBaselineMatches": 216,
+    "profiles": {
+      "default": {
+        "accepted": 36,
+        "exhausted": 0,
+        "recoveredByRetry": 0,
+        "maxAttempt": 0
+      },
+      "spacing500": {
+        "accepted": 36,
+        "exhausted": 0,
+        "recoveredByRetry": 0,
+        "maxAttempt": 0
+      },
+      "spacing700": {
+        "accepted": 36,
+        "exhausted": 0,
+        "recoveredByRetry": 18,
+        "maxAttempt": 17
+      },
+      "spacing1000": {
+        "accepted": 26,
+        "exhausted": 10,
+        "recoveredByRetry": 18,
+        "maxAttempt": 14
+      },
+      "extremeDanger": {
+        "accepted": 36,
+        "exhausted": 0,
+        "recoveredByRetry": 0,
+        "maxAttempt": 0
+      },
+      "noNormals": {
+        "accepted": 0,
+        "exhausted": 36,
+        "recoveredByRetry": 0,
+        "maxAttempt": 0
+      }
+    },
+    "examples": [
+      {
+        "profile": "spacing1000",
+        "seed": "tier-stress-1",
+        "tier": 8,
+        "errors": [
+          "xp-coverage-gaps",
+          "missing-stone-population"
+        ]
+      },
+      {
+        "profile": "noNormals",
+        "seed": "tier-stress-0",
+        "tier": 8,
+        "errors": [
+          "insufficient-safe-entry-normals",
+          "xp-coverage-gaps",
+          "missing-normal-population"
+        ]
+      }
+    ],
+    "synchronousToolingMs": {
+      "p50": 55.872699999999895,
+      "p95": 854.2313000000013,
+      "max": 1065.6346000000012,
+      "note": "Pure batch-tool cost, not combat-tick time. Live generation runs in the bounded worker."
+    },
+    "notes": [
+      "Safe exhaustion is an expected outcome; valid plans are never guaranteed for arbitrary settings.",
+      "Every accepted plan was fully validated and reproduced; every attempt-zero plan or error matched the verified baseline.",
+      "Only synthetic seed labels appear here."
+    ]
+  },
+  "timing": {
+    "node": "v26.13.0",
+    "cpu": "AMD Ryzen 5 7600X 6-Core Processor             ",
+    "scenarios": [
+      {
+        "name": "normal",
+        "synchronousKillHookMs": 0.39039999999999964,
+        "asyncPreparation": {
+          "elapsedMs": 122.5587,
+          "largestTimerStallMs": 13.88300000000001,
+          "heartbeats": 12,
+          "result": "unlocked"
+        },
+        "synchronousEquivalent": {
+          "elapsedMs": 94.03339999999997,
+          "largestTimerStallMs": 75.8595,
+          "heartbeats": 2,
+          "result": "accepted"
+        },
+        "writes": 7
+      },
+      {
+        "name": "spacing700",
+        "synchronousKillHookMs": 0.09739999999999327,
+        "asyncPreparation": {
+          "elapsedMs": 376.7527,
+          "largestTimerStallMs": 17.125800000000027,
+          "heartbeats": 31,
+          "result": "unlocked"
+        },
+        "synchronousEquivalent": {
+          "elapsedMs": 317.89919999999995,
+          "largestTimerStallMs": 314.36159999999995,
+          "heartbeats": 2,
+          "result": "accepted"
+        },
+        "writes": 12
+      },
+      {
+        "name": "impossible",
+        "synchronousKillHookMs": 0.07720000000006166,
+        "asyncPreparation": {
+          "elapsedMs": 528.9597000000001,
+          "largestTimerStallMs": 15.198899999999867,
+          "heartbeats": 50,
+          "result": "generation-failed"
+        },
+        "synchronousEquivalent": {
+          "elapsedMs": 427.5063,
+          "largestTimerStallMs": 420.2686000000001,
+          "heartbeats": 2,
+          "result": "exhausted"
+        },
+        "writes": 25
+      }
+    ],
+    "notes": [
+      "Synthetic characters/stores only; JSON capture cost included, physical disk IO excluded.",
+      "2 ms timer stalls are observations, not hard bounds or actual combat load telemetry."
+    ]
+  }
+}

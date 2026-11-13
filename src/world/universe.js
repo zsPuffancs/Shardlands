@@ -124,7 +124,7 @@ function createRegionDescriptor(state, tier, snapshot) {
 const generationSnapshot = state => ({ elements: state.generatorVersion === 1 ? { ...state.stats.elements } : Object.fromEntries(Object.keys(BOSS_TITLES).map(element => [element, state.stats.elements[element] || 0])), ...(state.generatorVersion === 1 ? { bossKills: { ...state.stats.bossKills } } : {}), stones: state.stats.stones, deaths: state.stats.deaths, mythics: state.stats.mythics, events: state.history.length });
 
 // ---------- persistent universe ----------
-function createUniverse({ store, config, broadcast, messageText, isAdmin, constructionEconomy }) {
+function createUniverse({ store, config, broadcast, messageText, isAdmin, constructionEconomy, createPlanPreparer }) {
   const state = store.data;
   let founded = false;
   if (!state.seed) {
@@ -213,22 +213,40 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin, constr
     }
     return record;
   }
-  function record(type, players, data) {
-    const entry = { id: state.nextEventId++, at: Date.now(), type, tier: state.worldTier, players: players || [], data: data || {} };
-    state.history.push(entry); persist();
-    if (type !== 'founded' && broadcast) {
+  function notifyEntry(entry) {
+    if (entry.type !== 'founded' && broadcast) {
       const vars = { universe: state.name, player: entry.players[0] || '', ...entry.data };
-      broadcast({ t: 'chat', n: '*', channel: 'system', m: messageText('history.' + type, '📜 ' + HISTORY_TEXT[type], vars) });
-      broadcast({ t: 'toast', m: messageText('history.' + type, '📜 ' + HISTORY_TEXT[type], vars), c: '#ffd24a' });
+      broadcast({ t: 'chat', n: '*', channel: 'system', m: messageText('history.' + entry.type, '📜 ' + HISTORY_TEXT[entry.type], vars) });
+      broadcast({ t: 'toast', m: messageText('history.' + entry.type, '📜 ' + HISTORY_TEXT[entry.type], vars), c: '#ffd24a' });
       broadcast({ t: 'universe', u: summary() });
     }
+  }
+  function record(type, players, data, { deferred = false } = {}) {
+    const entry = { id: state.nextEventId++, at: Date.now(), type, tier: state.worldTier, players: players || [], data: data || {} };
+    state.history.push(entry); if (!deferred) { persist(); notifyEntry(entry); }
     return entry;
   }
-  function recordOnce(key, type, players, data) {
+  function recordOnce(key, type, players, data, options) {
     if (state.firsts[key]) return null;
-    const entry = record(type, players, data); state.firsts[key] = entry.id; return entry;
+    const entry = record(type, players, data, options); state.firsts[key] = entry.id; return entry;
   }
   if (founded) recordOnce('founded', 'founded', [], {});
+
+  const transitions = require('./tier-transition').createTierTransitions({ state, save: () => store.save(),
+    maxAttempts: config.worldGeneration?.unlockAttempts, createPreparer: createPlanPreparer,
+    makeRegion(pending) {
+      const region = state.regions[pending.nextTier] || createRegionDescriptor({ ...state, generationSettings: pending.generationSettings }, pending.nextTier, pending.snapshot);
+      const { spawnState, ...descriptor } = region; return structuredClone(descriptor);
+    },
+    makeInputs: pending => structuredClone(require('./region-blueprint').regionPlanInputs({ ...state, generationSettings: pending.generationSettings }, pending.region)),
+    recordVictory(pending) {
+      return recordOnce('tier:' + pending.beatenTier, 'worldBoss', pending.players, { boss: pending.boss, bossType: pending.bossType,
+        beatenTier: pending.beatenTier, tier: pending.nextTier, region: state.regions[pending.nextTier].name }, { deferred: true })
+        || state.history.find(entry => entry.id === state.firsts['tier:' + pending.beatenTier]);
+    },
+    activate: tier => universe.onTierUnlocked?.(tier),
+    notify: id => { const entry = state.history.find(entry => entry.id === id); if (entry) notifyEntry(entry); },
+  });
 
   const counts = player => !isAdmin(player) || config.recordAdminHistory === true;
   const fighters = new WeakMap(); // monster -> Map(player name -> last hit time)
@@ -266,8 +284,12 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin, constr
       recordOnce('boss:' + monster.ty, 'bossFirstKill', party, { boss: template.name, bossType: monster.ty, region: zone.name, level: monster.lvl });
       // World progression: only the current tier's World Boss, in its own region, advances the universe.
       // The check and the tier change happen in one synchronous step, so a tier can never unlock twice.
-      const frontier = regionFor(state.worldTier);
-      if (canAdvanceWorldTier(state.worldTier, frontier, monster)) {
+      const currentTier = transitions.visibleTier(), frontier = regionFor(currentTier);
+      if (canAdvanceWorldTier(currentTier, frontier, monster)) {
+        if (state.generatorVersion === 2) {
+          transitions.stage({ players: party, boss: template.name, bossType: monster.ty, snapshot: historySnapshot() });
+          return;
+        }
         const beaten = state.worldTier; state.worldTier = beaten + 1;
         const next = regionFor(state.worldTier);
         // Tiers beyond the founding lands get their map built before the victory is announced.
@@ -280,23 +302,27 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin, constr
   function legends() {
     const byName = new Map();
     for (const entry of state.history) for (const [index, name] of entry.players.entries()) {
+      if (entry.id === transitions.pendingEntryId()) continue;
       const legend = byName.get(name) || { name, renown: 0, deeds: 0 }; byName.set(name, legend);
       legend.deeds++; legend.renown += index === 0 ? (RENOWN[entry.type] || 1) : Math.ceil((RENOWN[entry.type] || 1) / 2);
     }
     return [...byName.values()].sort((a, b) => b.renown - a.renown || a.name.localeCompare(b.name)).slice(0, 20);
   }
   // Short identity sent with the world description (login screen, client world baking).
-  const identity = () => ({ name: state.name, seedNumber: hashString(state.seed) % 2147483645 + 1, tier: state.worldTier, foundedAt: state.foundedAt });
+  const identity = () => ({ name: state.name, seedNumber: hashString(state.seed) % 2147483645 + 1, tier: transitions.visibleTier(), foundedAt: state.foundedAt });
   function summary() {
     const view = region => { const { spawnPlan, spawnState, dangerSpec, snapshot, ...metadata } = region; return metadata; };
-    const frontier = view(regionFor(state.worldTier));
+    const visibleTier = transitions.visibleTier(), frontier = view(regionFor(visibleTier));
     return {
       ...identity(), generatorVersion: state.generatorVersion, frontier,
-      regions: Object.values(state.regions).filter(region => region.tier <= state.worldTier).sort((a, b) => a.tier - b.tier).map(view),
-      history: state.history.slice(-200), legends: legends(), stats: { ...state.stats, bossKills: undefined, elements: { ...state.stats.elements } },
+      regions: Object.values(state.regions).filter(region => region.tier <= visibleTier).sort((a, b) => a.tier - b.tier).map(view),
+      history: state.history.filter(entry => entry.id !== transitions.pendingEntryId()).slice(-200), legends: legends(), stats: { ...state.stats, bossKills: undefined, elements: { ...state.stats.elements } },
     };
   }
-  const universe = { state, hooks, identity, summary, founded, record, recordOnce, regionFor, settlement, save: persist, onTierUnlocked: null, layoutRandom: label => seededRandom(state.seed, label) };
+  const universe = { state, hooks, identity, summary, founded, record, recordOnce, regionFor, settlement, save: persist, onTierUnlocked: null,
+    get unlockedTier() { return transitions.visibleTier(); }, resumePendingUnlock: transitions.resume,
+    retryPendingUnlock: () => transitions.resume({ retry: true }), unlockStatus: transitions.status, suspendUnlocks: transitions.suspend,
+    layoutRandom: label => seededRandom(state.seed, label) };
   return universe;
 }
 

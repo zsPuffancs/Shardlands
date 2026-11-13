@@ -102,16 +102,22 @@ function openJsonStore(file, { tracked = false } = {}) {
     return next;
   }
   function save(snapshot = data) { return writeString(JSON.stringify(snapshot)); }
-  return { data, save, writeString, file, dirtyKeys: tracked ? dirtyKeys : null };
+  return { data, save, writeString, drain: () => lastSave, file, dirtyKeys: tracked ? dirtyKeys : null };
 }
 
 function coordinateBackgroundSaves({ directory, stores, beforeSave, debounceMs, compactTransactions, compactBytes }) {
   const names = Object.keys(stores);
   if (!names.length || names.some(name => basename(name) !== name || !stores[name].file || resolve(stores[name].file) !== resolve(directory, name))) throw Error('Background persistence requires matching named JSON file stores in one directory');
-  let worker, workerFailure, pending, dirty = false, nextId = 0;
+  let worker, workerFailure, pending, draining, dirty = false, nextId = 0;
   const requests = new Map();
   function fail(error) { workerFailure = error; for (const job of requests.values()) job.reject(error); requests.clear(); worker?.unref(); }
   function request(message) {
+    // Founding/settlement initialization can queue standalone writes before the
+    // coordinator is installed. Drain them before the worker owns these files.
+    draining ||= Promise.all(Object.values(stores).map(store => store.drain?.()));
+    return draining.then(() => requestReady(message));
+  }
+  function requestReady(message) {
     if (workerFailure) return Promise.reject(workerFailure);
     if (!worker) {
       worker = new Worker(join(__dirname, 'persistence-worker.js'), { workerData: { directory, names, compactTransactions, compactBytes } });

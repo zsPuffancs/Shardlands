@@ -50,9 +50,14 @@ function boundaryFor(zone, area) {
   if (![boundary.width, boundary.height, boundary.cx, boundary.cy, boundary.min].every(Number.isFinite) || boundary.width <= 0 || boundary.height <= 0 || (boundary.shape === 'annulus' && (!Number.isFinite(boundary.max) || boundary.max <= boundary.min))) throw new RangeError('Invalid region boundary');
   return boundary;
 }
-function generateSpawnPlan({ seed, tier, generatorVersion = VERSION, zone, area, budgets: options, spacing: customSpacing = {}, protectedAreas = [], dangerSpec, progressionVersion = 0 }) {
+function generateSpawnPlan({ seed, tier, generatorVersion = VERSION, zone, area, budgets: options, spacing: customSpacing = {}, protectedAreas = [], dangerSpec, progressionVersion = 0, generationAttempt = 0 }) {
   if (generatorVersion !== VERSION) throw new RangeError('Spawn plans require generator v2');
   if (!Number.isSafeInteger(tier) || tier < 1) throw new RangeError('Invalid region tier');
+  if (!Number.isSafeInteger(generationAttempt) || generationAttempt < 0) throw new RangeError('Invalid generation attempt');
+  // Attempt zero is byte-for-byte the original stream. Retries change placement
+  // domains, never the universe seed, descriptor, danger spec or frozen history.
+  const attemptStream = (version, purpose, id = '') => stream(seed, tier, version, purpose,
+    generationAttempt ? JSON.stringify(['generation-attempt-v1', generationAttempt, String(id)]) : id);
   const boundary = boundaryFor(zone, area), families = [...new Set(zone.types)].sort();
   if (!families.length) throw new RangeError('A region needs monster families');
   const budgets = normalizeBudgets(options, { monsters: typeof zone.count === 'number' ? zone.count : 800, stones: zone.stones || 0, alphas: zone.alphas || 0, bosses: Math.min(2, new Set(zone.bosses || []).size) });
@@ -68,7 +73,7 @@ function generateSpawnPlan({ seed, tier, generatorVersion = VERSION, zone, area,
   let safeRoutes = [];
   const index = new SpatialIndex(600), encounters = [], spawns = [], failures = [], metrics = { attempts: 0, memberFailures: 0 };
   function permitted(point, radius) { return inBounds(point, boundary, radius) && exclusions.every(exclusion => Math.hypot(point.x - exclusion.x, point.y - exclusion.y) >= exclusion.radius + radius); }
-  const coverage = stream(seed, tier, VERSION, 'coverage'), anglePhase = coverage() * Math.PI * 2;
+  const coverage = attemptStream(VERSION, 'coverage'), anglePhase = coverage() * Math.PI * 2;
   const cells = Array.from({ length: 16 }, (_, i) => i);
   for (let i = cells.length - 1; i > 0; i--) { const j = coverage.int(0, i); [cells[i], cells[j]] = [cells[j], cells[i]]; }
   function candidate(random, slot, attempt) {
@@ -88,7 +93,7 @@ function generateSpawnPlan({ seed, tier, generatorVersion = VERSION, zone, area,
     return { x: random() * boundary.width, y: random() * boundary.height };
   }
   function place(kind, number, count, type) {
-    const id = kind + ':' + number, random = stream(seed, tier, VERSION, kind === 'camp' ? 'camps' : kind === 'stone' ? 'stones' : kind === 'boss' ? 'bosses' : kind === 'resource' ? 'resources' : 'elites', id);
+    const id = kind + ':' + number, random = attemptStream(VERSION, kind === 'camp' ? 'camps' : kind === 'stone' ? 'stones' : kind === 'boss' ? 'bosses' : kind === 'resource' ? 'resources' : 'elites', id);
     for (let attempt = 0; attempt < 192; attempt++) {
       metrics.attempts++;
       const point = candidate(random, kind === 'boss' ? undefined : number, attempt), encounter = { id, kind, ...point, radius: RADII[kind], affixes: [], spawnIds: [] };
@@ -99,7 +104,7 @@ function generateSpawnPlan({ seed, tier, generatorVersion = VERSION, zone, area,
       if (index.query(point, maxSpacing).some(other => Math.hypot(point.x - other.x, point.y - other.y) < separation(encounter, other, spacing))) continue;
       encounters.push(encounter); index.update(encounter);
       if (kind !== 'resource') {
-        const members = stream(seed, tier, VERSION, 'members', id), stats = stream(seed, tier, VERSION, 'spawn-stats', id), family = type || members.pick(families);
+        const members = attemptStream(VERSION, 'members', id), stats = attemptStream(VERSION, 'spawn-stats', id), family = type || members.pick(families);
         for (let i = 0; i < count; i++) {
           let member = point;
           if (kind === 'camp') {
@@ -131,7 +136,7 @@ function generateSpawnPlan({ seed, tier, generatorVersion = VERSION, zone, area,
   const routePlan = danger ? { danger, boundary, encounters, portal: zone.portal, settlement: { id: 'settlement', x: boundary.cx, y: boundary.cy }, paths: [] } : null;
   if (routePlan) { geography.buildRoutes(routePlan); safeRoutes = routePlan.paths.filter(path => path.kind === 'safe'); }
   for (let remaining = budgets.monsters, i = 0; remaining > 0; i++) {
-    const count = Math.min(remaining, stream(seed, tier, VERSION, 'camp-size', i).int(4, 6));
+    const count = Math.min(remaining, attemptStream(VERSION, 'camp-size', i).int(4, 6));
     place('camp', i, count); remaining -= count;
   }
   for (let i = 0; i < budgets.alphas; i++) place('alpha', i, 1);
@@ -143,8 +148,9 @@ function generateSpawnPlan({ seed, tier, generatorVersion = VERSION, zone, area,
   if (zone.generated && progressionVersion) {
     const progression = require('./progression-generation');
     if (progressionVersion !== progression.POLICY_VERSION) throw new RangeError('Unsupported progression policy: ' + progressionVersion);
-    progression.assignProgression(plan, zone.lv, stream(seed, tier, progressionVersion, 'progression-levels'));
+    progression.assignProgression(plan, zone.lv, attemptStream(progressionVersion, 'progression-levels'));
   }
+  if (generationAttempt) plan.generationAttempt = generationAttempt;
   return plan;
 }
 function validateSpawnPlan(plan) {
