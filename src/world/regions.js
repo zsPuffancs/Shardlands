@@ -136,7 +136,19 @@ function createRegions({ worldView = worldInfo, universe, players, mobs, spawnMo
     // Everyone on this map sees the new stall and its NPC at once.
     for (const other of players.values()) if (mapOf(other) === map) send(other.c, { t: 'map', world: worldView(map) });
   }
-  return { buildStall, openRegion, openUnlockedRegions, unlock, portalList, travel, tick: runtime ? runtime.tick : () => {}, checkpoint: runtime ? runtime.checkpoint : () => {} };
+  // Game Master travel: any unlocked map, from anywhere (src/player/gm-service.js checks the GM session).
+  function gmTravel(player, index) {
+    const destination = maps[index];
+    if (player.dead || !destination || !portalDirectory.canTravel(index) || destination === mapOf(player)) return false;
+    ev('fx', player.x, player.y, 70, { s: 'summon' });
+    placeInVillage(player, destination);
+    player.dest = null; player.dir = { x: 0, y: 0 }; player.target = 0; player.chasingTarget = false;
+    return true;
+  }
+  const travelableMaps = () => maps.filter(map => map && portalDirectory.canTravel(map.index)).map(map => ({
+    index: map.index, name: map.index === 0 ? 'Founding Lands' : TIERS[map.tier].name, tier: map.index === 0 ? 1 : map.regionTier,
+    biome: map.index === 0 ? 'founding' : (universe.regionFor(map.regionTier) || {}).biome || '' }));
+  return { buildStall, openRegion, openUnlockedRegions, unlock, portalList, travel, gmTravel, travelableMaps, tick: runtime ? runtime.tick : () => {}, checkpoint: runtime ? runtime.checkpoint : () => {} };
 }
 
 module.exports = { createRegions, FOUNDING_TIERS };

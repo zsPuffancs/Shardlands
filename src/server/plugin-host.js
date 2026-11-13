@@ -109,7 +109,7 @@ function createPluginHost({ directory, config, generatorVersion = 1, rates, play
     }
   }
 
-  return { fire, commands, loadPlugins, clientScripts };
+  return { fire, commands, loadPlugins, clientScripts, api: makeApi };
 }
 
 module.exports = { createPluginHost };

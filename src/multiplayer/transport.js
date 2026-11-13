@@ -104,8 +104,11 @@ function attachWebSockets(server, onMessage, onLeave) {
         req.headers['sec-websocket-version'] !== '13' || typeof key !== 'string' ||
         !/^[A-Za-z0-9+/]{22}==$/.test(key)) return socket.destroy();
     const accept = createHash('sha1').update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
+    // the client's address for login rate limiting; behind the local tunnel (a loopback peer) the visitor's address
+    const peer = String(socket.remoteAddress || ''), loopback = peer === '127.0.0.1' || peer === '::1' || peer === '::ffff:127.0.0.1';
+    const forwarded = loopback && typeof req.headers['cf-connecting-ip'] === 'string' ? req.headers['cf-connecting-ip'].slice(0, 64) : '';
     const client = { sock: socket, buf: Buffer.alloc(0), p: null, alive: true, closed: false, bytes: 0,
-      connectedAt: Date.now(), fragments: [], fragmentBytes: 0 };
+      connectedAt: Date.now(), fragments: [], fragmentBytes: 0, ip: forwarded || peer };
     clients.add(client);
     socket.setNoDelay(true);
     socket.on('data', chunk => receive(client, chunk));

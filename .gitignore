@@ -18,3 +18,8 @@
 /cloudflared*
 /node_modules/
 /reports/
+
+# Game Master credentials (scrypt hashes) and audit log: local only, never committed
+/gm-accounts.json
+/gm-accounts.json.*
+/gm-audit.log

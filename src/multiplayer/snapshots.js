@@ -212,6 +212,7 @@ function otherPlayerSnapshot(player, now, map) {
     id: player.id, n: player.name, x: Math.round(player.x - map.x0), y: Math.round(player.y - map.y0),
     hp: Math.round(player.hp), mh: player.maxhp, l: player.lvl, c: player.cls,
     w: player.w, d: player.dead ? 1 : 0, rg: now < player.buf.rage ? 1 : 0,
+    ...(player.gmIndex ? { gm: player.gmIndex } : {}), // GM characters show the GM emblem to everyone
   };
 }
 

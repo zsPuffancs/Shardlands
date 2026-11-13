@@ -25,6 +25,8 @@ const { createWebServer } = require('./src/server/web-server');
 const { createAtlas } = require('./src/world/world-atlas');
 const { createMobTypeIndex, createSnapshotPublisher } = require('./src/multiplayer/snapshots');
 const { startServer } = require('./src/server/server-lifecycle');
+const { createGmAccountStore, GM_ACCOUNTS } = require('./src/player/gm-accounts');
+const { createGmService } = require('./src/player/gm-service');
 
 const { config, rates, balance } = loadServerConfig(__dirname);
 const worldView = map => worldInfo(map, { monsterPolicy: balance.values.monsters, combatPolicy: balance.values.combat });
@@ -57,6 +59,7 @@ const say = (player, message) => send(player.c, { t: 'msg', m: message });
 const toast = (player, message, color) => send(player.c, { t: 'toast', m: message, c: color });
 // The universe chronicle listens to the same game events as plugins, and hears them first.
 function fire(event, ...args) {
+  if (event === 'hurt') gm.hurt(...args); // GM invincibility and god mode, enforced here on the server
   const record = universe.hooks[event];
   if (record) try { record(...args); } catch (error) { console.error('[universe] error in "' + event + '":', error); }
   return pluginHost.fire(event, ...args);
@@ -115,6 +118,15 @@ const sessions = createPlayerSessions({
   resyncUi: (connection, channel) => send.resync(connection, channel),
   refreshMobTypes, universe, regions, teams, commands: pluginHost.commands, skill: combat.skill, learnSkill, savePlayer,
 });
+// Game Masters: separate credential store, authentication and commands (src/player/gm-service.js)
+const gmStore = createGmAccountStore({ directory: __dirname });
+const gm = createGmService({
+  directory: __dirname, store: gmStore, players, mobs, saves: saveStore.data, sendInv: inventory.sendInv, send, api: pluginHost.api('gm'), regions,
+  hitMob: combat.hitMob, enterCharacter: (connection, message, identity) => sessions.joinPlayer(connection, message, identity), leavePlayer: connection => sessions.leavePlayer(connection),
+});
+sessions.attachGm(gm);
+setInterval(gm.godTick, 200).unref();
+{ const missing = GM_ACCOUNTS.filter(account => !gmStore.has(account)); if (missing.length) console.log('  GM accounts not provisioned: ' + missing.join(', ') + ' - run "node scripts/gm-provision.js" on this computer.'); }
 const { server, transport } = createWebServer({
   atlas: createAtlas({ universe }),
   publicDirectory: path.join(__dirname, 'public'), config, players, clientScripts: pluginHost.clientScripts,

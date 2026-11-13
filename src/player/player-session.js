@@ -12,26 +12,38 @@ const { CLASSES, ITEMS, MAXRANK, PMAX, PASSIVE_EFFECT, newSk, stats } = require(
 const { SLOTS, STATDEF, RARITY, AFFIXES, AFFIX_SLOTS, AFFIX_COST, MYTHIC_MERGE_COUNT, MYTHIC_MERGE_GOLD, sanitize } = require('../economy/equipment');
 const { BAGMAX, BAG_PAGE_SIZE } = require('../economy/inventory');
 const { AFFIX_CAPS } = require('./characters');
+const { isGmName } = require('./gm-accounts');
 
 function createPlayerSessions({ worldView = worldInfo, config, players, mobs, saves, allocateId, refreshMobTypes, universe, regions, teams, adventure, send, say, broadcast, fire, commands, skill, learnSkill, inventory, savePlayer, resyncUi, forgePolicy = DEFAULT_FORGE_POLICY }) {
   const isAdminName = name => config.admins.some(a => String(a).toLowerCase() === name.toLowerCase());
-  const isAdmin = player => Boolean(player.ph && isAdminName(player.name));
+  // GM characters (src/player/gm-service.js) carry full admin rights; normal characters never get player.gm.
+  const isAdmin = player => Boolean(player.gm) || Boolean(player.ph && isAdminName(player.name));
+  let gm = null; // the GM service, attached after creation
+  const attachGm = service => { gm = service; };
   const clamp1 = v => Math.max(-1, Math.min(1, +v || 0));
 
-  function joinPlayer(connection, message) {
+  // gmIdentity ({ account, key, index }) is passed only by the GM service after GM authentication.
+  function joinPlayer(connection, message, gmIdentity) {
     if (connection.p) return;
-    const name = String(message.name || '').replace(/[^\w \-]/g, '').trim().slice(0, 14);
-    if (name.length < 2) return send(connection, { t: 'err', m: messageText("server.nameLength", "Name must be 2-14 letters/digits.") });
-    for (const onlinePlayer of players.values()) if (onlinePlayer.name.toLowerCase() === name.toLowerCase()) return send(connection, { t: 'err', m: messageText("server.alreadyOnline", "That hero is already online.") });
-    const savedPlayer = saves[name.toLowerCase()];
-    if (isAdminName(name) && !savedPlayer?.ph) {
-      return send(connection, { t: 'err', m: messageText("server.adminPassword", "Admin hero must have a password set before granting admin access.") });
-    }
-    const password = String(message.pw || '').slice(0, 64);
-    const passwordHash = password ? crypto.createHash('sha256').update(name.toLowerCase() + ':' + password).digest('hex') : '';
-    if (savedPlayer && savedPlayer.ph && savedPlayer.ph !== passwordHash) return send(connection, { t: 'err', m: messageText("server.badPassword", "Wrong password for this hero.") });
-    if (savedPlayer && !savedPlayer.ph && passwordHash) {
-      return send(connection, { t: 'err', m: messageText('server.guestPassword', 'This guest hero was created without a password. Leave the password blank to play it.') });
+    let name, savedPlayer, passwordHash = '';
+    if (gmIdentity) { name = gmIdentity.account; savedPlayer = saves[gmIdentity.key]; }
+    else {
+      gm?.revoke(connection); // a normal login on this connection ends any GM authentication
+      name = String(message.name || '').replace(/[^\w \-]/g, '').trim().slice(0, 14);
+      if (name.length < 2) return send(connection, { t: 'err', m: messageText("server.nameLength", "Name must be 2-14 letters/digits.") });
+      // GM names are reserved: player login never opens, creates or impersonates a GM character
+      if (isGmName(name)) return send(connection, { t: 'err', m: messageText("server.reservedName", "That name is reserved. Choose another hero name.") });
+      for (const onlinePlayer of players.values()) if (onlinePlayer.name.toLowerCase() === name.toLowerCase()) return send(connection, { t: 'err', m: messageText("server.alreadyOnline", "That hero is already online.") });
+      savedPlayer = saves[name.toLowerCase()];
+      if (isAdminName(name) && !savedPlayer?.ph) {
+        return send(connection, { t: 'err', m: messageText("server.adminPassword", "Admin hero must have a password set before granting admin access.") });
+      }
+      const password = String(message.pw || '').slice(0, 64);
+      passwordHash = password ? crypto.createHash('sha256').update(name.toLowerCase() + ':' + password).digest('hex') : '';
+      if (savedPlayer && savedPlayer.ph && savedPlayer.ph !== passwordHash) return send(connection, { t: 'err', m: messageText("server.badPassword", "Wrong password for this hero.") });
+      if (savedPlayer && !savedPlayer.ph && passwordHash) {
+        return send(connection, { t: 'err', m: messageText('server.guestPassword', 'This guest hero was created without a password. Leave the password blank to play it.') });
+      }
     }
     const classId = savedPlayer ? savedPlayer.cls : (typeof message.cls === 'string' && Object.hasOwn(CLASSES, message.cls) ? message.cls : 'blade');
     const level = savedPlayer ? savedPlayer.lvl : 1;
@@ -40,6 +52,7 @@ function createPlayerSessions({ worldView = worldInfo, config, players, mobs, sa
       sk: Object.assign(newSk(), savedPlayer && savedPlayer.sk), sp: savedPlayer ? (savedPlayer.sp !== undefined ? savedPlayer.sp : level) : 1, buf: { atk: 0, def: 0, spd: 0, xp: 0, rage: 0 }, potCd: 0, g: {},
       ph: passwordHash, data: (savedPlayer && savedPlayer.data) || {},
       x: CX + rnd(-50, 50), y: CY + rnd(30, 95), dir: { x: 0, y: 0 }, dest: null, target: 0, chasingTarget: false, cd: 0, cd1: 0, cd2: 0, cd3: 0, dead: 0 };
+    if (gmIdentity) { player.gm = gmIdentity.account; player.gmIndex = gmIdentity.index; player.saveKey = gmIdentity.key; }
     for (const slot of SLOTS) sanitize(player.eq[slot]);
     for (const item of player.bag || []) sanitize(item);
     // Modern saves may deliberately have an empty weapon slot. Never mint gear on reconnect.
@@ -80,7 +93,7 @@ function createPlayerSessions({ worldView = worldInfo, config, players, mobs, sa
     players.set(player.id, player);
     const { types: typeList } = refreshMobTypes();
     const types = mobTypesForClient(MOBTYPES);
-    send(connection, { t: 'init', id: player.id, name: player.name, cls: player.cls, world: worldView(mapOf(player)), types, tl: typeList, classes: CLASSES, items: ITEMS, maxRank: MAXRANK, pMax: PMAX, passiveEffect: PASSIVE_EFFECT, affixes: Object.fromEntries(Object.entries(AFFIXES).map(([k, v]) => [k, { n: v.n, prefix: v.prefix }])), affixSlots: Object.keys(AFFIX_SLOTS), affixCost: AFFIX_COST, mythicMerge: { count: MYTHIC_MERGE_COUNT, gold: MYTHIC_MERGE_GOLD }, buffCapMs: 300000, bagMax: BAGMAX, bagPageSize: BAG_PAGE_SIZE, slots: SLOTS, rarity: RARITY.map(r => r.n), ...forgeClientConfig(forgePolicy), stat: Object.fromEntries(Object.entries(STATDEF).map(([k, v]) => [k, { n: v.n, pct: !!v.pct }])), resumed: !!savedPlayer, server: config.serverName, admin: isAdmin(player) });
+    send(connection, { t: 'init', id: player.id, name: player.name, cls: player.cls, world: worldView(mapOf(player)), types, tl: typeList, classes: CLASSES, items: ITEMS, maxRank: MAXRANK, pMax: PMAX, passiveEffect: PASSIVE_EFFECT, affixes: Object.fromEntries(Object.entries(AFFIXES).map(([k, v]) => [k, { n: v.n, prefix: v.prefix }])), affixSlots: Object.keys(AFFIX_SLOTS), affixCost: AFFIX_COST, mythicMerge: { count: MYTHIC_MERGE_COUNT, gold: MYTHIC_MERGE_GOLD }, buffCapMs: 300000, bagMax: BAGMAX, bagPageSize: BAG_PAGE_SIZE, slots: SLOTS, rarity: RARITY.map(r => r.n), ...forgeClientConfig(forgePolicy), stat: Object.fromEntries(Object.entries(STATDEF).map(([k, v]) => [k, { n: v.n, pct: !!v.pct }])), resumed: !!savedPlayer, server: config.serverName, admin: isAdmin(player), ...(player.gmIndex ? { gm: player.gmIndex } : {}) });
     inventory.sendInv(player);
     send(connection, { t: 'affixCaps', caps: AFFIX_CAPS });
     broadcast({ t: 'chat', n: '*', m: messageText("server.joined", "{player} entered {server}.", { player: player.name, server: config.serverName }) });
@@ -187,6 +200,7 @@ function createPlayerSessions({ worldView = worldInfo, config, players, mobs, sa
     }
     if (!commandAllowed(connection, message.t)) return;
     if (message.t === 'join') return joinPlayer(connection, message);
+    if (gm && Object.hasOwn(gm.handlers, message.t)) return void gm.handlers[message.t](connection, message);
     if (connection.p && Object.hasOwn(messageHandlers, message.t)) {
       messageHandlers[message.t](connection.p, message);
     }
@@ -207,7 +221,7 @@ function createPlayerSessions({ worldView = worldInfo, config, players, mobs, sa
     broadcast({ t: 'chat', n: '*', m: messageText("server.left", "{player} left.", { player: player.name }) });
   }
 
-  return { handleMessage, leavePlayer, isAdmin };
+  return { handleMessage, leavePlayer, isAdmin, joinPlayer, attachGm };
 }
 
 module.exports = { createPlayerSessions };

@@ -42,7 +42,7 @@ function commandAllowed(connection, type, now = Date.now()) {
   if (!consume(budget.all, 100, 150, now)) return false;
   if (type === 'dir' || type === 'move' || type === 'target') return consume(budget.movement, 40, 60, now);
   if (type === 'chat') return consume(budget.chat, 3, 6, now);
-  if (type === 'join') return consume(budget.join, .5, 3, now);
+  if (type === 'join' || type === 'gmLogin' || type === 'gmReauth' || type === 'gmChangePassword') return consume(budget.join, .5, 3, now);
   if (['uiSync', 'universe', 'portal'].includes(type)) return consume(budget.sync, 5, 10, now);
   return consume(budget.actions, 15, 30, now);
 }

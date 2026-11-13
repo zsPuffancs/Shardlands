@@ -506,6 +506,7 @@ function applyOwnSnapshot(current, message) {
 }
 function onMsg(m) {
   m = uiReceiver.receive(m); if (!m) return;
+  if (window.GM && GM.isGmMessage(m.t)) return GM.onMessage(m); // Game Master replies (public/gm.js)
   if (m.t === 'err') GameText.present($('err'), { message: m.text || m.m });
   else if (m.t === 'init') {
     clearTimeout(onlineCountTimer);
@@ -761,11 +762,12 @@ function frame(now) {
         label('m' + m.id, '<span style="color:' + nameColor + '">' + (t.wb ? '👑 ' : t.boss ? '★ ' : m.al ? esc(text("mob.alpha", "Alpha ")) : '') + esc(shownMobName(m, t)) + '</span> ' + monsterLevelLabel(m.l, me.l), t.boss ? 'mob boss' : m.al ? 'mob alpha' : 'mob', e.rx, Math.min(260, (o.top || 56) * (o.sc || 1)) + 16, e.ry, m.hp / m.mh, t.boss ? 150 : m.al ? 130 : 110);
       }
     }
-    for (const o of pl) { const e = ents.get(o.id); if (!onScreen(e.rx, e.ry, 160)) continue; drawPlayer(e, o.c, o.w, o.d, o.rg); label('p' + o.id, esc(o.n) + ' <span style="color:#aaa">' + esc(text("zone.levelShort", "Lv ")) + o.l + '</span>', 'pl', e.rx, 92, e.ry, o.hp / o.mh, 120); }
+    for (const o of pl) { const e = ents.get(o.id); if (!onScreen(e.rx, e.ry, 160)) continue; drawPlayer(e, o.c, o.w, o.d, o.rg); label('p' + o.id, esc(o.n) + ' <span style="color:#aaa">' + esc(text("zone.levelShort", "Lv ")) + o.l + '</span>', o.gm ? 'pl gm' : 'pl', e.rx, 92, e.ry, o.hp / o.mh, 120); if (o.gm && window.GM) GM.emblem('p' + o.id, e.rx, e.ry, o.gm); }
     drawPlayer(S, I.cls, me.w, me.dead, me.buf.rage);
     const heroNameplate = '<span class="hero-name">' + esc(I.name) + '</span><span class="hero-level">' +
       esc(text('zone.levelShort', 'Lv ') + me.l) + '</span>';
-    label('me', heroNameplate, 'pl me', S.rx, 92, S.ry, me.hp / me.mh, 120);
+    label('me', heroNameplate, I.gm ? 'pl me gm' : 'pl me', S.rx, 92, S.ry, me.hp / me.mh, 120);
+    if (I.gm && window.GM) GM.emblem('me', S.rx, S.ry, I.gm);
     if (intent) D(M.ring, intent.x, 1.6, intent.y, 9, 1, 9, now / 300, 0, [1, .85, .3], 1, .5);
     if (now - zoneCheck > 400) { zoneCheck = now; const z = zoneOf(S.rx, S.ry); if (z !== lastZone) { if (lastZone !== -9) banner(zoneName(z < 0 ? 'Dawnhearth' : ZT[z].name), z < 0 ? text("zone.safe", "Safe zone") : text("zone.levels", "Levels ") + ZT[z].lv[0] + ' - ' + ZT[z].lv[1] + (ZT[z].outer ? text("zone.danger", " · enter at your own risk") : ''), z >= 0 && ZT[z].outer); lastZone = z; } }
     nearNpcK = null; let nd = WORLD.npcRange - 30; for (const k in WORLD.npcs) { const d = npcDist(k); if (d < nd) { nd = d; nearNpcK = k; } }
@@ -775,6 +777,7 @@ function frame(now) {
     if (pr !== _hc.prompt) { _hc.prompt = pr; $('prompt').innerHTML = pr; $('prompt').style.display = pr ? 'block' : 'none'; }
   }
   for (const [k, L] of labels) if (!L.used) { L.el.remove(); labels.delete(k); }
+  if (window.GM) GM.frameEnd();
   drawFx(now); updateFloaters(now); GL.render();
   if (now - miniT > 180) { miniT = now; drawMini(); }
   if (now - perfT > 500) { perfT = now; const p = $('perf'); if (p.style.display === 'block') p.textContent = text('performance.summary', '{fps} FPS · {quality} · res {resolution}% · shadows {shadows} · {draws} draws / {parts} parts · {plants} plants', {
