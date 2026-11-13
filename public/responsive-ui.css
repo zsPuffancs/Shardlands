@@ -15,10 +15,13 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 }
 @supports (height: 100dvh) { :root { --viewport-height: 100dvh; } }
 
-@media (max-width: 760px), (pointer: coarse) and (max-width: 1100px), (max-height: 480px) and (max-width: 1100px) {
+/* Chat expansion is only needed when the compact HUD is active. */
+#chat-expand { display: none; }
+
+@media (max-width: 760px), (pointer: coarse) and (max-width: 1100px), (max-height: 700px) and (max-width: 1100px) {
   :root {
     font-size: calc(16px * var(--ui-text-scale));
-    --mobile-map: clamp(96px, 27vw, 132px);
+    --mobile-map: clamp(88px, min(22vw, 24vh), 128px);
     --mobile-frame: min(260px, calc(var(--viewport-width) - var(--safe-left) - var(--safe-right) - var(--mobile-map) - 24px));
     --mobile-slot: clamp(28px, calc((var(--viewport-width) - var(--safe-left) - var(--safe-right) - 60px) / 7), 44px);
     --mobile-window: min(480px, calc(var(--viewport-width) - var(--safe-left) - var(--safe-right) - 16px));
@@ -56,11 +59,11 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   #mapbtns {
     position: fixed; left: calc(var(--viewport-left) + var(--safe-left) + 8px);
     right: calc(var(--viewport-right) + var(--safe-right) + 8px);
-    bottom: calc(var(--viewport-bottom) + var(--safe-bottom) + var(--mobile-slot) + 54px);
+    bottom: calc(var(--viewport-bottom) + var(--safe-bottom) + var(--hud-action-height, 80px) + 10px);
     width: auto; margin: 0; padding: 3px; gap: 4px; z-index: 21;
     background: linear-gradient(90deg, transparent, #130e08dd 15% 85%, transparent);
   }
-  #mapbtns button { width: 34px; height: 34px; padding: 0; font-size: 16px; flex: 0 0 34px; }
+  #mapbtns button { width: 34px; height: 34px; padding: 0; font-size: 16px; flex: 0 1 34px; min-width: 24px; }
   #actionbar {
     left: calc(var(--viewport-left) + (var(--viewport-width) + var(--safe-left) - var(--safe-right)) / 2);
     bottom: calc(var(--viewport-bottom) + var(--safe-bottom) + 4px);
@@ -78,10 +81,13 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   #xpbar span { font-size: 8px; line-height: 8px; }
   #chat {
     left: calc(var(--viewport-left) + var(--safe-left) + 6px);
-    bottom: calc(var(--viewport-bottom) + var(--safe-bottom) + var(--mobile-slot) + 102px);
+    bottom: calc(var(--viewport-bottom) + var(--safe-bottom) + var(--hud-action-height, 80px) + var(--hud-nav-height, 40px) + 16px);
     width: min(330px, calc(var(--viewport-width) - var(--safe-left) - var(--safe-right) - 12px));
   }
-  #log { height: clamp(32px, 9vh, 70px); font-size: 11px; line-height: 1.3; padding: 3px 4px; }
+  #log { height: clamp(28px, calc(var(--viewport-height) * .08), 48px); font-size: 11px; line-height: 1.3; padding: 3px 30px 3px 4px; }
+  #chat.expanded #log, #chat:has(#chatin:focus) #log { height: clamp(48px, calc(var(--viewport-height) * .24), 160px); }
+  #chat-expand { display: block; position: absolute; right: 0; top: 0; width: 28px; height: 28px; padding: 0; font-size: 16px; z-index: 1; }
+  #chatin { width: 100%; min-width: 0; box-sizing: border-box; }
   #chat-tabs { flex-wrap: nowrap; overflow-x: auto; padding: 0; gap: 2px; }
   #chat-tabs button { flex: 0 0 auto; font-size: 10px; min-height: 28px; padding: 3px 7px; }
   #chatin { margin-top: 3px; }
@@ -109,7 +115,7 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     width: calc(var(--viewport-width) - var(--safe-left) - var(--safe-right) - 20px); gap: 3px;
   }
   .toast { font-size: 11px; padding: 2px 6px; border-width: 7px; border-image-width: 7px; text-align: center; }
-  #prompt { bottom: calc(var(--viewport-bottom) + var(--safe-bottom) + var(--mobile-slot) + 96px); max-width: calc(var(--viewport-width) - 24px); font-size: 11px; text-align: center; }
+  #prompt { left: calc(var(--viewport-left) + var(--safe-left) + (var(--viewport-width) - var(--safe-left) - var(--safe-right)) / 2); bottom: calc(var(--viewport-bottom) + var(--hud-bottom-clearance, 180px)); width: max-content; max-width: calc(var(--viewport-width) - var(--safe-left) - var(--safe-right) - 16px); font-size: 11px; text-align: center; overflow-wrap: anywhere; z-index: 22; }
   #zone { top: calc(var(--viewport-top) + var(--viewport-height) * .28); }
   #zone b { font-size: clamp(18px, 5vw, 28px); letter-spacing: 2px; }
   #zone span { font-size: 11px; letter-spacing: 1px; }
@@ -179,4 +185,23 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   #chat { width: min(250px, 30vw); bottom: calc(var(--viewport-bottom) + var(--safe-bottom) + 6px); }
   #log { height: 36px; }
   #zone b { font-size: 22px; }
+}
+
+/* With room for two columns, chat owns the left and combat/navigation the right.
+   Narrow phones retain the stacked layout above. No touch controls are enabled here. */
+@media (min-width: 640px) and (max-width: 760px), (pointer: coarse) and (min-width: 640px) and (max-width: 1100px), (min-width: 640px) and (max-width: 1100px) and (max-height: 700px) {
+  :root { --mobile-slot: clamp(28px, min(4.8vw, 8vh), 40px); }
+  #actionbar { left: auto; right: calc(var(--viewport-right) + var(--safe-right) + 6px); transform: none; }
+  #mapbtns {
+    left: auto; right: calc(var(--viewport-right) + var(--safe-right) + 6px);
+    width: var(--hud-action-width, 320px); max-width: calc(var(--viewport-width) - var(--safe-left) - var(--safe-right) - 12px);
+    box-sizing: border-box;
+  }
+  #chat {
+    bottom: calc(var(--viewport-bottom) + var(--safe-bottom) + 6px);
+    width: min(280px, calc(var(--viewport-width) - var(--safe-left) - var(--safe-right) - var(--hud-action-width, 320px) - 24px));
+  }
+}
+@media (pointer: fine) {
+  html[data-compact-ui="true"] #hotbar .sk .key { display: block; }
 }

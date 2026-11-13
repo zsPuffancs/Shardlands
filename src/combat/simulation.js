@@ -2,6 +2,7 @@
 const { restoreResource } = require('../shared/generated/resources');
 
 const { nearby, anyNearby } = require('../shared/spatial-index');
+const { canMonsterAttack } = require('./summons');
 const { CX, CY, rnd, dist, clampWorld, moveToward, inVillage, placeInVillage, mapOf, collideSettlement } = require('../world/game-world');
 const { CLASSES, playerDmg, rank, passive, gearAttackSpeed, playerMoveSpeed } = require('../player/characters');
 const { MOBTYPES, STONE_DMG } = require('./monsters');
@@ -110,7 +111,7 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
         // sleeping monsters (no player nearby) cost almost nothing
         if (!monster.target && now > monster.wake) { monster.wake = now + 600; monster.awake = anyNearby(players, monster, 1700, player => Math.abs(player.x - monster.x) < 1700 && Math.abs(player.y - monster.y) < 1700); }
         if (!monster.awake && !monster.target) continue;
-        if (monster.cast && now >= monster.cast.at) resolveCast(monster, activePlayers, now);
+        if (monster.cast && now >= monster.cast.at && canMonsterAttack(monster, now)) resolveCast(monster, activePlayers, now);
         let targetPlayer = monster.target ? players.get(monster.target) : null; const leash = template.boss ? 1000 : monster.alpha ? 850 : 700;
         const canTarget = player => !player.dead && !inVillage(player) && Math.hypot(player.x - monster.sx, player.y - monster.sy) <= leash;
         if (targetPlayer && !canTarget(targetPlayer)) { targetPlayer = null; monster.target = 0; }
@@ -118,11 +119,11 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
         if (!targetPlayer) for (const player of nearby(players, monster, aggro)) if (Math.abs(player.x - monster.x) < aggro && Math.abs(player.y - monster.y) < aggro && dist(player, monster) < aggro && canTarget(player)) { monster.target = player.id; targetPlayer = player; break; }
         if (targetPlayer) {
           const distance = dist(monster, targetPlayer);
-          if (template.boss && !monster.cast && now > monster.slamT) startCast(monster, targetPlayer, distance, now);
+          if (template.boss && !monster.cast && now > monster.slamT && canMonsterAttack(monster, now)) startCast(monster, targetPlayer, distance, now);
           if (monster.cast && monster.cast.s !== 'summon') continue;
           if (monster.recoverUntil > now) continue; // recovering after a telegraphed attack: the punish window
           if (distance > monster.r + 20) { const ox = monster.x, oy = monster.y; moveToward(monster, targetPlayer.x, targetPlayer.y, template.spd * (monster.alpha ? 1.1 : 1), tickSeconds); if (inVillage(monster)) { monster.x = ox; monster.y = oy; } }
-          else if (now >= monster.cd) { monster.cd = now + (monster.alpha ? 950 : 1100) / bossPressure(monster, now).attackSpeed; hurtPlayer(targetPlayer, monster, monster.dmg * (monster.partyDamageScale || 1) * rates.monsterDamage * rnd(0.8, 1.2), now); }
+          else if (now >= monster.cd && canMonsterAttack(monster, now)) { monster.cd = now + (monster.alpha ? 950 : 1100) / bossPressure(monster, now).attackSpeed; hurtPlayer(targetPlayer, monster, monster.dmg * (monster.partyDamageScale || 1) * rates.monsterDamage * rnd(0.8, 1.2), now); }
         } else {
           const d = moveToward(monster, monster.hx, monster.hy, template.spd * 0.5, tickSeconds);
           if (d < 5 && Math.random() < 0.02) {

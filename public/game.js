@@ -681,7 +681,27 @@ function updateSelf(d) { // client-side prediction: our own hero reacts instantl
   if (me.dead) intent = null;
   if (!me.dead) { const w = wantDir(); if (w[0] || w[1]) { vx = w[0] * me.spd; vz = w[1] * me.spd; intent = null; } else if (intent) { const dx = intent.x - S.rx, dz = intent.y - S.ry, l = Math.hypot(dx, dz); if (l > 8) { vx = dx / l * me.spd; vz = dz / l * me.spd; } else intent = null; } }
   const ex = me.x - S.rx, ez = me.y - S.ry;
-  const authoritativeReset = Math.hypot(ex, ez) > 230;
+  let authoritativeReset = Math.hypot(ex, ez) > 230;
+  if (!authoritativeReset && WORLD.layout && Math.hypot(ex, ez) > 22 &&
+      Settlement.isPositionValid(me, WORLD.layout, WORLD.CX, WORLD.CY, 11)) {
+    const correction = { x: me.x, y: me.y };
+    Settlement.moveWithCollision(correction, WORLD.layout, WORLD.CX, WORLD.CY, 11, { x: ox, y: oy });
+    // A valid server baseline separated by solid geometry cannot be reached by
+    // interpolating into that solid forever. This is reconciliation, not walking.
+    if (Math.hypot(correction.x - me.x, correction.y - me.y) > 1e-5) {
+      // Ordinary prediction around a corner may have a blocked straight chord
+      // while a short, clear corner path exists. Keep smoothing in that case.
+      const viaCorner = (x, y) => {
+        const corner = { x, y };
+        Settlement.moveWithCollision(corner, WORLD.layout, WORLD.CX, WORLD.CY, 11, { x: ox, y: oy });
+        if (Math.hypot(corner.x - x, corner.y - y) > 1e-5) return false;
+        const end = { x: me.x, y: me.y };
+        Settlement.moveWithCollision(end, WORLD.layout, WORLD.CX, WORLD.CY, 11, corner);
+        return Math.hypot(end.x - me.x, end.y - me.y) <= 1e-5;
+      };
+      authoritativeReset = !viaCorner(me.x, oy) && !viaCorner(ox, me.y);
+    }
+  }
   if (authoritativeReset) { S.rx = me.x; S.ry = me.y; }
   else if (vx || vz) { S.rx += vx * d; S.ry += vz * d; const k = Math.min(1, d * 2.2); S.rx += (me.x - S.rx) * k; S.ry += (me.y - S.ry) * k; }
   else { const k = 1 - Math.pow(0.00003, d); S.rx += ex * k; S.ry += ez * k; }
@@ -691,7 +711,7 @@ function updateSelf(d) { // client-side prediction: our own hero reacts instantl
     const e = { x: S.rx, y: S.ry };
     // An explicit server correction is a new baseline, not a predicted walk through scenery.
     const blocked = authoritativeReset
-      ? Settlement.collide(e, WORLD.layout, WORLD.CX, WORLD.CY, 11)
+      ? Settlement.moveWithCollision(e, WORLD.layout, WORLD.CX, WORLD.CY, 11, { x: me.x, y: me.y })
       : Settlement.moveWithCollision(e, WORLD.layout, WORLD.CX, WORLD.CY, 11, { x: ox, y: oy });
     if (blocked) { S.rx = e.x; S.ry = e.y; }
   }

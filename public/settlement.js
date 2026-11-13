@@ -416,6 +416,11 @@
     return depths;
   }
   const isPenetrating = depths => depths.some(depth => depth > COLLISION_EPSILON);
+  function isPositionValid(entity, lay, cx, cy, radius = 11) {
+    if (![entity.x, entity.y].every(Number.isFinite)) return false;
+    if (!lay || Math.abs(entity.x - cx) > lay.reach + radius || Math.abs(entity.y - cy) > lay.reach + radius) return true;
+    return !isPenetrating(collisionPenetrations(entity, lay, cx, cy, radius));
+  }
 
   // Push an entity out of buildings, carts and the wall. Positions are world coordinates; cx, cy is the settlement centre.
   // prev (the position before this move) decides which side of the wall the entity belongs on.
@@ -458,7 +463,8 @@
           const qx = sgm.x1 + ex * t, qy = sgm.y1 + ey * t, dist = Math.hypot(lx - qx, ly - qy);
           if (dist >= half - COLLISION_EPSILON) continue;
           // which side: the side the entity came from (inside if it was inside before)
-          const side = Math.sign(ex * (ref.y - sgm.y1) - ey * (ref.x - sgm.x1)) || 1, nx = -ey / Math.sqrt(L2) * side, ny = ex / Math.sqrt(L2) * side;
+          const signedDistance = (ex * (ref.y - sgm.y1) - ey * (ref.x - sgm.x1)) / Math.sqrt(L2);
+          const side = Math.abs(signedDistance) <= COLLISION_EPSILON ? 1 : Math.sign(signedDistance), nx = -ey / Math.sqrt(L2) * side, ny = ex / Math.sqrt(L2) * side;
           const along = (lx - qx) * nx + (ly - qy) * ny;
           if (t > 0 && t < 1) { const push = half - along; lx += nx * push; ly += ny * push; }
           else { const k = dist > 0.01 ? (lx - qx) / dist : nx, j = dist > 0.01 ? (ly - qy) / dist : ny; lx = qx + k * half; ly = qy + j * half; }
@@ -486,10 +492,24 @@
     const reach = lay.reach + radius;
     if (Math.min(fromX, toX) > reach || Math.max(fromX, toX) < -reach || Math.min(fromY, toY) > reach || Math.max(fromY, toY) < -reach) return false;
     const start = { x: prev.x, y: prev.y };
-    // A saved/previous position can already overlap neighbouring solids. Only accept a short, fully clear correction.
+    // Recover the previous position, never the proposed endpoint. Normal walking
+    // still sweeps every step; an old overlap must not trap all escape directions.
     const startCorrected = collide(start, lay, cx, cy, radius, prev);
     if (startCorrected && Math.hypot(start.x - prev.x, start.y - prev.y) <= radius * 2 &&
         !isPenetrating(collisionPenetrations(start, lay, cx, cy, radius))) { entity.x = start.x; entity.y = start.y; return true; }
+    if (!isPositionValid(prev, lay, cx, cy, radius)) {
+      // Bounded nearest-clear search across the union, not alternating pushes
+      // between intersecting wall segments/towers. Only runs for invalid starts.
+      const candidateClear = isPositionValid(start, lay, cx, cy, radius);
+      const correctionDistance = candidateClear ? Math.hypot(start.x - prev.x, start.y - prev.y) : Infinity;
+      const limit = Math.min(radius * 32, correctionDistance), spacing = Math.max(1, radius / 2);
+      for (let distance = spacing; distance <= limit; distance += spacing) for (let direction = 0; direction < 32; direction++) {
+        const angle = direction * Math.PI / 16;
+        const candidate = { x: prev.x + Math.cos(angle) * distance, y: prev.y + Math.sin(angle) * distance };
+        if (isPositionValid(candidate, lay, cx, cy, radius)) { entity.x = candidate.x; entity.y = candidate.y; return true; }
+      }
+      if (candidateClear && correctionDistance <= radius * 32) { entity.x = start.x; entity.y = start.y; return true; }
+    }
     let recoveryDepths = null;
     if (startCorrected) {
       const depths = collisionPenetrations(prev, lay, cx, cy, radius);
@@ -533,5 +553,5 @@
 
   return { UNSTAFFED_VILLAGE_CHANCE, KIT_STYLES, KIT_STATION, KIT_PORTAL_FEET, VILLAGE_SCALE, DIM, NPC_OFFSETS, PORTAL, PORTAL_OFFSET, CAMP_BOARD, STALL_COST, STALL_NAMES, SAFE_RADIUS, WALL, GATES, VENDORS, LAYOUT_IDS, LAYOUT_NAMES, LAYOUT_WEIGHTS,
     debugLayout: id => { DEBUG = true; try { return LAYOUTS[id](); } finally { DEBUG = false; } },
-    layout, chooseLayout, arrivalPoint, collide, moveWithCollision, choose, overlaps, faceCentre, gateOpen, buildWall };
+    layout, chooseLayout, arrivalPoint, collide, moveWithCollision, isPositionValid, choose, overlaps, faceCentre, gateOpen, buildWall };
 }));

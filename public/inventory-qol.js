@@ -3,6 +3,67 @@
 let bagViewState = BagView.defaults(), bagControlKey = '', bagMenuUid = null, bagMenuFocus = null, destroyState = null, destroyReturnFocus = null;
 try { const sort = localStorage.getItem('sl_bag_sort'); if (BagView.SORTS.includes(sort)) bagViewState.sort = sort; } catch {}
 const BAG_SORT_LABELS = { original: ['inventory.sortOriginal', 'Original bag order'], 'rarity-desc': ['inventory.sortRarityDesc', 'Rarity: highest first'], 'rarity-asc': ['inventory.sortRarityAsc', 'Rarity: lowest first'], 'level-desc': ['inventory.sortLevelDesc', 'Item level: highest first'], 'level-asc': ['inventory.sortLevelAsc', 'Item level: lowest first'], slot: ['inventory.sortSlot', 'Equipment type'], 'name-asc': ['inventory.sortNameAsc', 'Name: A to Z'], 'name-desc': ['inventory.sortNameDesc', 'Name: Z to A'] };
+const bagPopoverOwners = { 'bag-sort-options': 'bag-sort', 'bag-filter-panel': 'bag-filter-toggle', 'bag-manage-panel': 'bag-manage-toggle' };
+function bagPopoverOpen(panel) { return typeof panel.showPopover === 'function' ? panel.matches(':popover-open') : !panel.hidden; }
+function closeBagPopover(panel, restoreFocus = false) {
+  if (!bagPopoverOpen(panel)) return;
+  if (typeof panel.hidePopover === 'function') panel.hidePopover(); else panel.hidden = true;
+  const owner = $(bagPopoverOwners[panel.id]); owner.setAttribute('aria-expanded', 'false');
+  if (restoreFocus) owner.focus();
+}
+function closeBagPopovers() { for (const id of Object.keys(bagPopoverOwners)) closeBagPopover($(id)); }
+function positionBagPopover(panel) {
+  if (!bagPopoverOpen(panel)) return;
+  const viewport = window.visualViewport, rootStyle = getComputedStyle(document.documentElement);
+  const safe = edge => parseFloat(rootStyle.getPropertyValue('--safe-' + edge)) || 0;
+  const left = (viewport?.offsetLeft || 0) + safe('left') + 8, top = (viewport?.offsetTop || 0) + safe('top') + 8;
+  const right = (viewport?.offsetLeft || 0) + (viewport?.width || innerWidth) - safe('right') - 8;
+  const bottom = (viewport?.offsetTop || 0) + (viewport?.height || innerHeight) - safe('bottom') - 8;
+  const anchor = $(bagPopoverOwners[panel.id]).getBoundingClientRect();
+  panel.style.maxWidth = Math.max(1, right - left) + 'px'; panel.style.maxHeight = Math.max(1, bottom - top) + 'px';
+  let bounds = panel.getBoundingClientRect();
+  const below = Math.max(0, bottom - anchor.bottom - 4), above = Math.max(0, anchor.top - top - 4);
+  const openAbove = bounds.height > below && above > below;
+  panel.style.maxHeight = Math.max(1, Math.min(bottom - top, openAbove ? above : below)) + 'px';
+  bounds = panel.getBoundingClientRect();
+  panel.style.left = Math.max(left, Math.min(anchor.left, right - bounds.width)) + 'px';
+  panel.style.top = Math.max(top, Math.min(openAbove ? anchor.top - bounds.height - 4 : anchor.bottom + 4, bottom - bounds.height)) + 'px';
+}
+function positionOpenBagPopovers() { for (const id of Object.keys(bagPopoverOwners)) positionBagPopover($(id)); }
+for (const [id, ownerId] of Object.entries(bagPopoverOwners)) {
+  const panel = $(id), owner = $(ownerId);
+  // Escape the inventory's clipping/filtered frame. Native popovers additionally use the top layer.
+  document.body.appendChild(panel);
+  if (typeof panel.showPopover !== 'function') panel.hidden = true;
+  owner.addEventListener('click', () => {
+    if (bagPopoverOpen(panel)) { closeBagPopover(panel); return; }
+    closeBagPopovers();
+    if (typeof panel.showPopover === 'function') panel.showPopover(); else panel.hidden = false;
+    owner.setAttribute('aria-expanded', 'true'); positionBagPopover(panel);
+    (panel.querySelector('[aria-pressed="true"]') || panel.querySelector('input,button,select'))?.focus();
+  });
+  panel.addEventListener('toggle', () => owner.setAttribute('aria-expanded', String(bagPopoverOpen(panel))));
+}
+document.addEventListener('pointerdown', event => {
+  for (const [id, owner] of Object.entries(bagPopoverOwners)) if (!$(id).contains(event.target) && !$(owner).contains(event.target)) closeBagPopover($(id));
+}, true);
+addEventListener('resize', positionOpenBagPopovers);
+window.visualViewport?.addEventListener('resize', positionOpenBagPopovers);
+window.visualViewport?.addEventListener('scroll', positionOpenBagPopovers);
+$('invp').addEventListener('scroll', positionOpenBagPopovers, true);
+const bagAutoMergeButtons = ['autoMerge', 'autoMerge2', 'autoMerge3', 'autoMerge4'];
+$('bag-manage-panel').addEventListener('click', event => {
+  const selector = event.target.closest('[data-auto-merge-level]'); if (!selector) return;
+  const level = Number(selector.dataset.autoMergeLevel); if (level < 1 || level > 4) return;
+  for (const button of $('bag-manage-panel').querySelectorAll('[data-auto-merge-level]')) button.setAttribute('aria-pressed', String(Number(button.dataset.autoMergeLevel) === level));
+  bagAutoMergeButtons.forEach((id, index) => { $(id).hidden = index !== level - 1; });
+});
+// Close BEFORE ux.js's capture listener opens its existing confirmation. Do not
+// synthesize a click, dispatch a protocol message or bypass the original target ID.
+document.addEventListener('click', event => {
+  const button = event.target.closest('button');
+  if (button && (bagAutoMergeButtons.includes(button.id) || button.id === 'bag-reset')) closeBagPopover($('bag-manage-panel'), true);
+}, true);
 function bagLabels() {
   return { locale: document.documentElement.lang, slots: I.slots, itemName: item => gearName(item.name), rarityNames: I.rarity.map((name, index) => text('rarity.' + index, name)), slotNames: Object.fromEntries(I.slots.map(slot => [slot, text('slot.' + slot, SLOTNAME[slot] || slot)])), typeNames: Object.fromEntries(['sword', 'bow', 'staff'].map(type => [type, text('weapon.' + type, type)])), affixes: Object.fromEntries(Object.entries(I.affixes || {}).map(([key, value]) => [key, { name: text('affix.' + key, value.n), prefix: text('affix.' + key + '.prefix', value.prefix) }])), statNames: Object.fromEntries(Object.entries(I.stat || {}).map(([key, value]) => [key, text('stat.' + key, value.n)])) };
 }
@@ -10,17 +71,19 @@ function ensureBagControls(force = false) {
   if (!I) return;
   const key = JSON.stringify([I.slots, I.rarity, document.documentElement.lang]); if (!force && bagControlKey === key) return; bagControlKey = key;
   const labels = bagLabels(), option = (value, label) => '<option value="' + esc(value) + '">' + esc(label) + '</option>';
-  $('bag-sort').innerHTML = BagView.SORTS.map(sort => option(sort, text(...BAG_SORT_LABELS[sort]))).join(''); $('bag-sort').value = bagViewState.sort;
+  $('bag-sort').title = text(...BAG_SORT_LABELS[bagViewState.sort]);
+  $('bag-sort-options').innerHTML = BagView.SORTS.map(sort => '<button type="button" data-bag-sort="' + esc(sort) + '" aria-pressed="' + (sort === bagViewState.sort) + '">' + esc(text(...BAG_SORT_LABELS[sort])) + '</button>').join('');
   const checks = (values, kind, selected) => values.map(([value, label]) => '<label><input type="checkbox" data-bag-filter="' + kind + '" value="' + esc(value) + '"' + (selected.includes(value) ? ' checked' : '') + '>' + esc(label) + '</label>').join('');
   $('bag-filter-controls').innerHTML = '<fieldset><legend>' + esc(text('inventory.filterRarity', 'Rarity (any selected)')) + '</legend><div class="bag-checks">' + checks(labels.rarityNames.map((name, index) => [index, name]), 'rarities', bagViewState.rarities) + '</div></fieldset><fieldset><legend>' + esc(text('inventory.filterType', 'Equipment type (any selected)')) + '</legend><div class="bag-checks">' + checks(I.slots.map(slot => [slot, labels.slotNames[slot]]), 'slots', bagViewState.slots) + '</div></fieldset><div class="bag-level-range"><label>' + esc(text('inventory.minimumLevel', 'Minimum item level')) + '<input type="number" min="1" step="1" inputmode="numeric" data-bag-filter="minLevel" value="' + esc(bagViewState.minLevel) + '"></label><label>' + esc(text('inventory.maximumLevel', 'Maximum item level')) + '<input type="number" min="1" step="1" inputmode="numeric" data-bag-filter="maxLevel" value="' + esc(bagViewState.maxLevel) + '"></label></div><label for="bag-status">' + esc(text('inventory.filterStatus', 'Item status')) + '</label><select id="bag-status" data-bag-filter="status">' + [['all', 'inventory.statusAll', 'All'], ['locked', 'inventory.statusLocked', 'Locked'], ['unlocked', 'inventory.statusUnlocked', 'Unlocked'], ['upgraded', 'inventory.statusUpgraded', 'Upgraded (+1 or higher)'], ['affixed', 'inventory.statusAffixed', 'Has affixes']].map(([value, key, label]) => option(value, text(key, label))).join('') + '</select>';
   $('bag-status').value = bagViewState.status; $('bag-search').value = bagViewState.query;
+  positionOpenBagPopovers();
 }
 const originalRenderBagPage = renderBagPage;
 renderBagPage = function () {
   if (!I || !me) return;
   ensureBagControls();
   const consumables = bagPage === 'cons'; $('bag-tools').hidden = consumables;
-  if (consumables) { originalRenderBagPage(); return; }
+  if (consumables) { closeBagPopovers(); originalRenderBagPage(); return; }
   const result = BagView.page(BAG, bagViewState, bagLabels(), { index: bagPage, size: I.bagPageSize || 30, capacity: I.bagMax }); bagPage = result.page;
   const pageBar = $('bag-pages');
   pageBar.innerHTML = Array.from({ length: result.pageCount }, (_, index) => '<button type="button" data-bag-page="' + index + '" aria-controls="bag" aria-pressed="' + (index === bagPage) + '" class="' + (index === bagPage ? 'on' : '') + '" aria-label="' + esc(text('inventory.bagPage', 'Bag page {page}', { page: index + 1 })) + '">' + (index + 1) + '</button>').join('') + '<button type="button" data-bag-page="cons" class="constab" aria-controls="bag" aria-pressed="false">' + esc(text('inventory.consumablesTab', '🧪 Consumables')) + '</button>';
@@ -37,7 +100,14 @@ renderBagPage = function () {
 function refreshBagView() { if (bagPage !== 'cons') bagPage = 0; renderBagPage(); }
 $('bag-search').addEventListener('input', event => { bagViewState.query = event.target.value; refreshBagView(); });
 $('bag-clear').onclick = () => { bagViewState.query = ''; $('bag-search').value = ''; refreshBagView(); $('bag-search').focus(); };
-$('bag-sort').onchange = event => { bagViewState.sort = event.target.value; try { localStorage.setItem('sl_bag_sort', bagViewState.sort); } catch {} refreshBagView(); };
+$('bag-sort-options').addEventListener('click', event => {
+  const button = event.target.closest('[data-bag-sort]'); if (!button || !BagView.SORTS.includes(button.dataset.bagSort)) return;
+  bagViewState.sort = button.dataset.bagSort;
+  try { localStorage.setItem('sl_bag_sort', bagViewState.sort); } catch {}
+  $('bag-sort').title = text(...BAG_SORT_LABELS[bagViewState.sort]);
+  for (const option of $('bag-sort-options').querySelectorAll('[data-bag-sort]')) option.setAttribute('aria-pressed', String(option.dataset.bagSort === bagViewState.sort));
+  closeBagPopover($('bag-sort-options'), true); refreshBagView();
+});
 $('bag-reset').onclick = () => { bagViewState = BagView.defaults(); try { localStorage.setItem('sl_bag_sort', 'original'); } catch {} ensureBagControls(true); refreshBagView(); };
 function changeBagFilter(event) {
   const input = event.target, key = input.dataset.bagFilter; if (!key) return;
@@ -47,7 +117,10 @@ function changeBagFilter(event) {
 }
 $('bag-filter-controls').addEventListener('change', changeBagFilter);
 $('bag-filter-controls').addEventListener('input', event => { if (event.target.type === 'number') changeBagFilter(event); });
-$('bag-filter-panel').addEventListener('toggle', () => { if (typeof fitWindow === 'function') fitWindow($('invp')); });
+const previousInventoryClose = closeWin;
+closeWin = function (id) { if (id === 'invp') closeBagPopovers(); previousInventoryClose(id); };
+const previousInventoryCloseAll = closeAll;
+closeAll = function () { closeBagPopovers(); previousInventoryCloseAll(); };
 function closeBagMenu(restore = false) { bagMenuUid = null; $('bag-item-menu').hidden = true; if (restore && bagMenuFocus?.isConnected) bagMenuFocus.focus(); bagMenuFocus = null; }
 function openBagMenu(uid, x, y) {
   const item = BAG.find(item => item.uid === uid); if (!item) return;
@@ -90,9 +163,11 @@ document.addEventListener('contextmenu', event => {
   event.preventDefault(); event.stopImmediatePropagation(); slot.focus(); const bounds = slot.getBoundingClientRect(); openBagMenu(slot.dataset.bag, event.clientX || bounds.right, event.clientY || bounds.bottom);
 }, true);
 addEventListener('keydown', event => {
+  const openBagPanel = Object.keys(bagPopoverOwners).map(id => $(id)).find(bagPopoverOpen);
+  if (event.key === 'Escape' && openBagPanel) { event.preventDefault(); event.stopImmediatePropagation(); closeBagPopover(openBagPanel, true); return; }
   if (destroyDialog.open) { event.stopImmediatePropagation(); return; }
   if (!$('bag-item-menu').hidden) { if (event.key === 'Escape') { event.preventDefault(); closeBagMenu(true); } event.stopImmediatePropagation(); return; }
-  if (event.target.closest?.('#bag-tools')) {
+  if (event.target.closest?.('#bag-tools,.bag-popover')) {
     keys = {}; held = false;
     // Sorting leaves focus on the control; Shift must still reach the tooltip listeners.
     if (event.key === 'Shift') return;
@@ -113,4 +188,4 @@ onInv = function (message) {
   if (mySel && !exists(mySel)) mySel = null; if (afSel && !exists(afSel)) afSel = null; if (smSel && !Object.values(message.eq).some(item => item?.uid === smSel)) smSel = null;
   tip.style.display = 'none'; tipEl = null; originalOnInv(message);
 };
-document.addEventListener('game-language-change', () => { ensureBagControls(true); if (I && me && isOpen('invp')) renderBagPage(); closeBagMenu(); if (destroyDialog.open) closeDestroyDialog(); });
+document.addEventListener('game-language-change', () => { ensureBagControls(true); if (I && me && isOpen('invp')) renderBagPage(); positionOpenBagPopovers(); closeBagMenu(); if (destroyDialog.open) closeDestroyDialog(); });

@@ -15,7 +15,7 @@ const { deathGoldPenalty } = require('../economy/death-gold');
 const { prepareStoneRewards, claimMonsterRewards } = require('../economy/stone-rewards');
 const XP_LEVEL_GAP_LIMIT = XP_BALANCE.overlevelCutoff;
 const canEarnMonsterXp = (hero, monster) => levelGapScale(hero.lvl, monster.lvl) > 0;
-const { SUMMON_LIFETIME_MS, createSummons } = require('./summons');
+const { SUMMON_LIFETIME_MS, createSummons, canMonsterAttack } = require('./summons');
 const { ENEMY_SCALING, bossPhase, bossPressure, recoverMs } = require('./enemy-scaling');
 
 function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLoot, broadcast, say, teams, adventure, combatPolicy = COMBAT_POLICY, goldPolicy }) {
@@ -93,6 +93,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     if (monster.summoned) mobs.delete(monster.id);
   }
   function hurtPlayer(player, monster, damage, now) {
+    if (!canMonsterAttack(monster, now)) return;
     damage = Math.max(1, Math.round(damage * (1 - defRed(player)) * (now < player.buf.def ? 0.65 : 1)));
     const hit = { v: damage };
     fire('hurt', player, monster, hit);
@@ -108,6 +109,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     }
   }
   function startCast(monster, targetPlayer, distance, now) {
+    if (!canMonsterAttack(monster, now)) return;
     const signature = MOBTYPES[monster.ty]?.special || SPECIAL[monster.ty] || 'slam';
     monster.alt = !monster.alt;
     let attack = monster.alt ? signature : 'slam';
@@ -130,6 +132,7 @@ function createCombat({ mobs, players, rates, spawnMob, ev, fire, gainXp, dropLo
     ev('warn', monster.x, monster.y, cast.r, { a: monster.id, s: attack, ang: Math.round(cast.ang * 100) / 100, tx: cast.tx && Math.round(cast.tx), ty: cast.ty && Math.round(cast.ty), pts: cast.pts, half: cast.half });
   }
   function resolveCast(monster, activePlayers, now) {
+    if (!canMonsterAttack(monster, now)) return;
     const cast = monster.cast; monster.cast = null; const pressure = bossPressure(monster, now);
     const baseDamage = monster.dmg * (monster.partyDamageScale || 1) * rates.monsterDamage * pressure.castDamage;
     // After the attack the boss recovers for a moment: it cannot move or hit and takes extra damage.

@@ -39,6 +39,7 @@ const AdventureUI = (() => {
     } else {
       const here = view.map === WORLD.map, nearby = here && canManageContracts(me, WORLD);
       html = '<p class="mu">' + esc(text('adventure.rules', 'Daily contracts reset at 00:00 UTC. One active contract; each contract can be rewarded once per region per day. Summoned enemies and foes {gap}+ levels below you do not count.', { gap: view.levelGapLimit ?? 25 })) + '</p><p>' + esc(text('adventure.return', 'Visit a village trader or an encampment board to manage contracts.')) + '</p>';
+      if (!nearby) html += '<p class="journal-access-warning" role="status">' + esc(text('adventure.tooFar', 'Contract buttons are disabled here. Move within interaction range of a Merchant, Blacksmith, Soul Mystic or settlement board; the buttons will enable automatically.')) + '</p>';
       if (view.claimPending) html += '<p class="mu" role="status">' + esc(text('adventure.claimPending', 'Reward payout pending. Waiting for saving or wallet space; the server will retry automatically.')) + '</p>';
       if (view.active) {
         const active = view.active, offer = view.offers.find(offer => offer.kind === active.kind), done = offer && active.progress >= offer.target;

@@ -728,6 +728,40 @@ function buildSkills() {
   }
 }
 document.addEventListener('click', e => { const t = e.target.closest('[data-sktab]'); if (t) { skTab = t.dataset.sktab; buildSkills(); } });
+// Keep the skill key, not a button reference: server updates rebuild the skill rows.
+let passiveLearnTimer = null, heldPassiveSkill = null, repeatedPassiveSkill = null;
+function stopPassiveLearning() {
+  clearTimeout(passiveLearnTimer); passiveLearnTimer = null; heldPassiveSkill = null;
+}
+function repeatPassiveLearning() {
+  const skill = heldPassiveSkill;
+  if (!skill || !isOpen('skillp') || skTab !== 'pas' || !me || me.sp <= 0 || (me.sk[skill] || 0) >= maxSkillRank(skill)) { stopPassiveLearning(); return; }
+  repeatedPassiveSkill = skill;
+  send({ t: 'learn', k: skill });
+  passiveLearnTimer = setTimeout(repeatPassiveLearning, 120);
+}
+document.addEventListener('pointerdown', event => {
+  if (event.button !== 0 || !event.isPrimary) return;
+  const button = event.target.closest('[data-learn]');
+  if (!button || button.disabled || !SK_PAS.includes(button.dataset.learn)) return;
+  stopPassiveLearning(); repeatedPassiveSkill = null;
+  heldPassiveSkill = button.dataset.learn;
+  passiveLearnTimer = setTimeout(repeatPassiveLearning, 350);
+});
+document.addEventListener('pointerup', () => {
+  stopPassiveLearning();
+  // The release click follows pointerup; suppress it only if repeats already sent points.
+  setTimeout(() => { repeatedPassiveSkill = null; }, 0);
+});
+document.addEventListener('pointercancel', () => { stopPassiveLearning(); repeatedPassiveSkill = null; });
+window.addEventListener('blur', () => { stopPassiveLearning(); repeatedPassiveSkill = null; });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { stopPassiveLearning(); repeatedPassiveSkill = null; } });
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-learn]');
+  if (button && button.dataset.learn === repeatedPassiveSkill) {
+    repeatedPassiveSkill = null; event.preventDefault(); event.stopImmediatePropagation();
+  }
+}, true);
 // ---------- settings & key bindings ----------
 const BIND_DEF = { skill1: '1', skill2: '2', skill3: '3', hp: 'q', mp: 'e', hp2: 'r', ret: 't', talk: 'f', inv: 'i', skills: 'k', team: 'y', history: 'h', settings: 'o', mute: 'm', gfx: 'g', fps: 'p', attack: ' ' };
 const BIND_NAME = { skill1: 'Skill 1', skill2: 'Skill 2', skill3: 'Skill 3', hp: 'Health potion', mp: 'Mana potion', hp2: 'Greater health potion', ret: 'Return scroll', talk: 'Talk to NPC', inv: 'Inventory', skills: 'Skills window', team: 'Team', history: 'Chronicle', settings: 'Settings', mute: 'Mute', gfx: 'Cycle graphics quality', fps: 'FPS counter', attack: 'Attack nearest monster' };
