@@ -9,6 +9,8 @@
 /universe-backup-*.json
 /save-journal.json
 /save-journal.json.tmp
+/save-log.jsonl
+/*.durable.tmp
 /*.json.recovery.tmp
 /tunnel.json
 # cloudflared for the invite link (large binary, download separately)

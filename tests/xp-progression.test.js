@@ -170,6 +170,9 @@ test('planned stone levels drive real HP, category XP, runtime reload and respaw
 });
 
 test('stone guardian waves inherit parent levels and pay bounded 30%/50% normal XP once', t => {
+  // A random critical hit can legitimately one-shot the Stone and skip its waves.
+  // This test exercises wave rewards, so fix combat randomness without changing damage rules.
+  t.mock.method(Math, 'random', () => .5);
   const original = TIERS[0]; TIERS[0] = { ...original, progressionVersion: 1 }; t.after(() => { TIERS[0] = original; });
   const mobs = new Map(), spawn = spawner(mobs), player = { id: 1, name: 'Hero', cls: 'archer', lvl: 145, xp: 0, gold: 0, eq: {}, bag: [], inv: {}, sk: newSk(), buf: {}, x: 6000, y: 6000 };
   stats(player); player.hp = player.maxhp; player.mp = player.maxmp;

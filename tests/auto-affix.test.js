@@ -181,7 +181,7 @@ test('server shutdown cancels jobs before transport close and the final durable 
   const vm = require('node:vm'), fs = require('node:fs'), game = inventoryGame(), order = [], signals = new Map();
   game.start(); game.inventory.processJobs(); const balance = game.player.souls;
   let exit; const exited = new Promise(resolve => { exit = resolve; });
-  const sandbox = { module: { exports: {} }, require: name => { assert.equal(name, './server-console'); return { RESTART_EXIT_CODE: 75 }; },
+  const sandbox = { module: { exports: {} }, require: name => { if (name === './restart-policy') return require('../src/server/restart-policy'); assert.equal(name, './server-console'); return { RESTART_EXIT_CODE: 75 }; },
     process: { argv: [], stdin: {}, on: (name, callback) => signals.set(name, callback), exit }, console: { log: noop, error: noop }, performance: { now: () => 0 },
     setInterval: () => 1, setTimeout: () => 2, clearInterval: noop, clearTimeout: noop };
   vm.runInNewContext(fs.readFileSync(require.resolve('../src/server/server-lifecycle'), 'utf8'), sandbox);

@@ -1,0 +1,141 @@
+{
+  "baseline": "3987df6",
+  "before": {
+    "node": "v26.13.0",
+    "cpu": "AMD Ryzen 5 7600X 6-Core Processor             ",
+    "baseline": "3987df6",
+    "activeCharacters": 10,
+    "inventorySize": 90,
+    "scenarios": [
+      {
+        "characters": 100,
+        "baseBytes": 1496881,
+        "latenciesMs": [
+          22.892300000000006,
+          19.94999999999999,
+          36.16210000000001,
+          17.489599999999996
+        ],
+        "maxMainThreadBlockMs": 14.321699999999993,
+        "eventLoopP99Ms": 13.492223,
+        "cpuMs": 77,
+        "heapDeltaBytes": 5911128,
+        "rssBytes": 67424256,
+        "gcMs": 2.919700004160404,
+        "gcCount": 5,
+        "incrementalBytes": 0,
+        "checkpointMs": null,
+        "approximateWriteBytes": 14968810
+      },
+      {
+        "characters": 1000,
+        "baseBytes": 15059881,
+        "latenciesMs": [
+          168.53619999999995,
+          160.3952999999999,
+          330.0018000000001,
+          143.87959999999998
+        ],
+        "maxMainThreadBlockMs": 125.95539999999994,
+        "eventLoopP99Ms": 119.799807,
+        "cpuMs": 812,
+        "heapDeltaBytes": 88020528,
+        "rssBytes": 233009152,
+        "gcMs": 21.418100006878376,
+        "gcCount": 7,
+        "incrementalBytes": 0,
+        "checkpointMs": null,
+        "approximateWriteBytes": 150598810
+      },
+      {
+        "characters": 10000,
+        "baseBytes": 151517881,
+        "latenciesMs": [
+          1887.6343000000002,
+          1988.1475,
+          3605.9602000000004,
+          1820.3917999999994
+        ],
+        "maxMainThreadBlockMs": 1452.4300000000003,
+        "eventLoopP99Ms": 363.855871,
+        "cpuMs": 14704,
+        "heapDeltaBytes": 191339704,
+        "rssBytes": 925917184,
+        "gcMs": 438.560199983418,
+        "gcCount": 45,
+        "incrementalBytes": 0,
+        "checkpointMs": null,
+        "approximateWriteBytes": 1515178810
+      }
+    ]
+  },
+  "after": {
+    "node": "v26.13.0",
+    "cpu": "AMD Ryzen 5 7600X 6-Core Processor             ",
+    "baseline": null,
+    "activeCharacters": 10,
+    "inventorySize": 90,
+    "scenarios": [
+      {
+        "characters": 100,
+        "baseBytes": 1496881,
+        "latenciesMs": [
+          66.0793,
+          37.28030000000001,
+          37.20869999999999,
+          36.58510000000001
+        ],
+        "maxMainThreadBlockMs": 15.723100000000017,
+        "eventLoopP99Ms": 26.427391,
+        "cpuMs": 31,
+        "heapDeltaBytes": 987200,
+        "rssBytes": 72728576,
+        "gcMs": 0,
+        "gcCount": 0,
+        "incrementalBytes": 1010624,
+        "checkpointMs": 55.9255,
+        "approximateWriteBytes": 1010624
+      },
+      {
+        "characters": 1000,
+        "baseBytes": 15059881,
+        "latenciesMs": [
+          136.7991,
+          36.25670000000002,
+          35.5924,
+          37.54480000000001
+        ],
+        "maxMainThreadBlockMs": 15.196899999999914,
+        "eventLoopP99Ms": 17.055743,
+        "cpuMs": 172,
+        "heapDeltaBytes": 792696,
+        "rssBytes": 220692480,
+        "gcMs": 0,
+        "gcCount": 0,
+        "incrementalBytes": 1010624,
+        "checkpointMs": 92.4076,
+        "approximateWriteBytes": 1010624
+      },
+      {
+        "characters": 10000,
+        "baseBytes": 151517881,
+        "latenciesMs": [
+          838.0364000000004,
+          36.915700000000015,
+          35.745400000000245,
+          37.22429999999986
+        ],
+        "maxMainThreadBlockMs": 15.608400000000074,
+        "eventLoopP99Ms": 16.547839,
+        "cpuMs": 1141,
+        "heapDeltaBytes": 780256,
+        "rssBytes": 1000288256,
+        "gcMs": 0,
+        "gcCount": 0,
+        "incrementalBytes": 1010624,
+        "checkpointMs": 445.16730000000007,
+        "approximateWriteBytes": 1010624
+      }
+    ]
+  }
+}

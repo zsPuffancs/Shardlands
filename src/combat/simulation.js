@@ -1,7 +1,7 @@
 'use strict';
 const { restoreResource } = require('../shared/generated/resources');
 
-const { nearby } = require('../shared/spatial-index');
+const { nearby, anyNearby } = require('../shared/spatial-index');
 const { CX, CY, rnd, dist, clampWorld, moveToward, inVillage, placeInVillage, mapOf, collideSettlement } = require('../world/game-world');
 const { CLASSES, playerDmg, rank, passive, gearAttackSpeed, playerMoveSpeed } = require('../player/characters');
 const { MOBTYPES, STONE_DMG } = require('./monsters');
@@ -108,7 +108,7 @@ function createSimulation({ players, mobs, loot, rates, respawnMonster, hitMob, 
           continue;
         }
         // sleeping monsters (no player nearby) cost almost nothing
-        if (!monster.target && now > monster.wake) { monster.wake = now + 600; monster.awake = false; for (const player of nearby(players, monster, 1700)) if (Math.abs(player.x - monster.x) < 1700 && Math.abs(player.y - monster.y) < 1700) { monster.awake = true; break; } }
+        if (!monster.target && now > monster.wake) { monster.wake = now + 600; monster.awake = anyNearby(players, monster, 1700, player => Math.abs(player.x - monster.x) < 1700 && Math.abs(player.y - monster.y) < 1700); }
         if (!monster.awake && !monster.target) continue;
         if (monster.cast && now >= monster.cast.at) resolveCast(monster, activePlayers, now);
         let targetPlayer = monster.target ? players.get(monster.target) : null; const leash = template.boss ? 1000 : monster.alpha ? 850 : 700;

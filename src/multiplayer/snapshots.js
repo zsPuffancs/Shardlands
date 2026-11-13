@@ -1,12 +1,37 @@
 'use strict';
 
-const { nearby: queryNearby } = require('../shared/spatial-index');
+const { nearby: queryNearby, SpatialIndex } = require('../shared/spatial-index');
 const { CLASSES, xpNeed, playerDmg } = require('../player/characters');
 const { inVillage, mapOf, worldInfo } = require('../world/game-world');
 const { bossPhase, ENEMY_SCALING } = require('../combat/enemy-scaling');
 
 const SNAPSHOT_RADIUS = 1150;
 const SNAPSHOT_MOB_LIMIT = 420;
+
+// Exact nearest-K selection: bounded max-heap, then the same distance/ID order
+// as a full sort. Each distance is computed once, not on every comparison.
+function nearestMobs(candidates, player, limit) {
+  const distances = new Float64Array(candidates.length), heap = [];
+  const compare = (a, b) => distances[a] - distances[b] || candidates[a].id - candidates[b].id;
+  for (let index = 0; index < candidates.length; index++) {
+    distances[index] = Math.abs(candidates[index].x - player.x) + Math.abs(candidates[index].y - player.y);
+    if (heap.length < limit) {
+      let at = heap.length; heap.push(index);
+      while (at > 0) { const parent = (at - 1) >> 1; if (compare(heap[parent], index) >= 0) break; heap[at] = heap[parent]; at = parent; }
+      heap[at] = index;
+    } else if (compare(index, heap[0]) < 0) {
+      let at = 0;
+      while (at * 2 + 1 < heap.length) {
+        let child = at * 2 + 1;
+        if (child + 1 < heap.length && compare(heap[child + 1], heap[child]) > 0) child++;
+        if (compare(index, heap[child]) >= 0) break;
+        heap[at] = heap[child]; at = child;
+      }
+      heap[at] = index;
+    }
+  }
+  return heap.sort(compare).map(index => candidates[index]);
+}
 
 function indexLivingMobs(mobs) {
   const cells = new Map();
@@ -27,7 +52,8 @@ function snapshotMobs(mobs, player, cells) {
       if (!mob.dead && Math.abs(mob.x - player.x) < SNAPSHOT_RADIUS && Math.abs(mob.y - player.y) < SNAPSHOT_RADIUS) nearby.push(mob);
     }
   };
-  if (mobs.spatial) collect(queryNearby(mobs, player, SNAPSHOT_RADIUS));
+  // This consumer applies its own ID/distance ordering below.
+  if (mobs.spatial) collect(queryNearby(mobs, player, SNAPSHOT_RADIUS, false));
   else if (cells) {
     const cx = Math.floor(player.x / SNAPSHOT_RADIUS), cy = Math.floor(player.y / SNAPSHOT_RADIUS);
     for (let dx = -1; dx <= 1; dx++) {
@@ -39,17 +65,18 @@ function snapshotMobs(mobs, player, cells) {
   } else collect(mobs.values());
 
   if (nearby.length > SNAPSHOT_MOB_LIMIT) {
-    const distance = mob => Math.abs(mob.x - player.x) + Math.abs(mob.y - player.y);
-    nearby.sort((a, b) => distance(a) - distance(b) || a.id - b.id);
-    nearby.length = SNAPSHOT_MOB_LIMIT;
+    return nearestMobs(nearby, player, SNAPSHOT_MOB_LIMIT);
   } else if (cells || mobs.spatial) nearby.sort((a, b) => a.id - b.id);
   return nearby;
 }
 // Wire fields: mo is a full list, md contains changed rows, and mi carries the new ID order.
-function mobSnapshot(connection, nearby, typeIndex, originX = 0, originY = 0) {
-  const rows = nearby.map(mob => [mob.id, typeIndex[mob.ty], Math.round(mob.x - originX), Math.round(mob.y - originY), Math.max(0, Math.round(mob.hp)), mob.mh, mob.lvl, mob.alpha,
+function mobRow(mob, typeIndex, originX, originY) {
+  return [mob.id, typeIndex[mob.ty], Math.round(mob.x - originX), Math.round(mob.y - originY), Math.max(0, Math.round(mob.hp)), mob.mh, mob.lvl, mob.alpha,
     mob.boss ? bossPhase(mob) : 0, mob.cast?.s || '', mob.cast?.startedAt || 0, mob.cast?.at || 0, mob.recoverUntil || 0,
-    mob.worldBoss && mob.fightStart ? mob.fightStart + ENEMY_SCALING.boss.worldBossEnrage.afterMs : 0]);
+    mob.worldBoss && mob.fightStart ? mob.fightStart + ENEMY_SCALING.boss.worldBossEnrage.afterMs : 0];
+}
+function mobSnapshot(connection, nearby, typeIndex, originX = 0, originY = 0, rowFor) {
+  const rows = nearby.map(mob => rowFor ? rowFor(mob) : mobRow(mob, typeIndex, originX, originY));
   if (!connection.mobDeltas) return { mo: rows };
 
   const previous = connection.mobRows;
@@ -216,9 +243,29 @@ function createSnapshotPublisher({ players, mobs, loot, drainEvents, refreshMobT
     const events = drainEvents();
     const { indices } = refreshMobTypes();
     const mobCells = !mobs.spatial && activePlayers.length > 1 ? indexLivingMobs(mobs) : null;
+    // Publication-local immutable wire rows: shared only inside one map/tick.
+    // Connection baselines, ownership filtering and far-player cadence remain private.
+    const mapCaches = new Map(), eventIndex = new SpatialIndex(1300);
+    for (const event of events) eventIndex.update({ x: event.x, y: event.y, event });
+    function cacheFor(map) {
+      let cache = mapCaches.get(map);
+      if (!cache) {
+        cache = { mobs: new Map(), players: new Map(), loot: new Map(), events: new Map(),
+          makeMob: entity => mobRow(entity, indices, map.x0, map.y0), makePlayer: entity => otherPlayerSnapshot(entity, now, map),
+          makeLoot: entity => lootSnapshot(entity, map), makeEvent: entity => localEvent(entity, map) };
+        mapCaches.set(map, cache);
+      }
+      return cache;
+    }
+    function rowFor(cache, entity, make) {
+      let row = cache.get(entity);
+      if (!row) { row = make(entity); cache.set(entity, row); }
+      return row;
+    }
     for (const player of activePlayers) {
       if (!canSend(player.c)) { resetSnapshotBaseline(player.c); continue; }
       const map = mapOf(player);
+      const cache = cacheFor(map), onMap = entity => mapOf(entity) === map;
       // However a player changed map (portal, admin teleport), the client is told before it sees the new positions.
       if (player.c.mapIndex === undefined) player.c.mapIndex = map.index;
       else if (player.c.mapIndex !== map.index) { player.c.mapIndex = map.index; send(player.c, { t: 'map', world: worldInfo(map), arrived: true }); }
@@ -230,21 +277,21 @@ function createSnapshotPublisher({ players, mobs, loot, drainEvents, refreshMobT
         connection.nextFullSnapshot = now + FULL_SNAPSHOT_INTERVAL_MS;
       }
       const isNearby = (entity, radius) => Math.abs(entity.x - player.x) < radius && Math.abs(entity.y - player.y) < radius;
-      const nearbyMonsters = snapshotMobs(mobs, player, mobCells);
-      const nearbyPlayers = (players?.spatial ? queryNearby(players, player, 1500) : activePlayers).filter(other => other !== player && isNearby(other, 1500));
+      const nearbyMonsters = snapshotMobs(mobs, player, mobCells).filter(onMap);
+      const nearbyPlayers = (players?.spatial ? queryNearby(players, player, 1500) : activePlayers).filter(other => other !== player && isNearby(other, 1500) && onMap(other));
       const nearbyLoot = queryNearby(loot, player, 1150).filter(drop => now <= drop.exp && isNearby(drop, 1150) &&
-        (!drop.owner || drop.owner === player.id || now >= drop.free));
+        onMap(drop) && (!drop.owner || drop.owner === player.id || now >= drop.free));
       const own = ownPlayerSnapshot(player, now, map);
-      const playerRows = nearbyPlayers.map(other => otherPlayerSnapshot(other, now, map));
-      const lootRows = nearbyLoot.map(drop => lootSnapshot(drop, map));
+      const playerRows = nearbyPlayers.map(other => rowFor(cache.players, other, cache.makePlayer));
+      const lootRows = nearbyLoot.map(drop => rowFor(cache.loot, drop, cache.makeLoot));
       const result = send(player.c, {
         t: 's', tm: now,
         ...(fullSnapshot && (connection.stateDeltas || connection.listDeltas) ? { sf: 1 } : {}),
         me: connection.stateDeltas ? ownStateDelta(connection, own) : connection.meDeltas ? playerStateDelta(connection, own) : own,
         ...(connection.listDeltas ? entityListDelta(connection, playerRows, 'players', now, own) : { pl: playerRows }),
-        ...mobSnapshot(player.c, nearbyMonsters, indices, map.x0, map.y0),
+        ...mobSnapshot(player.c, nearbyMonsters, indices, map.x0, map.y0, mob => rowFor(cache.mobs, mob, cache.makeMob)),
         ...(connection.listDeltas ? entityListDelta(connection, lootRows, 'loot', now, own) : { lo: lootRows }),
-        ev: events.filter(event => isNearby(event, 1300)).map(event => localEvent(event, map)),
+        ev: eventIndex.query(player, 1300).filter(entry => isNearby(entry, 1300) && onMap(entry)).map(({ event }) => rowFor(cache.events, event, cache.makeEvent)),
       });
       if (result === false) resetSnapshotBaseline(connection);
     }
