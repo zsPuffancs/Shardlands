@@ -18,7 +18,8 @@ const FOUNDING_TIERS = TIERS.length;
 const LOOK_FOR = { volcanic: 3, glacier: 4, voidscar: 5, wildwood: 1, warfields: 2, necropolis: 6 };
 
 function createRegions({ worldView = worldInfo, universe, players, mobs, spawnMob, config = {}, populateZone, refreshMobTypes, send, say, ev }) {
-  const portalDirectory = createPortalDirectory({ maps, regions: universe.state.regions, players, worldTier: () => universe.state.worldTier, mapOf, foundingTiers: FOUNDING_TIERS });
+  const unlockedTier = () => universe.unlockedTier ?? universe.state.worldTier;
+  const portalDirectory = createPortalDirectory({ maps, regions: universe.state.regions, players, worldTier: unlockedTier, mapOf, foundingTiers: FOUNDING_TIERS });
   const version2 = universe.state.generatorVersion === 2;
   const runtime = version2 ? createEncounterRuntime({ players, mobs, spawnMob, ...(config.worldGeneration?.activation || {}) }) : null;
   function registerPlan(tier, zone, map, record) {
@@ -39,9 +40,14 @@ function createRegions({ worldView = worldInfo, universe, players, mobs, spawnMo
   function openRegion(tier) {
     const index = tier - FOUNDING_TIERS, zoneIndex = tier - 1;
     if (index < 1) return null;
+    if (tier > universe.state.worldTier) throw new RangeError('World Tier has not been committed');
     if (!Number.isSafeInteger(index) || index > 65535) throw new RangeError('This coordinate-based runtime supports at most 65535 frontier maps; the region description is preserved.');
     if (maps[index]) return maps[index];
     const region = universe.regionFor(tier), boss = region.worldBoss;
+    // Validate old, not-yet-materialized V2 regions before publishing any map/type.
+    // New unlocks already persisted a validated plan. Existing saved plans are reused.
+    if (runtime && !region.spawnPlan) region.spawnPlan = buildRegionPlan(universe.state, region);
+    if (runtime && (region.spawnPlan.version !== 2 || region.spawnPlan.danger && region.spawnPlan.danger.version !== 1)) throw new Error('Unsupported persisted spawn plan; save preserved');
     const archetype = MOBTYPES[boss.archetype] ? boss.archetype : 'deathlord';
     MOBTYPES[boss.type] = worldBossTemplate(MOBTYPES[archetype], { name: boss.name, archetype, element: region.element });
     SPECIAL[boss.type] = SPECIAL[archetype] || boss.signature || 'charge';
@@ -55,7 +61,7 @@ function createRegions({ worldView = worldInfo, universe, players, mobs, spawnMo
     return map;
   }
   function openUnlockedRegions() {
-    const tiers = version2 ? Object.keys(universe.state.regions).map(Number).filter(tier => tier > FOUNDING_TIERS && tier <= universe.state.worldTier).sort((a, b) => a - b) : Array.from({ length: Math.max(0, universe.state.worldTier - FOUNDING_TIERS) }, (_, i) => i + FOUNDING_TIERS + 1);
+    const tiers = version2 ? Object.keys(universe.state.regions).map(Number).filter(tier => tier > FOUNDING_TIERS && tier <= unlockedTier()).sort((a, b) => a - b) : Array.from({ length: Math.max(0, universe.state.worldTier - FOUNDING_TIERS) }, (_, i) => i + FOUNDING_TIERS + 1);
     for (const tier of tiers) {
       try { openRegion(tier); } catch (error) { console.error('  Could not open World Tier ' + tier + ' (' + error.message + '). The server starts without it.'); }
     }

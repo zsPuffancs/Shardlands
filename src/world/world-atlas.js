@@ -20,12 +20,13 @@ function createAtlas({ universe, directory = path.join(__dirname, '../../dev-atl
   const initial = universe.state;
   const frozen = structuredClone({ seed: initial.seed, generatorVersion: initial.generatorVersion, generationSettings: initial.generationSettings, levelRangeVersion: initial.levelRangeVersion, regions: Object.fromEntries(Object.entries(initial.regions).map(([tier, region]) => [tier, { levels: region.levels }])), snapshot: generationSnapshot(initial) });
   const snapshotId = digest(frozen), cache = new Map();
+  const unlockedTier = () => universe.unlockedTier ?? universe.state.worldTier;
   function inspect({ tier, preview = false, seed = frozen.seed }) {
     if (!Number.isSafeInteger(tier) || tier < 1 || tier > MAX_ATLAS_TIER) throw new RangeError('Tier must be an integer from 1 to ' + MAX_ATLAS_TIER);
     if (typeof seed !== 'string' || !seed.trim() || seed.length > 40 || /[\x00-\x1f]/.test(seed)) throw new RangeError('Seed must contain 1-40 printable characters.');
     seed = seed.trim();
     const saved = universe.state.regions[tier];
-    if (!preview && (!saved || tier > universe.state.worldTier)) throw new RangeError('Region is not persisted and unlocked. Select dry-run preview.');
+    if (!preview && (!saved || tier > unlockedTier())) throw new RangeError('Region is not persisted and unlocked. Select dry-run preview.');
     const context = { ...frozen, seed, regions: seed === frozen.seed ? frozen.regions : {} };
     const record = preview ? createRegionDescriptor(context, tier, frozen.snapshot) : saved;
     const { spawnState, spawnPlan, ...descriptor } = record;
@@ -55,8 +56,8 @@ function createAtlas({ universe, directory = path.join(__dirname, '../../dev-atl
       if (url.pathname === '/dev/atlas/api/regions') {
         const offset = Number(url.searchParams.get('offset') || 0);
         if (!Number.isSafeInteger(offset) || offset < 0) throw new RangeError('Invalid list offset');
-        const regions = Object.values(universe.state.regions).filter(region => region.tier <= universe.state.worldTier).sort((a, b) => a.tier - b.tier);
-        json(200, { regions: regions.slice(offset, offset + 1024).map(region => ({ tier: region.tier, name: region.name, biome: region.biome || 'founding', status: region.spawnPlan ? 'persisted-plan' : 'persisted-region' })), nextOffset: offset + 1024 < regions.length ? offset + 1024 : null, worldTier: universe.state.worldTier, maxTier: MAX_ATLAS_TIER, seed: frozen.seed, snapshotId });
+        const regions = Object.values(universe.state.regions).filter(region => region.tier <= unlockedTier()).sort((a, b) => a.tier - b.tier);
+        json(200, { regions: regions.slice(offset, offset + 1024).map(region => ({ tier: region.tier, name: region.name, biome: region.biome || 'founding', status: region.spawnPlan ? 'persisted-plan' : 'persisted-region' })), nextOffset: offset + 1024 < regions.length ? offset + 1024 : null, worldTier: unlockedTier(), maxTier: MAX_ATLAS_TIER, seed: frozen.seed, snapshotId });
       } else if (['/dev/atlas/api/region', '/dev/atlas/api/report', '/dev/atlas/api/probe'].includes(url.pathname)) {
         const result = inspect({ tier: Number(url.searchParams.get('tier')), preview: url.searchParams.get('mode') === 'preview', seed: url.searchParams.get('seed') || frozen.seed });
         if (url.pathname.endsWith('/probe')) {

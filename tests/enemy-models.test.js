@@ -4,7 +4,8 @@
 // draws finite geometry in every pose.
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm'), crypto = require('node:crypto');
-const ROOT = path.join(__dirname, '..'), read = f => fs.readFileSync(path.join(ROOT, f), 'utf8'), md5 = s => crypto.createHash('md5').update(s).digest('hex');
+// Fixtures fingerprint canonical Git LF text, independent of Windows checkout CRLF.
+const ROOT = path.join(__dirname, '..'), read = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/\r\n/g, '\n'), md5 = s => crypto.createHash('md5').update(s).digest('hex');
 const game = read('public/game.js'), world = read('public/world.js');
 function fnSource(src, name) { // a top-level function declaration, braces balanced
   const at = src.indexOf('\nfunction ' + name + '('); assert.ok(at >= 0, name + ' not found'); let i = src.indexOf('{', at), depth = 0;

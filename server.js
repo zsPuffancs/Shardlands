@@ -121,14 +121,20 @@ const { server, transport } = createWebServer({
 console.log('\n  ' + config.serverName.toUpperCase());
 console.log('  Universe: ' + universe.state.name + ' (seed ' + universe.state.seed + ', World Tier ' + universe.state.worldTier + ')' + (universe.founded ? ' - newly founded' : ''));
 pluginHost.loadPlugins();
+pluginHost.commands.retrytier = { admin: true, help: 'Retry the retained pending World Tier unlock without another boss kill.', fn(player) {
+  void universe.retryPendingUnlock().then(result => say(player, 'World Tier preparation: ' + result.status + (result.tier ? ' (Tier ' + result.tier + ')' : ''))).catch(error => console.error('[retrytier]', error));
+  return 'World Tier preparation requested. Generation diagnostics are available in universe.unlockStatus() on the server.';
+} };
 for (const [name, command] of Object.entries(teams.chatCommands)) if (!pluginHost.commands[name]) pluginHost.commands[name] = { fn: command.fn, admin: false, help: command.help };
 if (universe.state.generatorVersion === 1) populateMonsters(universe.layoutRandom('spawns'));
 else console.log('  Generator v2: encounters activate around players within bounded live budgets.');
 regions.openUnlockedRegions();
+if (universe.state.generatorVersion === 2) void universe.resumePendingUnlock().catch(error => console.error('[tier recovery]', error));
 if (maps.length > 1) console.log('  World Portal open: ' + (maps.length - 1) + ' region(s) beyond the founding lands');
 if (universe.founded) universeStore.save().catch(error => console.error(error));
 // Seed randomizer: back up the current universe, then leave only the seed for the next start to found from.
 async function reseedUniverse(requestedSeed) {
+  universe.suspendUnlocks();
   const backup = 'universe-backup-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
   require('node:fs').writeFileSync(path.join(__dirname, backup), JSON.stringify(universeStore.data));
   const seed = String(requestedSeed || newSeed()).trim().slice(0, 40);
@@ -139,7 +145,7 @@ async function reseedUniverse(requestedSeed) {
   return { seed, backup };
 }
 startServer({
-  beforeShutdown: () => inventory.cancelAllAutoAffix('cancelled'),
+  beforeShutdown: () => { universe.suspendUnlocks(); inventory.cancelAllAutoAffix('cancelled'); },
   server, transport, port, saveAll, reseed: reseedUniverse, tick: simulation.tick, tickIntervalMs: simulation.tickIntervalMs,
   getStatus: simulation.serverStats, monsterCount: () => mobs.size, width: W, height: H, zoneCount: TIERS.length,
 });

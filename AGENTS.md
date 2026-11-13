@@ -102,6 +102,14 @@ worldInfo metadata must use those policies too. These policies require restart.
   existing worlds to apply configuration changes.
 - Reuse seeded purpose-specific RNG streams and production geometry. No Date.now,
   Math.random or iteration-order dependence in deterministic generation changes.
+- New V2 Tier unlocks go through world/tier-transition.js: persist the boss entitlement,
+  prepare/validate in one short-lived region-plan worker, persist a ready plan, then
+  durably commit before portal visibility/announcement. Never advance a new V2 Tier
+  directly from a kill hook or rely on lazy activation to validate mandatory content.
+  pendingUnlock freezes history/settings/inputs; /retrytier is admin-only and extends
+  a bounded attempt budget without re-killing or replaying rewards. Attempt 0 retains
+  the original streams; positive generationAttempt values domain-separate retries.
+  Preserve saved plans/spawnState. Do not delete failed entitlements to force progress.
 - World Tier, player level and item level are different axes; do not substitute one.
 - Do not expose universe seeds, hidden encounters or Atlas diagnostics publicly.
 - Tests/startup probes must use temporary isolated saves, never real player stores.
