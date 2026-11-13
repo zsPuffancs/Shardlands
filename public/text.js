@@ -107,6 +107,8 @@ const GameText = (() => {
 
 const text = GameText.format;
 const mobName = (id, fallback) => text('monster.' + id, fallback);
+// A monster's shown name: a World Boss (it carries a look code, m.wl) shows its World Boss name.
+const shownMobName = (m, t) => (m && m.wl && t && t.wn ? t.wn : mobName(m.ty, t.n));
 const itemName = (id, fallback) => text('item.' + id + '.name', fallback);
 const itemDescription = (id, fallback) => text('item.' + id + '.description', fallback || '');
 const className = (id, fallback) => text('class.' + id + '.name', fallback);

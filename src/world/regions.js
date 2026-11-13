@@ -17,7 +17,7 @@ const FOUNDING_TIERS = TIERS.length;
 // Which founding zone a biome borrows its scenery from on the client.
 const LOOK_FOR = { volcanic: 3, glacier: 4, voidscar: 5, wildwood: 1, warfields: 2, necropolis: 6 };
 
-function createRegions({ worldView = worldInfo, universe, players, mobs, spawnMob, config = {}, populateZone, refreshMobTypes, send, say, ev }) {
+function createRegions({ worldView = worldInfo, universe, players, mobs, spawnMob, config = {}, populateZone, refreshMobTypes, send, say, ev, worldBossLooks }) {
   const unlockedTier = () => universe.unlockedTier ?? universe.state.worldTier;
   const portalDirectory = createPortalDirectory({ maps, regions: universe.state.regions, players, worldTier: unlockedTier, mapOf, foundingTiers: FOUNDING_TIERS });
   const version2 = universe.state.generatorVersion === 2;
@@ -50,6 +50,8 @@ function createRegions({ worldView = worldInfo, universe, players, mobs, spawnMo
     if (runtime && (region.spawnPlan.version !== 2 || region.spawnPlan.danger && region.spawnPlan.danger.version !== 1)) throw new Error('Unsupported persisted spawn plan; save preserved');
     const archetype = MOBTYPES[boss.archetype] ? boss.archetype : 'deathlord';
     MOBTYPES[boss.type] = worldBossTemplate(MOBTYPES[archetype], { name: boss.name, archetype, element: region.element });
+    delete MOBTYPES[boss.type].worldBossLook; // not the founding archetype's look
+    if (worldBossLooks) worldBossLooks.apply(MOBTYPES[boss.type], tier); // visual only
     SPECIAL[boss.type] = SPECIAL[archetype] || boss.signature || 'charge';
     const map = addMap(index, { tier: zoneIndex, regionTier: tier, look: LOOK_FOR[region.biome] === undefined ? 6 : LOOK_FOR[region.biome] });
     setSettlement(map, universe.settlement(tier));

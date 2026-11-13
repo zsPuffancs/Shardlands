@@ -1,6 +1,7 @@
 'use strict';
 const { MONSTER_POLICY } = require('../balance/base');
 const { spawnCategory, markWorldBossTemplate, WORLD_BOSS_SIZE } = require('../shared/generated/entities');
+const { monsterLook } = require('../world/world-boss-looks');
 const { resetStoneRewards } = require('../economy/stone-rewards');
 const { MAX_PLAYER_LEVEL, encounterBaseXp, encounterCategory } = require('../progression/xp-economy');
 const { monsterGoldScaling } = require('../economy/gold-rewards');
@@ -145,7 +146,7 @@ function createMonsterSpawner({ mobs, rates, world, allocateId, rnd, rint, pick,
     else { x = Math.max(20, Math.min(width - 20, x)); y = Math.max(20, Math.min(height - 20, y)); }
     const monster = {
       id: allocateId(), ty: type, x, y, hx: x, hy: y, sx: x, sy: y, tier, lvl: spawnLevel,
-      hb: scaled.hp, dmg: template.stone ? 0 : scaled.dmg, cat: category, worldBoss: Boolean(template.worldBoss),
+      hb: scaled.hp, dmg: template.stone ? 0 : scaled.dmg, cat: category, worldBoss: Boolean(template.worldBoss), look: monsterLook(template, tier),
       xp: encounterBaseXp(spawnLevel, encounterCategory({ alpha: isAlpha }, template)), ...goldScaling, gb: template.gold,
       r: Math.round(template.r * (isAlpha ? 1.3 : 1)), alpha: isAlpha ? 1 : 0,
       boss: Boolean(template.boss), cd: 0, target: 0, dead: 0, stoneStep: 5, slamT: 0,

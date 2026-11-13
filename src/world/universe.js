@@ -1,5 +1,6 @@
 'use strict';
 const { worldBossIdentity, worldBossId, canAdvanceWorldTier } = require('../shared/generated/entities');
+const { monsterDisplayName } = require('./world-boss-looks');
 // A server is one persistent universe: a world seed, a progression tier and a permanent
 // chronicle of verified events. Everything derived from the seed is deterministic, so the
 // same seed + tier + history snapshot + generator version always gives the same region.
@@ -281,20 +282,21 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin, constr
       if (template.stone) { state.stats.stones++; recordOnce('stone:' + monster.tier, 'stoneFirst', party, { region: zone.name }); return; }
       state.stats.bossKills[monster.ty] = (state.stats.bossKills[monster.ty] || 0) + 1;
       const element = BOSS_ELEMENT[monster.ty] || template.element; if (element) state.stats.elements[element] = (state.stats.elements[element] || 0) + 1;
-      recordOnce('boss:' + monster.ty, 'bossFirstKill', party, { boss: template.name, bossType: monster.ty, region: zone.name, level: monster.lvl });
+      const bossName = monsterDisplayName(template, monster); // a World Boss shows its World Boss name (visual)
+      recordOnce('boss:' + monster.ty, 'bossFirstKill', party, { boss: bossName, bossType: monster.ty, region: zone.name, level: monster.lvl });
       // World progression: only the current tier's World Boss, in its own region, advances the universe.
       // The check and the tier change happen in one synchronous step, so a tier can never unlock twice.
       const currentTier = transitions.visibleTier(), frontier = regionFor(currentTier);
       if (canAdvanceWorldTier(currentTier, frontier, monster)) {
         if (state.generatorVersion === 2) {
-          transitions.stage({ players: party, boss: template.name, bossType: monster.ty, snapshot: historySnapshot() });
+          transitions.stage({ players: party, boss: bossName, bossType: monster.ty, snapshot: historySnapshot() });
           return;
         }
         const beaten = state.worldTier; state.worldTier = beaten + 1;
         const next = regionFor(state.worldTier);
         // Tiers beyond the founding lands get their map built before the victory is announced.
         if (universe.onTierUnlocked) try { universe.onTierUnlocked(state.worldTier); } catch (error) { console.error('[universe] could not open World Tier ' + state.worldTier + ':', error); }
-        recordOnce('tier:' + beaten, 'worldBoss', party, { boss: template.name, bossType: monster.ty, beatenTier: beaten, tier: state.worldTier, region: next.name });
+        recordOnce('tier:' + beaten, 'worldBoss', party, { boss: bossName, bossType: monster.ty, beatenTier: beaten, tier: state.worldTier, region: next.name });
       }
     },
   };
