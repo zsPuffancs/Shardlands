@@ -269,7 +269,7 @@
       ] },
       outcrops: { cell: 480, chance: .3, count: [2, 5], r: [14, 40], models: seq('Rock', 7), size: [16, 44], tint: [.2, .15, .26] },
       growths: [                                                       // drawn by world.js from engine primitives
-        { prim: 'crystals', cell: 380, scale: 800, above: .6, chance: .7, elsewhere: .1, count: [2, 5], r: 70, size: [22, 40], salt: 300 },  // crystal fields
+        { prim: 'crystals', cell: 380, scale: 800, above: .62, chance: .5, elsewhere: .06, count: [2, 4], r: 70, size: [22, 40], salt: 300 },  // crystal fields
         { prim: 'growth', cell: 300, scale: 620, above: .55, chance: .5, elsewhere: .12, count: [1, 3], r: 55, size: [30, 48], salt: 340, minLife: .5 }, // alien stalks
         { prim: 'veins', cell: 360, scale: 700, above: .55, chance: .45, elsewhere: .15, count: [1, 2], r: 60, size: [22, 34], salt: 380, minLife: .3 },  // corrupted roots
       ],

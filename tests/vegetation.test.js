@@ -415,10 +415,10 @@ test('Voidreach: barren void ground between clusters; crystal fields gathered, n
     let n = 0, bare = 0; for (let x = 25; x < run.W; x += 50) for (let z = 25; z < run.H; z += 50) { if (run.zoneOf(x, z) !== VOID || run.onRoad(x, z, 46)) continue; n++; if (!near(x, z)) bare++; }
     assert.ok(bare / n >= 0.35 && bare / n <= 0.75, label + ': ' + Math.round(bare / n * 100) + '% barren void ground');
     const cr = items.filter(i => i.prim === 'crystals'), gr = items.filter(i => i.prim === 'growth'), ve = items.filter(i => i.prim === 'veins');
-    assert.ok(cr.length >= 60 && gr.length >= 20 && ve.length >= 10, label + ': ' + cr.length + ' crystals, ' + gr.length + ' growths, ' + ve.length + ' roots');
+    assert.ok(cr.length >= 40 && cr.length <= 130 && gr.length >= 20 && ve.length >= 10, label + ': ' + cr.length + ' crystals, ' + gr.length + ' growths, ' + ve.length + ' roots');
     assert.ok(cr.filter(c => cr.some(o => o !== c && Math.hypot(o.x - c.x, o.z - c.z) < 120)).length >= cr.length * 0.9, label + ' crystals in fields');
     const cells = new Set(cr.map(c => Math.floor(c.x / 200) + ',' + Math.floor(c.z / 200))); let m = 0; for (let x = 100; x < run.W; x += 200) for (let z = 100; z < run.H; z += 200) if (run.zoneOf(x, z) === VOID) m++;
-    assert.ok(cells.size / m >= 0.04 && cells.size / m <= 0.25, label + ': crystals in ' + Math.round(cells.size / m * 100) + '% of the ground');
+    assert.ok(cells.size / m >= 0.03 && cells.size / m <= 0.15, label + ': crystals in ' + Math.round(cells.size / m * 100) + '% of the ground');
     for (const r of [...cr, ...gr, ...ve]) assert.ok(run.zoneOf(r.x, r.z) === VOID && !run.onRoad(r.x, r.z, 44) && Math.hypot(r.x - run.CX, r.z - run.CY) >= run.V + 60 && r.v >= 0 && r.v < 1, label + ' growths on free ground');
     const other = run.placed.filter(p => p.cat > 0 && inVoid(run)(p));
     assert.ok(other.some(p => /^Cactus/.test(p.name)) && other.some(p => /^Bush/.test(p.name)) && other.some(p => /^Plant/.test(p.name)) && other.some(p => /^Rock/.test(p.name)), label + ' variety');

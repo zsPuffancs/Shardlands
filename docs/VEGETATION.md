@@ -115,12 +115,13 @@ rocks and grit. Three small code-built **growths** (`growths` in the recipe: clu
 items with `prim`, baked by world.js `bakeRemains` into the static chunk geometry, opaque, glow only on a few faces):
 
 - `crystals`: void crystal clusters (3 to 6 leaning octahedral shards, faint glow, on a dark stone), gathered in
-  crystal fields covering 7 to 15% of the ground.
+  small crystal fields covering 4 to 11% of the ground.
 - `growth`: alien stalks (3 to 5 tapering stalks, each ending in a bulb; a little over half the clusters glow), only
   on living ground.
 - `veins`: corrupted roots breaking out of the ground, one or two of them faintly lit.
 
-The zone specials (tall void crystals) are untouched.
+The zone specials' tall void crystals were thinned (36% of the candidate spots instead of 60%), keeping the same
+random draws so nothing else in the world moves.
 
 ## Frostfang Peaks
 
