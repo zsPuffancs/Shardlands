@@ -116,9 +116,14 @@ snapshots in an existing universe override newly configured generation defaults;
 existing settlement prices/donations stay pinned, while new projects use resolved
 settlement configuration. The Registry does not rewrite saves.
 
-Root stores: saves.json, plugin-data.json, universe.json; save-journal.json is
-coordinated recovery state. persistence.js handles queued writes and recovery;
-this is not a claim of power-loss durability/fsync. config.json, rates.json and
+Root stores: saves.json, plugin-data.json, universe.json; save-log.jsonl and
+save-journal.json are coordinated recovery state. persistence.js captures changed
+character records and serializes plugin/universe state; persistence-worker.js
+appends/fsyncs coordinated transactions and compacts legacy JSON off the main thread.
+Recovery replays v1 journals and checksummed incremental transactions before opening
+stores. POSIX directory fsync is used; Windows flushes file handles but does not
+support Node directory fsync. See PERFORMANCE-PERSISTENCE.md for guarantees and limits.
+config.json, rates.json and
 tunnel.json are local operational inputs. Do not print their secrets or load real
 stores for repository analysis. Paths stay anchored at root after relocation.
 

@@ -46,7 +46,12 @@ callbacks and plugin hooks require manual inspection. Reported cycles can be laz
 - Combat -> participation/reward policy -> loot/teams -> bounded currency credit.
   Preserve authoritative ownership, party sharing and once-only payouts.
 - Persistence coordinates saves.json, plugin-data.json and universe.json through
-  a redo journal recovered before store opening. Never bypass claim durability.
+  an fsynced incremental save-log.jsonl and v1 checkpoint redo journal, recovered
+  before store opening. Never bypass claim durability. See docs/PERFORMANCE-PERSISTENCE.md.
+  savePlayer replaces tracked character records; nested mutations to inactive saved
+  records must explicitly replace/mark the record. Plugin/universe snapshots remain full.
+  Full compaction runs in persistence-worker.js. Back up all stores AND recovery files.
+  A failed tick exits to last-durable-state recovery; never save partial failed ticks.
 
 ## Balance Registry and Rulesets: implementation status
 

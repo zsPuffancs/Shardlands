@@ -29,7 +29,7 @@ const { config, rates, balance } = loadServerConfig(__dirname);
 const worldView = map => worldInfo(map, { monsterPolicy: balance.values.monsters, combatPolicy: balance.values.combat });
 const port = process.env.PORT || config.port || 3000;
 recoverSaveGroup(__dirname, ['saves.json', 'plugin-data.json', 'universe.json']);
-const saveStore = openJsonStore(path.join(__dirname, 'saves.json'));
+const saveStore = openJsonStore(path.join(__dirname, 'saves.json'), { tracked: true });
 const pluginStore = openJsonStore(path.join(__dirname, 'plugin-data.json'));
 const universeStore = openJsonStore(path.join(__dirname, 'universe.json'));
 const players = new IndexedEntities(), mobs = new IndexedEntities(), loot = new IndexedEntities();
@@ -75,7 +75,8 @@ const { spawnMob, populateMonsters, populateZone, respawnMonster } = createMonst
 });
 const regions = createRegions({ worldView, ...notifications, universe, players, mobs, spawnMob, config, populateZone, refreshMobTypes });
 const saveAll = () => { regions.checkpoint(); return saveGameState(); };
-coordinateSaves({ directory: __dirname, stores: { 'saves.json': saveStore, 'plugin-data.json': pluginStore, 'universe.json': universeStore }, beforeSave: () => { regions.checkpoint(); for (const player of players.values()) savePlayer(player); } });
+const coordinatedSave = coordinateSaves({ background: true, directory: __dirname, stores: { 'saves.json': saveStore, 'plugin-data.json': pluginStore, 'universe.json': universeStore }, beforeSave: () => { regions.checkpoint(); for (const player of players.values()) savePlayer(player); } });
+saveAll.checkpoint = coordinatedSave.checkpoint;
 universe.onTierUnlocked = regions.unlock;
 const equipment = createEquipment({ rates });
 const inventory = createInventory({ forgePolicy: balance.values.forging, ...notifications, genGear: equipment.genGear, rerollGear: equipment.rerollGear, applyAffix: equipment.applyAffix, isItemReserved: (player, uid) => teams.isItemReserved(player, uid), persistPlayer: savePlayer, isPlayerOnline: player => players.get(player.id) === player && player.c.p === player && !player.c.closed });
