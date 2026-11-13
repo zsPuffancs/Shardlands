@@ -12,7 +12,7 @@ Two placement systems exist side by side:
   `Vegetation.LOOKS`: look 1, **Gloomwood** (the founding ring and the wildwood regions; playtested and approved, its
   output is frozen by `tests/fixtures/vegetation-approved.json`), look 0, **Meadows** (the founding ring round the
   village; approved and frozen too), and look 4, **Frostfang Peaks** (the founding ring and the glacier regions; approved and frozen), and look 2,
-  **Ashen Barrens** (the founding ring and the warfields regions).
+  **Ashen Barrens** (the founding ring and the warfields regions; approved and frozen).
 
 For a planned look, the uniform passes still draw their random numbers and place nothing, so every other look, the
 farmland and everything baked after the vegetation (zone specials, lava and ice pools) stays exactly as it was.

@@ -14,7 +14,7 @@ const founding = bake({ kind: 'founding' }), region = bake({ kind: 'region', loo
 
 test('only the planned biomes change: approved ones are frozen, every other biome, the farmland and the random stream are identical', () => {
   const now = fingerprint(), base = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/vegetation-baseline.json'), 'utf8'));
-  const approved = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/vegetation-approved.json'), 'utf8')); // playtested looks (Meadows, Gloomwood, Frostfang)
+  const approved = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/vegetation-approved.json'), 'utf8')); // playtested looks (Meadows, Gloomwood, Ashen Barrens, Frostfang)
   const planned = new Set(Vegetation.LOOKS.map(String));
   for (const [k, v] of Object.entries(base)) {
     const look = k.split(':')[1];
