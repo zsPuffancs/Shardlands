@@ -7,12 +7,13 @@ chunk culling and the same draw radii and shadow rules per graphics quality as b
 Two placement systems exist side by side:
 
 - **Uniform scatter** (the original): random points over the map, a model picked by the zone's table (`ZDEC`).
-  Still used by every biome look except Gloomwood.
+  Still used by the looks without a recipe (Ember Wastes and Voidreach).
 - **Distribution recipes** (`public/vegetation.js`): groves, open woodland and clearings. Used by the looks listed in
   `Vegetation.LOOKS`: look 1, **Gloomwood** (the founding ring and the wildwood regions; playtested and approved, its
   output is frozen by `tests/fixtures/vegetation-approved.json`), look 0, **Meadows** (the founding ring round the
   village; approved and frozen too), and look 4, **Frostfang Peaks** (the founding ring and the glacier regions; approved and frozen), and look 2,
-  **Ashen Barrens** (the founding ring and the warfields regions; approved and frozen).
+  **Ashen Barrens** (the founding ring and the warfields regions; approved and frozen), and look 6, **Deadlands** (the
+  Death Zone ring and the necropolis regions; awaiting playtest).
 
 For a planned look, the uniform passes still draw their random numbers and place nothing, so every other look, the
 farmland and everything baked after the vegetation (zone specials, lava and ice pools) stays exactly as it was.
@@ -59,6 +60,29 @@ rocks (up to 112) with 2 to 12 smaller stones spread to one side; four rock tint
 small rocks round the trees; fallen trunks, stumps, dry bushes and dry plants scattered; sparse patches of dry grass,
 pebbles and dry plants, with a bare-ground field cutting them back. The farmland is untouched.
 
+## Deadlands
+
+Corrupted land where almost everything has died (look 6: the Death Zone ring and the necropolis regions). Only dead,
+leafless trees with near-black, blood-tinted bark: twisted q1_DeadTree (most of them), dead willows, common trees and
+birches, and stunted dead trees at the edges of the woodland. About 22 to 33 per km2 (budget 33; before: 74 to 80),
+in dead woodland where the density field is high, as lone trees in the sparse band, and in knots of 3 to 6 twisted trees
+(copses, standing close); below the 'open' band nothing grows. A **lifeless** noise field cuts barren patches out of
+everything (trees, scrub, logs, grass) and fades life back in over their edges, so barren ground turns gradually into
+dead woodland: 37 to 52% of the ground has nothing at all within 90 units. On top of that:
+
+- **Fallen timber**: on a 340-unit grid, mostly where a 'debris' noise field is high, heaps of 2 to 4 fallen trunks
+  lying roughly one way (windthrow), 3 to 7 broken branches (short WoodLogs) and a stump or two; none in the barrens.
+- **Remains**: on a 400-unit grid, mostly where a 'remains' field is high, 1 to 3 bone piles (a skull with scattered long
+  bones, sometimes ribs) and dead roots (a dead stump with roots sprawling from it). The nature pack has no bones or
+  roots, so these are plan items with `prim` that world.js (`bakeRemains`) bakes from the engine's primitives into the
+  static chunk geometry, like the zone specials (the existing spikes and skull piles of the Death Zone are untouched).
+  Bones also lie in the barren patches.
+- Dead thorny scrub, dried plants, stumps and dark stones round the trees; scattered fallen trunks, broken branches,
+  stumps and dead bushes; small dark rock outcrops; sparse patches of dead grass, grit and dried plants with a
+  bare-ground field between them.
+
+Nothing on roads; no trees within 240 units of the village safe zone, no pieces within 60.
+
 ## Frostfang Peaks
 
 Snow-laden pine woodland in pockets and stands: the Gloomwood structure (density field, clearings, canopy spacing, a
@@ -83,4 +107,6 @@ crystals, ice pools) are untouched.
 
 Add a recipe to `Vegetation.RECIPES` under the look index (0 Meadows, 1 Gloomwood, 2 Ashen Barrens / warfields,
 3 Ember, 4 Frostfang / glacier, 5 Voidreach, 6 Death Zone / necropolis), then refresh the fingerprints of the looks
-that stay untouched.
+that stay untouched. Optional recipe parts (`clearings`, `copses`, `formations`, `lifeless`, `debris`, `remains`,
+`grass.flowers`, `grass.bare`, `outcrops.tint`) only act when a recipe defines them, so adding one never changes the
+other looks; the fingerprint test proves it.

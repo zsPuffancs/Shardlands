@@ -15,6 +15,7 @@
 //  5. Candidates are accepted by priority with canopy-aware spacing (a sapling may stand closer than two old pines)
 //     until the biome's tree budget per km2 is reached: the budget, not the clustering, sets the total.
 //  6. Understory round the trees, logs and stumps in open woodland, rock outcrops at clearings, grass in patches.
+//  7. Optional per recipe: rock formations, barren (lifeless) patches, fallen-timber heaps, bones and dead roots.
 (function (root, factory) {
   const api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api; else root.Vegetation = api;
@@ -192,19 +193,67 @@
       ],
       bare: { scale: 820, below: .5, factor: .15 } },
     },
+    6: { // Deadlands / Death Zone / necropolis: corrupted land where almost everything has died. Lifeless barrens, sparse
+         // dead woodland and knots of twisted trees, fallen trunks and broken branches, bones and exposed dead roots
+      name: 'Deadlands',
+      budget: 33,
+      trees: [
+        { models: seq('q1_DeadTree', 10), w: 4, size: [95, 145], tint: [.3, .17, .16] },     // twisted, leafless
+        { models: seq('Willow_Dead', 5), w: 1.5, size: [105, 150], tint: [.27, .15, .15] },
+        { models: seq('CommonTree_Dead', 5), w: 1.2, size: [100, 150], tint: [.3, .2, .18] },
+        { models: seq('q1_DeadBirch', 10), w: 1.1, size: [90, 135], tint: [.36, .24, .22] },
+        { models: seq('BirchTree_Dead', 5), w: .5, size: [100, 140], tint: [.33, .22, .2] },
+        { models: seq('q1_DeadTree', 10), w: .9, size: [60, 85], tint: [.26, .15, .14], young: true }, // stunted, at the edges
+      ],
+      spacing: { trunk: 30, canopy: .9, group: .55 },  // bare crowns: knots of trees may stand close together
+      field: { scale: 800, fine: 260, grove: .6, open: .45 }, // dead woodland, sparse lone trees, and nothing below 'open'
+      chance: { grove: 1, open: .4, thin: 0 },
+      cell: 64,
+      clearings: null,
+      copses: { cell: 460, chance: .5, count: [3, 6], r: [32, 85] },   // small knots of twisted trees
+      roads: { clearance: 56, edge: 200, edgeChance: .3 },
+      village: 240,
+      lifeless: { scale: 620, below: .34, fade: .14 },                 // barren patches; life fades in at their edges
+      understory: { chance: { grove: .45, open: .45, thin: .3 }, count: [1, 2], ring: [.5, 1.3], items: [
+        { models: ['Bush_1', 'Bush_2'], w: 2.4, size: [16, 28], tint: [.3, .2, .16] },          // dead, thorny scrub
+        { models: ['TreeStump'], w: 1.2, size: [12, 17], tint: [.36, .25, .22] },
+        { models: seq('Plant', 5), w: 1, size: [10, 16], tint: [.42, .3, .24] },               // dried plants
+        { models: seq('Rock', 7), w: 1, size: [10, 22], bySize: true, tint: [.34, .22, .21] },
+      ] },
+      groundProps: { cell: 240, chance: .28, groveSkip: .4, items: [
+        { models: ['WoodLog'], w: 1.6, size: [40, 60], bySize: true, tint: [.4, .28, .24] },   // fallen trunks
+        { models: ['WoodLog'], w: 1.4, size: [14, 24], bySize: true, tint: [.36, .25, .22] },  // broken branches
+        { models: ['TreeStump'], w: 1.2, size: [12, 18], tint: [.36, .25, .22] },
+        { models: ['Bush_1', 'Bush_2'], w: 1, size: [14, 24], tint: [.3, .2, .16] },
+      ] },
+      outcrops: { cell: 520, chance: .35, count: [2, 5], r: [14, 40], models: seq('Rock', 7), size: [16, 46], tint: [.35, .22, .22] },
+      debris: { cell: 340, scale: 700, above: .56, chance: .62, elsewhere: .14, r: 75,  // fallen trunks and broken branches
+        logs: [2, 4], branches: [3, 7], stumps: [0, 2], log: [40, 64], branch: [13, 24], tint: [.4, .28, .24] },
+      remains: { cell: 400, scale: 900, above: .58, chance: .55, elsewhere: .12, r: 60,  // bones and dead roots
+        bones: [1, 3], roots: [0, 2], boneSize: [24, 36], rootSize: [24, 36] },
+      grass: { cell: 150, chance: { clearing: .2, thin: .16, open: .24, grove: .3 }, count: [3, 8], r: [18, 46], items: [
+        { models: ['Grass_Short'], w: 3, size: [8, 12], tint: [.55, .42, .3] },                // dead grass
+        { models: seq('Rock', 7), w: 2.4, size: [5, 10], bySize: true, tint: [.3, .22, .2] },  // grit
+        { models: seq('Plant', 5), w: .8, size: [9, 14], tint: [.42, .3, .24] },
+      ],
+      bare: { scale: 700, below: .5, factor: .2 } },
+    },
   };
   const LOOKS = Object.keys(RECIPES).map(Number);
 
   const pick = (list, r) => { let t = 0; for (const e of list) t += e.w; let k = r * t; for (const e of list) { k -= e.w; if (k <= 0) return e; } return list[list.length - 1]; };
 
   // opts: { look, seed, W, H, CX, CY, V, zoneOf(x, z) -> look, onRoad(x, z, halfWidth) -> bool, dims(name) -> { h, w } }
-  // Returns { items: [{ name, x, z, size, yaw, tint, cat, bySize }], stats }.
+  // Returns { items: [{ name, x, z, size, yaw, tint, cat, bySize } or { prim, x, z, size, yaw, v, cat }], stats }; prim items
+  // (bones, roots) are drawn by world.js from engine primitives.
   function plan(opts) {
     const R = RECIPES[opts.look]; if (!R) return { items: [], stats: null };
     const { W, H, CX, CY, V, zoneOf, onRoad, dims } = opts, seed = (opts.seed >>> 0) ^ (opts.look * 0x2545F491);
     const inLook = (x, z) => x > 0 && z > 0 && x < W && z < H && zoneOf(x, z) === opts.look;
     const items = [], F = R.field, nearVillage = (x, z, r) => Math.hypot(x - CX, z - CY) < V + r;
     const field = (x, z) => .72 * noise(seed, x, z, F.scale, 1) + .28 * noise(seed, x, z, F.fine, 2);
+    // lifeless ground (optional): 0 in barren patches, rising to 1 across their edges, so life fades in gradually
+    const LF = R.lifeless, life = (x, z) => { const n = noise(seed, x, z, LF.scale, 8); return n <= LF.below ? 0 : n >= LF.below + LF.fade ? 1 : (n - LF.below) / LF.fade; };
 
     // deliberate clearings, one candidate per large cell
     const clearings = [], C = R.clearings || { cell: 1000, chance: 0, r: [0, 0] }; // a recipe without clearings (open meadows)
@@ -224,7 +273,7 @@
       const x = (gx + hash(seed, gx, gz, 21)) * R.cell, z = (gz + hash(seed, gx, gz, 22)) * R.cell;
       if (!inLook(x, z)) continue; cells++;
       const b = band(x, z); if (b === 'clearing') continue;
-      let p = R.chance[b]; if (onRoad(x, z, R.roads.edge)) p *= R.roads.edgeChance;
+      let p = R.chance[b]; if (onRoad(x, z, R.roads.edge)) p *= R.roads.edgeChance; if (LF) p *= life(x, z);
       if (hash(seed, gx, gz, 23) > p || nearVillage(x, z, R.village)) continue;
       const kind = pick(R.trees.filter(t => !t.young || b !== 'thin'), hash(seed, gx, gz, 24)), name = kind.models[Math.floor(hash(seed, gx, gz, 25) * kind.models.length)];
       const d = dims(name); if (!d) continue;
@@ -236,7 +285,7 @@
     const K = R.copses;
     if (K) for (let gx = 0; gx * K.cell < W; gx++) for (let gz = 0; gz * K.cell < H; gz++) {
       const h = s => hash(seed, gx, gz, 140 + s), cx = (gx + .1 + .8 * h(1)) * K.cell, cz = (gz + .1 + .8 * h(2)) * K.cell;
-      if (h(0) > K.chance || !inLook(cx, cz) || nearVillage(cx, cz, R.village) || field(cx, cz) < F.open) continue;
+      if (h(0) > K.chance || !inLook(cx, cz) || nearVillage(cx, cz, R.village) || field(cx, cz) < F.open || (LF && life(cx, cz) < .5)) continue;
       const n = K.count[0] + Math.floor(h(3) * (K.count[1] - K.count[0] + 1)), kind = pick(R.trees.filter(t => !t.young), h(4)), group = gx * 4096 + gz + 1;
       for (let k = 0; k < n; k++) {
         const hk = s => hash(seed, gx * 16 + k, gz, 160 + s), a = hk(1) * 6.2832, d = k ? K.r[0] + hk(2) * (K.r[1] - K.r[0]) : 0, x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d;
@@ -268,6 +317,7 @@
     for (let gx = 0; gx * GP.cell < W; gx++) for (let gz = 0; gz * GP.cell < H; gz++) {
       const h = s => hash(seed, gx, gz, 60 + s), x = (gx + h(5)) * GP.cell, z = (gz + h(6)) * GP.cell;
       if (h(0) > GP.chance || !freeGround(x, z, 44)) continue; const b = band(x, z); if (b === 'grove' && h(7) < (GP.groveSkip === undefined ? .6 : GP.groveSkip)) continue;
+      if (LF && h(8) > life(x, z)) continue;
       piece(GP.items, x, z, h, 1);
     }
     // rock outcrops at the edges of clearings and in thin woodland
@@ -277,7 +327,40 @@
       if (h(0) > O.chance || !freeGround(x, z, 60) || band(x, z) === 'grove') continue;
       const n = O.count[0] + Math.floor(h(3) * (O.count[1] - O.count[0] + 1));
       for (let k = 0; k < n; k++) { const hk = s => hash(seed, gx * 64 + k, gz, 90 + s), a = hk(1) * 6.2832, d = O.r[0] + hk(2) * (O.r[1] - O.r[0]) * (k ? 1 : 0), px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d;
-        if (freeGround(px, pz, 44)) items.push({ name: O.models[Math.floor(hk(3) * O.models.length)], x: px, z: pz, size: (O.size[0] + hk(4) * (O.size[1] - O.size[0])) * (k ? .7 : 1.15), yaw: hk(5) * 6.2832, tint: null, cat: 1, bySize: true }); }
+        if (freeGround(px, pz, 44)) items.push({ name: O.models[Math.floor(hk(3) * O.models.length)], x: px, z: pz, size: (O.size[0] + hk(4) * (O.size[1] - O.size[0])) * (k ? .7 : 1.15), yaw: hk(5) * 6.2832, tint: O.tint || null, cat: 1, bySize: true }); }
+    }
+    // fallen trunks and broken branches (optional): windthrown heaps, the trunks lying roughly one way, where a 'debris'
+    // noise field is high; none in the barren patches
+    const DB = R.debris;
+    if (DB) for (let gx = 0; gx * DB.cell < W; gx++) for (let gz = 0; gz * DB.cell < H; gz++) {
+      const h = s => hash(seed, gx, gz, 220 + s), x = (gx + .1 + .8 * h(1)) * DB.cell, z = (gz + .1 + .8 * h(2)) * DB.cell;
+      const strong = noise(seed, x, z, DB.scale, 9) > DB.above;
+      if (h(0) > DB.chance * (strong ? 1 : DB.elsewhere) || !freeGround(x, z, 60) || (LF && life(x, z) < .3)) continue;
+      const span = (r, s) => r[0] + Math.floor(h(s) * (r[1] - r[0] + 1)), nLog = span(DB.logs, 3), nBranch = span(DB.branches, 4), nStump = span(DB.stumps, 5), fall = h(6) * 6.2832;
+      for (let k = 0; k < nLog + nBranch + nStump; k++) {
+        const hk = s => hash(seed, gx * 64 + k, gz, 240 + s), log = k < nLog, stump = k >= nLog + nBranch;
+        const a = hk(1) * 6.2832, d = Math.sqrt(hk(2)) * DB.r * (log ? .7 : 1), px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d;
+        if (!freeGround(px, pz, 44)) continue;
+        const sz = log ? DB.log : stump ? [12, 18] : DB.branch, size = sz[0] + hk(3) * (sz[1] - sz[0]);
+        items.push({ name: stump ? 'TreeStump' : 'WoodLog', x: px, z: pz, size, yaw: log ? fall + (hk(4) - .5) * .9 : hk(4) * 6.2832, tint: DB.tint, cat: 1, bySize: !stump });
+      }
+    }
+    // remains (optional): bone piles and exposed dead roots (a dead stump with roots sprawling round it), gathered where a
+    // 'remains' noise field is high, a few elsewhere; bones also lie in the barren patches. Drawn by world.js from
+    // primitives (items with 'prim'), like the zone specials.
+    const RM = R.remains;
+    if (RM) for (let gx = 0; gx * RM.cell < W; gx++) for (let gz = 0; gz * RM.cell < H; gz++) {
+      const h = s => hash(seed, gx, gz, 260 + s), x = (gx + .1 + .8 * h(1)) * RM.cell, z = (gz + .1 + .8 * h(2)) * RM.cell;
+      const strong = noise(seed, x, z, RM.scale, 10) > RM.above;
+      if (h(0) > RM.chance * (strong ? 1 : RM.elsewhere) || !freeGround(x, z, 60)) continue;
+      const nBones = RM.bones[0] + Math.floor(h(3) * (RM.bones[1] - RM.bones[0] + 1)), nRoots = LF && life(x, z) < .3 ? 0 : RM.roots[0] + Math.floor(h(4) * (RM.roots[1] - RM.roots[0] + 1));
+      for (let k = 0; k < nBones + nRoots; k++) {
+        const hk = s => hash(seed, gx * 64 + k, gz, 280 + s), bone = k < nBones, a = hk(1) * 6.2832, d = k ? RM.r * (.35 + .65 * hk(2)) : 0, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d;
+        if (!freeGround(px, pz, 44)) continue;
+        const sz = bone ? RM.boneSize : RM.rootSize, size = sz[0] + hk(3) * (sz[1] - sz[0]), yaw = hk(4) * 6.2832;
+        items.push({ prim: bone ? 'bones' : 'roots', x: px, z: pz, size, yaw, v: hk(5), cat: 1 });
+        if (!bone) items.push({ name: 'TreeStump', x: px, z: pz, size: 12 + hk(6) * 6, yaw, tint: [.3, .2, .18], cat: 1, bySize: false });
+      }
     }
     // rock formations (optional): a core of large rocks with smaller stones scattered round it; they gather where a
     // 'rocky' noise field is high, so the land alternates between stony ground and quieter stretches
@@ -303,6 +386,7 @@
       const h = s => hash(seed, gx, gz, 100 + s), x = (gx + h(1)) * G.cell, z = (gz + h(2)) * G.cell;
       if (!inLook(x, z) || nearVillage(x, z, 30)) continue; const b = band(x, z);
       let chance = G.chance[b]; if (G.bare && noise(seed, x, z, G.bare.scale, 5) < G.bare.below) chance *= G.bare.factor; // bare ground
+      if (LF) chance *= life(x, z);
       if (h(0) > chance) continue;
       const flowery = G.flowers && noise(seed, x, z, G.flowers.scale, 6) > G.flowers.above; // flower meadows
       const n = G.count[0] + Math.floor(h(3) * (G.count[1] - G.count[0] + 1)), rad = G.r[0] + h(4) * (G.r[1] - G.r[0]), stretch = .55 + h(5) * .9, rot = h(6) * 6.2832;
@@ -314,7 +398,9 @@
         piece(list, px, pz, hk, 2);
       }
     }
-    return { items, stats: { look: opts.look, areaKm2: +area.toFixed(2), budget, candidates: cand.length, trees: trees.length, clearings: clearings.length, mid: items.filter(i => i.cat === 1).length, ground: items.filter(i => i.cat === 2).length } };
+    const stats = { look: opts.look, areaKm2: +area.toFixed(2), budget, candidates: cand.length, trees: trees.length, clearings: clearings.length, mid: items.filter(i => i.cat === 1).length, ground: items.filter(i => i.cat === 2).length };
+    if (RM) { stats.bones = items.filter(i => i.prim === 'bones').length; stats.roots = items.filter(i => i.prim === 'roots').length; }
+    return { items, stats };
   }
 
   return { RECIPES, LOOKS, plan, hash, noise };

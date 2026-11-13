@@ -1,13 +1,14 @@
 'use strict';
 // Vegetation distribution (public/vegetation.js) as baked by the client (public/world.js bakeDecor), headless.
-// Meadows (look 0), Gloomwood (look 1), Ashen Barrens (look 2) and Frostfang (look 4) use the new distribution; every other look must be untouched.
+// Meadows (look 0), Gloomwood (look 1), Ashen Barrens (look 2), Frostfang (look 4) and Deadlands (look 6) use the new distribution;
+// every other look must be untouched.
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path');
 const Vegetation = require('../public/vegetation');
 const { bake, stats } = require('./helpers/vegetation-sim');
 const { fingerprint } = require('../scripts/vegetation-fingerprint');
 
-const MEADOWS = 0, GLOOM = 1, ASHEN = 2, SNOW = 4;
+const MEADOWS = 0, GLOOM = 1, ASHEN = 2, SNOW = 4, DEAD = 6;
 // measured with the uniform scatter (commit a57e0bc) by scripts/vegetation-report.js
 const BEFORE = { founding: { perKm2: 118.2, nnMean: 46, open150: 0 }, region: { perKm2: 113.5, nnMean: 47, open150: 0 } };
 const founding = bake({ kind: 'founding' }), region = bake({ kind: 'region', look: GLOOM }, 1337, 3);
@@ -22,7 +23,7 @@ test('only the planned biomes change: approved ones are frozen, every other biom
     else if (planned.has(look) && !k.endsWith('streamAfter')) assert.notEqual(now[k], v, k + ' uses the new distribution');
     else assert.equal(now[k], v, k + ' unchanged');
   }
-  assert.deepEqual(Vegetation.LOOKS, [MEADOWS, GLOOM, ASHEN, SNOW]);
+  assert.deepEqual(Vegetation.LOOKS, [MEADOWS, GLOOM, ASHEN, SNOW, DEAD]);
   // the farmland outside the village is placed exactly as before
   const farm = r => JSON.stringify(r.placed.filter(p => /^(Wheat|Corn)/.test(p.name)).map(p => [p.name, +p.x.toFixed(2), +p.z.toFixed(2)]));
   assert.equal(farm(founding), farm(bake({ kind: 'founding' }, 1337, 0, { vegetation: false })));
@@ -254,4 +255,72 @@ test('Ashen Barrens: dry scrub, logs and stumps in sparse pockets; nothing on ro
   const sig = r => JSON.stringify(r.placed.filter(p => r.zoneOf(p.x, p.z) === ASHEN).map(p => [p.name, +p.x.toFixed(2), +p.z.toFixed(2), +p.size.toFixed(2)]));
   assert.equal(sig(bake({ kind: 'region', look: ASHEN }, 7, 3)), sig(ashenRuns.find(r => r[0] === '7 region')[1]));
   assert.notEqual(sig(ashenRuns.find(r => r[0] === '7 region')[1]), sig(ashenRuns.find(r => r[0] === '99 region')[1]));
+});
+
+// ---------- Deadlands / Death Zone (look 6) ----------
+const DEAD_BEFORE = { perKm2: 77, mid: 2400 }; // uniform scatter: 74-80 trees/km2, ~2100-2450 dark rocks, no ground cover
+const NAT = require('./helpers/vegetation-sim').natDims();
+// the plan itself (with the primitive remains: bones and roots, which world.js bakes from engine primitives)
+const deadPlan = run => Vegetation.plan({ look: DEAD, seed: run.planSeed, W: run.W, H: run.H, CX: run.CX, CY: run.CY, V: run.V, zoneOf: run.zoneOf, onRoad: run.onRoad, dims: n => NAT[n] && { h: NAT[n].h, w: NAT[n].w } });
+const deadRuns = SEEDS.flatMap(seed => [[seed + ' ring', Object.assign(ashenRuns.find(r => r[0] === seed + ' ring')[1], { planSeed: seed })],
+  [seed + ' region', Object.assign(bake({ kind: 'region', look: DEAD }, seed, 3), { planSeed: seed + 3 * 7919 })]]);
+const inDead = run => p => run.zoneOf(p.x, p.z) === DEAD && !isFarm(p);
+
+test('Deadlands: 18-36 dead trees per km2 (well under half of before), dead and twisted kinds only, roads and village clear', () => {
+  for (const [label, run] of deadRuns) {
+    const s = stats(run, DEAD);
+    assert.ok(s.perKm2 >= 18 && s.perKm2 <= 36, label + ': ' + s.perKm2 + ' trees/km2');
+    assert.ok(s.perKm2 <= DEAD_BEFORE.perKm2 * 0.5, label + ' under half of before');
+    const T = run.placed.filter(p => p.cat === 0 && inDead(run)(p));
+    for (const t of T) {
+      assert.match(t.name, /Dead/, label + ': living tree ' + t.name);
+      assert.ok(!run.onRoad(t.x, t.z, 56), label + ' trunk near a road'); assert.ok(Math.hypot(t.x - run.CX, t.z - run.CY) >= run.V + 240, label + ' tree at the village');
+    }
+    assert.ok(new Set(T.map(p => p.name.replace(/_\d+$/, ''))).size >= 4, label + ' a mix of dead kinds');
+  }
+});
+
+test('Deadlands: lifeless barrens and open ground; lone trees and knots of trees side by side; not one composition', () => {
+  for (const [label, run] of deadRuns) {
+    const s = stats(run, DEAD); assert.ok(s.open150 >= 0.35 && s.open250 >= 0.2, label + ': open ' + Math.round(s.open150 * 100) + '% / ' + Math.round(s.open250 * 100) + '%');
+    // barren: ground points with nothing at all (tree, log, bush, grass, bones) within 90 units
+    const items = deadPlan(run).items, g = new Map(), K = 100; for (const i of items) { const k = Math.floor(i.x / K) + ',' + Math.floor(i.z / K); (g.get(k) || g.set(k, []).get(k)).push(i); }
+    const near = (x, z) => { const kx = Math.floor(x / K), kz = Math.floor(z / K); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (const q of g.get((kx + a) + ',' + (kz + b)) || []) if (Math.hypot(q.x - x, q.z - z) < 90) return true; return false; };
+    let n = 0, barren = 0; for (let x = 25; x < run.W; x += 50) for (let z = 25; z < run.H; z += 50) { if (run.zoneOf(x, z) !== DEAD || run.onRoad(x, z, 46)) continue; n++; if (!near(x, z)) barren++; }
+    assert.ok(barren / n >= 0.25 && barren / n <= 0.7, label + ': ' + Math.round(barren / n * 100) + '% lifeless ground');
+    // trees: some stand alone, some in knots and stands (linked within 130 units)
+    const T = run.placed.filter(p => p.cat === 0 && inDead(run)(p)), par = T.map((_, i) => i), f = i => par[i] === i ? i : (par[i] = f(par[i]));
+    T.forEach((t, i) => T.forEach((o, j) => { if (j > i && Math.abs(o.x - t.x) < 130 && Math.hypot(o.x - t.x, o.z - t.z) < 130) par[f(i)] = f(j); }));
+    const size = new Map(); T.forEach((_, i) => size.set(f(i), (size.get(f(i)) || 0) + 1)); const groups = [...size.values()];
+    assert.ok(groups.filter(x => x === 1).length >= 20 && groups.filter(x => x >= 3 && x <= 8).length >= 5 && groups.some(x => x >= 15), label + ': lone trees, knots and stands');
+    // 600-unit cells: dead woodland in some, nothing at all in others
+    const per = new Map(); for (const t of T) { const k = Math.floor(t.x / 600) + ',' + Math.floor(t.z / 600); per.set(k, (per.get(k) || 0) + 1); }
+    let empty = 0, dense = 0, cells = 0; for (let x = 300; x < run.W; x += 600) for (let z = 300; z < run.H; z += 600) { if (run.zoneOf(x, z) !== DEAD) continue; cells++; const c = per.get(Math.floor(x / 600) + ',' + Math.floor(z / 600)) || 0; if (c === 0) empty++; if (c >= 20) dense++; }
+    assert.ok(empty >= 1 && dense >= 1, label + ': ' + empty + ' empty and ' + dense + ' wooded cells of ' + cells);
+  }
+});
+
+test('Deadlands: fallen trunks, broken branches, stumps, dead scrub and dead grass; bones and dead roots; fewer pieces than before', () => {
+  for (const [label, run] of deadRuns) {
+    const other = run.placed.filter(p => p.cat > 0 && inDead(run)(p)), mid = other.filter(p => p.cat === 1), logs = other.filter(p => p.name === 'WoodLog');
+    assert.ok(logs.some(p => p.size >= 40) && logs.some(p => p.size < 25) && other.some(p => p.name === 'TreeStump') && other.some(p => /^Bush/.test(p.name)) && other.some(p => p.name === 'Grass_Short'), label + ' variety');
+    assert.ok(mid.length < DEAD_BEFORE.mid * 0.8, label + ': ' + mid.length + ' mid pieces');
+    // fallen timber lies in heaps: a good share of the trunks has another trunk or branch close by
+    const heaped = logs.filter(l => logs.some(o => o !== l && Math.hypot(o.x - l.x, o.z - l.z) < 80)).length;
+    assert.ok(heaped / logs.length >= 0.5, label + ': ' + Math.round(heaped / logs.length * 100) + '% of the timber in heaps');
+    for (const p of other) assert.ok(!run.onRoad(p.x, p.z, 25), label + ' on a road');
+    const rem = deadPlan(run).items.filter(i => i.prim), bones = rem.filter(i => i.prim === 'bones'), roots = rem.filter(i => i.prim === 'roots');
+    assert.ok(bones.length >= 30 && roots.length >= 8, label + ': ' + bones.length + ' bone piles, ' + roots.length + ' roots');
+    // bones gather: most piles have another within 120 units
+    assert.ok(bones.filter(b => bones.some(o => o !== b && Math.hypot(o.x - b.x, o.z - b.z) < 120)).length >= bones.length * 0.5, label + ' bones in concentrations');
+    for (const r of rem) { assert.ok(run.zoneOf(r.x, r.z) === DEAD && !run.onRoad(r.x, r.z, 44) && Math.hypot(r.x - run.CX, r.z - run.CY) >= run.V + 60, label + ' remains on free ground'); assert.ok(r.v >= 0 && r.v < 1 && r.size > 0); }
+    for (const p of other) assert.ok(NAT[p.name], label + ' unknown asset ' + p.name);
+  }
+});
+
+test('Deadlands: deterministic per seed (trees, pieces and remains), different between seeds', () => {
+  const sig = r => JSON.stringify(r.placed.filter(p => r.zoneOf(p.x, p.z) === DEAD).map(p => [p.name, +p.x.toFixed(2), +p.z.toFixed(2), +p.size.toFixed(2)]));
+  const a = deadRuns.find(r => r[0] === '7 region')[1], b = Object.assign(bake({ kind: 'region', look: DEAD }, 7, 3), { planSeed: 7 + 3 * 7919 });
+  assert.equal(sig(b), sig(a)); assert.equal(JSON.stringify(deadPlan(b)), JSON.stringify(deadPlan(a)));
+  assert.notEqual(sig(a), sig(deadRuns.find(r => r[0] === '99 region')[1]));
 });

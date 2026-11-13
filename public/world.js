@@ -63,6 +63,31 @@ const ZDEC = [
 const FARC = [[.2, .5, .22], [.12, .32, .22], [.26, .22, .2], [.12, .08, .08], [.85, .9, .95], [.22, .14, .3], [.1, .05, .05]];
 function pickW(list, r) { let t = 0; for (const e of list) t += e[1]; let k = r * t; for (const e of list) { k -= e[1]; if (k <= 0) return e; } return list[list.length - 1]; }
 const vegetationStats = {};
+// Remains planned by vegetation.js (Deadlands), baked once into the static chunk geometry from the engine's primitives,
+// like the zone specials: 'bones' = a skull with scattered long bones (some with ribs), 'roots' = dead roots sprawling
+// from a stump. p.v (0..1) picks the variant; everything is deterministic.
+function bakeRemains(p) {
+  const B = GL.bakeAdd, c = Math.cos(p.yaw), s = Math.sin(p.yaw), at = (lx, lz) => [p.x + lx * c - lz * s, p.z + lx * s + lz * c];
+  const h = k => { const v = Math.sin((p.v * 997 + k) * 12.9898) * 43758.5453; return v - Math.floor(v); };
+  if (p.prim === 'bones') {
+    const k = p.size / 20, col = [.66 + h(1) * .08, .62 + h(1) * .07, .54 + h(1) * .06], dark = [.08, .03, .03];
+    const [sx, sz] = at(0, 0); B(M.ball, sx, 2.6 * k, sz, 3.4 * k, 3 * k, 3.8 * k, p.yaw, 0, col);           // skull
+    for (const e of [-1.2, 1.2]) { const [ex, ez] = at(e * k, 3.2 * k); B(M.rock, ex, 3 * k, ez, .9 * k, .9 * k, .6 * k, p.yaw, 0, dark); }
+    const n = 2 + Math.floor(h(2) * 3);
+    for (let i = 0; i < n; i++) { // long bones with knobbed ends, lying about
+      const [bx, bz] = at((h(10 + i) - .5) * 18 * k, (h(20 + i) - .5) * 18 * k), yaw = h(30 + i) * 6.283, len = (8 + h(40 + i) * 6) * k;
+      B(M.box, bx, .7 * k, bz, len, 1.1 * k, 1.1 * k, yaw, 0, col);
+      for (const e of [-.5, .5]) B(M.rock, bx + Math.cos(yaw) * len * e, .9 * k, bz - Math.sin(yaw) * len * e, 1.3 * k, 1.1 * k, 1.3 * k, yaw, 0, col);
+    }
+    if (h(3) > .55) { const [rx, rz] = at(-7 * k, -5 * k); for (let i = 0; i < 4; i++) for (const e of [-1, 1]) B(M.box, rx + (i - 1.5) * 2.2 * k, 2 * k, rz + e * 2.4 * k, .7 * k, 5 * k, .7 * k, p.yaw, 0, col, 0, e * .55); } // ribs
+  } else if (p.prim === 'roots') {
+    const k = p.size / 24, col = [.3 + h(1) * .06, .2 + h(1) * .04, .16 + h(1) * .03], n = 4 + Math.floor(h(2) * 3);
+    for (let i = 0; i < n; i++) { // tapering roots: out from the stump, sinking into the ground
+      const yaw = p.yaw + i / n * 6.283 + (h(10 + i) - .5) * .8, len = (16 + h(20 + i) * 18) * k, r = (2.4 + h(30 + i) * 1.4) * k;
+      B(M.taper, p.x, 2.4 * k, p.z, r, len, r, yaw, 1.66 + h(40 + i) * .12, col);
+    }
+  }
+}
 function bakeDecor(onRoad, zoneOf, R) {
   DECOR.clear(); if (!NAT) return false; for (const k in vegetationStats) delete vegetationStats[k];
   const { W, H, CX, CY, V } = WORLD, area = W * H / 25e6;
@@ -81,7 +106,7 @@ function bakeDecor(onRoad, zoneOf, R) {
   const vseed = (((WORLD.universe && WORLD.universe.seedNumber) || 1337) + (WORLD.map || 0) * 7919) >>> 0;
   for (const look of planned) {
     const t0 = performance.now(), plan = Vegetation.plan({ look, seed: vseed, W, H, CX, CY, V, zoneOf, onRoad, dims: n => NAT[n] && { h: NAT[n].h, w: NAT[n].w } });
-    for (const p of plan.items) place(p.name, p.x, p.z, p.size, p.yaw, p.tint, p.cat, p.bySize, look);
+    for (const p of plan.items) if (p.prim) bakeRemains(p); else place(p.name, p.x, p.z, p.size, p.yaw, p.tint, p.cat, p.bySize, look);
     if (plan.stats && plan.stats.trees) vegetationStats[look] = { ...plan.stats, ms: +(performance.now() - t0).toFixed(1) };
   }
   // farmland just outside the village fence
