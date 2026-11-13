@@ -70,7 +70,7 @@ float s=step(b,up(texture2D(shadow,vS.xy+vec2(-t,-t))))+step(b,up(texture2D(shad
 vec2 f=abs(vS.xy-0.5)*2.0;float k=clamp((1.0-max(f.x,f.y))*6.0,0.0,1.0);return mix(1.0,s*0.25,k);}
 float h3(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
 float n3(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(mix(h3(i),h3(i+vec3(1.0,0.0,0.0)),f.x),mix(h3(i+vec3(0.0,1.0,0.0)),h3(i+vec3(1.0,1.0,0.0)),f.x),f.y),mix(mix(h3(i+vec3(0.0,0.0,1.0)),h3(i+vec3(1.0,0.0,1.0)),f.x),mix(h3(i+vec3(0.0,1.0,1.0)),h3(i+vec3(1.0,1.0,1.0)),f.x),f.y),f.z);}
-// surface types: 1 fur flowing back, 2 fur flowing down, 3 skin/leather, 4 horn/bone/claw, 5 stone/metal, 6 cloth, 7 scales
+// surface types: 1 fur flowing back, 2 fur flowing down, 3 skin/leather, 4 horn/bone/claw, 5 stone, 6 cloth, 7 scales, 8 hammered metal
 float hgt(vec3 o,float ty){
 if(ty<1.5)return n3(o*vec3(1.9,1.9,.32))*.6+n3(o*vec3(4.3,4.3,.8))*.4;
 if(ty<2.5)return n3(o*vec3(1.9,.32,1.9))*.6+n3(o*vec3(4.3,.8,4.3))*.4;
@@ -78,7 +78,8 @@ if(ty<3.5)return n3(o*2.2)*.55+n3(o*6.3)*.45;
 if(ty<4.5)return sin(o.y*5.0+o.z*2.0+n3(o*1.7)*4.0)*.3+n3(o*5.0)*.4+.3;
 if(ty<5.5)return n3(o*1.3)*.5+n3(o*4.7)*.3+n3(o*11.0)*.2;
 if(ty<6.5)return sin(o.x*7.0+n3(o*.9)*5.0)*.25+n3(o*vec3(1.0,4.0,1.0))*.5+.25;
-vec3 q=o*1.6;vec3 c=floor(q);vec3 fq=fract(q)-.5;return 1.0-dot(fq,fq)*2.2+n3(c)*.2;}
+if(ty<7.5){vec3 q=o*1.6;vec3 c=floor(q);vec3 fq=fract(q)-.5;return 1.0-dot(fq,fq)*2.2+n3(c)*.2;}
+return n3(o*.9)*.55+n3(o*3.1)*.3+n3(o*8.0)*.15;}
 void main(){vec3 N=normalize(vN);float ty=floor(vM.z*8.0+0.5),str=vM.w;
 #ifdef DER
 if(str>0.01){vec3 dpx=dFdx(vW),dpy=dFdy(vW);float fw=length(fwidth(vO));float fade=clamp(1.4-fw*3.0,0.0,1.0);

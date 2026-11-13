@@ -360,6 +360,12 @@
       look: [{ rim: [.12, .1, .05], fx: [1, .82, .35] }, { rim: [.05, .1, .03], fx: [.85, 1, .45] }, { rim: [.04, .14, .03], fx: [.45, 1, .3] }] },
     oni: { def: { atk: 'Attack', skill: 'Attack2', idle: ['Idle'], run: ['Run'] }, fxHeight: 62, fxDrift: true,
       look: [{ rim: [.12, .05, .03], fx: [1, .55, .2] }, { rim: [.05, .07, .14], fx: [.7, .85, 1] }, { rim: [.18, .05, .01], fx: [1, .45, .1] }] },
+    jarl: { def: { atk: 'Attack', skill: 'Attack2', idle: ['Idle'], run: ['Run'] }, fxHeight: 60, fxDrift: true,
+      look: [{ rim: [.06, .1, .16], fx: [.8, .92, 1] }, { rim: [.05, .1, .2], fx: [.5, .85, 1] }, { rim: [.07, .11, .16], fx: [.75, .92, 1] }] },
+    ossuary: { def: { atk: 'Attack', skill: 'Attack2', idle: ['Idle'], run: ['Run'] }, fxHeight: 64, fxDrift: true,
+      look: [{ rim: [.06, .09, .16], fx: [.45, .78, 1] }, { rim: [.06, .14, .08], fx: [.5, 1, .7] }, { rim: [.05, .13, .06], fx: [.4, .95, .55] }] },
+    reaper: { def: { atk: 'Attack', skill: 'Attack2', idle: ['Idle'], run: ['Run'] }, fxHeight: 40, fxDrift: true,
+      look: [{ rim: [.04, .14, .06], fx: [.35, 1, .5] }, { rim: [.06, .12, .07], fx: [.55, .95, .6] }, { rim: [.08, .12, .18], fx: [.6, .86, 1] }] },
   };
   const HERO = new Map(); // file -> { md, far } | 'loading' | 'failed'
   function heroModel(id, v) {

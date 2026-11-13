@@ -37,7 +37,7 @@ function clips(opts = {}) {
       rot[B.thighR] = E(-.12 * st, 0, -.1 * st); rot[B.shinR] = E(.3 * st); rot[B.footR] = E(-.18 * st, 0, .1 * st);
       rot[B.spine] = E(.08 * st - br * .01);
       rot[B.chest] = E(br * .02 + .05 * st, Math.sin(ph) * .04); rot[B.neck] = E(Math.sin(ph * 2 + 1) * .03); rot[B.head] = E(-br * .02, Math.sin(ph) * .16); rot[B.jaw] = E(Math.max(0, Math.sin(ph * 2 + 2)) * .05);
-      arms(rot, [br * .03 + .05, .08 + .1 * st, -.15 - .3 * st], [grip + br * .02, .1 + .08 * st, -.25]); back(rot, ph); skirt(rot, -.2 * st, -.1 * st, ph); return { rot, root: [0, br * .2 - 1.6 * st, 0] }; } },
+      arms(rot, [br * .03 + .05, .08 + .1 * st, -.15 - .3 * st], [grip + br * .02, .1 + .08 * st, -.25]); back(rot, ph); skirt(rot, -.2 * st, -.1 * st, ph); return { rot, root: [0, br * .2 - 1.6 * st + (opts.hover ? Math.sin(ph) * 1.8 : 0), 0] }; } },
     Walk: { dur: 1.2, track: t => { const ph = t / 1.2 * TAU, rot = {}, [l, r] = legs(rot, ph, .42, .7);
       rot[B.root] = E(0, Math.sin(ph) * .06, Math.sin(ph) * .03 * heavy); rot[B.chest] = E(.04, -Math.sin(ph) * .1); rot[B.head] = E(0, Math.sin(ph) * .05);
       arms(rot, [-l * .7 + .05, .1, -.25], [grip - r * .25, .1, -.3]); back(rot, ph * 2); skirt(rot, l, r, ph); return { rot, root: [0, -Math.abs(Math.cos(ph)) * 1.2 * heavy + .6, 0] }; } },

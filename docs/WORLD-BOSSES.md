@@ -56,13 +56,15 @@ parts are translucent) and sit above the ground, so attack telegraphs on the gro
 
 ## Premium sculpted models
 
-The Vârcolac, The Devourer and the Oni Warlord are rebuilt as sculpted, rigged and animated models (the other five still
-use the primitive builders). The Oni Warlord: `oni-{a,b,c}.glb`, ~210-230k triangles, on the shared 27-bone humanoid rig
+Six bosses are rebuilt as sculpted, rigged and animated models: the Vârcolac, The Devourer, the Oni Warlord, the
+Frostbound Jarl, the Ossuary King and The Reaper (the Feathered Sovereign and the Moon-Eater still use the primitive
+builders). The four humanoids share `scripts/boss-forge/kit.js` (body, skeleton, skull, hair and fur, cloth, ice,
+materials) and the humanoid rig; the Reaper hovers, its robe following the skirt bones. The Oni Warlord: `oni-{a,b,c}.glb`, ~210-230k triangles, on the shared 27-bone humanoid rig
 and clips (`scripts/boss-forge/humanoid.js`). The Devourer: `devourer-{a,b,c}.glb`, ~170-190k triangles, same 29-bone quadruped rig and clips. The Vârcolac:
 `public/assets/bosses/varcolac-{a,b,c}.glb` (full detail, ~200k triangles, 29 bones, clips Idle, Walk, Run, Attack,
 Attack2, RecieveHit, Death) and `varcolac-{a,b,c}-far.glb` (~35k triangles, used beyond 640 units and for its shadow).
 
-- Generated, never hand-edited: `node scripts/boss-forge/build.js [varcolac] [devourer] [oni]` (deterministic, no dependencies). The
+- Generated, never hand-edited: `node scripts/boss-forge/build.js [varcolac] [devourer] [oni] [jarl] [ossuary] [reaper]` (deterministic, no dependencies). The
   forge sculpts with blended signed-distance shapes (anatomy, ~3,500 fur locks, teeth, claws, the eclipse), meshes
   them, bakes colour, ambient occlusion, gloss, glow and a surface type into every vertex, skins them to the rig and
   writes quantized glTF (KHR_mesh_quantization, 16-bit indices, at most 65,535 vertices per primitive).
