@@ -15,7 +15,8 @@
 //  5. Candidates are accepted by priority with canopy-aware spacing (a sapling may stand closer than two old pines)
 //     until the biome's tree budget per km2 is reached: the budget, not the clustering, sets the total.
 //  6. Understory round the trees, logs and stumps in open woodland, rock outcrops at clearings, grass in patches.
-//  7. Optional per recipe: rock formations, barren (lifeless) patches, fallen-timber heaps, bones and dead roots.
+//  7. Optional per recipe: rock formations, barren (lifeless) patches, fallen-timber heaps, bones and dead roots,
+//     clustered primitive growths (void crystals, alien stalks, corrupted roots).
 (function (root, factory) {
   const api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api; else root.Vegetation = api;
@@ -235,6 +236,50 @@
       ],
       bare: { scale: 760, below: .52, factor: .15 } },
     },
+    5: { // Voidreach / voidscar: corrupted, alien land. Drooping and twisted void-blackened trees, alone and in knots;
+         // strange growths, void crystal fields and corrupted roots in irregular patches; wide barren void ground between
+      name: 'Voidreach',
+      budget: 16,
+      trees: [
+        { models: seq('Willow_Dead', 5), w: 3, size: [105, 150], tint: [.24, .13, .32] },     // drooping, corrupted
+        { models: seq('q1_DeadTree', 10), w: 2.4, size: [90, 135], tint: [.2, .12, .27] },    // twisted
+        { models: seq('q1_DeadBirch', 10), w: 1.5, size: [110, 160], tint: [.3, .2, .4] },    // tall, spindly spires
+        { models: seq('q1_DeadTree', 10), w: .8, size: [55, 80], tint: [.26, .14, .34], young: true },
+      ],
+      spacing: { trunk: 34, canopy: .95, group: .6 },                 // knots of growth stand close
+      field: { scale: 860, fine: 280, grove: .6, open: .47 },
+      chance: { grove: .9, open: .22, thin: 0 },
+      cell: 72,
+      clearings: null,
+      copses: { cell: 560, chance: .45, count: [3, 5], r: [35, 80] },
+      roads: { clearance: 56, edge: 200, edgeChance: .3 },
+      village: 240,
+      lifeless: { scale: 680, below: .36, fade: .18 },                // barren void ground; corruption fades in at the edges
+      understory: { chance: { grove: .55, open: .45, thin: .3 }, count: [1, 2], ring: [.5, 1.3], items: [
+        { models: ['Bush_1', 'Bush_2'], w: 2, size: [16, 28], tint: [.3, .16, .42] },          // corrupted bushes
+        { models: seq('Cactus', 5), w: 1.6, size: [18, 34], tint: [.2, .12, .3] },             // strange growths
+        { models: seq('Plant', 5), w: 1.4, size: [10, 16], tint: [.5, .25, .7] },              // strange ground plants
+        { models: seq('Rock', 7), w: .8, size: [10, 22], bySize: true, tint: [.2, .15, .26] },
+      ] },
+      groundProps: { cell: 260, chance: .25, groveSkip: .3, items: [
+        { models: seq('Cactus', 5), w: 2, size: [26, 48], tint: [.18, .1, .26] },             // alien pillar plants
+        { models: ['Bush_1', 'Bush_2'], w: 1.2, size: [14, 24], tint: [.3, .16, .42] },
+        { models: ['WoodLog'], w: .6, size: [36, 54], bySize: true, tint: [.2, .13, .26] },   // fallen, corrupted trunks
+        { models: seq('Plant', 5), w: .8, size: [10, 15], tint: [.5, .25, .7] },
+      ] },
+      outcrops: { cell: 480, chance: .3, count: [2, 5], r: [14, 40], models: seq('Rock', 7), size: [16, 44], tint: [.2, .15, .26] },
+      growths: [                                                       // drawn by world.js from engine primitives
+        { prim: 'crystals', cell: 380, scale: 800, above: .6, chance: .7, elsewhere: .1, count: [2, 5], r: 70, size: [22, 40], salt: 300 },  // crystal fields
+        { prim: 'growth', cell: 300, scale: 620, above: .55, chance: .5, elsewhere: .12, count: [1, 3], r: 55, size: [30, 48], salt: 340, minLife: .5 }, // alien stalks
+        { prim: 'veins', cell: 360, scale: 700, above: .55, chance: .45, elsewhere: .15, count: [1, 2], r: 60, size: [22, 34], salt: 380, minLife: .3 },  // corrupted roots
+      ],
+      grass: { cell: 150, chance: { clearing: .2, thin: .14, open: .3, grove: .4 }, count: [3, 9], r: [18, 46], items: [
+        { models: ['Grass_Short'], w: 3, size: [8, 12], tint: [.55, .3, .8] },
+        { models: seq('Plant', 5), w: 1, size: [8, 13], tint: [.6, .3, .85] },
+        { models: seq('Rock', 7), w: 1.5, size: [5, 10], bySize: true, tint: [.18, .13, .22] },  // void grit
+      ],
+      bare: { scale: 700, below: .5, factor: .2 } },
+    },
     6: { // Deadlands / Death Zone / necropolis: corrupted land where almost everything has died. Lifeless barrens, sparse
          // dead woodland and knots of twisted trees, fallen trunks and broken branches, bones and exposed dead roots
       name: 'Deadlands',
@@ -390,6 +435,19 @@
     // remains (optional): bone piles and exposed dead roots (a dead stump with roots sprawling round it), gathered where a
     // 'remains' noise field is high, a few elsewhere; bones also lie in the barren patches. Drawn by world.js from
     // primitives (items with 'prim'), like the zone specials.
+    // growths (optional): clustered primitive features (void crystals, alien stalks, corrupted roots), gathered where their
+    // own noise field is high, a few elsewhere; 'minLife' keeps a feature out of the barren patches
+    for (const GR of R.growths || []) for (let gx = 0; gx * GR.cell < W; gx++) for (let gz = 0; gz * GR.cell < H; gz++) {
+      const h = s => hash(seed, gx, gz, GR.salt + s), x = (gx + .1 + .8 * h(1)) * GR.cell, z = (gz + .1 + .8 * h(2)) * GR.cell;
+      const strong = noise(seed, x, z, GR.scale, GR.salt) > GR.above;
+      if (h(0) > GR.chance * (strong ? 1 : GR.elsewhere) || !freeGround(x, z, 60) || (LF && GR.minLife && life(x, z) < GR.minLife)) continue;
+      const n = GR.count[0] + Math.floor(h(3) * (GR.count[1] - GR.count[0] + 1));
+      for (let k = 0; k < n; k++) {
+        const hk = s => hash(seed, gx * 64 + k, gz, GR.salt + 20 + s), a = hk(1) * 6.2832, d = k ? GR.r * (.3 + .7 * hk(2)) : 0, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d;
+        if (!freeGround(px, pz, 44)) continue;
+        items.push({ prim: GR.prim, x: px, z: pz, size: GR.size[0] + hk(3) * (GR.size[1] - GR.size[0]), yaw: hk(4) * 6.2832, v: hk(5), cat: 1 });
+      }
+    }
     const RM = R.remains;
     if (RM) for (let gx = 0; gx * RM.cell < W; gx++) for (let gz = 0; gz * RM.cell < H; gz++) {
       const h = s => hash(seed, gx, gz, 260 + s), x = (gx + .1 + .8 * h(1)) * RM.cell, z = (gz + .1 + .8 * h(2)) * RM.cell;
@@ -442,6 +500,7 @@
     }
     const stats = { look: opts.look, areaKm2: +area.toFixed(2), budget, candidates: cand.length, trees: trees.length, clearings: clearings.length, mid: items.filter(i => i.cat === 1).length, ground: items.filter(i => i.cat === 2).length };
     if (RM) { stats.bones = items.filter(i => i.prim === 'bones').length; stats.roots = items.filter(i => i.prim === 'roots').length; }
+    for (const GR of R.growths || []) stats[GR.prim] = items.filter(i => i.prim === GR.prim).length;
     return { items, stats };
   }
 

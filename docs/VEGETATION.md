@@ -7,14 +7,16 @@ chunk culling and the same draw radii and shadow rules per graphics quality as b
 Two placement systems exist side by side:
 
 - **Uniform scatter** (the original): random points over the map, a model picked by the zone's table (`ZDEC`).
-  Still used by the look without a recipe (Voidreach).
+  Every biome look now has a recipe; the scatter still draws its random numbers (see below) and remains the fallback
+  for a look without one.
 - **Distribution recipes** (`public/vegetation.js`): groves, open woodland and clearings. Used by the looks listed in
   `Vegetation.LOOKS`: look 1, **Gloomwood** (the founding ring and the wildwood regions; playtested and approved, its
   output is frozen by `tests/fixtures/vegetation-approved.json`), look 0, **Meadows** (the founding ring round the
   village; approved and frozen too), and look 4, **Frostfang Peaks** (the founding ring and the glacier regions; approved and frozen), and look 2,
   **Ashen Barrens** (the founding ring and the warfields regions; approved and frozen), and look 6, **Deadlands** (the
   Death Zone ring and the necropolis regions; approved and frozen, including its bones and roots), and look 3, **Ember Wastes** (the
-  founding ring and the volcanic regions; approved and frozen).
+  founding ring and the volcanic regions; approved and frozen), and look 5, **Voidreach** (the founding ring and the
+  voidscar regions; awaiting playtest).
 
 For a planned look, the uniform passes still draw their random numbers and place nothing, so every other look, the
 farmland and everything baked after the vegetation (zone specials, lava and ice pools) stays exactly as it was.
@@ -102,6 +104,24 @@ columns (hexagonal prisms from the engine's six-sided cone/tube mesh), smoulderi
 emissive core) and ash drifts (flattened grey discs). Each would be a `prim` item baked into the static chunks, as the
 Deadlands bones are.
 
+## Voidreach
+
+Alien, corrupted land (look 5: the founding ring and the voidscar regions). No ordinary trees: void-blackened drooping
+willows, twisted dead trees, tall spindly dead birches and stunted growths, 13 to 16 per km2 (budget 16; before 113 to
+120), as lone trees, knots of 2 to 5 and a few dense growth clusters. A **lifeless** field leaves barren void ground
+(47 to 59% of the ground has nothing within 90 units) that grows gradually more corrupted towards the clusters. Strange
+plants: near-black pillar growths (tinted Cactus models), corrupted bushes, violet ground plants and grass, dark void
+rocks and grit. Three small code-built **growths** (`growths` in the recipe: clustered by their own noise fields;
+items with `prim`, baked by world.js `bakeRemains` into the static chunk geometry, opaque, glow only on a few faces):
+
+- `crystals`: void crystal clusters (3 to 6 leaning octahedral shards, faint glow, on a dark stone), gathered in
+  crystal fields covering 7 to 15% of the ground.
+- `growth`: alien stalks (3 to 5 tapering stalks, each ending in a bulb; a little over half the clusters glow), only
+  on living ground.
+- `veins`: corrupted roots breaking out of the ground, one or two of them faintly lit.
+
+The zone specials (tall void crystals) are untouched.
+
 ## Frostfang Peaks
 
 Snow-laden pine woodland in pockets and stands: the Gloomwood structure (density field, clearings, canopy spacing, a
@@ -126,6 +146,6 @@ crystals, ice pools) are untouched.
 
 Add a recipe to `Vegetation.RECIPES` under the look index (0 Meadows, 1 Gloomwood, 2 Ashen Barrens / warfields,
 3 Ember, 4 Frostfang / glacier, 5 Voidreach, 6 Death Zone / necropolis), then refresh the fingerprints of the looks
-that stay untouched. Optional recipe parts (`clearings`, `copses`, `formations`, `lifeless`, `debris`, `remains`,
+that stay untouched. Optional recipe parts (`clearings`, `copses`, `formations`, `lifeless`, `debris`, `remains`, `growths`,
 `grass.flowers`, `grass.bare`, `outcrops.tint`) only act when a recipe defines them, so adding one never changes the
 other looks; the fingerprint test proves it.

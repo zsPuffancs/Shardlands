@@ -1,7 +1,7 @@
 'use strict';
 // Vegetation distribution (public/vegetation.js) as baked by the client (public/world.js bakeDecor), headless.
-// Meadows (look 0), Gloomwood (look 1), Ashen Barrens (look 2), Ember Wastes (look 3), Frostfang (look 4) and Deadlands (look 6)
-// use the new distribution;
+// Every biome look uses the new distribution: Meadows (0), Gloomwood (1), Ashen Barrens (2), Ember Wastes (3), Frostfang (4),
+// Voidreach (5) and Deadlands (6); the approved ones are frozen;
 // every other look must be untouched.
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path');
@@ -9,7 +9,7 @@ const Vegetation = require('../public/vegetation');
 const { bake, stats } = require('./helpers/vegetation-sim');
 const { fingerprint } = require('../scripts/vegetation-fingerprint');
 
-const MEADOWS = 0, GLOOM = 1, ASHEN = 2, EMBER = 3, SNOW = 4, DEAD = 6;
+const MEADOWS = 0, GLOOM = 1, ASHEN = 2, EMBER = 3, SNOW = 4, VOID = 5, DEAD = 6;
 // measured with the uniform scatter (commit a57e0bc) by scripts/vegetation-report.js
 const BEFORE = { founding: { perKm2: 118.2, nnMean: 46, open150: 0 }, region: { perKm2: 113.5, nnMean: 47, open150: 0 } };
 const founding = bake({ kind: 'founding' }), region = bake({ kind: 'region', look: GLOOM }, 1337, 3);
@@ -24,7 +24,7 @@ test('only the planned biomes change: approved ones are frozen, every other biom
     else if (planned.has(look) && !k.endsWith('streamAfter')) assert.notEqual(now[k], v, k + ' uses the new distribution');
     else assert.equal(now[k], v, k + ' unchanged');
   }
-  assert.deepEqual(Vegetation.LOOKS, [MEADOWS, GLOOM, ASHEN, EMBER, SNOW, DEAD]);
+  assert.deepEqual(Vegetation.LOOKS, [MEADOWS, GLOOM, ASHEN, EMBER, SNOW, VOID, DEAD]);
   // the farmland outside the village is placed exactly as before
   const farm = r => JSON.stringify(r.placed.filter(p => /^(Wheat|Corn)/.test(p.name)).map(p => [p.name, +p.x.toFixed(2), +p.z.toFixed(2)]));
   assert.equal(farm(founding), farm(bake({ kind: 'founding' }, 1337, 0, { vegetation: false })));
@@ -382,4 +382,54 @@ test('Ember Wastes: sparse burnt scrub, dry plants, scorched stumps and fallen t
   assert.equal(sig(bake({ kind: 'region', look: EMBER }, 7, 3)), sig(emberRuns.find(r => r[0] === '7 region')[1]));
   assert.notEqual(sig(emberRuns.find(r => r[0] === '7 region')[1]), sig(emberRuns.find(r => r[0] === '99 region')[1]));
   assert.equal(Vegetation.plan({ look: EMBER, seed: 1, W: 100, H: 100, CX: 50, CY: 50, V: 10, zoneOf: () => EMBER, onRoad: () => false, dims: () => ({ h: 1, w: 1 }) }).items.filter(i => i.prim).length, 0, 'no new primitive assets');
+});
+
+// ---------- Voidreach / voidscar (look 5) ----------
+const VOID_BEFORE = { perKm2: 116, ground: 6100 }; // uniform scatter: 113-120 trees/km2, 6200-8700 grass tufts, no open ground
+const voidRuns = SEEDS.flatMap(seed => [[seed + ' ring', Object.assign(ashenRuns.find(r => r[0] === seed + ' ring')[1], { planSeed: seed })],
+  [seed + ' region', Object.assign(bake({ kind: 'region', look: VOID }, seed, 3), { planSeed: seed + 3 * 7919 })]]);
+const inVoid = run => p => run.zoneOf(p.x, p.z) === VOID && !isFarm(p);
+const voidPlan = run => Vegetation.plan({ look: VOID, seed: run.planSeed, W: run.W, H: run.H, CX: run.CX, CY: run.CY, V: run.V, zoneOf: run.zoneOf, onRoad: run.onRoad, dims: n => NAT[n] && { h: NAT[n].h, w: NAT[n].w } });
+
+test('Voidreach: 10-18 large corrupted trees per km2, no living trees; lone trees, knots and dense growth clusters; roads and village clear', () => {
+  for (const [label, run] of voidRuns) {
+    const s = stats(run, VOID); assert.ok(s.perKm2 >= 10 && s.perKm2 <= 18, label + ': ' + s.perKm2 + ' trees/km2');
+    assert.ok(s.perKm2 <= VOID_BEFORE.perKm2 * 0.2, label + ' under a fifth of before');
+    const T = run.placed.filter(p => p.cat === 0 && inVoid(run)(p));
+    for (const t of T) {
+      assert.match(t.name, /Dead/, label + ': ordinary tree ' + t.name);
+      assert.ok(!run.onRoad(t.x, t.z, 56), label + ' trunk near a road'); assert.ok(Math.hypot(t.x - run.CX, t.z - run.CY) >= run.V + 240, label + ' tree at the village');
+    }
+    const par = T.map((_, i) => i), f = i => par[i] === i ? i : (par[i] = f(par[i]));
+    T.forEach((t, i) => T.forEach((o, j) => { if (j > i && Math.abs(o.x - t.x) < 130 && Math.hypot(o.x - t.x, o.z - t.z) < 130) par[f(i)] = f(j); }));
+    const size = new Map(); T.forEach((_, i) => size.set(f(i), (size.get(f(i)) || 0) + 1)); const groups = [...size.values()];
+    assert.ok(groups.filter(x => x === 1).length >= 20 && groups.filter(x => x >= 2 && x <= 5).length >= 10 && groups.some(x => x >= 12), label + ': lone trees, knots and clusters');
+  }
+});
+
+test('Voidreach: barren void ground between clusters; crystal fields gathered, not everywhere; growths, corrupted roots and strange plants', () => {
+  for (const [label, run] of voidRuns) {
+    const s = stats(run, VOID); assert.ok(s.open150 >= 0.45 && s.open250 >= 0.25, label + ': open ' + Math.round(s.open150 * 100) + '% / ' + Math.round(s.open250 * 100) + '%');
+    const items = voidPlan(run).items, g = new Map(), K = 100; for (const i of items) { const k = Math.floor(i.x / K) + ',' + Math.floor(i.z / K); (g.get(k) || g.set(k, []).get(k)).push(i); }
+    const near = (x, z) => { const kx = Math.floor(x / K), kz = Math.floor(z / K); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (const q of g.get((kx + a) + ',' + (kz + b)) || []) if (Math.hypot(q.x - x, q.z - z) < 90) return true; return false; };
+    let n = 0, bare = 0; for (let x = 25; x < run.W; x += 50) for (let z = 25; z < run.H; z += 50) { if (run.zoneOf(x, z) !== VOID || run.onRoad(x, z, 46)) continue; n++; if (!near(x, z)) bare++; }
+    assert.ok(bare / n >= 0.35 && bare / n <= 0.75, label + ': ' + Math.round(bare / n * 100) + '% barren void ground');
+    const cr = items.filter(i => i.prim === 'crystals'), gr = items.filter(i => i.prim === 'growth'), ve = items.filter(i => i.prim === 'veins');
+    assert.ok(cr.length >= 60 && gr.length >= 20 && ve.length >= 10, label + ': ' + cr.length + ' crystals, ' + gr.length + ' growths, ' + ve.length + ' roots');
+    assert.ok(cr.filter(c => cr.some(o => o !== c && Math.hypot(o.x - c.x, o.z - c.z) < 120)).length >= cr.length * 0.9, label + ' crystals in fields');
+    const cells = new Set(cr.map(c => Math.floor(c.x / 200) + ',' + Math.floor(c.z / 200))); let m = 0; for (let x = 100; x < run.W; x += 200) for (let z = 100; z < run.H; z += 200) if (run.zoneOf(x, z) === VOID) m++;
+    assert.ok(cells.size / m >= 0.04 && cells.size / m <= 0.25, label + ': crystals in ' + Math.round(cells.size / m * 100) + '% of the ground');
+    for (const r of [...cr, ...gr, ...ve]) assert.ok(run.zoneOf(r.x, r.z) === VOID && !run.onRoad(r.x, r.z, 44) && Math.hypot(r.x - run.CX, r.z - run.CY) >= run.V + 60 && r.v >= 0 && r.v < 1, label + ' growths on free ground');
+    const other = run.placed.filter(p => p.cat > 0 && inVoid(run)(p));
+    assert.ok(other.some(p => /^Cactus/.test(p.name)) && other.some(p => /^Bush/.test(p.name)) && other.some(p => /^Plant/.test(p.name)) && other.some(p => /^Rock/.test(p.name)), label + ' variety');
+    assert.ok(other.filter(p => p.cat === 2).length < VOID_BEFORE.ground * 0.2, label + ' far less ground cover than before');
+    for (const p of other) { assert.ok(!run.onRoad(p.x, p.z, 25), label + ' on a road'); assert.ok(NAT[p.name], label + ' unknown asset ' + p.name); assert.ok(!/^(Grass|Grass_2|Flowers|CommonTree|PineTree)$/.test(p.name)); }
+  }
+});
+
+test('Voidreach: deterministic per seed (trees, pieces and growths), different between seeds', () => {
+  const sig = r => JSON.stringify(r.placed.filter(p => r.zoneOf(p.x, p.z) === VOID).map(p => [p.name, +p.x.toFixed(2), +p.z.toFixed(2), +p.size.toFixed(2)]));
+  const a = voidRuns.find(r => r[0] === '7 region')[1], b = Object.assign(bake({ kind: 'region', look: VOID }, 7, 3), { planSeed: 7 + 3 * 7919 });
+  assert.equal(sig(b), sig(a)); assert.equal(JSON.stringify(voidPlan(b)), JSON.stringify(voidPlan(a)));
+  assert.notEqual(sig(a), sig(voidRuns.find(r => r[0] === '99 region')[1]));
 });

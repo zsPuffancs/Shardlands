@@ -63,7 +63,7 @@ const ZDEC = [
 const FARC = [[.2, .5, .22], [.12, .32, .22], [.26, .22, .2], [.12, .08, .08], [.85, .9, .95], [.22, .14, .3], [.1, .05, .05]];
 function pickW(list, r) { let t = 0; for (const e of list) t += e[1]; let k = r * t; for (const e of list) { k -= e[1]; if (k <= 0) return e; } return list[list.length - 1]; }
 const vegetationStats = {};
-// Remains planned by vegetation.js (Deadlands), baked once into the static chunk geometry from the engine's primitives,
+// Remains and growths planned by vegetation.js (Deadlands, Voidreach), baked once into the static chunk geometry from the engine's primitives,
 // like the zone specials: 'bones' = a skull with scattered long bones (some with ribs), 'roots' = dead roots sprawling
 // from a stump. p.v (0..1) picks the variant; everything is deterministic.
 function bakeRemains(p) {
@@ -86,6 +86,29 @@ function bakeRemains(p) {
       const yaw = p.yaw + i / n * 6.283 + (h(10 + i) - .5) * .8, len = (16 + h(20 + i) * 18) * k, r = (2.4 + h(30 + i) * 1.4) * k;
       B(M.taper, p.x, 2.4 * k, p.z, r, len, r, yaw, 1.66 + h(40 + i) * .12, col);
     }
+  } else if (p.prim === 'crystals') { // Voidreach: a cluster of void crystal shards leaning out of a dark stone, faint glow
+    const k = p.size / 30, n = 3 + Math.floor(h(2) * 4), base = [.11, .08, .15];
+    B(M.rock, p.x, 1.5 * k, p.z, 7 * k, 3 * k, 6 * k, p.yaw, 0, base);
+    for (let i = 0; i < n; i++) {
+      const yaw = p.yaw + i / n * 6.283 + (h(10 + i) - .5), hgt = (12 + h(20 + i) * 22) * k * (i ? .75 : 1.2), r = (2.4 + h(30 + i) * 1.8) * k, off = i ? (3 + h(40 + i) * 5) * k : 0;
+      const t = h(50 + i), col = [.36 + t * .12, .2 + t * .08, .62 + t * .2];
+      B(M.octa, p.x + Math.sin(yaw) * off, hgt * .42, p.z + Math.cos(yaw) * off, r, hgt * .55, r, yaw, i ? .22 + h(60 + i) * .3 : .05, col, .32 + t * .2);
+    }
+  } else if (p.prim === 'growth') { // Voidreach: alien stalks, each ending in a bulb; some clusters glow
+    const k = p.size / 40, n = 3 + Math.floor(h(2) * 3), glow = h(3) > .45, stalk = [.15 + h(4) * .05, .09, .2 + h(4) * .06];
+    for (let i = 0; i < n; i++) {
+      const yaw = p.yaw + i / n * 6.283 + (h(10 + i) - .5) * .9, off = i ? (3 + h(20 + i) * 7) * k : 0, len = (20 + h(30 + i) * 22) * k * (i ? .8 : 1), r = (1.5 + h(40 + i)) * k, pitch = .08 + h(50 + i) * .32;
+      const bx = p.x + Math.sin(yaw) * off, bz = p.z + Math.cos(yaw) * off; B(M.taper, bx, 0, bz, r, len, r, yaw, pitch, stalk);
+      const tx = bx + Math.sin(yaw) * Math.sin(pitch) * len, ty = Math.cos(pitch) * len, tz = bz + Math.cos(yaw) * Math.sin(pitch) * len, br = (2 + h(60 + i) * 1.6) * k;
+      B(M.rock, tx, ty, tz, br, br * 1.25, br, yaw, 0, glow ? [.78, .4, 1] : [.34, .18, .44], glow ? .75 : 0);
+    }
+  } else if (p.prim === 'veins') { // Voidreach: corrupted roots breaking out of the ground, one or two faintly lit
+    const k = p.size / 24, n = 5 + Math.floor(h(2) * 3);
+    for (let i = 0; i < n; i++) {
+      const yaw = p.yaw + i / n * 6.283 + (h(10 + i) - .5) * .9, len = (14 + h(20 + i) * 20) * k, r = (1.8 + h(30 + i) * 1.4) * k, lit = i < 1 + Math.floor(h(3) * 2);
+      B(M.taper, p.x, 2 * k, p.z, r, len, r, yaw, 1.62 + h(40 + i) * .16, lit ? [.42, .2, .66] : [.13, .08, .17], lit ? .3 : 0);
+    }
+    B(M.rock, p.x, 1.2 * k, p.z, 4 * k, 3 * k, 4 * k, p.yaw, 0, [.12, .08, .15]);
   }
 }
 function bakeDecor(onRoad, zoneOf, R) {
