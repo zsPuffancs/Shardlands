@@ -62,10 +62,10 @@ An Alpha is drawn with `MODEL[type]._a` (game.js uses it when a monster is an Al
 the base parts, so the base geometry is unchanged.
 
 Untouched: the Skeleton and the Bandit (model, animated Rogue character, equipment kit), every boss (Alpha Wolf, King
-Slime, Orc Warlord, Spider Broodmother, Bone King, Ogre Chieftain), the Spirit Stones and their Alpha variants (Skeleton and Bandit Alphas keep their current look). The shared builders in `game.js`
-(`human`, `beast`, `slime`, `spider`, `shroom`, `wraith`, `golem`, `drake`) are unchanged; the bosses that use them draw
-exactly as before. `tests/enemy-models.test.js`
-checks this against `tests/fixtures/enemy-model-sources.json` and checks every new model for finite geometry in every
+Slime, Orc Warlord, Spider Broodmother, Bone King, Ogre Chieftain), Elder Drake, Infernal Colossus,
+Frost Wyrm, Yeti King, Void Lord, Abyssal Wyrm, Lord of Death), the Spirit Stones, and the Skeleton and Bandit Alphas.
+The shared builders in `game.js` (`human`, `beast`, `slime`, `spider`, `shroom`, `wraith`, `golem`, `drake`) are
+unchanged; the bosses that use them draw exactly as before. `tests/enemy-models.test.js` checks this against `tests/fixtures/enemy-model-sources.json` and checks every new model for finite geometry in every
 pose. No weapons or equipment were added; the goblin dagger and the orc and ogre clubs are the ones they had.
 
 Cost: 25 to 160 instanced primitives per enemy (the instanced batches are shared by every enemy on screen, so draw calls
