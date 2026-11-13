@@ -55,7 +55,9 @@ function distBox(s, p) {
 function torus(c, R, r, rot) { return { kind: 'torus', c, R, r, rot, bb: bbox([c], R + r) }; }
 function distTorus(s, p) { let q = sub(p, s.c); if (s.rot) q = [dot(s.rot[0], q), dot(s.rot[1], q), dot(s.rot[2], q)]; const x = Math.hypot(q[0], q[2]) - s.R; return Math.hypot(x, q[1]) - s.r; }
 function bbox(pts, r) { const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; for (const p of pts) for (let i = 0; i < 3; i++) { lo[i] = Math.min(lo[i], p[i] - r); hi[i] = Math.max(hi[i], p[i] + r); } return [lo, hi]; }
-function dist(s, p) { switch (s.kind) { case 'rcone': return distRoundCone(s, p); case 'ell': return distEllipsoid(s, p); case 'box': return distBox(s, p); case 'torus': return distTorus(s, p); } return 1e9; }
+// a shape scaled by k about a pivot (exact: distances scale with it)
+function scaled(inner, pivot, k) { const lo = inner.bb[0].map((v, i) => pivot[i] + (v - pivot[i]) * k), hi = inner.bb[1].map((v, i) => pivot[i] + (v - pivot[i]) * k); return { kind: 'scaled', inner, pivot, sk: k, bb: [lo, hi] }; }
+function dist(s, p) { switch (s.kind) { case 'scaled': return s.sk * dist(s.inner, [s.pivot[0] + (p[0] - s.pivot[0]) / s.sk, s.pivot[1] + (p[1] - s.pivot[1]) / s.sk, s.pivot[2] + (p[2] - s.pivot[2]) / s.sk]); case 'rcone': return distRoundCone(s, p); case 'ell': return distEllipsoid(s, p); case 'box': return distBox(s, p); case 'torus': return distTorus(s, p); } return 1e9; }
 // rotation that maps world direction 'fwd' to local +z and 'up' to local +y (rows = local axes in world)
 function frame(fwd, up = [0, 1, 0]) { const z = norm(fwd), x = norm(cross(up, z)), y = cross(z, x); return [x, y, z]; }
 const smin = (a, b, k) => { if (k <= 0) return Math.min(a, b); const h = clamp(.5 + .5 * (b - a) / k, 0, 1); return lerp(b, a, h) - k * h * (1 - h); };
@@ -219,4 +221,4 @@ function writeGLB(meshes, bones, clips, { fps = 24 } = {}) {
   out.stats = prims; return out;
 }
 
-module.exports = { clamp, lerp, v3, sub, add, mul, dot, len, norm, cross, rng, noise3, fbm, roundCone, ellipsoid, box, torus, frame, dist, smin, smax, Sculpt, mesh, skinWeights, qAxis, qMul, qEuler, writeGLB };
+module.exports = { scaled, clamp, lerp, v3, sub, add, mul, dot, len, norm, cross, rng, noise3, fbm, roundCone, ellipsoid, box, torus, frame, dist, smin, smax, Sculpt, mesh, skinWeights, qAxis, qMul, qEuler, writeGLB };

@@ -358,6 +358,8 @@
       look: [{ rim: [.16, .12, .05], fx: [1, .72, .25] }, { rim: [.06, .12, .24], fx: [.62, .86, 1] }, { rim: [.2, .03, .01], fx: [1, .16, .05] }] },
     devourer: { def: { atk: 'Attack', skill: 'Attack2', idle: ['Idle'], run: ['Run'] }, fxHeight: 40, fxDrift: true,
       look: [{ rim: [.12, .1, .05], fx: [1, .82, .35] }, { rim: [.05, .1, .03], fx: [.85, 1, .45] }, { rim: [.04, .14, .03], fx: [.45, 1, .3] }] },
+    oni: { def: { atk: 'Attack', skill: 'Attack2', idle: ['Idle'], run: ['Run'] }, fxHeight: 62, fxDrift: true,
+      look: [{ rim: [.12, .05, .03], fx: [1, .55, .2] }, { rim: [.05, .07, .14], fx: [.7, .85, 1] }, { rim: [.18, .05, .01], fx: [1, .45, .1] }] },
   };
   const HERO = new Map(); // file -> { md, far } | 'loading' | 'failed'
   function heroModel(id, v) {
