@@ -15,7 +15,7 @@ const founding = bake({ kind: 'founding' }), region = bake({ kind: 'region', loo
 
 test('only the planned biomes change: approved ones are frozen, every other biome, the farmland and the random stream are identical', () => {
   const now = fingerprint(), base = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/vegetation-baseline.json'), 'utf8'));
-  const approved = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/vegetation-approved.json'), 'utf8')); // playtested looks (Meadows, Gloomwood, Ashen Barrens, Frostfang)
+  const approved = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/vegetation-approved.json'), 'utf8')); // playtested looks (Meadows, Gloomwood, Ashen Barrens, Frostfang, Deadlands)
   const planned = new Set(Vegetation.LOOKS.map(String));
   for (const [k, v] of Object.entries(base)) {
     const look = k.split(':')[1];
@@ -323,4 +323,9 @@ test('Deadlands: deterministic per seed (trees, pieces and remains), different b
   const a = deadRuns.find(r => r[0] === '7 region')[1], b = Object.assign(bake({ kind: 'region', look: DEAD }, 7, 3), { planSeed: 7 + 3 * 7919 });
   assert.equal(sig(b), sig(a)); assert.equal(JSON.stringify(deadPlan(b)), JSON.stringify(deadPlan(a)));
   assert.notEqual(sig(a), sig(deadRuns.find(r => r[0] === '99 region')[1]));
+  // Deadlands is playtested and approved: its bones and roots are frozen too (the trees and pieces by the fingerprints)
+  const approved = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/vegetation-approved.json'), 'utf8'));
+  const rh = run => require('node:crypto').createHash('md5').update(JSON.stringify(deadPlan(run).items.filter(i => i.prim).map(i => [i.prim, +i.x.toFixed(2), +i.z.toFixed(2), +i.size.toFixed(2), +i.yaw.toFixed(3), +i.v.toFixed(4)]))).digest('hex');
+  assert.equal(rh(deadRuns.find(r => r[0] === '1337 ring')[1]), approved['remains:founding:6'], 'Deadlands remains are approved and must not change');
+  assert.equal(rh(deadRuns.find(r => r[0] === '1337 region')[1]), approved['remains:region:6'], 'Deadlands remains are approved and must not change');
 });
