@@ -364,6 +364,8 @@
       look: [{ rim: [.06, .1, .16], fx: [.8, .92, 1] }, { rim: [.05, .1, .2], fx: [.5, .85, 1] }, { rim: [.07, .11, .16], fx: [.75, .92, 1] }] },
     ossuary: { def: { atk: 'Attack', skill: 'Attack2', idle: ['Idle'], run: ['Run'] }, fxHeight: 64, fxDrift: true,
       look: [{ rim: [.06, .09, .16], fx: [.45, .78, 1] }, { rim: [.06, .14, .08], fx: [.5, 1, .7] }, { rim: [.05, .13, .06], fx: [.4, .95, .55] }] },
+    sovereign: { def: { atk: 'Attack', skill: 'Attack2', idle: ['Idle'], run: ['Run'] }, fxHeight: 58, fxDrift: true,
+      look: [{ rim: [.14, .05, .02], fx: [1, .55, .12] }, { rim: [.08, .05, .04], fx: [.4, .38, .36] }, { rim: [.2, .07, .01], fx: [1, .5, .1] }] },
     reaper: { def: { atk: 'Attack', skill: 'Attack2', idle: ['Idle'], run: ['Run'] }, fxHeight: 40, fxDrift: true,
       look: [{ rim: [.04, .14, .06], fx: [.35, 1, .5] }, { rim: [.06, .12, .07], fx: [.55, .95, .6] }, { rim: [.08, .12, .18], fx: [.6, .86, 1] }] },
   };
