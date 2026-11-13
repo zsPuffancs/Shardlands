@@ -11,6 +11,7 @@ const { createUniverse, newSeed } = require('./src/world/universe');
 const { createRegions } = require('./src/world/regions');
 const { createTeams } = require('./src/multiplayer/teams');
 const { TIERS, MOBTYPES, createMonsterSpawner, markWorldBoss } = require('./src/combat/monsters');
+const { createWorldBossLooks } = require('./src/world/world-boss-looks');
 const { createEquipment } = require('./src/economy/equipment');
 const { createInventory } = require('./src/economy/inventory');
 const { createProgression } = require('./src/player/characters');
@@ -69,11 +70,14 @@ attachUniverse(universe.identity);
 setSettlement(maps[0], universe.settlement(1));
 // The World Boss of each founding zone is chosen by the seed; make those bosses bigger and tougher.
 for (let tier = 1; tier <= TIERS.length; tier++) markWorldBoss(universe.regionFor(tier).worldBoss.type);
+// Their dedicated World Boss appearance (visual only; src/world/world-boss-looks.js).
+const worldBossLooks = createWorldBossLooks({ seed: universe.state.seed, regionFor: tier => universe.regionFor(tier) });
+for (let tier = 1; tier <= TIERS.length; tier++) worldBossLooks.apply(MOBTYPES[universe.regionFor(tier).worldBoss.type], tier);
 const { savePlayer, saveAll: saveGameState } = createGameSaves({ players, saveStore, pluginStore, extraStores: [universeStore] });
 const { spawnMob, populateMonsters, populateZone, respawnMonster } = createMonsterSpawner({
   mobs, rates, monsterPolicy: balance.values.monsters, world: { width: W, height: H, centerX: CX, centerY: CY }, allocateId, rnd, rint, pick, clampWorld,
 });
-const regions = createRegions({ worldView, ...notifications, universe, players, mobs, spawnMob, config, populateZone, refreshMobTypes });
+const regions = createRegions({ worldView, ...notifications, universe, players, mobs, spawnMob, config, populateZone, refreshMobTypes, worldBossLooks });
 const saveAll = () => { regions.checkpoint(); return saveGameState(); };
 const coordinatedSave = coordinateSaves({ background: true, directory: __dirname, stores: { 'saves.json': saveStore, 'plugin-data.json': pluginStore, 'universe.json': universeStore }, beforeSave: () => { regions.checkpoint(); for (const player of players.values()) savePlayer(player); } });
 saveAll.checkpoint = coordinatedSave.checkpoint;

@@ -73,7 +73,7 @@ function snapshotMobs(mobs, player, cells) {
 function mobRow(mob, typeIndex, originX, originY) {
   return [mob.id, typeIndex[mob.ty], Math.round(mob.x - originX), Math.round(mob.y - originY), Math.max(0, Math.round(mob.hp)), mob.mh, mob.lvl, mob.alpha,
     mob.boss ? bossPhase(mob) : 0, mob.cast?.s || '', mob.cast?.startedAt || 0, mob.cast?.at || 0, mob.recoverUntil || 0,
-    mob.worldBoss && mob.fightStart ? mob.fightStart + ENEMY_SCALING.boss.worldBossEnrage.afterMs : 0];
+    mob.worldBoss && mob.fightStart ? mob.fightStart + ENEMY_SCALING.boss.worldBossEnrage.afterMs : 0, mob.look || 0]; // look: World Boss appearance code (visual)
 }
 function mobSnapshot(connection, nearby, typeIndex, originX = 0, originY = 0, rowFor) {
   const rows = nearby.map(mob => rowFor ? rowFor(mob) : mobRow(mob, typeIndex, originX, originY));
@@ -235,7 +235,7 @@ function localEvent(event, map) {
 }
 const mobTypesForClient = mobTypes => Object.fromEntries(Object.keys(mobTypes).map(key => {
   const type = mobTypes[key];
-  return [key, { n: type.name, r: type.r, c: type.color, st: !!type.stone, boss: !!type.boss, lvl: type.lvl, shape: type.shape, as: type.archetype, wb: type.worldBoss ? 1 : undefined }];
+  return [key, { n: type.name, r: type.r, c: type.color, st: !!type.stone, boss: !!type.boss, lvl: type.lvl, shape: type.shape, as: type.archetype, wb: type.worldBoss ? 1 : undefined, wn: type.worldBossLook ? type.worldBossLook.name : undefined }];
 }));
 
 function createSnapshotPublisher({ players, mobs, loot, drainEvents, refreshMobTypes, send, canSend }) {
