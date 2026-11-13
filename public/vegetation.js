@@ -193,6 +193,48 @@
       ],
       bare: { scale: 820, below: .5, factor: .15 } },
     },
+    3: { // Ember Wastes / volcanic: scorched ground and dark volcanic rock; almost nothing survives. Rock formations are the
+         // landscape; rare charred trees, alone or in twos and threes; burnt scrub in sparse pockets; wide barren ground
+      name: 'Ember Wastes',
+      budget: 8,
+      trees: [
+        { models: seq('q1_DeadTree', 10), w: 4, size: [90, 135], tint: [.2, .15, .14] },   // scorched, twisted
+        { models: seq('CommonTree_Dead', 5), w: 1.4, size: [95, 135], tint: [.18, .14, .13] },
+        { models: seq('Willow_Dead', 5), w: .6, size: [95, 130], tint: [.2, .15, .14] },
+      ],
+      spacing: { trunk: 36, canopy: 1.1, group: .75, apart: 210 },   // mostly isolated; scorched groups may touch
+      field: { scale: 950, fine: 320, grove: .58, open: .45 },         // trees only in rare pockets
+      chance: { grove: .9, open: .3, thin: 0 },
+      cell: 90,
+      clearings: null,
+      copses: { cell: 800, chance: .4, count: [2, 3], r: [45, 80] },
+      roads: { clearance: 58, edge: 220, edgeChance: .3 },
+      village: 240,
+      lifeless: { scale: 760, below: .38, fade: .16 },                // barren volcanic ground; life fades in at the edges
+      understory: { chance: { grove: .5, open: .4, thin: .3 }, count: [1, 2], ring: [.5, 1.2], items: [
+        { models: ['Bush_1', 'Bush_2'], w: 2, size: [14, 24], tint: [.22, .16, .13] },        // burnt scrub
+        { models: ['TreeStump'], w: 1, size: [11, 16], tint: [.18, .14, .13] },
+        { models: seq('Rock', 7), w: 1.6, size: [10, 22], bySize: true, tint: [.24, .19, .18] },
+      ] },
+      groundProps: { cell: 300, chance: .2, groveSkip: 0, items: [
+        { models: ['WoodLog'], w: 1.4, size: [34, 54], bySize: true, tint: [.17, .13, .12] }, // fallen scorched trunks
+        { models: ['TreeStump'], w: 1, size: [11, 16], tint: [.18, .14, .13] },
+        { models: ['Bush_1', 'Bush_2'], w: 1, size: [12, 22], tint: [.22, .16, .13] },
+        { models: seq('Plant', 5), w: .8, size: [9, 14], tint: [.4, .3, .2] },                // hardy dry plants
+      ] },
+      outcrops: { cell: 9999, chance: 0, count: [0, 0], r: [0, 0], models: seq('Rock', 7), size: [0, 0] },   // formations instead
+      formations: { cell: 330, scale: 700, above: .52, chance: .75, elsewhere: .25, largeShare: .45, models: seq('Rock', 7),
+        tints: [[.2, .17, .17], [.26, .2, .18], [.15, .13, .13], [.34, .2, .16]],        // basalt, ash-grey, obsidian, rust
+        large: { core: [2, 5], size: [70, 125], coreR: 46, spread: 100, stones: [5, 10] },
+        small: { core: [1, 2], size: [32, 60], coreR: 24, spread: 55, stones: [2, 5] },
+        stone: [9, 22] },
+      grass: { cell: 170, chance: { clearing: .2, thin: .14, open: .22, grove: .35 }, count: [3, 8], r: [18, 44], items: [
+        { models: seq('Rock', 7), w: 3, size: [5, 10], bySize: true, tint: [.22, .18, .17] },  // cinders and grit
+        { models: ['Grass_Short'], w: 1.4, size: [7, 11], tint: [.6, .45, .3] },              // scorched grass
+        { models: seq('Plant', 5), w: .5, size: [8, 12], tint: [.42, .3, .2] },
+      ],
+      bare: { scale: 760, below: .52, factor: .15 } },
+    },
     6: { // Deadlands / Death Zone / necropolis: corrupted land where almost everything has died. Lifeless barrens, sparse
          // dead woodland and knots of twisted trees, fallen trunks and broken branches, bones and exposed dead roots
       name: 'Deadlands',

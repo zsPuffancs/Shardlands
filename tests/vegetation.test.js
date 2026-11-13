@@ -1,6 +1,7 @@
 'use strict';
 // Vegetation distribution (public/vegetation.js) as baked by the client (public/world.js bakeDecor), headless.
-// Meadows (look 0), Gloomwood (look 1), Ashen Barrens (look 2), Frostfang (look 4) and Deadlands (look 6) use the new distribution;
+// Meadows (look 0), Gloomwood (look 1), Ashen Barrens (look 2), Ember Wastes (look 3), Frostfang (look 4) and Deadlands (look 6)
+// use the new distribution;
 // every other look must be untouched.
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path');
@@ -8,7 +9,7 @@ const Vegetation = require('../public/vegetation');
 const { bake, stats } = require('./helpers/vegetation-sim');
 const { fingerprint } = require('../scripts/vegetation-fingerprint');
 
-const MEADOWS = 0, GLOOM = 1, ASHEN = 2, SNOW = 4, DEAD = 6;
+const MEADOWS = 0, GLOOM = 1, ASHEN = 2, EMBER = 3, SNOW = 4, DEAD = 6;
 // measured with the uniform scatter (commit a57e0bc) by scripts/vegetation-report.js
 const BEFORE = { founding: { perKm2: 118.2, nnMean: 46, open150: 0 }, region: { perKm2: 113.5, nnMean: 47, open150: 0 } };
 const founding = bake({ kind: 'founding' }), region = bake({ kind: 'region', look: GLOOM }, 1337, 3);
@@ -23,7 +24,7 @@ test('only the planned biomes change: approved ones are frozen, every other biom
     else if (planned.has(look) && !k.endsWith('streamAfter')) assert.notEqual(now[k], v, k + ' uses the new distribution');
     else assert.equal(now[k], v, k + ' unchanged');
   }
-  assert.deepEqual(Vegetation.LOOKS, [MEADOWS, GLOOM, ASHEN, SNOW, DEAD]);
+  assert.deepEqual(Vegetation.LOOKS, [MEADOWS, GLOOM, ASHEN, EMBER, SNOW, DEAD]);
   // the farmland outside the village is placed exactly as before
   const farm = r => JSON.stringify(r.placed.filter(p => /^(Wheat|Corn)/.test(p.name)).map(p => [p.name, +p.x.toFixed(2), +p.z.toFixed(2)]));
   assert.equal(farm(founding), farm(bake({ kind: 'founding' }, 1337, 0, { vegetation: false })));
@@ -328,4 +329,57 @@ test('Deadlands: deterministic per seed (trees, pieces and remains), different b
   const rh = run => require('node:crypto').createHash('md5').update(JSON.stringify(deadPlan(run).items.filter(i => i.prim).map(i => [i.prim, +i.x.toFixed(2), +i.z.toFixed(2), +i.size.toFixed(2), +i.yaw.toFixed(3), +i.v.toFixed(4)]))).digest('hex');
   assert.equal(rh(deadRuns.find(r => r[0] === '1337 ring')[1]), approved['remains:founding:6'], 'Deadlands remains are approved and must not change');
   assert.equal(rh(deadRuns.find(r => r[0] === '1337 region')[1]), approved['remains:region:6'], 'Deadlands remains are approved and must not change');
+});
+
+// ---------- Ember Wastes / volcanic (look 3) ----------
+const EMBER_BEFORE = { perKm2: 58.5 }; // uniform scatter: 56-62 trees/km2, ~750-1770 rust-tinted rocks, no ground cover
+const emberRuns = SEEDS.flatMap(seed => [[seed + ' ring', ashenRuns.find(r => r[0] === seed + ' ring')[1]], [seed + ' region', bake({ kind: 'region', look: EMBER }, seed, 3)]]);
+const inEmber = run => p => run.zoneOf(p.x, p.z) === EMBER && !isFarm(p);
+
+test('Ember Wastes: 3-9 scorched trees per km2, mostly alone, at most three together, roads and village clear', () => {
+  for (const [label, run] of emberRuns) {
+    const s = stats(run, EMBER);
+    assert.ok(s.perKm2 >= 3 && s.perKm2 <= 9, label + ': ' + s.perKm2 + ' trees/km2');
+    assert.ok(s.perKm2 <= EMBER_BEFORE.perKm2 * 0.15, label + ' under 15% of before');
+    const T = run.placed.filter(p => p.cat === 0 && inEmber(run)(p));
+    let alone = 0;
+    for (const t of T) {
+      assert.match(t.name, /Dead/, label + ': living tree ' + t.name);
+      const near = T.filter(o => Math.hypot(o.x - t.x, o.z - t.z) < 160).length; assert.ok(near <= 3, label + ': a group of more than three trees'); if (near === 1) alone++;
+      assert.ok(!run.onRoad(t.x, t.z, 58), label + ' trunk near a road'); assert.ok(Math.hypot(t.x - run.CX, t.z - run.CY) >= run.V + 240, label + ' tree at the village');
+    }
+    assert.ok(alone >= T.length * 0.8, label + ': ' + alone + ' of ' + T.length + ' trees stand alone');
+  }
+});
+
+test('Ember Wastes: exposed ground dominates; volcanic rock formations are most of the detail, clustered, never a field of rocks', () => {
+  for (const [label, run] of emberRuns) {
+    const s = stats(run, EMBER); assert.ok(s.open150 >= 0.5 && s.open250 >= 0.3, label + ': open ' + Math.round(s.open150 * 100) + '% / ' + Math.round(s.open250 * 100) + '%');
+    const all = run.placed.filter(inEmber(run)), mid = all.filter(p => p.cat === 1), rocks = mid.filter(p => /^Rock_/.test(p.name));
+    assert.ok(rocks.length > (mid.length - rocks.length) * 3, label + ': ' + rocks.length + ' rocks among ' + mid.length + ' mid pieces');
+    assert.ok(rocks.filter(p => p.size >= 60).length >= 30 && rocks.filter(p => p.size < 25).length > rocks.length * 0.35, label + ': large cores and small stones');
+    const clustered = rocks.filter(r => rocks.some(o => o !== r && Math.abs(o.x - r.x) < 70 && Math.hypot(o.x - r.x, o.z - r.z) < 70)).length;
+    assert.ok(clustered / rocks.length >= 0.8, label + ': ' + Math.round(clustered / rocks.length * 100) + '% of the rocks stand in a formation');
+    const cells = new Set(rocks.map(r => Math.floor(r.x / 100) + ',' + Math.floor(r.z / 100))); let n = 0, w = 0;
+    for (let x = 50; x < run.W; x += 100) for (let z = 50; z < run.H; z += 100) { if (run.zoneOf(x, z) !== EMBER) continue; n++; if (cells.has(Math.floor(x / 100) + ',' + Math.floor(z / 100))) w++; }
+    assert.ok(w / n >= 0.08 && w / n <= 0.3, label + ': rocks in ' + Math.round(w / n * 100) + '% of the ground cells');
+    // exposed ground: points with nothing at all within 90 units
+    const g = new Map(), K = 100; for (const i of all) { const k = Math.floor(i.x / K) + ',' + Math.floor(i.z / K); (g.get(k) || g.set(k, []).get(k)).push(i); }
+    const near = (x, z) => { const kx = Math.floor(x / K), kz = Math.floor(z / K); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (const q of g.get((kx + a) + ',' + (kz + b)) || []) if (Math.hypot(q.x - x, q.z - z) < 90) return true; return false; };
+    let m = 0, bare = 0; for (let x = 25; x < run.W; x += 50) for (let z = 25; z < run.H; z += 50) { if (run.zoneOf(x, z) !== EMBER || run.onRoad(x, z, 46)) continue; m++; if (!near(x, z)) bare++; }
+    assert.ok(bare / m >= 0.45, label + ': ' + Math.round(bare / m * 100) + '% exposed ground');
+  }
+});
+
+test('Ember Wastes: sparse burnt scrub, dry plants, scorched stumps and fallen trunks; existing assets only; nothing on roads; deterministic', () => {
+  for (const [label, run] of emberRuns) {
+    const other = run.placed.filter(p => p.cat > 0 && inEmber(run)(p)), ground = other.filter(p => p.cat === 2), plants = other.filter(p => /^(Bush|Plant|Grass)/.test(p.name));
+    assert.ok(other.some(p => /^Bush/.test(p.name)) && other.some(p => p.name === 'WoodLog') && other.some(p => p.name === 'TreeStump') && other.some(p => /^Plant/.test(p.name)), label + ' variety');
+    assert.ok(ground.length < 700 && plants.length < 350, label + ': ' + ground.length + ' ground pieces, ' + plants.length + ' plants');
+    for (const p of other) { assert.ok(!run.onRoad(p.x, p.z, 25), label + ' on a road'); assert.ok(NAT[p.name], label + ' unknown asset ' + p.name); }
+  }
+  const sig = r => JSON.stringify(r.placed.filter(p => r.zoneOf(p.x, p.z) === EMBER).map(p => [p.name, +p.x.toFixed(2), +p.z.toFixed(2), +p.size.toFixed(2)]));
+  assert.equal(sig(bake({ kind: 'region', look: EMBER }, 7, 3)), sig(emberRuns.find(r => r[0] === '7 region')[1]));
+  assert.notEqual(sig(emberRuns.find(r => r[0] === '7 region')[1]), sig(emberRuns.find(r => r[0] === '99 region')[1]));
+  assert.equal(Vegetation.plan({ look: EMBER, seed: 1, W: 100, H: 100, CX: 50, CY: 50, V: 10, zoneOf: () => EMBER, onRoad: () => false, dims: () => ({ h: 1, w: 1 }) }).items.filter(i => i.prim).length, 0, 'no new primitive assets');
 });

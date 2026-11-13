@@ -7,13 +7,14 @@ chunk culling and the same draw radii and shadow rules per graphics quality as b
 Two placement systems exist side by side:
 
 - **Uniform scatter** (the original): random points over the map, a model picked by the zone's table (`ZDEC`).
-  Still used by the looks without a recipe (Ember Wastes and Voidreach).
+  Still used by the look without a recipe (Voidreach).
 - **Distribution recipes** (`public/vegetation.js`): groves, open woodland and clearings. Used by the looks listed in
   `Vegetation.LOOKS`: look 1, **Gloomwood** (the founding ring and the wildwood regions; playtested and approved, its
   output is frozen by `tests/fixtures/vegetation-approved.json`), look 0, **Meadows** (the founding ring round the
   village; approved and frozen too), and look 4, **Frostfang Peaks** (the founding ring and the glacier regions; approved and frozen), and look 2,
   **Ashen Barrens** (the founding ring and the warfields regions; approved and frozen), and look 6, **Deadlands** (the
-  Death Zone ring and the necropolis regions; approved and frozen, including its bones and roots).
+  Death Zone ring and the necropolis regions; approved and frozen, including its bones and roots), and look 3, **Ember Wastes** (the
+  founding ring and the volcanic regions; awaiting playtest).
 
 For a planned look, the uniform passes still draw their random numbers and place nothing, so every other look, the
 farmland and everything baked after the vegetation (zone specials, lava and ice pools) stays exactly as it was.
@@ -82,6 +83,24 @@ dead woodland: 37 to 52% of the ground has nothing at all within 90 units. On to
   bare-ground field between them.
 
 Nothing on roads; no trees within 240 units of the village safe zone, no pieces within 60.
+
+## Ember Wastes
+
+A hostile volcanic land where almost nothing survives (look 3: the founding ring and the volcanic regions). **Volcanic
+rock formations** are the landscape: on a 330-unit grid, mostly where a 'rocky' noise field is high, a core of 1 to 5
+large rocks (up to 125) with 2 to 10 smaller stones spread to one side, in four tints (basalt, ash grey, obsidian, rust).
+Trees are rare: charred, twisted q1_DeadTree, dead common trees and dead willows, almost all alone, now and then two or
+three together (budget 8 per km2; 4 to 7 in practice, before 56 to 62). A **lifeless** field leaves barren volcanic
+ground with nothing on it but rock; vegetation fades in at its edges. Burnt scrub, scorched stumps and stones round
+the trees; a few fallen scorched trunks, stumps, burnt bushes and hardy dry plants; sparse patches of cinders, grit and
+scorched grass with a bare-ground field between them. 53 to 65% of the ground has nothing within 90 units. Existing
+assets only (rocks, dead trees, stumps, logs, bushes, plants, tinted); the zone specials (obsidian spikes with ember
+glows, lava pools) are untouched.
+
+Possible low-poly additions, not made yet: glowing lava cracks (flat emissive strips, like the lava pools), basalt
+columns (hexagonal prisms from the engine's six-sided cone/tube mesh), smouldering ember stumps (a stump with a small
+emissive core) and ash drifts (flattened grey discs). Each would be a `prim` item baked into the static chunks, as the
+Deadlands bones are.
 
 ## Frostfang Peaks
 
