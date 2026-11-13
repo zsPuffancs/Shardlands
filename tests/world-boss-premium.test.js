@@ -17,11 +17,13 @@ function readGLB(file) {
     return out; };
   return { g, acc, size: b.length };
 }
-const FILES = ['a', 'b', 'c'].flatMap(v => ['varcolac-' + v, 'varcolac-' + v + '-far']);
+// per boss: height range (model units, same as the primitive model it replaces) and how far the head and tail reach
+const BOSS = { varcolac: { y: [60, 82], z: [38, -36] }, devourer: { y: [36, 62], z: [42, -34] } };
+const FILES = Object.keys(BOSS).flatMap(id => ['a', 'b', 'c'].flatMap(v => [id + '-' + v, id + '-' + v + '-far']));
 
-test('every Vârcolac variant and its distance model is a valid hero model for the engine', () => {
+test('every sculpted variant and its distance model is a valid hero model for the engine', () => {
   for (const f of FILES) {
-    const { g, acc, size } = readGLB(path.join(DIR, f + '.glb')), far = f.endsWith('-far');
+    const { g, acc, size } = readGLB(path.join(DIR, f + '.glb')), far = f.endsWith('-far'), spec = BOSS[f.split('-')[0]];
     assert.ok(size < (far ? 1.5 : 6) * 1048576, f + ': file size within budget');
     assert.equal(g.skins.length, 1); assert.ok(g.skins[0].joints.length <= 32, f + ': the skinned shader takes 32 bones');
     let minY = 1e9, maxY = -1e9, maxZ = -1e9, minZ = 1e9, verts = 0, tris = 0;
@@ -35,22 +37,24 @@ test('every Vârcolac variant and its distance model is a valid hero model for t
       verts += V; tris += I.length / 3;
     }
     assert.ok(minY > -.1 && minY < .6, f + ': stands on the ground, not under it (' + minY + ')');
-    assert.ok(maxY > 60 && maxY < 82, f + ': same height as the model it replaces (' + maxY + ')');
-    assert.ok(maxZ > 38 && minZ < -36, f + ': faces +z, tail behind');
+    assert.ok(maxY > spec.y[0] && maxY < spec.y[1], f + ': same height as the model it replaces (' + maxY + ')');
+    assert.ok(maxZ > spec.z[0] && minZ < spec.z[1], f + ': faces +z, tail behind (' + maxZ + ', ' + minZ + ')');
     assert.ok(far ? tris < 50000 : tris > 150000 && tris < 260000, f + ': ' + tris + ' triangles');
     if (!far) for (const clip of ['Idle', 'Run', 'Walk', 'Attack', 'Attack2', 'RecieveHit', 'Death']) assert.ok(g.animations.some(a => a.name === clip), f + ': clip ' + clip);
   }
 });
 
 test('the three variants are different sculpts, not recolours', () => {
-  const stats = ['a', 'b', 'c'].map(v => { const { g, acc } = readGLB(path.join(DIR, 'varcolac-' + v + '.glb')); let n = 0, sx = 0; for (const m of g.meshes) for (const p of m.primitives) { const P = acc(p.attributes.POSITION); n += P.length / 3; for (let i = 0; i < P.length; i += 3) sx += Math.abs(P[i]); } return [n, sx / n]; });
-  for (let i = 0; i < 3; i++) for (let j = i + 1; j < 3; j++) assert.ok(Math.abs(stats[i][0] - stats[j][0]) > 500 || Math.abs(stats[i][1] - stats[j][1]) > .2, 'variants ' + i + '/' + j + ' differ in geometry');
+  for (const id of Object.keys(BOSS)) {
+  const stats = ['a', 'b', 'c'].map(v => { const { g, acc } = readGLB(path.join(DIR, id + '-' + v + '.glb')); let n = 0, sx = 0; for (const m of g.meshes) for (const p of m.primitives) { const P = acc(p.attributes.POSITION); n += P.length / 3; for (let i = 0; i < P.length; i += 3) sx += Math.abs(P[i]); } return [n, sx / n]; });
+  for (let i = 0; i < 3; i++) for (let j = i + 1; j < 3; j++) assert.ok(Math.abs(stats[i][0] - stats[j][0]) > 500 || Math.abs(stats[i][1] - stats[j][1]) > .2, id + ' variants ' + i + '/' + j + ' differ in geometry');
+  }
 });
 
 test('premium models fall back to the primitive model and keep its size; gameplay files are untouched', () => {
   const ctx = context(); vm.runInContext(read('public/world-boss-models.js'), ctx); const W = ctx.window.WorldBossModels;
-  for (const code of [1, 2, 3]) { const o = W.model(code, { r: 40 }); assert.equal(o.premium, true); assert.equal(o.base, W.BOSSES[0].fn); ctx.calls.length = 0; o.fn({ id: 3, rx: 0, ry: 0, yaw: 0, mv: 0, ph: 0, atkT: -1e9, flash: 0 }, o); assert.ok(ctx.calls.length > 40, 'no hero renderer: the primitive model is drawn'); }
-  for (let code = 4; code <= 24; code++) assert.equal(W.model(code, { r: 40 }).premium, false, 'other bosses unchanged until approved');
+  for (const code of [1, 2, 3, 4, 5, 6]) { const o = W.model(code, { r: 40 }); assert.equal(o.premium, true); assert.equal(o.base, W.BOSSES[Math.floor((code - 1) / 3)].fn); ctx.calls.length = 0; o.fn({ id: 3, rx: 0, ry: 0, yaw: 0, mv: 0, ph: 0, atkT: -1e9, flash: 0 }, o); assert.ok(ctx.calls.length > 40, 'no hero renderer: the primitive model is drawn'); }
+  for (let code = 7; code <= 24; code++) assert.equal(W.model(code, { r: 40 }).premium, false, 'other bosses unchanged until approved');
   // the engine's existing character and world shaders are byte-for-byte the same as before the hero path was added
   const engine = read('public/engine.js');
   for (const marker of ["const VSK = 'attribute vec3 p;attribute vec3 n;attribute vec2 uv;attribute vec4 j;attribute vec4 w;uniform mat4 B[32];uniform mat4 MW;';",

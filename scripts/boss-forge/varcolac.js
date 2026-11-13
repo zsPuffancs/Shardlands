@@ -313,7 +313,7 @@ function clips(D) {
       else { rot[b] = E(-sw * amp * .85); rot[b + 1] = E(Math.max(0, Math.cos(a)) * lift * .7); rot[b + 2] = E(-Math.max(0, Math.cos(a)) * lift * .9); rot[b + 3] = E(Math.max(0, Math.cos(a)) * .45); } }
   };
   const tail = (rot, t, sway, lift) => { for (let i = 0; i < 4; i++) rot[B.tail1 + i] = E(-lift * (i ? .3 : 1), Math.sin(t - i * .7) * sway); };
-  const ecl = (rot, ph) => { rot[B.eclipse] = D.key === 'c' ? E(0, 0, Math.sin(ph) * .12) : E(0, 0, -ph / 8); };
+  const ecl = (rot, ph) => { if (D.eclipseRot) { rot[B.eclipse] = D.eclipseRot(ph, E); return; } rot[B.eclipse] = D.key === 'c' ? E(0, 0, Math.sin(ph) * .12) : E(0, 0, -ph / 8); };
   const TAU = Math.PI * 2;
   return {
     Idle: { dur: 4, track: t => { const ph = t / 4 * TAU, rot = {}, br = Math.sin(ph * 2);
@@ -356,7 +356,7 @@ function build(variant, { lod = 0 } = {}) {
   return { parts, bones, clips: lod ? null : clips(D), log, design: D };
 }
 
-module.exports = { build, DESIGN, BONES, B };
+module.exports = { build, DESIGN, BONES, B, clips, ao, smooth, mixc, rotX, rotZ };
 if (require.main === module) {
   const fs = require('fs'), path = require('path'), out = process.argv[2] || path.join(__dirname, 'out'), only = process.argv[3];
   fs.mkdirSync(out, { recursive: true });

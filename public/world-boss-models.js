@@ -356,6 +356,8 @@
   const PREMIUM = {
     varcolac: { def: { atk: 'Attack', skill: 'Attack2', idle: ['Idle'], run: ['Run'] },
       look: [{ rim: [.16, .12, .05], fx: [1, .72, .25] }, { rim: [.06, .12, .24], fx: [.62, .86, 1] }, { rim: [.2, .03, .01], fx: [1, .16, .05] }] },
+    devourer: { def: { atk: 'Attack', skill: 'Attack2', idle: ['Idle'], run: ['Run'] }, fxHeight: 40, fxDrift: true,
+      look: [{ rim: [.12, .1, .05], fx: [1, .82, .35] }, { rim: [.05, .1, .03], fx: [.85, 1, .45] }, { rim: [.04, .14, .03], fx: [.45, 1, .3] }] },
   };
   const HERO = new Map(); // file -> { md, far } | 'loading' | 'failed'
   function heroModel(id, v) {
@@ -374,7 +376,8 @@
     const k = o.sc, c = Math.cos(e.yaw), s = Math.sin(e.yaw), at = (x, y, z) => [e.rx + (x * c + z * s) * k, y * k, e.ry + (-x * s + z * c) * k];
     for (let i = 0; i < 6; i++) {
       const t = ((now / 2600 + i / 6 + (e.id || 0) * .13) % 1), a = i * 2.4 + now / 1800, r = 8 + (i % 3) * 3;
-      const p = o.v === 1 ? at(Math.cos(a) * r, 34 + Math.sin(a * 1.3) * 6 + t * 10, -4 + Math.sin(a) * r) : at(Math.cos(a) * 9 * (1 - t * .3), 56 + t * 26, -14 + Math.sin(a) * 4);
+      const def = PREMIUM[o.worldBoss], p = def.fxDrift ? at(Math.cos(a) * (r + 4), def.fxHeight + Math.sin(a * 1.3) * 5 + t * 12, -6 + Math.sin(a) * (r + 8))
+        : o.v === 1 ? at(Math.cos(a) * r, 34 + Math.sin(a * 1.3) * 6 + t * 10, -4 + Math.sin(a) * r) : at(Math.cos(a) * 9 * (1 - t * .3), 56 + t * 26, -14 + Math.sin(a) * 4);
       D(M.ball, p[0], p[1], p[2], (1 - t) * .9 * k, (1 - t) * .9 * k, (1 - t) * .9 * k, 0, 0, look.fx, 1, .55 * (1 - t));
     }
   }
