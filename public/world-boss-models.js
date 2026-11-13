@@ -347,14 +347,53 @@
     { id: 'reaper', fn: reaper, top: 100, fit: 40, body: [.06, .06, .07] },
   ];
   const MAX_HEIGHT = 240;
+
+  // ---------------- premium sculpted models ----------------
+  // Bosses rebuilt with scripts/boss-forge: sculpted, skinned, animated glTF with per-vertex materials, drawn by the
+  // engine's hero shader (GL.drawHero). Loaded on first sight, per variant; until a model has loaded (or on a renderer
+  // without the hero shader) the primitive model above is drawn instead. Same size, position and facing as before:
+  // the model's units are the primitive model's units, so o.sc scales both alike. Visual only.
+  const PREMIUM = {
+    varcolac: { def: { atk: 'Attack', skill: 'Attack2', idle: ['Idle'], run: ['Run'] },
+      look: [{ rim: [.16, .12, .05], fx: [1, .72, .25] }, { rim: [.06, .12, .24], fx: [.62, .86, 1] }, { rim: [.2, .03, .01], fx: [1, .16, .05] }] },
+  };
+  const HERO = new Map(); // file -> { md, far } | 'loading' | 'failed'
+  function heroModel(id, v) {
+    const file = id + '-' + 'abc'[v], have = HERO.get(file);
+    if (have !== undefined) return typeof have === 'object' ? have : null;
+    if (typeof GL === 'undefined' || !GL.heroOK || !GL.heroOK()) { HERO.set(file, 'failed'); return null; }
+    HERO.set(file, 'loading');
+    Promise.all([GL.loadGLB('assets/bosses/' + file + '.glb'), GL.loadGLB('assets/bosses/' + file + '-far.glb').catch(() => null)]).then(([md, far]) => {
+      md.def = PREMIUM[id].def; md.pick = l => l.find(a => md.anims[a]) || Object.keys(md.anims)[0]; HERO.set(file, { md, far });
+    }).catch(err => { console.warn('World Boss model ' + file + ' not loaded', err); HERO.set(file, 'failed'); });
+    return null;
+  }
+  // idle presence: a few small glowing motes above the ground, never over the telegraph area at the feet
+  function heroFx(e, o, look, now) {
+    if (typeof D !== 'function' || typeof M === 'undefined') return;
+    const k = o.sc, c = Math.cos(e.yaw), s = Math.sin(e.yaw), at = (x, y, z) => [e.rx + (x * c + z * s) * k, y * k, e.ry + (-x * s + z * c) * k];
+    for (let i = 0; i < 6; i++) {
+      const t = ((now / 2600 + i / 6 + (e.id || 0) * .13) % 1), a = i * 2.4 + now / 1800, r = 8 + (i % 3) * 3;
+      const p = o.v === 1 ? at(Math.cos(a) * r, 34 + Math.sin(a * 1.3) * 6 + t * 10, -4 + Math.sin(a) * r) : at(Math.cos(a) * 9 * (1 - t * .3), 56 + t * 26, -14 + Math.sin(a) * 4);
+      D(M.ball, p[0], p[1], p[2], (1 - t) * .9 * k, (1 - t) * .9 * k, (1 - t) * .9 * k, 0, 0, look.fx, 1, .55 * (1 - t));
+    }
+  }
+  function heroDraw(e, o) {
+    const hm = heroModel(o.worldBoss, o.v); if (!hm || typeof animChar !== 'function') return o.base(e, o);
+    const now = performance.now(), md = hm.md, look = PREMIUM[o.worldBoss].look[o.v];
+    animChar(e, md, { dead: false }, now);
+    const far = hm.far && typeof cam !== 'undefined' && Math.hypot(e.rx - cam.x, e.ry - cam.z) > 640;
+    GL.drawHero(far ? hm.far : md, e.nodes, e.rx, 0, e.ry, e.yaw, o.sc, { rim: look.rim, emc: e.flash > now - 110 ? [.4, .4, .4] : null, shadow: hm.far || undefined });
+    heroFx(e, o, look, now);
+  }
   const cache = new Map();
   // The model object for a look code (identity * 3 + variant + 1), scaled to the boss's hitbox radius.
   function model(code, t) {
     const index = Math.floor((code - 1) / 3), v = (code - 1) % 3, def = BOSSES[index];
     if (!def || !(code > 0)) return null;
     const key = code + ':' + (t && t.r);
-    if (!cache.has(key)) cache.set(key, Object.freeze({ fn: def.fn, v, sc: Math.min(MAX_HEIGHT / def.top, Math.max(.6, ((t && t.r) || def.fit) / def.fit)), top: def.top, body: def.body, worldBoss: def.id }));
+    if (!cache.has(key)) cache.set(key, Object.freeze({ fn: PREMIUM[def.id] ? heroDraw : def.fn, base: def.fn, premium: !!PREMIUM[def.id], v, sc: Math.min(MAX_HEIGHT / def.top, Math.max(.6, ((t && t.r) || def.fit) / def.fit)), top: def.top, body: def.body, worldBoss: def.id }));
     return cache.get(key);
   }
-  window.WorldBossModels = { BOSSES, model, varcolac, devourer, oni, sovereign, jarl, mooneater, ossuary, reaper };
+  window.WorldBossModels = { BOSSES, PREMIUM, model, varcolac, devourer, oni, sovereign, jarl, mooneater, ossuary, reaper };
 })();

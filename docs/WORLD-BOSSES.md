@@ -54,10 +54,27 @@ names they were generated with, and earlier Chronicle entries are not rewritten 
 World Boss hitbox of the rolled type (`t.r`), capped at 240 units tall. Effects are small and opaque (a few spectral
 parts are translucent) and sit above the ground, so attack telegraphs on the ground stay readable.
 
+## Premium sculpted models
+
+The Vârcolac is rebuilt as a sculpted, rigged and animated model (the other seven still use the primitive builders):
+`public/assets/bosses/varcolac-{a,b,c}.glb` (full detail, ~200k triangles, 29 bones, clips Idle, Walk, Run, Attack,
+Attack2, RecieveHit, Death) and `varcolac-{a,b,c}-far.glb` (~35k triangles, used beyond 640 units and for its shadow).
+
+- Generated, never hand-edited: `node scripts/boss-forge/build.js varcolac` (deterministic, no dependencies). The
+  forge sculpts with blended signed-distance shapes (anatomy, ~3,500 fur locks, teeth, claws, the eclipse), meshes
+  them, bakes colour, ambient occlusion, gloss, glow and a surface type into every vertex, skins them to the rig and
+  writes quantized glTF (KHR_mesh_quantization, 16-bit indices, at most 65,535 vertices per primitive).
+- Drawn by the engine's hero shader (`GL.drawHero`): the skinned character path plus per-vertex material, a
+  procedural detail bump (fur, skin, horn, stone) in bind-pose space, fur wrap lighting, rim and pulsing glow, and its
+  own shadow program. The existing character and world shaders are unchanged.
+- Loaded per variant the first time it is seen. Until then, or without the hero shader, the primitive model is drawn.
+  Same units, size, position and facing as the primitive model; gameplay is untouched.
+
 ## Tests
 
 `tests/world-boss-looks.test.js`: identity mapping and names, deterministic and rotating variants (also when tiers are
 opened out of order), the look only on the tier's own World Boss with every gameplay field of the spawned monster
 unchanged, the network fields, all 24 appearances drawing finite geometry in every pose within the size cap, three
 distinct silhouettes and materials per boss, and the Region Boss models untouched. `tests/enemy-models.test.js`
-checks the Region Boss model sources byte for byte.
+checks the Region Boss model sources byte for byte. `tests/world-boss-premium.test.js` checks the sculpted model files
+(engine limits, ground contact, facing, clips, distinct variants), the primitive fallback and the unchanged shaders.
