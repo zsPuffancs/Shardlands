@@ -164,7 +164,8 @@ const CHARDEF = {
   Monk: { atk: 'Attack', skill: 'Attack2', idle: ['Idle_Attacking', 'Idle'], run: ['Run'] },
 };
 const CLASSMODEL = { blade: 'Warrior', archer: 'Ranger', mage: 'Wizard' }, FAMMODEL = { sword: 'Warrior', bow: 'Ranger', staff: 'Wizard' };
-const MOBCHAR = { bandit: { m: 'Rogue', sc: 1.05, tint: [1, .72, .68], gear: 'bandit' }, goblin: { m: 'Rogue', sc: .8, tint: [.55, .95, .42] }, orc: { m: 'Monk', sc: 1.18, tint: [.6, .92, .48] }, voidknight: { m: 'Warrior', sc: 1.25, tint: [.52, .38, .8], emc: [.07, .01, .12] } };
+// Goblins and orcs use their own models (public/enemy-models.js) instead of recoloured hero characters.
+const MOBCHAR = { bandit: { m: 'Rogue', sc: 1.05, tint: [1, .72, .68], gear: 'bandit' }, voidknight: { m: 'Warrior', sc: 1.25, tint: [.52, .38, .8], emc: [.07, .01, .12] } };
 if (window.Shardlands) { Shardlands.charModel = (mobType, def) => { MOBCHAR[mobType] = def; }; Shardlands.CHARS = CHARS; }
 async function loadChars() { if (!GL.skinOK()) return; await Promise.all(Object.keys(CHARDEF).map(async n => { try { const md = await GL.loadGLB('assets/chars/' + n + '.glb'); md.def = CHARDEF[n]; md.pick = l => l.find(a => md.anims[a]) || Object.keys(md.anims)[0]; CHARS[n] = md; } catch (e) { console.warn('character ' + n + ' not loaded', e); } })); }
 function classModel(cls) { const c = I && I.classes[cls]; const n = (c && c.model) || CLASSMODEL[cls] || FAMMODEL[c && c.fam] || 'Warrior'; return CHARS[n] ? n : null; }
