@@ -5,7 +5,7 @@
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const ROOT = path.join(__dirname, '..'), DIR = path.join(ROOT, 'public/assets/region-bosses');
-const IDS = ['warlord', 'boneking', 'ogrechief', 'yetiking', 'voidlord', 'deathlord', 'alphawolf', 'kingslime', 'broodmother'];
+const IDS = ['warlord', 'boneking', 'ogrechief', 'yetiking', 'voidlord', 'deathlord', 'alphawolf', 'kingslime', 'broodmother', 'elderdrake', 'frostwyrm', 'abyssalwyrm', 'infernal'];
 
 function glb(file) {
   const b = fs.readFileSync(file), jl = b.readUInt32LE(12), g = JSON.parse(b.slice(20, 20 + jl).toString());

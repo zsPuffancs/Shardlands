@@ -17,6 +17,10 @@
     alphawolf: { file: 'alphawolf', height: 49, rim: [[.08, .08, .1], [.16, .05, .03], [.06, .12, .18]], fx: [[.85, .85, .9], [1, .35, .15], [.45, .85, 1]] },
     kingslime: { file: 'kingslime', height: 47, rim: [[.06, .16, .06], [.08, .14, .02], [.18, .12, .02]], fx: [[.6, 1, .5], [.65, 1, .2], [1, .85, .45]] },
     broodmother: { file: 'broodmother', height: 36, rim: [[.12, .04, .14], [.06, .14, .04], [.12, .08, .2]], fx: [[1, .35, .3], [.55, 1, .2], [.75, .55, 1]] },
+    elderdrake: { file: 'elderdrake', height: 58, rim: [[.16, .05, .1], [.14, .06, .03], [.18, .08, .02]], fx: [[1, .55, .2], [1, .42, .1], [1, .5, .1]] },
+    frostwyrm: { file: 'frostwyrm', height: 58, rim: [[.08, .14, .2], [.06, .12, .2], [.1, .16, .22]], fx: [[.6, .92, 1], [.55, .9, 1], [.75, .95, 1]] },
+    abyssalwyrm: { file: 'abyssalwyrm', height: 58, rim: [[.12, .04, .18], [.16, .04, .2], [.1, .08, .22]], fx: [[.75, .3, 1], [.85, .3, 1], [.6, .5, 1]] },
+    infernal: { file: 'infernal', height: 82, rim: [[.2, .06, .01], [.22, .06, .01], [.24, .1, .02]], fx: [[1, .5, .1], [1, .45, .08], [1, .65, .2]] },
   };
   const DEF = { atk: 'Attack', skill: 'Attack2', idle: ['Idle'], run: ['Run'] };
   const MODELS = new Map(), seen = new Map(), ghosts = [];
