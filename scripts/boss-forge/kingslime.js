@@ -93,7 +93,7 @@ function clips() {
 function custom(D) {
   return ({ p, n, s, tag, fine, big }) => {
     if (tag === 'jelly') { const q = [p[0] / 10, (p[1] - 18.6) / (4.6 + (D.key === 'b' ? 1 : 0)), (p[2] - 20.4) / 7], m = Math.hypot(q[0], q[1], q[2]);
-      if (m < 1.08) { const deep = clamp((1.15 - m) / .8 + (20 - p[2]) / 6, 0, 1); return { c: mul(mixc(D.jelly, D.deep, .55), lerp(.78, .42, deep)), a: 1, sp: .9, gl: .9, ty: 3, st: .1 }; } }
+      if (m < 1.08) { const deep = clamp((1.15 - m) / .8 + (20 - p[2]) / 6, 0, 1); return { c: mul(mixc(D.jelly, D.deep, .2), lerp(.88, .74, deep)), a: .9, sp: .9, gl: .9, ty: 3, st: .1 }; } }
     if (tag === 'jelly' || tag === 'cape') { const rim = clamp(1 - Math.abs(n[1]) * .2 - .4, 0, 1), depth = clamp(1 - p[1] / 44, 0, 1);
       const c = mixc(mixc(D.jelly, D.deep, depth * .6), [1, 1, 1], Math.max(0, n[1] - .7) * .9 * (fine > .4 ? 1 : .4)); return { c, a: lerp(.5, .78, rim) - (tag === 'cape' ? 0 : .1), sp: 1, gl: .97, ty: 3, st: .15 }; }
     if (tag === 'core') return { c: D.core, a: .02, sp: 1, gl: 1, ty: 0, st: 0 };
