@@ -25,6 +25,8 @@
     yeti: { file: 'yeti', height: 89, rim: [[0.08, 0.12, 0.18], [0.06, 0.12, 0.2]], fx: [[0.8, 0.92, 1], [0.5, 0.85, 1]] },
     voidweaver: { file: 'voidweaver', height: 36, rim: [[0.12, 0.06, 0.2], [0.14, 0.06, 0.22]], fx: [[0.75, 0.55, 1], [0.9, 0.4, 1]] },
     voidknight: { file: 'voidknight', height: 87, rim: [[0.1, 0.05, 0.16], [0.12, 0.06, 0.2]], fx: [[0.75, 0.35, 1], [0.85, 0.4, 1]] },
+    // Bandits keep their three looks: the look is still EquipKit.pick (same hash of the monster id), Elite = Alpha
+    bandit: { file: 'bandit', kit: 'bandit', height: 80, rim: [[.08, .06, .05], [.16, .05, .03]], fx: [[1, .95, .85], [1, .5, .18]] },
     skeleton: { file: 'skeleton', height: 83, rim: [[.06, .08, .08], [.05, .12, .12]], fx: [[.35, 1, 1], [.3, 1, .9]] },
   };
   const DEF = { atk: 'Attack', skill: 'Attack2', idle: ['Idle'], run: ['Run'] };
@@ -51,12 +53,12 @@
     const def = BOSSES[m.ty]; if (!def || t.boss || t.st || m.wl || typeof animChar !== 'function') return false;
     const now = performance.now(); if (now !== frameAt) { frameAt = now; drawn = 0; }
     if (drawn >= MAX_NEAR || (typeof cam !== 'undefined' && Math.hypot(e.rx - cam.x, e.ry - cam.z) > NEAR)) return false;
-    const v = m.al ? 1 : 0, hm = load(def.file + '-' + 'na'[v]); if (!hm) return false; drawn++;
+    const v = m.al ? 1 : 0, file = def.kit ? (window.EquipKit && EquipKit.pick(def.kit, m.id) ? def.file + '-' + EquipKit.pick(def.kit, m.id) : null) : def.file; if (!file) return false; const hm = load(file + '-' + 'na'[v]); if (!hm) return false; drawn++;
     const sc = scaleFor(def, o); // o is already the Alpha's model object (1.3x) for Alphas
     animChar(e, hm.md, { dead: false }, now);
     const far = hm.far && typeof cam !== 'undefined' && Math.hypot(e.rx - cam.x, e.ry - cam.z) > 640;
     GL.drawHero(far ? hm.far : hm.md, e.nodes, e.rx, 0, e.ry, e.yaw, sc, { rim: def.rim[v], emc: e.flash > now - 110 ? [.4, .4, .4] : null, shadow: hm.far || undefined });
-    seen.set(m.id, { x: e.rx, z: e.ry, yaw: e.yaw, ty: m.ty, v, sc, t: now });
+    seen.set(m.id, { x: e.rx, z: e.ry, yaw: e.yaw, ty: m.ty, v, sc, t: now, file });
     if (!far && typeof burst === 'function' && now - e.atkT < 120 && !e.fxAt) { e.fxAt = 1; const c = Math.cos(e.yaw), s = Math.sin(e.yaw); burst(e.rx + s * 30 * sc, 30 * sc, e.ry + c * 30 * sc, 14, def.fx[v], 120, .5, 1.6, 1, 200); }
     if (now - e.atkT >= 120) e.fxAt = 0;
     return true;
@@ -65,7 +67,7 @@
   function died(x, z, ty) {
     const def = BOSSES[ty]; if (!def) return false;
     let hit = null; for (const [id, s] of seen) if (s.ty === ty && Math.hypot(s.x - x, s.z - z) < 60) { hit = s; seen.delete(id); break; }
-    if (!hit) return false; const hm = load(def.file + '-' + 'na'[hit.v]); if (!hm) return false;
+    if (!hit) return false; const hm = load((hit.file || def.file) + '-' + 'na'[hit.v]); if (!hm) return false;
     ghosts.push({ md: hm.md, x: hit.x, z: hit.z, yaw: hit.yaw, sc: hit.sc, v: hit.v, def, t0: performance.now(), nodes: new Float32Array(hm.md.N * 16) });
     return true;
   }
