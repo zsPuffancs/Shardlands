@@ -153,7 +153,9 @@ function custom(D) {
 const E = (x = 0, y = 0, z = 0) => qMul(qMul(qAxis([0, 1, 0], y), qAxis([1, 0, 0], x)), qAxis([0, 0, 1], z));
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const RISE_BONE = Math.floor(RISE * NSPINE);
-function clips() {
+function clips() { return clipsFor(RISE_BONE, NSPINE, B); }
+// serpent clips for any spine chain: bones RISE_BONE..NSPINE-1 sway and strike; B names head, jaw, crest, wingL/R, tailPlume
+function clipsFor(RISE_BONE, NSPINE, B) {
   const sway = (rot, ph, amp, bend = 0) => { for (let i = RISE_BONE; i < NSPINE; i++) { const k = (i - RISE_BONE) / (NSPINE - RISE_BONE); rot[i] = E(bend * (k - .3) + Math.sin(ph * 2 + i * .6) * .015, Math.sin(ph + i * .55) * amp * (.4 + k), 0); } };
   const wings = (rot, a, flap) => { rot[B.wingL] = E(0, 0, -a - flap); rot[B.wingR] = E(0, 0, a + flap); };
   const TAU = Math.PI * 2;
@@ -184,4 +186,4 @@ function build(variant, { lod = 0 } = {}) {
   return { parts, bones: BONES, clips: lod ? null : clips(), log, design: D };
 }
 
-module.exports = { build, DESIGN, BONES, B };
+module.exports = { build, DESIGN, BONES, B, clipsFor };
