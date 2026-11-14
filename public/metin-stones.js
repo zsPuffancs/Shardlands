@@ -10,6 +10,9 @@
     ember: { types: ['emberstone'], rim: [.18, .05, .01], glow: [1, .5, .12], leaf: [1, .72, .25], dust: [.22, .2, .19], fall: -90 }, // embers and smoke rise
     gloom: { types: ['jadestone'], rim: [.1, .04, .14], glow: [.55, 1, .3], leaf: [.7, .35, 1], dust: [.25, .2, .28], fall: -25 },  // drifting spores
     war: { types: ['bonestone'], rim: [.16, .03, .02], glow: [1, .14, .1], leaf: [1, .65, .3], dust: [.3, .27, .25], fall: 200 },     // sparks and grit
+    void: { types: ['voidstone'], rim: [.14, .04, .2], glow: [.95, .3, 1], leaf: [.6, .35, 1], dust: [.12, .08, .16], fall: -40 },     // drifting void shards
+    ossuary: { types: [], rim: [.05, .12, .08], glow: [.55, 1, .7], leaf: [.75, 1, .85], dust: [.55, .53, .45], fall: -60 },         // rising souls (Necropolis Bone Pillars)
+    doom: { types: ['doomstone'], rim: [.04, .12, .1], glow: [.35, 1, .6], leaf: [.55, .85, 1], dust: [.1, .1, .12], fall: -70 },    // dark souls and spectral mist
     frost: { types: ['froststone'], rim: [.06, .12, .2], glow: [.5, .9, 1], leaf: [.88, .96, 1], dust: [.82, .9, .98], fall: 25 },    // snow and freezing mist
   };
   const BY_TYPE = {}; for (const [id, d] of Object.entries(DESIGNS)) for (const ty of d.types) BY_TYPE[ty] = id;
@@ -29,7 +32,8 @@
     return null;
   }
   // which design a stone type shows (a biome can override a shared type, e.g. Necropolis vs Warfields)
-  function designOf(ty) { return BY_TYPE[ty] || null; }
+  // Bone Pillars standing in Necropolis scenery (look 6) show the Ossuary Pillar; elsewhere the Bloodforged Stone
+  function designOf(ty, x, z) { const id = BY_TYPE[ty] || null; if (id === 'war' && x !== undefined && typeof lookZoneOf === 'function' && lookZoneOf(x, z) === 6) return 'ossuary'; return id; }
   // 1 intact (above 2/3 health), 2 damaged, 3 near destruction (below 1/3)
   const stageOf = (hp, mh) => { const f = mh > 0 ? hp / mh : 1; return f > 2 / 3 ? 1 : f > 1 / 3 ? 2 : 3; };
   const yawOf = id => ((id || 0) * 2.39996) % (Math.PI * 2);
@@ -38,7 +42,7 @@
 
   // draw one living stone; false = not premium or not loaded (the caller draws the primitive stone)
   function draw(e, t, m) {
-    const id = designOf(m.ty); if (!id) return false; const hm = modelFor(id); if (!hm) return false;
+    const id = designOf(m.ty, e.rx, e.ry); if (!id) return false; const hm = modelFor(id); if (!hm) return false;
     const now = performance.now(), md = hm.md, d = DESIGNS[id], st = stageOf(m.hp, m.mh);
     const S = e.mst || (e.mst = { stage: st, prev: st, at: -1e9 });
     if (st !== S.stage) { S.prev = S.stage; S.stage = st; S.at = now; if (st > S.prev) crumble(e.rx, e.ry, d, st); }
@@ -78,7 +82,7 @@
   }
   // destroyed: the core flares, the cracks blaze, the stone flies apart and sinks; a burst of green light and leaves
   function shatter(x, z, ty) {
-    const id = designOf(ty), hm = id && modelFor(id); if (!hm) return false; const d = DESIGNS[id];
+    const id = designOf(ty, x, z), hm = id && modelFor(id); if (!hm) return false; const d = DESIGNS[id];
     let yaw = 0; for (const [mid, s] of seen) if (Math.hypot(s.x - x, s.z - z) < 30) { yaw = yawOf(mid); seen.delete(mid); break; }
     ghosts.push({ md: hm.md, x, z, yaw, t0: performance.now(), d, nodes: new Float32Array(hm.md.N * 16), boomed: false });
     if (typeof burst === 'function') burst(x, 40, z, 30, d.glow, 60, .5, 2.4, 1, -20);

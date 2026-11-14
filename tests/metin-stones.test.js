@@ -5,7 +5,7 @@
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const ROOT = path.join(__dirname, '..'), DIR = path.join(ROOT, 'public/assets/metin');
-const IDS = ['meadows', 'ember', 'frost', 'gloom', 'war'];
+const IDS = ['meadows', 'ember', 'frost', 'gloom', 'war', 'void', 'ossuary', 'doom'];
 
 function glb(file) {
   const b = fs.readFileSync(file), jl = b.readUInt32LE(12), g = JSON.parse(b.slice(20, 20 + jl).toString());
@@ -31,6 +31,9 @@ test('the damage stage comes from replicated health, so every client shows the s
   assert.equal(S.stageOf(100, 100), 1); assert.equal(S.stageOf(67, 100), 1); assert.equal(S.stageOf(66, 100), 2);
   assert.equal(S.stageOf(34, 100), 2); assert.equal(S.stageOf(33, 100), 3); assert.equal(S.stageOf(0, 100), 3);
   assert.equal(S.designOf('stone'), 'meadows'); assert.equal(S.designOf('wolf'), null);
+  // Bone Pillars are the Bloodforged Stone, except in Necropolis scenery (look 6), where they are the Ossuary Pillar
+  assert.equal(S.designOf('bonestone', 0, 0), 'war'); ctx.lookZoneOf = (x) => (x > 100 ? 6 : 2);
+  assert.equal(S.designOf('bonestone', 50, 0), 'war'); assert.equal(S.designOf('bonestone', 500, 0), 'ossuary'); assert.equal(S.designOf('doomstone', 500, 0), 'doom');
   // without the hero renderer (no GL here) nothing is drawn by the module: the caller keeps the primitive stone
   assert.equal(S.draw({ rx: 0, ry: 0 }, { st: true }, { id: 1, ty: 'stone', hp: 1, mh: 1 }), false);
   assert.equal(S.shatter(0, 0, 'stone'), false); assert.equal(S.summon(0, 0), false);

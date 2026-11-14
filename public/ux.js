@@ -105,7 +105,7 @@ const TUTORIAL = [
   ['inventory', '🎒 Inventory and gear', 'Press I. Click gear to equip it. Hover an item to see its stats, hold Shift for the possible values and a comparison with what you wear. Ctrl+click locks an item so it cannot be sold or merged by mistake.'],
   ['skills', '📜 Skills', 'Press K. You get one point per level: active skills go to rank 5, passive skills to rank 99.'],
   ['merge', '⚗ Merging', 'Use Merge in the inventory to fuse items of one colour into one of the next: 2 Common, 3 Uncommon, 4 Rare, 5 Epic or 15 Legendary. The new item gets the average item level of what you used.'],
-  ['souls', '🔮 Souls', 'Stones, Alphas and bosses drop souls. The Soul Mystic in the village spends them to reroll an item\'s stats or to add an affix.'],
+  ['souls', '🔮 Souls', 'Pillars, Alphas and bosses drop souls. The Soul Mystic in the village spends them to reroll an item\'s stats or to add an affix.'],
   ['portal', '🌀 World Tiers and the World Portal', 'Each zone has a World Boss (👑). Defeating it raises the server\'s World Tier. After the seventh, a World Portal opens in the village and leads to new maps. The Chronicle (H) shows the server\'s history.'],
   ['team', '👥 Playing together', 'Press Y to form a team. Team members nearby share XP and gold, can trade with each other, and face tougher monsters.'],
 ];

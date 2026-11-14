@@ -16,7 +16,7 @@ function affixUsageHtml(item, key = item?.afx?.k, value = item?.afx?.v) {
 }
 const AdventureUI = (() => {
   let view = null, tab = 'contracts', lastBossRender = 0, bossSignature = '', lastContractAccess = null;
-  const titles = { clear: 'Clear the wilderness', stone: 'Break Spirit Stones', boss: 'Defeat a boss' };
+  const titles = { clear: 'Clear the wilderness', stone: 'Break Spirit Pillars', boss: 'Defeat a boss' };
   const title = kind => text('adventure.' + kind, titles[kind] || kind);
   function action(op, label, kind, disabled = false) { return '<button type="button" class="pri" data-contract="' + op + '"' + (kind ? ' data-kind="' + kind + '"' : '') + (disabled ? ' disabled' : '') + '>' + esc(label) + '</button>'; }
   function render() {

@@ -610,7 +610,7 @@ let UNI = null;
 const CHRONICLE_TEXT = {
   founded: 'The universe {universe} was founded.', firstHero: '{player} was the first hero to walk {universe}.',
   levelMilestone: '{player} was the first to reach level {level}.', bossFirstKill: '{player} was the first to slay {boss}.',
-  stoneFirst: '{player} shattered the first stone of {region}.', firstMythic: '{player} forged the first Mythic item: {item}.',
+  stoneFirst: '{player} shattered the first pillar of {region}.', firstMythic: '{player} forged the first Mythic item: {item}.',
   worldBoss: '{player} defeated the World Boss {boss}. World Tier {tier} begins: {region} is discovered.',
   campFounded: '{player} founded the encampment of {region}.', stallBuilt: '{player} built the {stall} in {region} for {gold} gold.', stallFunded: '{player} led the building of the {stall} in {region}: {count} heroes gave {gold} gold.',
 };

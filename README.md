@@ -54,13 +54,13 @@ Details and design notes: `docs/UNIVERSE.md`.
 ## World (7 rings around the village)
 | Zone | Levels | Monsters | Bosses (signature attack) | Stone |
 |---|---|---|---|---|
-| Whispering Meadows | 1-6 | Wolf, Slime, Boar, Shroomling | Alpha Wolf (charge), King Slime (summon) | Spirit Stone |
-| Gloomwood | 7-14 | Goblin, Orc, Cave Spider, Bandit | Orc Warlord (charge), Spider Broodmother (summon) | Jade Stone |
-| Ashen Barrens | 15-22 | Skeleton, Ogre, Wraith | Bone King (summon), Ogre Chieftain (slam) | Bone Obelisk |
-| Ember Wastes | 23-30 | Hellhound, Ember Drake, Magma Golem | Elder Drake (breath), Infernal Colossus (meteors) | Ember Stone |
-| Frostfang Peaks | 30-40 | Frost Fang, Yeti, Ice Golem | Frost Wyrm (breath), Yeti King (charge) | Frost Stone |
-| Voidreach | 40-50 | Shade, Void Weaver, Void Knight | Void Lord (meteors), Abyssal Wyrm (breath) | Void Stone |
-| **Death Zone** (map border) | 50-60 | ~1800 of everything, scaled up | 4x Lord of Death + Void Lord, Abyssal Wyrm, Frost Wyrm, Yeti King | Doom Stone |
+| Whispering Meadows | 1-6 | Wolf, Slime, Boar, Shroomling | Alpha Wolf (charge), King Slime (summon) | Spirit Pillar |
+| Gloomwood | 7-14 | Goblin, Orc, Cave Spider, Bandit | Orc Warlord (charge), Spider Broodmother (summon) | Jade Pillar |
+| Ashen Barrens | 15-22 | Skeleton, Ogre, Wraith | Bone King (summon), Ogre Chieftain (slam) | Bone Pillar |
+| Ember Wastes | 23-30 | Hellhound, Ember Drake, Magma Golem | Elder Drake (breath), Infernal Colossus (meteors) | Ember Pillar |
+| Frostfang Peaks | 30-40 | Frost Fang, Yeti, Ice Golem | Frost Wyrm (breath), Yeti King (charge) | Frost Pillar |
+| Voidreach | 40-50 | Shade, Void Weaver, Void Knight | Void Lord (meteors), Abyssal Wyrm (breath) | Void Pillar |
+| **Death Zone** (map border) | 50-60 | ~1800 of everything, scaled up | 4x Lord of Death + Void Lord, Abyssal Wyrm, Frost Wyrm, Yeti King | Doom Pillar |
 - **Monster strength** (`src/combat/enemy-scaling.js`, details in `docs/ENEMY-SCALING.md`): every monster's health and damage come from a level budget built on a reference hero with gear of its own level: an on-level normal monster takes a Rare +3 hero about 5 seconds to kill and needs about 14 hits to kill them (gentler during the first 25 levels). Each monster type keeps its character (Golems are tanky, Wraiths hit hard). Every world after the founding lands adds a little more health and more damage (World Tier 8 and on).
 - **Alpha** monsters (orange name + aura): 3x HP and 1.5x damage of a normal monster, notice you from further away, a larger XP budget, guaranteed loot, 90 s respawn. All enemy categories give smoothly reduced XP to heroes more than 5 levels above them and zero XP at a gap of 25 or more. Extreme underlevel rewards are also reduced; gold and drops are unchanged. New v2 frontier regions distribute ordinary monsters and Spirit Stones across progression bands, with validated accessible XP sources throughout their level range. Existing saved regions are preserved. See [XP progression policy and Atlas coverage](docs/XP-PROGRESSION.md).
 - **Bosses** (gold name): 8-12x HP (rising with the zone) and 1.8x damage. Every special attack is telegraphed in red on the ground - get out of it. After each one the boss recovers for a moment: it cannot hit back and takes 25% more damage. Below 60% health it becomes enraged and below 30% desperate: special attacks come faster and hit harder. 3 min respawn, best loot.

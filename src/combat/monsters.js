@@ -58,13 +58,13 @@ const MOBTYPES = {
   // Death Zone 50-60
   deathlord:   { name: 'Lord of Death',    lvl: 60, hp: 300000, dmg: 450, spd: 105, xp: 120000, gold: [20000, 40000], r: 54, aggro: 360, color: '#1a1a1a', boss: true },
   // stones (one kind per zone)
-  stone:       stoneTemplate({ name: 'Spirit Stone',     lvl: 5, dmg: 0, spd: 0, xp: 600,   gold: [400, 800],     r: 28, aggro: 0, color: '#5cc8ff', stone: true, shape: 'crystal' }),
-  jadestone:   stoneTemplate({ name: 'Jade Stone',       lvl: 12, dmg: 0, spd: 0, xp: 1800,  gold: [900, 1800],    r: 28, aggro: 0, color: '#4ee08a', stone: true, shape: 'crystal' }),
-  bonestone:   stoneTemplate({ name: 'Bone Obelisk',     lvl: 20, dmg: 0, spd: 0, xp: 4500,  gold: [1800, 3600],   r: 30, aggro: 0, color: '#e8e0c0', stone: true, shape: 'obelisk' }),
-  emberstone:  stoneTemplate({ name: 'Ember Stone',      lvl: 28, dmg: 0, spd: 0, xp: 9000,  gold: [3000, 6000],   r: 30, aggro: 0, color: '#ff7a2a', stone: true, shape: 'obelisk' }),
-  froststone:  stoneTemplate({ name: 'Frost Stone',      lvl: 37, dmg: 0, spd: 0, xp: 16000, gold: [5000, 9000],   r: 30, aggro: 0, color: '#9fe8ff', stone: true, shape: 'crystal' }),
-  voidstone:   stoneTemplate({ name: 'Void Stone',       lvl: 46, dmg: 0, spd: 0, xp: 26000, gold: [7000, 13000],  r: 30, aggro: 0, color: '#b45cff', stone: true, shape: 'crystal' }),
-  doomstone:   stoneTemplate({ name: 'Doom Stone',       lvl: 56, dmg: 0, spd: 0, xp: 45000, gold: [12000, 20000], r: 32, aggro: 0, color: '#ff2a3a', stone: true, shape: 'obelisk' }),
+  stone:       stoneTemplate({ name: 'Spirit Pillar',    lvl: 5, dmg: 0, spd: 0, xp: 600,   gold: [400, 800],     r: 28, aggro: 0, color: '#5cc8ff', stone: true, shape: 'crystal' }),
+  jadestone:   stoneTemplate({ name: 'Jade Pillar',      lvl: 12, dmg: 0, spd: 0, xp: 1800,  gold: [900, 1800],    r: 28, aggro: 0, color: '#4ee08a', stone: true, shape: 'crystal' }),
+  bonestone:   stoneTemplate({ name: 'Bone Pillar',      lvl: 20, dmg: 0, spd: 0, xp: 4500,  gold: [1800, 3600],   r: 30, aggro: 0, color: '#e8e0c0', stone: true, shape: 'obelisk' }),
+  emberstone:  stoneTemplate({ name: 'Ember Pillar',     lvl: 28, dmg: 0, spd: 0, xp: 9000,  gold: [3000, 6000],   r: 30, aggro: 0, color: '#ff7a2a', stone: true, shape: 'obelisk' }),
+  froststone:  stoneTemplate({ name: 'Frost Pillar',     lvl: 37, dmg: 0, spd: 0, xp: 16000, gold: [5000, 9000],   r: 30, aggro: 0, color: '#9fe8ff', stone: true, shape: 'crystal' }),
+  voidstone:   stoneTemplate({ name: 'Void Pillar',      lvl: 46, dmg: 0, spd: 0, xp: 26000, gold: [7000, 13000],  r: 30, aggro: 0, color: '#b45cff', stone: true, shape: 'crystal' }),
+  doomstone:   stoneTemplate({ name: 'Doom Pillar',      lvl: 56, dmg: 0, spd: 0, xp: 45000, gold: [12000, 20000], r: 32, aggro: 0, color: '#ff2a3a', stone: true, shape: 'obelisk' }),
 };
 const TIERS = [
   { name: 'Whispering Meadows', min: 400,  max: 1250, lv: [1, 6],   types: ['wolf', 'slime', 'boar', 'shroom'],        bosses: ['alphawolf', 'kingslime'],   bossCount: 2, count: 170, stones: 10, stone: 'stone',      alphas: 5 },

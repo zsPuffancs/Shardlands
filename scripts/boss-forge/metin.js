@@ -6,7 +6,7 @@
 // Units match the primitive stone it replaces (top ~92-104, radius ~28-32).
 const K = require('./kit');
 const { F, mixc } = K;
-const { roundCone: RC, ellipsoid: EL, box: BX, Sculpt, norm, add, mul, sub, len, cross, dot, clamp, lerp, rng, qAxis, qMul } = F;
+const { roundCone: RC, ellipsoid: EL, box: BX, torus: TO, Sculpt, norm, add, mul, sub, len, cross, dot, clamp, lerp, rng, qAxis, qMul } = F;
 
 const rotY = a => [[Math.cos(a), 0, -Math.sin(a)], [0, 1, 0], [Math.sin(a), 0, Math.cos(a)]];
 // rows = world->local axes for a frame whose local y follows dir
@@ -416,6 +416,170 @@ function war(D) {
   return { parts: [['stone', lower, .7, .4], ['stoneTop', upper, .65, .4], ...chunkS.map((c, i) => ['chunk' + i, c, .55, .2]), ['ground', ground, .55, .5], ['detail', fine, .4, .3]], bones, chunks: chunkInfo, B, topTilt: [1, 0, .5] };
 }
 
+// a skull facing yaw (radians from +z towards +x), radius r
+function skullAt(S, c, yaw, r, bone, tag = 'bone') { const cy = Math.cos(yaw), sy = Math.sin(yaw), at = (x, y, z) => [c[0] + (x * cy + z * sy) * r, c[1] + y * r, c[2] + (-x * sy + z * cy) * r], fr = euler(yaw), o = k => ({ bone, tag, k });
+  S.add(EL(at(0, .15, -.1), [r, r * 1.05, r * 1.15], fr), o(1)); S.add(EL(at(0, -.45, .55), [r * .72, r * .5, r * .5], fr), o(.8));
+  for (const sx of [-1, 1]) { S.add(EL(at(sx * .62, -.32, .55), [r * .3, r * .22, r * .3], fr), o(.5)); S.sub(EL(at(sx * .38, .02, .95), [r * .28, r * .26, r * .32], fr), { k: .25 }); }
+  S.add(EL(at(0, .3, .78), [r * .8, r * .2, r * .26], fr), o(.4)); S.sub(EL(at(0, -.3, 1.02), [r * .1, r * .17, r * .2], fr), { k: .15 });
+  S.add(EL(at(0, -.95, .4), [r * .6, r * .2, r * .5], fr), o(.5));
+  for (let i = 0; i < 8; i++) { const a = (i / 7 - .5) * 2, p = at(Math.sin(a) * .5, -.72, Math.cos(a) * .45 + .5); S.add(EL(p, [r * .06, r * .1, r * .06]), { bone, tag, k: .05 }); } }
+// a long bone between a and b (knobbed ends)
+function longBone(S, a, b, r, bone, tag = 'bone') { S.add(RC(a, b, r, r * .8), { bone, tag, k: .3 }); const d = norm(sub(b, a)), sd = norm(cross(d, [0, 1, 0.01]));
+  for (const e of [a, b]) for (const s2 of [-1, 1]) S.add(EL(add(e, mul(sd, s2 * r * .7)), [r * 1.1, r * 1.1, r * 1.1]), { bone, tag, k: .4 }); }
+
+// ---------------- the Void Anchor (Voidreach) ----------------
+// Wrong geometry: a base of black crystal slabs jutting at impossible angles, and above it an inverted obelisk that
+// floats free over a rift of magenta light; fragments and warped rings orbit it, fractures glow and bend the light.
+const VOID = { key: 'void', seed: 1801, crystal0: [.08, .05, .12], crystalHi: [.3, .18, .42], glow: [.95, .3, 1], glow2: [.55, .25, 1], crystal: [.8, .2, 1], coreCol: [1, .55, 1], colors: { skin: [.08, .05, .12] } };
+function voidAnchor(D) {
+  const R = rng(D.seed), B = B0, slab = new Sculpt(), chunkS = [], ground = new Sculpt(), fine = new Sculpt();
+  // the anchor's foot: interpenetrating crystal slabs, each at a different tilt, rising to a jagged lip
+  for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2, c = [Math.cos(a) * 5, 16 + (i % 3) * 4, Math.sin(a) * 5];
+    slab.add(BX(c, [lerp(5, 7, R()), lerp(14, 20, R()), lerp(2.5, 3.5, R())], euler(-a + (R() - .5) * .8, (R() - .5) * .7, (R() - .5) * .7), .15), { bone: B.root, tag: 'vcrystal', k: .4 }); }
+  for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2 + .2; shard(slab, [Math.cos(a) * 6, 24, Math.sin(a) * 6], [Math.cos(a) * .6, 1, Math.sin(a) * .6], lerp(14, 22, R()), lerp(2, 3.2, R()), { bone: B.root, tag: 'vcrystal' }, a); }
+  // the floating obelisk: an inverted, faceted spire hanging point-down over the rift
+  slab.add(BX([0, 72, 0], [9, 16, 9], euler(.785, 0, 0), .2), { bone: B.top, tag: 'vcrystal', k: .5 });
+  shard(slab, [0, 60, 0], [0, -1, 0], 14, 7, { bone: B.top, tag: 'vcrystal' }, .785);
+  shard(slab, [0, 86, 0], [0, 1, 0], 18, 6.5, { bone: B.top, tag: 'vcrystal' }, .785);
+  for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; shard(slab, [Math.cos(a) * 6, 76, Math.sin(a) * 6], [Math.cos(a), .35, Math.sin(a)], 13, 2.6, { bone: B.top, tag: 'vcrystal' }, a); }
+  for (let i = 0; i < 14; i++) { const y = 20 + R() * 75, a = R() * Math.PI * 2; slab.sub(BX([Math.cos(a) * 9, y, Math.sin(a) * 9], [3.5, lerp(2, 5, R()), 3.5], euler(R() * 3, R(), R()), .05), { k: .2 }); }
+  slab.build(4);
+  // the rift and core between foot and obelisk
+  const cc = [0, 46, 0];
+  fine.add(EL(cc, [5, 5, 5]), { bone: B.core, tag: 'core', k: .5, c: cc });
+  for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; crystal(fine, cc, [Math.cos(a), (i % 2 ? .6 : -.6), Math.sin(a)], 9, 1.3, { bone: B.core, tag: 'coreCrystal', root: cc, L: 9 }); }
+  // orbiting fragments and warped rings (on the crown bone, which turns)
+  for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2, r = 20 + (i % 3) * 4, c = [Math.cos(a) * r, 40 + Math.sin(a * 3) * 12 + (i % 2) * 14, Math.sin(a) * r];
+    shard(fine, c, [Math.cos(a * 2), 1, Math.sin(a * 3)], lerp(5, 9, R()), lerp(1.4, 2.2, R()), { bone: B.crown, tag: 'vcrystal' }, a); }
+  fine.add(TO(cc, 15, .45, euler(0, .5, .3)), { bone: B.crown, tag: 'rune', k: .1 }); fine.add(TO(cc, 11, .35, euler(1.3, -.7, .2)), { bone: B.crown, tag: 'rune', k: .1 });
+  // glowing fractures that never quite line up
+  for (let i = 0; i < 10; i++) seamOn(slab, fine, i < 6 ? B.root : B.top, radial(slab, i < 6 ? 12 + i * 5 : 62 + (i - 6) * 9, i * 1.7) || [0, 20, 8], [Math.cos(i), 1, Math.sin(i)], 6, .5, D.seed + 20 + i, 'rune');
+  // cracked, tilted ground slabs around the foot
+  for (let i = 0; i < 16; i++) { const a = R() * Math.PI * 2, r = lerp(14, 32, R()); ground.add(BX([Math.cos(a) * r, .5, Math.sin(a) * r * .9], [lerp(2.5, 5, R()), lerp(.8, 2, R()), lerp(2, 4, R())], euler(R() * 3, (R() - .5) * .6, (R() - .5) * .6), .1), { bone: B.root, tag: 'vcrystal', k: .2 }); }
+  ground.add(EL([0, -1.5, 0], [26, 2.5, 24]), { bone: B.root, tag: 'voidground', k: 2 });
+  // breakable: obelisk wings, foot shards, the lower tip
+  const chunkInfo = [];
+  const CH = [[[9, 78, 0], [1, .5, 0], 12, 2.4, B.top, 2], [[-9, 78, 0], [-1, .5, 0], 12, 2.4, B.top, 3], [[6, 22, 7], [.6, 1, .6], 18, 2.6, B.root, 2], [[-7, 20, -6], [-.6, 1, -.5], 18, 2.6, B.root, 3], [[2, 22, -8], [.2, 1, -.8], 16, 2.4, B.root, 4], [[0, 64, 0], [0, -1, 0], 9, 4.5, B.top, 4]];
+  CH.forEach(([c, d, l, w, parent, stage], i) => { const bone = CHUNK_BONE0 + i, S = new Sculpt(); chunkS.push(S); shard(S, c, d, l, w, { bone, tag: 'vcrystal' }, i); chunkInfo.push({ c: add(c, mul(norm(d), l * .4)), h: [w, l * .4, w], parent, stage, bone }); });
+  const fis = [0, 46, 6];
+  for (let i = 0; i < 6; i++) seamOn(slab, fine, B.crack2, radial(slab, 24 + i * 7, i * 1.1 + .3) || fis, [Math.cos(i * 1.3), 1, Math.sin(i * 1.7)], 7, .55, D.seed + 60 + i);
+  for (let i = 0; i < 8; i++) seamOn(slab, fine, B.crack3, radial(slab, i < 4 ? 10 + i * 8 : 60 + (i - 4) * 9, i * 2.2 + .4) || fis, [Math.cos(i * 2.1), 1, Math.sin(i * 2.1)], 9, .7, D.seed + 80 + i);
+  for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, p = add(cc, [Math.cos(a) * lerp(7, 13, (i % 3) / 2), (i % 3 - 1) * 6, Math.sin(a) * lerp(7, 13, (i % 3) / 2)]); fine.add(EL(p, [.9, .9, .9]), { bone: B.leak, tag: 'leak', k: .2 }); }
+  fine.add(TO(cc, 8, .5, euler(.4, 1.2, 0)), { bone: B.leak, tag: 'leak', k: .1 });
+  const bones = BONES_BASE([0, 60, 0], cc, [0, 46, 0], fis); bones[3].parent = 0; chunkInfo.forEach((c, i) => bones.push({ name: 'chunk' + i, parent: c.parent, pos: c.c }));
+  const split = bone => { const S = new Sculpt(); for (const sh of slab.shapes) if (sh.op === 'sub' || sh.bone === bone) S.shapes.push(sh); S.build(4); return S; };
+  const lower = split(B.root), upper = split(B.top);
+  chunkS.forEach(c => c.build(3)); ground.build(3); fine.build(2.5);
+  return { parts: [['stone', lower, .6, .4], ['stoneTop', upper, .6, .4], ...chunkS.map((c, i) => ['chunk' + i, c, .55, .2]), ['ground', ground, .7, .5], ['detail', fine, .45, .2]], bones, chunks: chunkInfo, B, topTilt: [1, 0, .5], orbit: true, float: true };
+}
+
+// ---------------- the Ossuary Pillar (Necropolis) ----------------
+// A dark funerary column banded with carved burial friezes; skulls stacked in its niches, a ribcage cradling a pale
+// green soul-light at its heart, long bones lashed to its flanks and a great skull crowning it.
+const OSSUARY = { key: 'ossuary', seed: 1901, stone: [.24, .25, .24], stoneDark: [.09, .1, .1], bone: [.82, .78, .66], boneDark: [.45, .41, .32], moss: [.2, .26, .16], glow: [.55, 1, .7], crystal: [.4, .9, .6], coreCol: [.75, 1, .85], colors: { skin: [.24, .25, .24] } };
+function ossuary(D) {
+  const R = rng(D.seed), B = B0, slab = new Sculpt(), chunkS = [], bones = new Sculpt(), fine = new Sculpt();
+  // a square plinth with a tomb-step, the round shaft, a heavy capital
+  slab.add(BX([0, 4, 0], [17, 4, 17], euler(.785), .8), { bone: B.root, tag: 'ostone', k: .8 }); slab.add(BX([0, 10, 0], [13.5, 3, 13.5], euler(.785), .6), { bone: B.root, tag: 'ostone', k: .6 });
+  slab.add(RC([0, 12, 0], [0, 56, 0], 10.5, 9.5), { bone: B.root, tag: 'ostone', k: 1 }); slab.add(RC([0, 56, 0], [0, 76, 0], 9.5, 9), { bone: B.top, tag: 'ostone', k: 1 });
+  slab.add(BX([0, 79, 0], [12.5, 3.2, 12.5], euler(.785), .6), { bone: B.top, tag: 'ostone', k: .8 });
+  // carved friezes: grooved bands round the shaft and fluting
+  for (const y of [22, 50, 70]) { slab.sub(TO([0, y, 0], 10.4, .7), { k: .3 }); slab.add(TO([0, y + 2.2, 0], 10.2, .9), { bone: y > 58 ? B.top : B.root, tag: 'ostone', k: .3 }); }
+  for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; slab.sub(RC([Math.cos(a) * 10.6, 26, Math.sin(a) * 10.6], [Math.cos(a) * 10.2, 46, Math.sin(a) * 10.2], .55, .55), { k: .3 }); }
+  // niches: four skull niches round the shaft, the ribcage alcove at the front
+  const niche = [];
+  for (let i = 0; i < 4; i++) { const a = Math.PI / 2 + Math.PI / 4 + i * Math.PI / 2, y = 62, c = [Math.cos(a) * 8.6, y, Math.sin(a) * 8.6]; slab.sub(EL(add(c, mul([Math.cos(a), 0, Math.sin(a)], 2)), [4, 5, 4]), { k: .8 }); niche.push([c, a]); }
+  slab.sub(EL([0, 36, 9], [7, 10, 6]), { k: 1.2 });
+  for (let i = 0; i < 20; i++) { const y = 12 + R() * 66, a = R() * Math.PI * 2; slab.sub(EL([Math.cos(a) * 10, y, Math.sin(a) * 10], [lerp(1, 2.5, R()), lerp(1.2, 3, R()), lerp(1, 2.5, R())]), { k: .7 }); }
+  slab.build(4);
+  // burial symbols carved round the shaft
+  for (let i = 0; i < 10; i++) { const a = [2.3, 4, .7, 5.4, 3.1][i % 5] + (R() - .5) * .2, y = i < 5 ? 30 : 42, p = radial(slab, y, a); if (p) glyphAt(slab, fine, p, norm([Math.cos(a), 0, Math.sin(a)]), 4.4, D.seed + 40 + i, B.root); }
+  slab.build(4);
+  // the soul-light in the ribcage
+  const cc = [0, 36, 5];
+  fine.add(EL(cc, [3.4, 5, 3.2]), { bone: B.core, tag: 'core', k: .6, c: cc });
+  for (let i = 0; i < 5; i++) fine.add(EL(add(cc, [Math.sin(i * 2.4) * 2.4, (i - 2) * 2.4, Math.cos(i * 2.4) * 1.2 + 1]), [1.1, 1.6, 1.1]), { bone: B.core, tag: 'coreCrystal', k: .7, root: cc, L: 6 });
+  bones.add(RC([0, 25, 7], [0, 47, 7.4], 1.1, .9), { bone: B.root, tag: 'bone', k: .4 });
+  for (let i = 0; i < 6; i++) { const y = 28 + i * 3.4, w = 6.5 - Math.abs(i - 2.5) * .5; for (const sx of [-1, 1]) tube(bones, [[0, y, 7.6], [sx * w * .7, y + 1, 9.5], [sx * w, y - 1, 7], [sx * w * .85, y - 2.5, 3]], .55, .4, { bone: B.root, tag: 'bone' }, 3); }
+  // skulls: in the niches, heaped round the plinth, the great skull on the capital
+  niche.forEach(([c, a], i) => skullAt(bones, add(c, mul([Math.cos(a), 0, Math.sin(a)], .6)), Math.atan2(Math.cos(a), Math.sin(a)), 2.7, B.top));
+  for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2 + R() * .3, r = lerp(16, 22, R()), c = [Math.cos(a) * r, 2.2, Math.sin(a) * r]; skullAt(bones, c, Math.atan2(Math.cos(a), Math.sin(a)) + (R() - .5) * .8, lerp(1.8, 2.6, R()), B.root); }
+  // long bones lashed crosswise to the flanks and strewn at the foot
+  for (const sx of [-1, 1]) { const x = sx * 10.5; longBone(bones, [x, 16, -5], [x * 1.05, 44, 5], 1.1, B.root); longBone(bones, [x, 16, 5], [x * 1.05, 44, -5], 1.1, B.root); }
+  for (let i = 0; i < 10; i++) { const a = R() * Math.PI * 2, r = lerp(17, 28, R()), c = [Math.cos(a) * r, .8, Math.sin(a) * r], d = [Math.cos(a + R() * 3), 0, Math.sin(a + R() * 3)]; longBone(bones, sub(c, mul(d, 4)), add(c, mul(d, 4)), .7, B.root); }
+  // breakable: the great crowning skull, capital corners, the frieze stones over the ribcage, niche skulls fall with their stones
+  const chunkInfo = [];
+  { const bone = CHUNK_BONE0, S = new Sculpt(); chunkS.push(S); skullAt(S, [0, 88, 1], 0, 6.5, bone); chunkInfo.push({ c: [0, 88, 1], h: [6.5, 6.5, 6.5], parent: B.top, stage: 3, bone }); }
+  const CH = [[[9, 79, 9], [3, 3.2, 3], B.top, 2], [[-9, 79, -9], [3, 3.2, 3], B.top, 3], [[-6, 36, 10.5], [3.6, 10, 1.6], B.root, 2], [[6.5, 38, 10.5], [3.4, 9, 1.6], B.root, 3], [[-10, 30, -3], [2, 9, 5], B.root, 4]];
+  CH.forEach(([c, h, parent, stage], i) => { const bone = CHUNK_BONE0 + 1 + i, S = new Sculpt(); chunkS.push(S); S.add(BX(c, h, euler(i * .5 + .3), .6), { bone, tag: 'ostone', k: .5 }); S.sub(EL(add(c, [(R() - .5) * h[0], (R() - .5) * h[1], (R() - .5) * h[2]]), [1.5, 2, 1.5]), { k: .5 }); chunkInfo.push({ c, h, parent, stage, bone }); });
+  const fis = [0, 36, 10];
+  for (let i = 0; i < 6; i++) seamOn(slab, fine, B.crack2, radial(slab, 26 + i * 5, 1.57 + (i - 2.5) * .4) || fis, [Math.cos(i * 1.3), 1, Math.sin(i * 1.7)], 7, .5, D.seed + 60 + i);
+  for (let i = 0; i < 8; i++) seamOn(slab, fine, B.crack3, radial(slab, 14 + i * 8, i * 2.2 + .4) || fis, [Math.cos(i * 2.1), 1, Math.sin(i * 2.1)], 9, .65, D.seed + 80 + i);
+  // stage 3: spirits rising out of the ribcage
+  for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2, b = add(cc, [Math.cos(a) * 4, 2, 6 + Math.sin(a) * 2]); tube(fine, [b, add(b, [Math.cos(a) * 4, 8, 3]), add(b, [Math.cos(a) * 2, 18, 5]), add(b, [Math.cos(a + 1) * 5, 28, 3])], 1.4, .2, { bone: B.leak, tag: 'leak' }, 3); }
+  const bns = BONES_BASE([0, 58, 0], cc, [0, 88, 1], fis); chunkInfo.forEach((c, i) => bns.push({ name: 'chunk' + i, parent: c.parent, pos: c.c }));
+  const split = bone => { const S = new Sculpt(); for (const sh of slab.shapes) if (sh.op === 'sub' || sh.bone === bone) S.shapes.push(sh); S.build(4); return S; };
+  const lower = split(B.root), upper = split(B.top), bonesTop = new Sculpt(), bonesLow = new Sculpt();
+  for (const sh of bones.shapes) (sh.bone === B.top ? bonesTop : bonesLow).shapes.push(sh);
+  chunkS.forEach(c => c.build(3)); bonesTop.build(2.5); bonesLow.build(2.5); fine.build(2.5);
+  return { parts: [['stone', lower, .65, .4], ['stoneTop', upper, .6, .4], ...chunkS.map((c, i) => ['chunk' + i, c, .45, .2]), ['bones', bonesLow, .4, .3], ['bonesTop', bonesTop, .4, .3], ['detail', fine, .45, .3]], bones: bns, chunks: chunkInfo, B, topTilt: [-1, 0, .4] };
+}
+
+// ---------------- the Soul Harvester (Death Zone) ----------------
+// A tall black blade of stone, its edges curving into scythe-like crescents; skeletal hands claw out of the ground
+// to clutch its foot, chained lanterns hang from its arms, and ghostly souls are trapped writhing inside it.
+const DOOM = { key: 'doom', seed: 2001, stone: [.09, .09, .1], stoneHi: [.22, .23, .26], bone: [.75, .74, .68], iron: [.16, .16, .18], soul: [.55, .85, 1], glow: [.35, 1, .6], glow2: [.55, .85, 1], crystal: [.3, .9, .7], coreCol: [.6, 1, .8], colors: { skin: [.09, .09, .1] } };
+function doom(D) {
+  const R = rng(D.seed), B = B0, slab = new Sculpt(), chunkS = [], ground = new Sculpt(), fine = new Sculpt();
+  // the blade: a tall, thin, slightly curved monolith narrowing to a hooked point
+  const curve = y => [Math.sin(y / 110 * Math.PI) * -5, 0, 0];
+  for (let i = 0; i < 7; i++) { const y = 6 + i * 13, w = lerp(12, 4.5, i / 6), d = lerp(7, 3.5, i / 6); slab.add(BX(add([0, y, 0], curve(y)), [w, 8, d], euler(0, 0, -.05 * i), 1), { bone: y > 58 ? B.top : B.root, tag: 'dstone', k: 3.5 }); }
+  slab.add(RC(add([0, 92, 0], curve(92)), add([7, 108, 0], curve(108)), 3.6, .3), { bone: B.top, tag: 'dstone', k: 2 });
+  // scythe crescents curving off both edges
+  const crescent = (S, base, sx, L, w, bone) => { let p = base; for (let k = 1; k <= 10; k++) { const t = k / 10, q = add(base, [sx * Math.sin(t * 2.2) * L * .55, Math.sin(t * 1.6) * L * .75 - t * t * L * .3, 0]), r0 = w * (1 - (t - .1) * .85), r1 = w * (1 - t * .85) + .15;
+    const d = norm(sub(q, p)), fr = along(d, 0); S.add(BX(mul(add(p, q), .5), [r0, len(sub(q, p)) / 2 + .3, Math.max(.45, r1 * .3)], fr, .15), { bone, tag: 'dstone', k: .6 }); p = q; } };
+  crescent(slab, add([9, 30, 0], curve(30)), 1, 26, 3.6, B.root); crescent(slab, add([-7, 58, 0], curve(58)), -1, 22, 3, B.top); crescent(slab, add([6, 74, 0], curve(74)), 1, 16, 2.4, B.top);
+  for (let i = 0; i < 18; i++) { const y = 8 + R() * 84, sx = R() < .5 ? -1 : 1; slab.sub(EL(add([sx * lerp(11, 4, y / 95), y, (R() - .5) * 6], curve(y)), [lerp(1.2, 3, R()), lerp(2, 5, R()), lerp(1.2, 2.5, R())]), { k: .5 }); }
+  // soul hollows: recesses down both faces where trapped spirits press against the stone
+  const hollows = [];
+  for (let i = 0; i < 8; i++) { const sz = i % 2 ? 1 : -1, y = 14 + Math.floor(i / 2) * 18, c = add([(R() - .5) * 4, y, sz * 5.5], curve(y)); if (Math.abs(y - 40) < 6 && sz > 0) continue; slab.sub(EL(c, [3, 4.6, 2.4]), { k: .8 }); hollows.push([c, sz]); }
+  slab.sub(EL(add([0, 40, 6], curve(40)), [5, 8, 4]), { k: 1 });
+  slab.build(4);
+  const cc = add([0, 40, 2.5], curve(40));
+  fine.add(EL(cc, [3.2, 5.2, 2.6]), { bone: B.core, tag: 'core', k: .6, c: cc });
+  cluster(fine, add(cc, [0, -3, 0]), [0, 1, .2], 4, 8, D.seed + 5, { bone: B.core, tag: 'coreCrystal' });
+  // trapped souls: ghostly faces with hollow eyes and gaping mouths, wisps trailing up
+  hollows.forEach(([c, sz], i) => { const f = add(c, [0, 0, -sz * .8]), bone = c[1] > 58 ? B.top : B.root; fine.add(EL(f, [2.2, 3, 1.4]), { bone, tag: 'soul', k: .5, c: f });
+    for (const ex of [-1, 1]) fine.sub(EL(add(f, [ex * .8, .7, sz * 1.2]), [.45, .6, .5]), { k: .2 }); fine.sub(EL(add(f, [0, -1, sz * 1.2]), [.5, .9, .5]), { k: .2 });
+    tube(fine, [add(f, [0, 2.5, 0]), add(f, [Math.sin(i) * 1.5, 5.5, sz * .5]), add(f, [Math.sin(i + 1) * 2, 8.5, sz * .3])], .9, .15, { bone, tag: 'soul' }, 3); });
+  // skeletal hands clawing at the foot
+  for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2 + .4, w = [Math.cos(a) * 13, 0, Math.sin(a) * 9], out = norm([Math.cos(a), 0, Math.sin(a)]), side = norm(cross([0, 1, 0], out));
+    ground.add(RC(add(w, mul(out, 5)), add(w, [0, 3, 0]), .9, .8), { bone: B.root, tag: 'bone', k: .3 });
+    for (let f = 0; f < 4; f++) { const b = add(add(w, [0, 3, 0]), mul(side, (f - 1.5) * 1.1)); tube(ground, [b, add(b, add(mul(out, -2), [0, 2.5, 0])), add(b, add(mul(out, -4), [0, 3.2, 0])), add(b, add(mul(out, -5.5), [0, 2, 0]))], .42, .25, { bone: B.root, tag: 'bone' }, 2); } }
+  // chained lanterns hanging from the crescents
+  for (const [p, bone] of [[add([24, 46, 0], curve(46)), B.root], [add([-22, 70, 0], curve(70)), B.top], [add([17, 84, 0], curve(84)), B.top]]) {
+    for (let k = 0; k < 5; k++) fine.add(TO(add(p, [0, -k * 1.6, 0]), .7, .22, euler(k * 1.57, 1.57, 0)), { bone, tag: 'iron', k: .05 });
+    const l = add(p, [0, -10, 0]); fine.add(BX(l, [1.4, 2, 1.4], euler(.785), .3), { bone, tag: 'iron', k: .2 }); fine.add(EL(l, [1, 1.4, 1]), { bone, tag: 'rune', k: .2 }); fine.add(RC(add(l, [0, 2, 0]), add(l, [0, 3.4, 0]), 1.2, .2), { bone, tag: 'iron', k: .2 }); }
+  // spectral runes, a ring of grave-dirt and cracked black flagstones
+  for (let i = 0; i < 8; i++) { const sz = i % 2 ? 1 : -1, y = 18 + i * 5, p = surf(slab, add([0, y, sz * 30], curve(y)), [0, 0, -sz], 40); if (p && !hollows.some(([c]) => len(sub(c, p)) < 6)) glyphAt(slab, fine, p, [0, 0, sz], 3.8, D.seed + 40 + i, B.root); }
+  ground.add(EL([0, -1.4, 0], [28, 2.6, 22]), { bone: B.root, tag: 'grave', k: 2 });
+  for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2 + R() * .3, r = lerp(18, 28, R()); ground.add(BX([Math.cos(a) * r, .6, Math.sin(a) * r * .8], [lerp(2.5, 4, R()), .8, lerp(2, 3.5, R())], euler(R() * 3, (R() - .5) * .3, (R() - .5) * .3), .3), { bone: B.root, tag: 'dstone', k: .3 }); }
+  slab.build(4);
+  // breakable: crescent tips, edge slabs, the hook
+  const chunkInfo = [];
+  const CH = [[add([-9, 44, 0], curve(44)), [2.2, 8, 3], B.root, 2], [add([8, 62, 0], curve(62)), [2, 7, 2.6], B.top, 3], [add([4, 20, 4], curve(20)), [5, 6, 1.6], B.root, 2], [add([-4, 26, -4], curve(26)), [5, 7, 1.6], B.root, 3], [add([4, 100, 0], curve(100)), [2.4, 6, 2.4], B.top, 4]];
+  CH.forEach(([c, h, parent, stage], i) => { const bone = CHUNK_BONE0 + i, S = new Sculpt(); chunkS.push(S); S.add(BX(c, h, euler(0, 0, i * .3 - .3), .4), { bone, tag: 'dstone', k: .5 }); S.sub(EL(add(c, [(R() - .5) * h[0], (R() - .5) * h[1], 0]), [1.5, 2, 3]), { k: .4 }); chunkInfo.push({ c, h, parent, stage, bone }); });
+  const fis = add([0, 40, 7], curve(40));
+  for (let i = 0; i < 6; i++) seamOn(slab, fine, B.crack2, surf(slab, add([(i - 2.5) * 2, 30 + i * 4, 30], curve(30)), [0, 0, -1], 40) || fis, [Math.cos(i * 1.3), 1, .2], 7, .5, D.seed + 60 + i);
+  for (let i = 0; i < 8; i++) seamOn(slab, fine, B.crack3, radial(slab, 12 + i * 10, i * 2.2 + .4) || fis, [Math.cos(i * 2.1), 1, Math.sin(i * 2.1)], 9, .65, D.seed + 80 + i);
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, b = add(cc, [Math.cos(a) * 3, 0, 4]); tube(fine, [b, add(b, [Math.cos(a) * 6, 6, 4]), add(b, [Math.cos(a) * 9, 16, 6]), add(b, [Math.cos(a + .8) * 7, 26, 4])], 1.2, .2, { bone: B.leak, tag: 'leak' }, 3); }
+  const bns = BONES_BASE(add([0, 58, 0], curve(58)), cc, add([4, 100, 0], curve(100)), fis); chunkInfo.forEach((c, i) => bns.push({ name: 'chunk' + i, parent: c.parent, pos: c.c }));
+  const split = bone => { const S = new Sculpt(); for (const sh of slab.shapes) if (sh.op === 'sub' || sh.bone === bone) S.shapes.push(sh); S.build(4); return S; };
+  const lower = split(B.root), upper = split(B.top);
+  chunkS.forEach(c => c.build(3)); ground.build(2.5); fine.build(2.5);
+  return { parts: [['stone', lower, .6, .4], ['stoneTop', upper, .55, .4], ...chunkS.map((c, i) => ['chunk' + i, c, .5, .2]), ['ground', ground, .45, .4], ['detail', fine, .4, .3]], bones: bns, chunks: chunkInfo, B, topTilt: [0, 0, 1] };
+}
+
 // ---------------- painting ----------------
 function custom(D) {
   if (PAINT[D.key]) return PAINT[D.key](D);
@@ -511,6 +675,28 @@ const PAINT = {
     if (tag === 'leather') return { c: D.leather, sp: .3, gl: .4, ty: 3, st: .7 };
     return null;
   },
+  void: D => ({ p, n, s, tag, fine, big }) => {
+    const t = s.root && s.L ? clamp(len(sub(p, s.root)) / s.L, 0, 1) : .5, g = glowPaint(D, tag, t); if (g) return tag === 'rune' || tag === 'crack' ? Object.assign(g, { c: mixc(D.glow, D.glow2, F.noise3(p[0] * .15, p[1] * .15, p[2] * .15, 2)) }) : g;
+    if (tag === 'vcrystal') { const edge = F.noise3(p[0] * .7, p[1] * .7, p[2] * .7, 4); return { c: mixc(D.crystal0, D.crystalHi, clamp(fine * .5 + (edge - .5) * 1.4, 0, 1)), a: edge > .75 ? .5 : 1, sp: 1, gl: .95, ty: 4, st: .2 }; }
+    if (tag === 'voidground') { const vein = Math.abs(F.noise3(p[0] * .2, 0, p[2] * .2, 3) - .5) < .03; return vein ? { c: D.glow, a: .1, sp: .5, gl: .5, ty: 0, st: 0 } : { c: mul([.08, .06, .1], .8 + fine * .4), sp: .4, gl: .5, ty: 5, st: 1 }; }
+    return null;
+  },
+  ossuary: D => ({ p, n, s, tag, fine, big }) => {
+    const t = s.root && s.L ? clamp(len(sub(p, s.root)) / s.L, 0, 1) : .5, g = glowPaint(D, tag, t); if (g) return g;
+    if (tag === 'ostone') { const mossy = clamp((n[1] - .4) * 2 + (big - .5) * 1.2, 0, 1); if (mossy > .5) return { c: mixc(D.moss, mul(D.moss, .6), fine), sp: .1, gl: .2, ty: 2, st: .6 };
+      let c = mixc(D.stone, D.stoneDark, clamp(.3 + (big - .5) * 1.2, 0, 1)); c = mul(c, .85 + fine * .3); return { c, sp: .2, gl: .35, ty: 5, st: 1 }; }
+    if (tag === 'bone') return { c: mul(mixc(D.boneDark, D.bone, clamp(.4 + fine * .7 + n[1] * .2, 0, 1)), .95), sp: .3, gl: .45, ty: 4, st: .5 };
+    return null;
+  },
+  doom: D => ({ p, n, s, tag, fine, big }) => {
+    const t = s.root && s.L ? clamp(len(sub(p, s.root)) / s.L, 0, 1) : .5, g = glowPaint(D, tag, t); if (g) return tag === 'crack' ? Object.assign(g, { c: mixc(D.glow, D.glow2, F.noise3(p[0] * .2, p[1] * .2, p[2] * .2, 2)) }) : g;
+    if (tag === 'dstone') { const c = mul(mixc(D.stone, D.stoneHi, clamp(fine * .5 + (big - .5) * .8, 0, 1)), .9 + fine * .2); return { c, sp: .8, gl: .8, ty: 5, st: .7 }; }
+    if (tag === 'soul') { const q = s.c ? sub(p, s.c) : [0, 0, 0]; return { c: mixc(D.soul, [.9, 1, 1], clamp(1 - len(q) / 3, 0, 1)), a: .12, sp: .5, gl: .5, ty: 0, st: 0 }; }
+    if (tag === 'bone') return { c: mul(mixc(mul(D.bone, .5), D.bone, fine), .9), sp: .3, gl: .45, ty: 4, st: .5 };
+    if (tag === 'iron') return { c: mul(D.iron, .85 + fine * .3), sp: .9, gl: .7, ty: 8, st: .5 };
+    if (tag === 'grave') return { c: mul([.1, .09, .09], .8 + fine * .4), sp: .1, gl: .2, ty: 5, st: 1 };
+    return null;
+  },
 };
 
 // ---------------- clips ----------------
@@ -523,7 +709,8 @@ function clips(info) {
     const s = { rot: {}, pos: {}, scl: {} }, ph = t / 4 * Math.PI * 2;
     const pulse = stage === 1 ? 1 + Math.sin(ph) * .05 : stage === 2 ? 1.06 + Math.sin(ph * 2) * .08 : 1.12 + Math.sin(ph * 5) * .1 + Math.sin(ph * 13) * .05;
     s.scl[B.core] = [pulse, pulse, pulse];
-    s.rot[B.crown] = qAxis([0, 1, 0], Math.sin(ph) * .03);
+    s.rot[B.crown] = info.orbit ? qAxis([0, 1, 0], ph * (stage === 3 ? 2 : 1)) : qAxis([0, 1, 0], Math.sin(ph) * .03);
+    if (info.float) s.pos[B.top] = [0, Math.sin(ph) * 1.6 + (stage - 1) * -1.2, 0];
     s.scl[B.crack2] = stage >= 2 ? ONE : Z; s.scl[B.crack3] = stage >= 3 ? ONE : Z;
     const lk = stage >= 3 ? 1 + Math.sin(ph * 3) * .15 : 1e-3; s.scl[B.leak] = [lk, lk, lk]; s.rot[B.leak] = qAxis([0, 1, 0], ph);
     if (stage >= 3) s.rot[B.top] = qAxis(norm(info.topTilt || [1, 0, .4]), .07 + Math.sin(ph * 2) * .006);
@@ -542,7 +729,7 @@ function clips(info) {
   return { Intact: { dur: 4, track: t => pose(1, t) }, Damaged: { dur: 4, track: t => pose(2, t) }, Near: { dur: 4, track: t => pose(3, t) }, Break: { dur: 1.8, track: brk } };
 }
 
-const DESIGNS = { meadows: { D: MEADOWS, fn: meadows }, ember: { D: EMBER, fn: ember }, frost: { D: FROST, fn: frost }, gloom: { D: GLOOM, fn: gloom }, war: { D: WAR, fn: war } };
+const DESIGNS = { meadows: { D: MEADOWS, fn: meadows }, ember: { D: EMBER, fn: ember }, frost: { D: FROST, fn: frost }, gloom: { D: GLOOM, fn: gloom }, war: { D: WAR, fn: war }, void: { D: VOID, fn: voidAnchor }, ossuary: { D: OSSUARY, fn: ossuary }, doom: { D: DOOM, fn: doom } };
 function build(id, { lod = 0 } = {}) {
   const { D: D0, fn } = DESIGNS[id], D = Object.assign({}, D0), t0 = Date.now(), info = fn(D);
   const parts = info.parts.map(([n, S, h, f]) => [n, S, lod ? Math.max(h * 2.4, 1) : h, f]);
