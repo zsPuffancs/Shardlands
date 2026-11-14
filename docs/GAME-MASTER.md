@@ -48,12 +48,19 @@ node scripts/gm-provision.js --reset ColdSteel --yes   replace one password (it 
 The panel has these tabs:
 
 - **Character:** give or remove gold, give XP, set level, heal, restore health, mana and cooldowns. Each acts on you
-  or on a chosen online player.
-- **World:** travel to any unlocked map or biome, skip to the next map, teleport to a founding zone or to coordinates,
-  teleport to the World Boss.
+  or on a chosen online player. Add Souls to your own GM character (the normal Soul balance, capped like any credit).
+- **World:** travel to any unlocked map or biome, cycle to the next unlocked map, teleport to a founding zone or to
+  coordinates, teleport to the World Boss (or to its lair, where it wakes, if it has not spawned yet).
+  **Skip worlds** (1-50) advances the whole universe that many World Tiers, one at a time, through the same path a
+  World Boss victory takes: each new region is generated and validated, one victory is recorded per tier (no kill
+  rewards), the region is activated and every player is notified; then the GM travels to the newest map. It stops
+  early, and says why, if a tier cannot be prepared. Tiers 2-7 are zones of the Founding Lands; from tier 8 each
+  tier is its own map.
 - **Combat:** kill enemies within 650 units, or every enemy on the current map only. The World Boss is spared in both,
   because killing it advances the universe. Also damage the selected enemy, and toggle invincibility and god mode.
-- **Items:** spawn equipment (slot, rarity, item level, count) and consumables.
+- **Items:** spawn equipment (slot, rarity Common to Mythic, item level, count 1-500) from the normal generator, and
+  consumables. Equipment goes into the bag until it is full; the reply says how many were delivered and how many
+  could not be added. Nothing is dropped.
 - **Saved GM Credentials** and **Account** (change password, sign out).
 
 Commands that cannot be undone (remove gold, set level, the kills, map travel) ask for confirmation in the panel, and

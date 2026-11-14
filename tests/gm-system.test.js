@@ -86,7 +86,7 @@ test('GM accounts: separate login, reserved characters, server-checked commands,
     zs.send({ t: 'gm', op: 'setLevel', args: { level: 20 }, confirm: true }); assert.match((await zs.next(m => m.t === 'gmResult')).msg, /level 20/);
     zs.send({ t: 'gm', op: 'god' }); assert.match((await zs.next(m => m.t === 'gmResult')).msg, /God mode on/);
     zs.send({ t: 'gm', op: 'spawnItem', args: { item: 'hp', count: 5 } }); assert.equal((await zs.next(m => m.t === 'gmResult')).ok, true);
-    zs.send({ t: 'gm', op: 'spawnGear', args: { slot: 'any', ilvl: 10, rarity: 3, count: 2 } }); assert.match((await zs.next(m => m.t === 'gmResult')).msg, /2 item/);
+    zs.send({ t: 'gm', op: 'spawnGear', args: { slot: 'any', ilvl: 10, rarity: 3, count: 2 } }); assert.match((await zs.next(m => m.t === 'gmResult')).msg, /Delivered 2 of 2 Epic item/);
     zs.send({ t: 'gm', op: 'killMap', confirm: true }); assert.equal((await zs.next(m => m.t === 'gmResult')).ok, true);
     alice.send({ t: 'gm', op: 'giveGold', args: { amount: 1e6 } }); alice.send({ t: 'gm', op: 'god' }); alice.send({ t: 'gmEnter' });
     assert.ok(await alice.none(m => m.t === 'gmResult' || m.t === 'gmState'), 'a normal character cannot run GM commands');

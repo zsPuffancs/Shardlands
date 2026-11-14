@@ -16,14 +16,16 @@ const { GM_ACCOUNTS, canonical, createLoginLimiter } = require('./gm-accounts');
 const { mapOf, maps, clampWorld } = require('../world/game-world');
 const { TIERS, MOBTYPES } = require('../combat/monsters');
 const { ITEMS } = require('./characters');
-const { SLOTS } = require('../economy/equipment');
+const { SLOTS, RARITY, MYTHIC } = require('../economy/equipment');
 const { MAX_CURRENCY } = require('../shared/safety-limits');
 
 const GM_KEY = account => 'gm:' + account.toLowerCase();
 const NEARBY_RADIUS = 650;
+// server-side safety limits for GM batch commands (the bag itself still caps what can be delivered)
+const MAX_SPAWN_GEAR = 500, MAX_SKIP_WORLDS = 50;
 const int = (v, lo, hi) => { const n = Number(v); return Number.isInteger(n) && n >= lo && n <= hi ? n : null; };
 
-function createGmService({ directory, store, limiter = createLoginLimiter(), players, mobs, saves, sendInv, send, api, regions, hitMob, enterCharacter, leavePlayer, now = () => Date.now(), log = line => console.log(line) }) {
+function createGmService({ directory, store, limiter = createLoginLimiter(), players, mobs, saves, sendInv, send, api, regions, universe, hitMob, enterCharacter, leavePlayer, now = () => Date.now(), log = line => console.log(line) }) {
   const auditFile = path.join(directory, 'gm-audit.log');
   // Important GM actions: account, action, target, time. Never passwords or tokens.
   function audit(connection, action, detail = {}) {
@@ -106,10 +108,16 @@ function createGmService({ directory, store, limiter = createLoginLimiter(), pla
   const liveMobsOn = map => [...mobs.values()].filter(m => !m.dead && m.hp > 0 && mapOf(m) === map);
   // a kill through the normal combat path, so rewards, bosses and spawns behave as for any kill
   const kill = (gm, monster) => { hitMob(gm, monster, Math.min(Number.MAX_SAFE_INTEGER / 4, monster.hp * 4 + 1e6)); return monster.hp <= 0 || monster.dead ? 1 : 0; };
+  // a generated region's World Boss spawns lazily near players; its planned position and identity come from the plan
+  function bossLair(map) {
+    const region = universe && map.regionTier ? universe.state.regions[map.regionTier] : null, boss = region && region.worldBoss, plan = region && region.spawnPlan;
+    const spawn = boss && plan && (plan.spawns || []).find(s => s.type === boss.type); if (!spawn) return null;
+    return { x: (map.x0 || 0) + spawn.x, y: (map.y0 || 0) + spawn.y, name: boss.name || boss.type, type: boss.type };
+  }
   function sendState(gm) {
     const map = mapOf(gm), boss = liveMobsOn(map).find(m => m.worldBoss);
     send(gm.c, { t: 'gmState', account: gm.gm, flags: gm.gmFlags, maps: regions.travelableMaps(), map: map.index, zones: map.index === 0 ? TIERS.filter(t => !t.generated).map((t, i) => ({ index: i, name: t.name })) : [],
-      worldBoss: boss ? { name: MOBTYPES[boss.ty]?.name || boss.ty } : null, slots: SLOTS, items: Object.keys(ITEMS), players: [...players.values()].map(p => p.name) });
+      worldBoss: boss ? { name: MOBTYPES[boss.ty]?.name || boss.ty, up: true } : (() => { const lair = bossLair(map); return lair ? { name: lair.name, up: false } : null; })(), slots: SLOTS, rarities: RARITY.map(r => r.n), items: Object.keys(ITEMS), limits: { gear: MAX_SPAWN_GEAR, skip: MAX_SKIP_WORLDS }, tier: universe ? universe.unlockedTier : null, players: [...players.values()].map(p => p.name) });
   }
 
   const COMMANDS = {
@@ -119,13 +127,35 @@ function createGmService({ directory, store, limiter = createLoginLimiter(), pla
     giveXp(gm, a) { const t = targetPlayer(gm, a.target), n = int(a.amount, 1, 1e12); if (!t || n === null) return 'Enter a player and an amount.'; api.giveXp(t, n); return { msg: 'Gave ' + n + ' XP to ' + t.name + '.', target: t.name, amount: n }; },
     setLevel(gm, a) { const t = targetPlayer(gm, a.target), n = int(a.level, 1, api.consts.MAX_LEVEL); if (!t || n === null) return 'Level must be 1-' + api.consts.MAX_LEVEL + '.'; api.setLevel(t, n); return { msg: t.name + ' is now level ' + t.lvl + '.', target: t.name, level: t.lvl }; },
     heal(gm, a) { const t = targetPlayer(gm, a.target); if (!t) return 'No such player online.'; if (t.dead) return t.name + ' is dead.'; t.hp = t.maxhp; return { msg: 'Healed ' + t.name + '.', target: t.name }; },
+    // Souls through the existing bounded currency credit (the same one quests and plugins use); the GM's own character
+    giveSouls(gm, a) { const n = int(a.amount, 1, MAX_CURRENCY); if (n === null) return 'Enter an amount (1-' + MAX_CURRENCY + ').'; const before = gm.souls || 0; api.giveSouls(gm, n); const added = (gm.souls || 0) - before; sendInv(gm);
+      return added > 0 ? { msg: 'Added ' + added + ' souls' + (added < n ? ' (the soul limit was reached)' : '') + '. Balance: ' + gm.souls + '.', amount: added } : 'The soul balance is already at its limit.'; },
     restore(gm, a) { const t = targetPlayer(gm, a.target); if (!t) return 'No such player online.'; if (t.dead) return t.name + ' is dead.'; t.hp = t.maxhp; t.mp = t.maxmp; t.cd = t.cd1 = t.cd2 = t.cd3 = t.potCd = 0; return { msg: 'Restored health, mana and cooldowns of ' + t.name + '.', target: t.name }; },
     // World
     nextMap(gm) { const list = regions.travelableMaps(), here = mapOf(gm).index, next = list.find(m => m.index > here) || list[0]; if (!next || next.index === here) return 'No other unlocked map.'; return regions.gmTravel(gm, next.index) ? { msg: 'Travelled to ' + next.name + '.', target: next.name } : 'Cannot travel now.'; },
+    // advance the universe by `count` World Tiers through the normal World Boss progression (generation, validation,
+    // recorded victory, activation), one tier at a time, then travel to the newest map
+    async skipWorlds(gm, a) {
+      const count = int(a.count, 1, MAX_SKIP_WORLDS); if (count === null) return 'Enter how many worlds to skip (1-' + MAX_SKIP_WORLDS + ').';
+      if (!universe || typeof universe.gmAdvanceTier !== 'function') return 'World progression is not available on this server.';
+      if (skipping) return 'A world skip is already in progress.';
+      skipping = true; const from = universe.unlockedTier; let done = 0, stop = '';
+      try {
+        for (; done < count; done++) { const result = await universe.gmAdvanceTier(gm.name); if (!result || !result.ok) { stop = result && result.lastError ? result.lastError.message : (result && result.status) || 'unknown'; break; } }
+      } finally { skipping = false; }
+      const list = regions.travelableMaps(), newest = list.reduce((best, m) => (!best || m.tier > best.tier ? m : best), null);
+      let where = '';
+      if (newest && newest.index !== mapOf(gm).index && !gm.dead && [...players.values()].includes(gm)) where = regions.gmTravel(gm, newest.index) ? ' Travelled to ' + newest.name + '.' : ' Could not travel to ' + newest.name + '.';
+      else if (newest) where = ' The newest map is ' + newest.name + '.';
+      if (!done) return 'No world was skipped (' + stop + ').';
+      return { msg: 'Skipped ' + done + ' world' + (done === 1 ? '' : 's') + ': World Tier ' + from + ' -> ' + universe.unlockedTier + '.' + (done < count ? ' Stopped early: ' + stop + '.' : '') + where, count: done, from, to: universe.unlockedTier };
+    },
     selectMap(gm, a) { const index = int(a.map, 0, maps.length - 1), entry = regions.travelableMaps().find(m => m.index === index); if (!entry) return 'That map is not unlocked.'; if (index === mapOf(gm).index) return 'You are already there.'; return regions.gmTravel(gm, index) ? { msg: 'Travelled to ' + entry.name + '.', target: entry.name } : 'Cannot travel now.'; },
     zone(gm, a) { if (mapOf(gm).index !== 0) return 'Zones are in the Founding Lands.'; const zones = TIERS.filter(t => !t.generated), T = zones[int(a.zone, 0, zones.length - 1)]; if (!T) return 'Unknown zone.'; const d = T.outer ? T.min + 250 : (T.min + T.max) / 2; api.teleport(gm, api.consts.CX, api.consts.CY - d); return { msg: 'Teleported to ' + T.name + '.', target: T.name }; },
     teleport(gm, a) { const map = mapOf(gm), x = Number(a.x), y = Number(a.y); if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x > map.w || y > map.h) return 'Coordinates must be inside this map (0-' + map.w + ').'; api.teleport(gm, x, y); return { msg: 'Teleported to ' + Math.round(x) + ', ' + Math.round(y) + '.', target: Math.round(x) + ',' + Math.round(y) }; },
-    toWorldBoss(gm) { const boss = liveMobsOn(mapOf(gm)).find(m => m.worldBoss); if (!boss) return 'The World Boss of this map is not up.'; gm.x = boss.x + boss.r + 120; gm.y = boss.y; clampWorld(gm, mapOf(gm)); gm.dest = null; gm.target = 0; gm.chasingTarget = false; return { msg: 'Teleported to ' + (MOBTYPES[boss.ty]?.name || 'the World Boss') + '.', target: boss.ty }; },
+    toWorldBoss(gm) { const boss = liveMobsOn(mapOf(gm)).find(m => m.worldBoss);
+      if (!boss) { const lair = bossLair(mapOf(gm)); if (!lair) return 'The World Boss of this map is not up.'; gm.x = lair.x + 160; gm.y = lair.y; clampWorld(gm, mapOf(gm)); gm.dest = null; gm.target = 0; gm.chasingTarget = false;
+        return { msg: 'Teleported to the lair of ' + lair.name + ' (it wakes when you get close).', target: lair.type }; } gm.x = boss.x + boss.r + 120; gm.y = boss.y; clampWorld(gm, mapOf(gm)); gm.dest = null; gm.target = 0; gm.chasingTarget = false; return { msg: 'Teleported to ' + (MOBTYPES[boss.ty]?.name || 'the World Boss') + '.', target: boss.ty }; },
     // Combat
     killNearby(gm) { const list = liveMobsOn(mapOf(gm)).filter(m => !m.worldBoss && Math.hypot(m.x - gm.x, m.y - gm.y) <= NEARBY_RADIUS); let n = 0; for (const m of list) n += kill(gm, m); return { msg: 'Killed ' + n + ' nearby enemies.', count: n }; },
     killMap(gm) { const list = liveMobsOn(mapOf(gm)).filter(m => !m.worldBoss); let n = 0; for (const m of list) n += kill(gm, m); return { msg: 'Killed ' + n + ' enemies on this map (the World Boss is spared).', count: n }; },
@@ -133,21 +163,28 @@ function createGmService({ directory, store, limiter = createLoginLimiter(), pla
     invincible(gm) { gm.gmFlags.invincible = !gm.gmFlags.invincible; return { msg: 'Invincibility ' + (gm.gmFlags.invincible ? 'on' : 'off') + '.', state: gm.gmFlags.invincible }; },
     god(gm) { gm.gmFlags.god = !gm.gmFlags.god; return { msg: 'God mode ' + (gm.gmFlags.god ? 'on: no damage, full health and mana, no cooldowns' : 'off') + '.', state: gm.gmFlags.god }; },
     // Items
-    spawnGear(gm, a) { const slot = a.slot === 'any' ? undefined : SLOTS.includes(a.slot) ? a.slot : null, ilvl = int(a.ilvl, 1, api.consts.MAX_LEVEL), rarity = int(a.rarity, 0, 4), count = int(a.count, 1, 10);
-      if (slot === null || ilvl === null || rarity === null || count === null) return 'Choose a slot, item level, rarity and count (1-10).';
-      let made = 0; for (let i = 0; i < count; i++) if (api.giveGear(gm, api.genGear(slot, ilvl, rarity))) made++; return made ? { msg: 'Created ' + made + ' item(s).', count: made, slot: slot || 'any', rarity } : 'Bag is full.'; },
+    // equipment from the normal generator (any rarity up to Mythic), delivered into the bag until it is full; whatever
+    // does not fit is not created, and the reply says how many were delivered and how many were not
+    spawnGear(gm, a) { const slot = a.slot === 'any' ? undefined : SLOTS.includes(a.slot) ? a.slot : null, ilvl = int(a.ilvl, 1, api.consts.MAX_LEVEL), rarity = int(a.rarity, 0, MYTHIC), count = int(a.count, 1, MAX_SPAWN_GEAR);
+      if (slot === null || ilvl === null || rarity === null || count === null) return 'Choose a slot, item level, rarity and count (1-' + MAX_SPAWN_GEAR + ').';
+      let made = 0; for (let i = 0; i < count; i++) { if (!api.giveGear(gm, api.genGear(slot, ilvl, rarity))) break; made++; }
+      const missed = count - made, name = RARITY[rarity].n;
+      if (!made) return 'Bag is full: none of the ' + count + ' ' + name + ' item(s) could be added.';
+      return { msg: 'Delivered ' + made + ' of ' + count + ' ' + name + ' item(s)' + (missed ? '; ' + missed + ' could not be added because the bag is full.' : '.'), count: made, missed, slot: slot || 'any', rarity }; },
     spawnItem(gm, a) { const key = String(a.item || ''), count = int(a.count, 1, 999); if (!Object.hasOwn(ITEMS, key) || count === null) return 'Choose an item and a count (1-999).'; const before = gm.inv[key] || 0; api.giveItem(gm, key, count); return { msg: 'Gave ' + ((gm.inv[key] || 0) - before) + ' x ' + ITEMS[key].n + '.', item: key }; },
     state(gm) { return { msg: '', quiet: true }; },
   };
-  const DESTRUCTIVE = new Set(['removeGold', 'setLevel', 'killNearby', 'killMap', 'nextMap', 'selectMap']);
+  const DESTRUCTIVE = new Set(['removeGold', 'setLevel', 'killNearby', 'killMap', 'nextMap', 'selectMap', 'skipWorlds']);
+  let skipping = false;
 
-  function command(connection, message) {
+  async function command(connection, message) {
     if (!isGmPlayer(connection)) { if (connection.p) audit(connection, 'denied', { account: connection.p.name, op: String(message.op || '').slice(0, 24) }); return; }
     const gm = connection.p, op = String(message.op || ''), fn = Object.hasOwn(COMMANDS, op) ? COMMANDS[op] : null;
     if (!fn) return reply(connection, { t: 'gmResult', op, ok: false, msg: 'Unknown GM command.' });
     if (DESTRUCTIVE.has(op) && message.confirm !== true) return reply(connection, { t: 'gmResult', op, ok: false, msg: 'This command needs confirmation.' });
     let result;
-    try { result = fn(gm, message.args && typeof message.args === 'object' ? message.args : {}); } catch (error) { result = 'Command failed: ' + error.message; }
+    try { result = await fn(gm, message.args && typeof message.args === 'object' ? message.args : {}); } catch (error) { result = 'Command failed: ' + error.message; }
+    if (connection.closed) return;
     const ok = typeof result === 'object';
     if (ok && !result.quiet) { const { msg, quiet, ...detail } = result; audit(connection, op, detail); }
     reply(connection, { t: 'gmResult', op, ok, msg: ok ? result.msg : result });

@@ -121,7 +121,7 @@ const sessions = createPlayerSessions({
 // Game Masters: separate credential store, authentication and commands (src/player/gm-service.js)
 const gmStore = createGmAccountStore({ directory: __dirname });
 const gm = createGmService({
-  directory: __dirname, store: gmStore, players, mobs, saves: saveStore.data, sendInv: inventory.sendInv, send, api: pluginHost.api('gm'), regions,
+  directory: __dirname, store: gmStore, players, mobs, saves: saveStore.data, sendInv: inventory.sendInv, send, api: pluginHost.api('gm'), regions, universe,
   hitMob: combat.hitMob, enterCharacter: (connection, message, identity) => sessions.joinPlayer(connection, message, identity), leavePlayer: connection => sessions.leavePlayer(connection),
 });
 sessions.attachGm(gm);

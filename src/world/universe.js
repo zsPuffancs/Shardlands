@@ -301,6 +301,24 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin, constr
     },
   };
 
+  // Game Master progression: advance exactly one World Tier through the same path a World Boss victory takes
+  // (staged transition, region generation and validation, recorded victory, activation), without the kill and
+  // without kill rewards. Resolves when the new tier is visible, or with the reason it is not.
+  function gmAdvanceTier(gmName) {
+    const currentTier = transitions.visibleTier(), frontier = regionFor(currentTier);
+    if (!frontier || !frontier.playable || !frontier.worldBoss || currentTier >= Number.MAX_SAFE_INTEGER) return Promise.resolve({ ok: false, status: 'no-frontier' });
+    const party = [String(gmName)], boss = frontier.worldBoss.name || frontier.worldBoss.type, bossType = frontier.worldBoss.type;
+    if (state.generatorVersion === 2) {
+      if (!transitions.stage({ players: party, boss, bossType, snapshot: historySnapshot() })) return Promise.resolve({ ok: false, status: 'busy', ...transitions.status() });
+      return transitions.resume();
+    }
+    const beaten = state.worldTier; state.worldTier = beaten + 1;
+    const next = regionFor(state.worldTier);
+    if (universe.onTierUnlocked) try { universe.onTierUnlocked(state.worldTier); } catch (error) { console.error('[universe] could not open World Tier ' + state.worldTier + ':', error); }
+    recordOnce('tier:' + beaten, 'worldBoss', party, { boss, bossType, beatenTier: beaten, tier: state.worldTier, region: next.name });
+    return Promise.resolve({ ok: true, status: 'unlocked', tier: state.worldTier });
+  }
+
   function legends() {
     const byName = new Map();
     for (const entry of state.history) for (const [index, name] of entry.players.entries()) {
@@ -323,7 +341,7 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin, constr
   }
   const universe = { state, hooks, identity, summary, founded, record, recordOnce, regionFor, settlement, save: persist, onTierUnlocked: null,
     get unlockedTier() { return transitions.visibleTier(); }, resumePendingUnlock: transitions.resume,
-    retryPendingUnlock: () => transitions.resume({ retry: true }), unlockStatus: transitions.status, suspendUnlocks: transitions.suspend,
+    retryPendingUnlock: () => transitions.resume({ retry: true }), gmAdvanceTier, unlockStatus: transitions.status, suspendUnlocks: transitions.suspend,
     layoutRandom: label => seededRandom(state.seed, label) };
   return universe;
 }
