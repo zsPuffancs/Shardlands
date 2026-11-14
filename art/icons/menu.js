@@ -45,11 +45,6 @@ module.exports = {
   trade: () => { const I = Icon();
     I.part('M16 50 L80 50 L80 36 L112 62 L80 88 L80 74 L16 74Z', 'gold');
     I.part('M112 78 L48 78 L48 64 L16 90 L48 116 L48 102 L112 102Z', 'steel'); return I.svg(); },
-  crafting: () => { const I = Icon();
-    I.part('M12 92 L116 92 L104 104 L104 116 L24 116 L24 104Z', 'dsteel');
-    I.part('M8 76 L120 76 L120 92 L8 92Z', 'dsteel', { bev: 1.6 });
-    I.part('M84 10 L98 24 L60 62 L46 48Z', 'wood', { ow: 4 }); I.part('M30 20 L60 6 L78 24 L64 38 L50 30Z', 'steel');
-    I.spark(100, 52, 6, '#ffd86a'); I.spark(84, 62, 4, '#ffd86a'); return I.svg(); },
   sound: () => { const I = Icon();
     I.part('M14 48 L38 48 L68 20 L68 108 L38 80 L14 80Z', 'steel'); I.part(P.rrect(10, 46, 30, 36, 4), 'dsteel', { bev: 1.4 });
     I.line('M82 44 Q94 64 82 84', '#f2c35a', 6); I.line('M96 30 Q118 64 96 98', '#f2c35a', 6); I.line('M82 44 Q94 64 82 84', '#fff4c4', 2, { op: .7 }); I.line('M96 30 Q118 64 96 98', '#fff4c4', 2, { op: .7 }); return I.svg(); },

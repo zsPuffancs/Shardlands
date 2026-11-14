@@ -6,6 +6,7 @@
   const all = () => document.querySelectorAll('input[type=range]').forEach(fill);
   document.addEventListener('input', e => { if (e.target && e.target.type === 'range') fill(e.target); }, true);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', all); else all();
-  setTimeout(all, 1500); // values restored from saved settings after start-up
+  // values can be set from code (saved settings, sync); keep visible sliders in step at a low rate
+  setInterval(() => document.querySelectorAll('.win[style*="flex"] input[type=range]').forEach(fill), 400);
   window.SLui = { refreshRanges: all };
 })();

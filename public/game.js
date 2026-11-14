@@ -316,7 +316,11 @@ window.Shardlands = { MODEL, addModel: (id, def) => { MODEL[id] = def; }, human,
 const ICOL = {}; const itemCol = k => ICOL[k] || (ICOL[k] = hex((I && I.items[k] && I.items[k].color) || '#cccccc'));
 const itemColCss = k => (I && I.items[k] && I.items[k].color) || '#cccccc';
 const NPCE = { merchant: { rx: 0, ry: 0, yaw: 0, x: 0, y: 0, ph: 0, mv: 0, atkT: -9999, flash: 0, id: 3 }, smith: { rx: 0, ry: 0, yaw: -2.2, x: 0, y: 0, ph: 0, mv: 0, atkT: -9999, flash: 0, id: 4 }, mystic: { rx: 0, ry: 0, yaw: -.6, x: 0, y: 0, ph: 0, mv: 0, atkT: -9999, flash: 0, id: 5 } };
-const NPCNAME = { merchant: '🏪 Merchant', smith: '⚒ Blacksmith', mystic: '🔮 Soul Mystic', portal: '🌀 World Portal', camp: '🏕 Encampment board' };
+const rankIco = n => window.Icons ? Icons.img(n, 'rank-ico') : '';
+const NPCNAME = { merchant: 'Merchant', smith: 'Blacksmith', mystic: 'Soul Mystic', portal: 'World Portal', camp: 'Encampment board' };
+// NPC label icons (registry names); a new NPC type is one entry here
+const NPCICON = { merchant: 'npc/merchant', smith: 'npc/smith', mystic: 'npc/mystic', portal: 'npc/portal', camp: 'npc/board' };
+const npcIco = k => window.Icons ? Icons.img(NPCICON[k], 'npc-ico') : '';
 let pendingNpc = null, nearNpcK = null;
 const npcDist = k => { const n = WORLD.npcs[k]; return Math.hypot(S.rx - n.x, S.ry - n.y); };
 function drawWorld(now) {
@@ -336,16 +340,16 @@ function drawWorld(now) {
     if (Math.hypot(cam.x - sN.x, cam.z - sN.y) < 700) burst(anvil.x, 14, anvil.z, 7, [1, .75, .3], 120, .5, 1.2, 1);
   }, 260); }
   if (sN && !drawChar(sm, 'Monk', { h: 68, tint: [1, .92, .85] }, now)) human(sm, { sc: 1.08, kind: 'smith', body: hex('#7a5a3a'), leg: hex('#3a2e24'), skin: hex('#d9a27a'), arm: hex('#d9a27a'), wide: 11, pad: 0 });
-  { const cN = WORLD.npcs.camp; if (cN && Math.hypot(cam.x - cN.x, cam.z - cN.y) < 650) label('npc5', esc(WORLD.settlement && WORLD.settlement.kind === 'village' ? text('npc.villageBoard', '📜 Village board') : text('npc.camp', NPCNAME.camp)) + (nearNpcK === 'camp' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', cN.x, 50, cN.y, 0, 150); }
-  { const pN = WORLD.npcs.portal; if (pN && kitOn) { if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc4', esc(text('npc.portal', NPCNAME.portal)) + (nearNpcK === 'portal' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', pN.x, 215, pN.y, 0, 150); }
+  { const cN = WORLD.npcs.camp; if (cN && Math.hypot(cam.x - cN.x, cam.z - cN.y) < 650) label('npc5', npcIco('camp') + esc(WORLD.settlement && WORLD.settlement.kind === 'village' ? text('npc.villageBoard', 'Village board') : text('npc.camp', NPCNAME.camp)) + (nearNpcK === 'camp' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', cN.x, 50, cN.y, 0, 150); }
+  { const pN = WORLD.npcs.portal; if (pN && kitOn) { if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc4', npcIco('portal') + esc(text('npc.portal', NPCNAME.portal)) + (nearNpcK === 'portal' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', pN.x, 215, pN.y, 0, 150); }
     else if (pN) { const pu = .9 + Math.sin(now / 260) * .1; D(M.disc, pN.x, 1.2, pN.y, 34, 1, 34, 0, 0, [.12, .05, .25], .6); D(M.ring, pN.x, 2, pN.y, 37 * pu, 1, 37 * pu, -now / 500, 0, [.75, .6, 1], 1);
     for (let i = 0; i < 4; i++) { const k = (now / 1100 + i / 4) % 1, r = 31 * (1 - k * .6); D(M.ring, pN.x, 5 + k * 78, pN.y, r, 1, r, now / 300 + i, 0, [.55, .4, 1], 1, (1 - k) * .9); }
     if (Math.random() < .4) burst(pN.x + (Math.random() - .5) * 44, 6, pN.y + (Math.random() - .5) * 44, 1, [.6, .45, 1], 30, 1.4, 1.5, 1, -70);
-    if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc4', esc(text('npc.portal', NPCNAME.portal)) + (nearNpcK === 'portal' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', pN.x, 104, pN.y, 0, 150); } }
+    if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc4', npcIco('portal') + esc(text('npc.portal', NPCNAME.portal)) + (nearNpcK === 'portal' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', pN.x, 104, pN.y, 0, 150); } }
   { const yN = WORLD.npcs.mystic, my = NPCE.mystic; if (yN) { my.rx = yN.x; my.ry = yN.y; my.x = yN.x; my.y = yN.y; my.ph = now / 400; if (!drawChar(my, 'Wizard', { h: 66, tint: [.62, .45, .95], emc: [.06, .02, .12] }, now)) human(my, { sc: 1.05, kind: 'merchant', body: hex('#5a3a8a'), leg: hex('#2a1e3a'), skin: hex('#d9b08a'), arm: hex('#5a3a8a'), wide: 10, pad: 0 }); if (Math.random() < .25) burst(yN.x + Math.sin(now / 300) * 14, 40 + Math.cos(now / 200) * 8, yN.y + Math.cos(now / 300) * 14, 1, [.6, .35, 1], 30, 1, 1.2, .8, -40);
-    if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc3', esc(text('npc.mystic', NPCNAME.mystic)) + (nearNpcK === 'mystic' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', yN.x, 98, yN.y, 0, 150); } }
-  if (mN && Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc', esc(text('npc.merchant', NPCNAME.merchant)) + (nearNpcK === 'merchant' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', mN.x, 98, mN.y + 11, 0, 150);
-  if (sN && Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc2', esc(text('npc.smith', NPCNAME.smith)) + (nearNpcK === 'smith' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', sN.x, 98, sN.y, 0, 150);
+    if (Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc3', npcIco('mystic') + esc(text('npc.mystic', NPCNAME.mystic)) + (nearNpcK === 'mystic' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', yN.x, 98, yN.y, 0, 150); } }
+  if (mN && Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc', npcIco('merchant') + esc(text('npc.merchant', NPCNAME.merchant)) + (nearNpcK === 'merchant' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', mN.x, 98, mN.y + 11, 0, 150);
+  if (sN && Math.hypot(cam.x - CX, cam.z - CY) < 650) label('npc2', npcIco('smith') + esc(text('npc.smith', NPCNAME.smith)) + (nearNpcK === 'smith' ? ' <span style="color:#fff">[F]</span>' : ''), 'npc', sN.x, 98, sN.y, 0, 150);
 }
 function drawLoot(L, now) {
   const b = Math.sin(now / 260 + L.id) * 2.5, rot = now / 700 + L.id, x = L.x, z = L.y;
@@ -428,12 +432,12 @@ function onEvent(f) {
   const style = f.k === 'dmg' && f.c ? 'critical' : FLOATER_STYLE[f.k];
   if (!style || floaters.length > 60) return;
   const isDamage = f.k === 'dmg' || f.k === 'hurt';
-  // Shapes as well as colours: ✦ crit, − damage taken, + healing and mana. Other heroes' hits are smaller.
+  // Shapes as well as colours: a crit icon, − damage taken, + healing and mana. Other heroes' hits are smaller.
   let message = f.text || f.v;
   if (typeof f.v === 'number' && !f.text) {
     const n = GameText.number(Math.round(f.v));
-    message = f.k === 'dmg' ? (f.c ? '✦ ' + n + '!' : n) : f.k === 'hurt' ? '−' + n : f.k === 'heal' || f.k === 'mana' ? '+' + n : message;
-  } else if (f.k === 'heal' && typeof f.v === 'string') message = f.v + ' ♥';
+    message = f.k === 'dmg' ? (f.c ? n + '!' : n) : f.k === 'hurt' ? '−' + n : f.k === 'heal' || f.k === 'mana' ? '+' + n : message;
+  } else if (f.k === 'heal' && typeof f.v === 'string') message = f.v;
   const mine = !I || !f.combatPlayerId || f.combatPlayerId === I.id;
   // Numbers that appear at the same spot at the same moment stack upwards instead of covering each other.
   let lift = 0;
@@ -441,6 +445,7 @@ function onEvent(f) {
   const el = document.createElement('div');
   el.className = 'ft' + (f.k === 'hurt' ? ' ft--hurt' : '') + (f.k === 'heal' || f.k === 'mana' ? ' ft--restore' : '') + (!mine && f.k === 'dmg' ? ' ft--other' : '');
   GameText.present(el, { message, style, color: f.k === 'loot' ? RC_CSS[f.r || 0] : f.k === 'souls' ? '#c9a0ff' : undefined });
+  if (window.Icons && ((f.k === 'dmg' && f.c && typeof f.v === 'number' && !f.text) || (f.k === 'heal' && typeof f.v === 'string'))) el.insertAdjacentHTML('afterbegin', Icons.img(f.k === 'heal' ? 'stat/hp' : 'stat/critdmg', 'ft-ico'));
   $('floaters').appendChild(el);
   floaters.push({
     el, isDamage, lift: Math.min(5, lift) * 18, x: f.x + (isDamage ? (Math.random() - .5) * 24 : 0), z: f.y,
@@ -519,7 +524,7 @@ function onMsg(m) {
   } else if (m.t === 'inv') onInv(m);
   else if (m.t === 'destroyPreview' || m.t === 'destroyResult') onDestroyMessage(m);
   else if (m.t === 'autoAffixPreview' || m.t === 'autoAffixStatus') onAutoAffixMessage(m);
-  else if (m.t === 'toast') toast(m.text || m.m, m.c); else if (m.t === 'forge') onForge(m); else if (m.t === 'reroll') onReroll(m); else if (m.t === 'universe') onUniverse(m.u); else if (m.t === 'portal') window.PortalUI?.receive(m);
+  else if (m.t === 'toast') toast(m.text || m.m, m.c, m.icon); else if (m.t === 'forge') onForge(m); else if (m.t === 'reroll') onReroll(m); else if (m.t === 'universe') onUniverse(m.u); else if (m.t === 'portal') window.PortalUI?.receive(m);
   else if (m.t === 'team') onTeam(m); else if (m.t === 'trade') onTrade(m); else if (m.t === 'mythicMerge') onMythicMerge(m); else if (m.t === 'affix') onAffix(m);
   else if (m.t === 'teamInvite') showAsk('team', text('team.invitedYou', '{name} invites you to a team.', { name: m.from })); else if (m.t === 'tradeRequest') showAsk('trade', text('trade.requestedYou', '{name} wants to trade with you.', { name: m.from }));
   else if (m.t === 'affixCaps') { if (I) I.affixCaps = m.caps; }
@@ -763,7 +768,7 @@ function frame(now) {
       if ((hd < 620 && nl < 45) || m.id === me.tg || ((t.boss || m.al || t.st) && hd < 1100)) {
         nl++;
         const nameColor = t.st ? t.c : t.boss ? '#ffd24a' : m.al ? '#ffb04a' : '#fff';
-        label('m' + m.id, '<span style="color:' + nameColor + '">' + (t.wb ? '👑 ' : t.boss ? '★ ' : m.al ? esc(text("mob.alpha", "Alpha ")) : '') + esc(shownMobName(m, t)) + '</span> ' + monsterLevelLabel(m.l, me.l), t.boss ? 'mob boss' : m.al ? 'mob alpha' : 'mob', e.rx, Math.min(260, (o.top || 56) * (o.sc || 1)) + 16, e.ry, m.hp / m.mh, t.boss ? 150 : m.al ? 130 : 110);
+        label('m' + m.id, '<span style="color:' + nameColor + '">' + (t.wb ? rankIco('ui/crown') : t.boss ? rankIco('boss/region') : m.al ? rankIco('boss/alpha') + esc(text("mob.alpha", "Alpha ")) : '') + esc(shownMobName(m, t)) + '</span> ' + monsterLevelLabel(m.l, me.l), t.boss ? 'mob boss' : m.al ? 'mob alpha' : 'mob', e.rx, Math.min(260, (o.top || 56) * (o.sc || 1)) + 16, e.ry, m.hp / m.mh, t.boss ? 150 : m.al ? 130 : 110);
       }
     }
     if (window.MetinStones) MetinStones.frame();
@@ -859,8 +864,8 @@ function loadScript(src) { return new Promise(r => { const s = document.createEl
 function renderLoginClasses(classes) {
   $('cls').innerHTML = Object.keys(classes).map(id => {
     const characterClass = classes[id];
-    return '<button data-c="' + esc(id) + '" class="' + (id === sel ? 'on' : '') + '"><i style="background:' +
-      (characterClass.color || '#ccc') + '"></i>' + esc(className(id, characterClass.name)) +
+    const icon = Icons.url('skill/' + id) ? 'skill/' + id : 'skill/' + ({ sword: 'blade', bow: 'archer', staff: 'mage' }[characterClass.fam] || 'blade');
+    return '<button data-c="' + esc(id) + '" class="' + (id === sel ? 'on' : '') + '" style="--cls-c:' + esc(characterClass.color || '#ccc') + '">' + Icons.img(icon, 'cls-ico') + '<b>' + esc(className(id, characterClass.name)) + '</b>' +
       '<small>' + esc(text('class.' + id + '.description', characterClass.desc || '')) + '</small></button>';
   }).join('');
   document.querySelectorAll('#cls button').forEach(button => button.onclick = () => {

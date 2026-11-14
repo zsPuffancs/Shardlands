@@ -99,21 +99,23 @@ document.addEventListener('click', e => {
 }, true);
 
 // ---------- first-session tutorial ----------
+// icon per tutorial page (registry names)
+const TUTORIAL_ICON = {"move": "ui/compass", "attack": "stat/damage", "inventory": "menu/inventory", "skills": "menu/skills", "merge": "ui/merge", "souls": "currency/souls", "portal": "npc/portal", "team": "menu/team"};
 const TUTORIAL = [
-  ['move', '🧭 Moving around', 'Click the ground or use WASD to walk. Right-drag (or the arrow keys) turns the camera, the mouse wheel zooms.'],
-  ['attack', '⚔ Fighting', 'Click a monster to attack it, or press Space to hit the nearest one. Skills are on 1-3, potions on Q / E / R. Red areas on the ground are attacks about to land - step out of them.'],
-  ['inventory', '🎒 Inventory and gear', 'Press I. Click gear to equip it. Hover an item to see its stats, hold Shift for the possible values and a comparison with what you wear. Ctrl+click locks an item so it cannot be sold or merged by mistake.'],
-  ['skills', '📜 Skills', 'Press K. You get one point per level: active skills go to rank 5, passive skills to rank 99.'],
-  ['merge', '⚗ Merging', 'Use Merge in the inventory to fuse items of one colour into one of the next: 2 Common, 3 Uncommon, 4 Rare, 5 Epic or 15 Legendary. The new item gets the average item level of what you used.'],
-  ['souls', '🔮 Souls', 'Pillars, Alphas and bosses drop souls. The Soul Mystic in the village spends them to reroll an item\'s stats or to add an affix.'],
-  ['portal', '🌀 World Tiers and the World Portal', 'Each zone has a World Boss (👑). Defeating it raises the server\'s World Tier. After the seventh, a World Portal opens in the village and leads to new maps. The Chronicle (H) shows the server\'s history.'],
-  ['team', '👥 Playing together', 'Press Y to form a team. Team members nearby share XP and gold, can trade with each other, and face tougher monsters.'],
+  ['move', 'Moving around', 'Click the ground or use WASD to walk. Right-drag (or the arrow keys) turns the camera, the mouse wheel zooms.'],
+  ['attack', 'Fighting', 'Click a monster to attack it, or press Space to hit the nearest one. Skills are on 1-3, potions on Q / E / R. Red areas on the ground are attacks about to land - step out of them.'],
+  ['inventory', 'Inventory and gear', 'Press I. Click gear to equip it. Hover an item to see its stats, hold Shift for the possible values and a comparison with what you wear. Ctrl+click locks an item so it cannot be sold or merged by mistake.'],
+  ['skills', 'Skills', 'Press K. You get one point per level: active skills go to rank 5, passive skills to rank 99.'],
+  ['merge', 'Merging', 'Use Merge in the inventory to fuse items of one colour into one of the next: 2 Common, 3 Uncommon, 4 Rare, 5 Epic or 15 Legendary. The new item gets the average item level of what you used.'],
+  ['souls', 'Souls', 'Pillars, Alphas and bosses drop souls. The Soul Mystic in the village spends them to reroll an item\'s stats or to add an affix.'],
+  ['portal', 'World Tiers and the World Portal', 'Each zone has a World Boss (marked with a crown). Defeating it raises the server\'s World Tier. After the seventh, a World Portal opens in the village and leads to new maps. The Chronicle (H) shows the server\'s history.'],
+  ['team', 'Playing together', 'Press Y to form a team. Team members nearby share XP and gold, can trade with each other, and face tougher monsters.'],
 ];
 let tutorialStep = 0;
 function showTutorial(step) {
   tutorialStep = Math.max(0, Math.min(TUTORIAL.length - 1, step | 0));
   const [key, title, body] = TUTORIAL[tutorialStep];
-  $('tut-title').textContent = text('tutorial.' + key + '.title', title);
+  $('tut-title').innerHTML = Icons.img(TUTORIAL_ICON[key] || 'ui/info') + esc(text('tutorial.' + key + '.title', title));
   $('tut-body').textContent = text('tutorial.' + key + '.text', body);
   $('tut-count').textContent = (tutorialStep + 1) + ' / ' + TUTORIAL.length;
   $('tut-back').disabled = tutorialStep === 0;
@@ -139,7 +141,7 @@ function buildWorldInfo() {
   const tier = mapIndex ? mapIndex + 7 : null, region = u && tier ? (u.regions || []).find(r => r.tier === tier) : null;
   const here = mapIndex ? (region ? region.name : zoneName(zone.name)) : text('portal.founding', 'The Founding Lands');
   let h = '<div class="uni-head"><b>' + esc(here) + '</b><span>' + esc(mapIndex ? text('worldinfo.regionTier', 'World Tier {tier} region · Levels {min}-{max}', { tier, min: zone.lv[0], max: zone.lv[1] }) : text('worldinfo.founding', 'Seven zones around the village · Levels 1-60')) + '</span></div>';
-  if (u) h += '<div class="itemcard"><div class="ln"><span>' + esc(text('universe.worldTier', 'World Tier')) + '</span><b>' + u.tier + '</b></div><div class="ln"><span>' + esc(text('universe.frontier', 'Frontier region')) + '</span><b>' + esc(regionName(u.frontier)) + '</b></div><div class="ln"><span>' + esc(text('universe.worldBoss', 'World Boss')) + '</span><b style="color:#ffd24a">👑 ' + esc(bossName(u.frontier.worldBoss)) + '</b></div></div>';
+  if (u) h += '<div class="itemcard"><div class="ln"><span>' + esc(text('universe.worldTier', 'World Tier')) + '</span><b>' + u.tier + '</b></div><div class="ln"><span>' + esc(text('universe.frontier', 'Frontier region')) + '</span><b>' + esc(regionName(u.frontier)) + '</b></div><div class="ln"><span>' + esc(text('universe.worldBoss', 'World Boss')) + '</span><b style="color:var(--sl-gold-hi)">' + Icons.img('ui/crown') + esc(bossName(u.frontier.worldBoss)) + '</b></div></div>';
   h += '<div class="hd2" style="margin-top:8px">' + esc(text('worldinfo.active', 'Active here')) + '</div><ul class="wi-list">' +
     '<li>' + esc(text('worldinfo.activeLevels', 'Monsters are levels {min}-{max}.', { min: zone.lv[0], max: zone.lv[1] })) + '</li>' +
     '<li>' + esc(text('worldinfo.teamScaling', 'Each additional party member adds {hp}% normal-monster HP and {damage}% damage; bosses have separate health scaling.', { hp: Math.round((WORLD.scaling?.partyHp.normal || 0) * 100), damage: Math.round((WORLD.scaling?.partyDamage || 0) * 100) })) + '</li>' +
@@ -179,7 +181,7 @@ function castWarning(f) {
   const m = mo.find(x => x.id === f.a), t = m && I.types[m.ty];
   if (!t || !t.boss || (me.tg !== m.id && Math.hypot(m.x - me.x, m.y - me.y) > 700)) return;
   const el = $('castwarn');
-  el.textContent = '⚠ ' + text('ux.castWarning', '{boss}: {attack}! Leave the red area.', { boss: shownMobName(m, t), attack: text('attack.' + f.s, ATTACK_NAME[f.s] || f.s) });
+  el.innerHTML = Icons.img('ui/warning') + esc(text('ux.castWarning', '{boss}: {attack}! Leave the red area.', { boss: shownMobName(m, t), attack: text('attack.' + f.s, ATTACK_NAME[f.s] || f.s) }));
   el.style.display = 'block'; clearTimeout(castTimer); castTimer = setTimeout(() => { el.style.display = 'none'; }, 2600);
 }
 // Boss phases (below 60% / 30% health) and the punish window after each telegraphed attack.
@@ -189,7 +191,7 @@ function bossPhaseNotice(f) {
   if (!t || !t.boss || (me.tg !== m.id && Math.hypot(m.x - me.x, m.y - me.y) > 700)) return;
   const name = shownMobName(m, t), el = $('bossnotice');
   const message = f.s === 'stagger'
-    ? '✦ ' + text('ux.bossStagger', '{boss} is recovering: strike now for extra damage!', { boss: name })
-    : '🔥 ' + (f.v >= 2 ? text('ux.bossFinalPhase', '{boss} is desperate: attacks come much faster and hit harder!', { boss: name }) : text('ux.bossEnraged', '{boss} is enraged: attacks come faster!', { boss: name }));
-  el.textContent = message; el.style.display = 'block'; clearTimeout(phaseNoticeTimer); phaseNoticeTimer = setTimeout(() => { el.style.display = 'none'; }, f.s === 'stagger' ? 1300 : 3000);
+    ? Icons.img('boss/stagger') + esc(text('ux.bossStagger', '{boss} is recovering: strike now for extra damage!', { boss: name }))
+    : Icons.img('skill/frenzy') + esc(f.v >= 2 ? text('ux.bossFinalPhase', '{boss} is desperate: attacks come much faster and hit harder!', { boss: name }) : text('ux.bossEnraged', '{boss} is enraged: attacks come faster!', { boss: name }));
+  el.innerHTML = message; el.style.display = 'block'; clearTimeout(phaseNoticeTimer); phaseNoticeTimer = setTimeout(() => { el.style.display = 'none'; }, f.s === 'stagger' ? 1300 : 3000);
 }

@@ -2,7 +2,7 @@
 // Render every icon source to public/icons/<category>/<name>.png (128 px) and write the registry data.
 // usage: node art/icons/render.js [category ...]
 const fs = require('fs'), path = require('path'), { chromium } = require('playwright');
-const CATS = ['gear', 'slot', 'item', 'currency', 'menu', 'stat', 'skill', 'npc', 'status', 'ui', 'world', 'gm'];
+const CATS = ['gear', 'item', 'currency', 'menu', 'stat', 'skill', 'npc', 'boss', 'quest', 'ui', 'gm'];
 const OUT = path.join(__dirname, '../../public/icons');
 (async () => {
   const want = process.argv.slice(2), b = await chromium.launch(), p = await b.newPage({ viewport: { width: 128, height: 128 } });

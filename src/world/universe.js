@@ -217,8 +217,8 @@ function createUniverse({ store, config, broadcast, messageText, isAdmin, constr
   function notifyEntry(entry) {
     if (entry.type !== 'founded' && broadcast) {
       const vars = { universe: state.name, player: entry.players[0] || '', ...entry.data };
-      broadcast({ t: 'chat', n: '*', channel: 'system', m: messageText('history.' + entry.type, '📜 ' + HISTORY_TEXT[entry.type], vars) });
-      broadcast({ t: 'toast', m: messageText('history.' + entry.type, '📜 ' + HISTORY_TEXT[entry.type], vars), c: '#ffd24a' });
+      broadcast({ t: 'chat', n: '*', channel: 'system', m: messageText('history.' + entry.type, HISTORY_TEXT[entry.type], vars) });
+      broadcast({ t: 'toast', m: messageText('history.' + entry.type, HISTORY_TEXT[entry.type], vars), c: '#ffd24a', icon: 'menu/chronicle' });
       broadcast({ t: 'universe', u: summary() });
     }
   }

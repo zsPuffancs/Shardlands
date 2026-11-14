@@ -3,22 +3,25 @@ let BAG = [], EQ = {}, GS = {}, sig = '', cdMax = [2000, 8000, 25000], mergeMode
 const RC = ['#d8d8d8', '#4ee26a', '#4da3ff', '#b25cff', '#ff9d2e', '#ff4560'];
 const MERGE_COST = [2, 3, 4, 5, 15], REROLL_COST = [1, 1, 2, 3, 5, 10], NPCWIN = { merchant: 'shopw', smith: 'smithw', mystic: 'mysticw', portal: 'portalw', camp: 'campw' };
 let SKB = {}, SOULS = 0, mySel = null;
-const SLOTICON = { weapon: '⚔️', helm: '⛑️', armor: '🛡️', boots: '🥾', ring: '💍', amulet: '📿', sword: '⚔️', bow: '🏹', staff: '🪄' };
 const SLOTNAME = { weapon: 'Weapon', helm: 'Helm', armor: 'Armor', boots: 'Boots', ring: 'Ring', amulet: 'Amulet' };
+// a row of currencies: [kind, icon, value]; kind picks the colour token (.sl-currency.is-<kind>)
+const currencyRow = list => list.map(([k, , v]) => Icons.currency(k, v)).join(''); // icons from Icons.CURRENCY
 const STATORDER = ['dmg', 'hp', 'mp', 'def', 'crit', 'spd'];
 const STATICON = { dmg: 'stat/damage', hp: 'stat/hp', mp: 'stat/mana', def: 'stat/defense', crit: 'stat/crit', spd: 'stat/movespeed' };
 const statIco = k => window.Icons ? Icons.img(STATICON[k] || '', 'stat-ico') : '';
-const BUFFN = { atk: '⚔ Fury', def: '🛡 Iron', spd: '💨 Swift', xp: '📖 Wisdom', rage: '🔥 Rage' };
+const BUFFN = { atk: 'Fury', def: 'Iron', spd: 'Swift', xp: 'Wisdom', rage: 'Rage' };
+// status effects use the matching stat icon
+const BUFFICON = { atk: 'stat/damage', def: 'stat/defense', spd: 'stat/movespeed', xp: 'stat/xp', rage: 'skill/frenzy' };
 const SK = ['s1', 'mend', 'frenzy', 'vit', 'might', 'swift'];
-const CLSICON = { blade: '⚔️', archer: '🏹', mage: '🔮' }, S1ICON = { blade: '🌀', archer: '🎯', mage: '✴️' };
-const ITEMICON = { hp: '❤️', hp2: '💖', mp: '💧', atk: '⚔️', def: '🛡️', spd: '💨', xp: '📖', ret: '🏠', reset: '♻️' };
 const RNAME = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'], CONS_ICON = { hp: 1, mp: 1, hp2: 1, atk: 1, def: 1, spd: 1, xp: 1, ret: 1, reset: 1 };
-// icons come from the registry (ds/icons.js); the old ui/icons file stays as the fallback for names it does not map yet
-const uiImg = (f, cls) => { const n = window.Icons && Icons.legacy(f); return n ? Icons.img(n, 'ui-ico' + (cls ? ' ' + cls : '')) : '<img class="ui-ico' + (cls ? ' ' + cls : '') + '" src="ui/icons/' + f + '.png" alt="" draggable="false">'; };
+// every UI icon comes from the registry (ds/icons.js); f is the item/slot/skill key the game code builds
+const uiImg = (f, cls) => Icons.img(Icons.legacy(f) || 'ui/info', 'ui-ico' + (cls ? ' ' + cls : ''));
 const iconOf = it => uiImg('gear-' + (it.slot === 'weapon' ? ({ sword: 1, bow: 1, staff: 1 }[it.fam] ? it.fam : 'sword') : it.slot) + '-' + (RNAME[it.rar] || 'common'));
 const slotIcon = s => uiImg('slot-empty-' + s), consIcon = k => uiImg('item-' + (CONS_ICON[k] ? k : 'hp'));
 const clsKey = cls => ['blade', 'archer', 'mage'].includes(cls) ? cls : ({ sword: 'blade', bow: 'archer', staff: 'mage' }[I && I.classes[cls] && I.classes[cls].fam] || 'blade');
-const skillIcon = k => uiImg('skill-' + (k === 's1' ? clsKey(I.cls) : k));
+// a class with its own icon (skill/<class>) uses it; any other class falls back to its weapon family's icon
+const classIconKey = cls => window.Icons && Icons.url('skill/' + cls) ? cls : clsKey(cls);
+const skillIcon = k => uiImg('skill-' + (k === 's1' ? classIconKey(I.cls) : k));
 const sellValue = it => Math.round((3 * it.ilvl + 5) * (1 + (it.rar * it.rar) * 0.6) * (1 + (it.plus || 0) * 0.5));
 const plusMul = (it, k) => 1 + (it.plus || 0) * (it.slot === 'weapon' && k === 'dmg' ? 0.15 : 0.1);
 const eff = (it, k, plus) => it.stats[k] * (1 + (plus === undefined ? it.plus || 0 : plus) * (it.slot === 'weapon' && k === 'dmg' ? 0.15 : 0.1));
@@ -88,15 +91,15 @@ function matchesChatFilter(entry) {
 }
 
 function createChatLine({ name, message, channel }) {
-  const line = document.createElement('div');
+  const line = document.createElement('div'); line.className = 'ch ch-' + channel; // channel colour bar (ds/game.css)
   if (channel === 'player') {
     const speaker = document.createElement('b');
-    speaker.style.color = '#9fd0ff';
+    speaker.className = 'ch-name';
     speaker.textContent = name + ': ';
     line.appendChild(speaker);
   }
   const body = document.createElement('span');
-  GameText.present(body, { message, color: channel === 'loot' ? '#a9e39b' : channel === 'system' ? '#e8bf55' : undefined });
+  GameText.present(body, { message });
   line.appendChild(body);
   return line;
 }
@@ -207,7 +210,7 @@ for (const checkbox of document.querySelectorAll('[data-log-option]')) {
 
 let bannerT = 0;
 function banner(title, sub, danger) { const z = $('zone'); z.querySelector('b').textContent = title; z.querySelector('span').textContent = sub || ''; z.classList.toggle('danger', !!danger); z.style.opacity = 1; clearTimeout(bannerT); bannerT = setTimeout(() => z.style.opacity = 0, 3400); }
-function toast(m, c) { const t = document.createElement('div'); t.className = 'toast'; GameText.present(t, { message: m, color: c }); if (c) { t.style.color = c; t.style.borderColor = c; } const box = $('toasts'); box.appendChild(t); while (box.children.length > 4) box.removeChild(box.firstChild); setTimeout(() => t.style.opacity = 0, 3200); setTimeout(() => t.remove(), 3800); }
+function toast(m, c, icon) { const t = document.createElement('div'); t.className = 'toast'; GameText.present(t, { message: m, color: c }); if (icon && window.Icons) t.insertAdjacentHTML('afterbegin', Icons.img(icon, 't-ico')); if (c) { t.style.color = c; t.style.setProperty('--toast-c', c); } const box = $('toasts'); box.appendChild(t); while (box.children.length > 4) box.removeChild(box.firstChild); setTimeout(() => t.style.opacity = 0, 3200); setTimeout(() => t.remove(), 3800); }
 let flashT = 0;
 function hurtFlash(strong) { if (document.body.classList.contains('reduce-motion')) strong = false; const h = $('hurtfx'); if (!h.classList.contains('low')) h.style.opacity = strong ? 0.9 : 0.55; clearTimeout(flashT); flashT = setTimeout(() => { if (!h.classList.contains('low')) h.style.opacity = 0; }, 160); }
 
@@ -232,8 +235,8 @@ function slotHtml(it, attrs, extra) {
   // Item level sits in the top-right corner, green/red against the equipped item of the same slot (▲/▼ for colour-blind players).
   // The +upgrade is top-left; the rarity letter (see Settings) and the lock mark sit bottom-left.
   const worn = typeof EQ !== 'undefined' && EQ[it.slot], diff = worn && worn.uid !== it.uid ? it.ilvl - worn.ilvl : 0;
-  const ilv = '<sup class="ilv' + (diff > 0 ? ' up' : diff < 0 ? ' dn' : '') + '">' + (diff > 0 ? '▲' : diff < 0 ? '▼' : '') + it.ilvl + '</sup>';
-  return '<div class="slot r' + it.rar + (it.lk ? ' locked' : '') + (extra || '') + '" ' + attrs + '>' + iconOf(it) + ilv + (it.plus ? '<sub>+' + it.plus + '</sub>' : '') + '<b class="rmark">' + esc(text('rarity.' + it.rar + '.short', 'CURELM'[it.rar] || '')) + '</b>' + (it.lk ? '<i class="lockmark">🔒</i>' : '') + '</div>';
+  const ilv = '<sup class="ilv' + (diff > 0 ? ' up' : diff < 0 ? ' dn' : '') + '">' + (diff > 0 ? '<i class="sl-tri up"></i>' : diff < 0 ? '<i class="sl-tri dn"></i>' : '') + it.ilvl + '</sup>';
+  return '<div class="slot r' + it.rar + (it.lk ? ' locked' : '') + (extra || '') + '" ' + attrs + '>' + iconOf(it) + ilv + (it.plus ? '<sub>+' + it.plus + '</sub>' : '') + '<b class="rmark">' + esc(text('rarity.' + it.rar + '.short', 'CURELM'[it.rar] || '')) + '</b>' + (it.lk ? '<i class="lockmark">' + Icons.img('stat/locked') + '</i>' : '') + '</div>';
 }
 function onInv(m) { BAG = m.bag; EQ = m.eq; GS = m.gs; SKB = m.skb || {}; SOULS = m.souls || 0; mergeSel = mergeSel.filter(u => BAG.some(i => i.uid === u)); if (isOpen('invp')) buildInv(); if (isOpen('smithw')) buildSmith(); if (isOpen('mysticw')) buildMystic(); if (isOpen('skillp')) buildSkills(); if (isOpen('tradew')) buildTrade(); }
 let bagPage = 0;
@@ -264,7 +267,7 @@ function renderBagPage() {
     const isActive = page === bagPage;
     tab.classList.toggle('on', isActive);
     tab.setAttribute('aria-pressed', String(isActive));
-    if (isCons) { tab.textContent = text('inventory.consumablesTab', '🧪 Consumables'); tab.setAttribute('aria-label', text('inventory.consumables', 'Consumables')); }
+    if (isCons) { tab.textContent = text('inventory.consumablesTab', 'Consumables'); tab.setAttribute('aria-label', text('inventory.consumables', 'Consumables')); }
     else tab.setAttribute('aria-label', text('inventory.bagPage', 'Bag page {page}', { page: page + 1 }));
   }
   if (consumables) {
@@ -288,15 +291,15 @@ function renderBagPage() {
 
 function buildInv() {
   if (!I || !me) return;
-  $('gld').textContent = '💰 ' + GameText.number(me.g);
+  $('gld').innerHTML = '<span class="sl-currency is-gold">' + Icons.img('currency/gold') + GameText.number(me.g) + '</span>';
   $('eqwrap').innerHTML = I.slots.map(s => EQ[s] ? slotHtml(EQ[s], 'data-tip="eq:' + s + '" data-eq="' + s + '"') : '<div class="slot empty" title="' + esc(text('slot.' + s, SLOTNAME[s])) + '">' + slotIcon(s) + '</div>').join('');
-  const line = (n, v) => '<div>' + esc(text('inventory.metric.' + n, n)) + '<b>' + v + '</b></div>';
-  $('gst').innerHTML = line('⚔ Damage', me.dmg ?? GS._dmg ?? 0) + line('🎯 Crit', (GS._crit || 12) + '%') + line('❤ Max HP', GS._hp || 0) + line('🛡 Reduction', (GS._dr || 0) + '%') + line('💧 Max MP', GS._mp || 0) + line('💨 Speed', '+' + Math.min(60, GS.spd || 0).toFixed(1) + '%') + line('💥 Crit damage', (GS._cdmg || 180) + '%') + line('🩸 Lifesteal', (GS._ls || 0) + '%') + line('⚡ Attack speed', '+' + (GS._haste || 0) + '%') + line('💰 Gold find', '+' + (GS._gf || 0) + '%');
+  const line = (n, ic, v) => '<div class="sl-stat">' + Icons.img(ic) + esc(text('inventory.metric.' + n, n)) + '<b>' + v + '</b></div>';
+  $('gst').innerHTML = line('Damage', 'stat/damage', me.dmg ?? GS._dmg ?? 0) + line('Crit', 'stat/crit', (GS._crit || 12) + '%') + line('Max HP', 'stat/hp', GS._hp || 0) + line('Reduction', 'stat/defense', (GS._dr || 0) + '%') + line('Max MP', 'stat/mana', GS._mp || 0) + line('Speed', 'stat/movespeed', '+' + Math.min(60, GS.spd || 0).toFixed(1) + '%') + line('Crit damage', 'stat/critdmg', (GS._cdmg || 180) + '%') + line('Lifesteal', 'stat/lifesteal', (GS._ls || 0) + '%') + line('Attack speed', 'stat/speed', '+' + (GS._haste || 0) + '%') + line('Gold find', 'currency/gold', '+' + (GS._gf || 0) + '%');
   renderBagPage();
   $('bagc').textContent = BAG.length + ' / ' + I.bagMax; $('bagfull').textContent = BAG.length >= I.bagMax ? text("inventory.full", "Bag full - merge or sell items.") : '';
   $('mergeBtn').classList.toggle('on', mergeMode); $('mergebar').style.display = mergeMode ? 'flex' : 'none';
   if (mergeMode) { const it = mergeSel.map(u => BAG.find(i => i.uid === u)).filter(Boolean), r = it.length ? it[0].rar : -1, need = MERGE_COST[r] || 0, avg = it.length ? Math.max(1, Math.round(it.reduce((s, i) => s + (i.ilvl || 1), 0) / it.length)) : 0;
-    $('mergeinfo').innerHTML = !it.length ? esc(text("inventory.mergePromptCounts", "Pick items of one colour: 2 Common, 3 Uncommon, 4 Rare, 5 Epic or 15 Legendary make 1 item of the next colour.")) : it.length + '/' + need + ' <b style="color:' + RC[r] + '">' + esc(text('rarity.' + (r), I.rarity[r])) + '</b> → <b style="color:' + RC[r + 1] + '">' + esc(text('rarity.' + (r + 1), I.rarity[r + 1])) + ' ' + esc(text('slot.' + it[0].slot, SLOTNAME[it[0].slot])) + '</b> · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + avg;
+    $('mergeinfo').innerHTML = !it.length ? esc(text("inventory.mergePromptCounts", "Pick items of one colour: 2 Common, 3 Uncommon, 4 Rare, 5 Epic or 15 Legendary make 1 item of the next colour.")) : it.length + '/' + need + ' <b style="color:' + RC[r] + '">' + esc(text('rarity.' + (r), I.rarity[r])) + '</b><i class="sl-arrow"></i><b style="color:' + RC[r + 1] + '">' + esc(text('rarity.' + (r + 1), I.rarity[r + 1])) + ' ' + esc(text('slot.' + it[0].slot, SLOTNAME[it[0].slot])) + '</b> · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + avg;
     $('mergeGo').disabled = !need || it.length !== need; }
   const list = Object.keys(I.items).filter(k => me.inv[k] > 0);
   if ($('inl')) $('inl').innerHTML = list.length ? list.map(k => '<div class="chip" data-use="' + k + '" data-tip="cons:' + k + '">' + consIcon(k) + esc(itemName(k, I.items[k].n)) + ' ×' + me.inv[k] + '</div>').join('') : '<span class="mu" style="font-size:0.75rem">' + esc(text("inventory.noConsumables", "Nothing yet. Monsters drop potions and scrolls.")) + '</span>';
@@ -306,7 +309,7 @@ function ilvlCompare(it, cmp) {
   if (!cmp || cmp.uid === it.uid) return '';
   const d = it.ilvl - cmp.ilvl;
   if (!d) return ' <span class="mu">(' + esc(text('inventory.ilvlSame', 'same as equipped')) + ')</span>';
-  return ' <span class="' + (d > 0 ? 'up' : 'dn') + '">(' + (d > 0 ? '▲ +' : '▼ ') + d + ' ' + esc(text('inventory.ilvlVsEquipped', 'vs equipped {level}', { level: cmp.ilvl })) + ')</span>';
+  return ' <span class="' + (d > 0 ? 'up' : 'dn') + '">(' + (d > 0 ? '<i class="sl-tri up"></i>+' : '<i class="sl-tri dn"></i>') + d + ' ' + esc(text('inventory.ilvlVsEquipped', 'vs equipped {level}', { level: cmp.ilvl })) + ')</span>';
 }
 function tipItem(it, cmp, plusOverride) {
   const pl = plusOverride === undefined ? it.plus || 0 : plusOverride;
@@ -314,11 +317,11 @@ function tipItem(it, cmp, plusOverride) {
   let h = '<div class="tip-head"><span class="slot tip-ico r' + it.rar + '">' + iconOf(it) + '</span><div class="tip-title"><b class="nm" style="color:' + RC[it.rar] + '">' + esc(gearName(it.name)) + (pl ? ' +' + pl : '') + '</b><div class="mu">' + esc(text('rarity.' + (it.rar), I.rarity[it.rar])) + ' ' + (it.slot === 'weapon' ? esc(text('weapon.' + it.fam, { sword: 'Sword', bow: 'Bow', staff: 'Staff' }[it.fam] || 'Weapon')) : esc(text('slot.' + it.slot, SLOTNAME[it.slot]))) + ' · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + it.ilvl + ilvlCompare(it, cmp) + '</div></div></div><div class="tip-stats">';
   // Without Shift the tooltip stays short: stats plus a one-line verdict. Shift adds each stat's change and its possible range.
   let better = 0, worse = 0;
-  for (const k of STATORDER) if (k in it.stats) { const v = eff(it, k, pl); let d = ''; if (cmp && cmp.uid !== it.uid) { const df = v - (k in cmp.stats ? eff(cmp, k) : 0); if (df > 0.049) better++; else if (df < -0.049) worse++; if (SHIFT && Math.abs(df) > 0.049) d = '<span class="' + (df > 0 ? 'up' : 'dn') + '">' + (df > 0 ? '▲' : '▼') + fmtS(k, Math.abs(df)) + '</span>'; } h += '<div class="ln"><span>' + statIco(k) + '+' + fmtS(k, v) + ' ' + esc(text('stat.' + k, I.stat[k].n)) + '</span>' + (SHIFT && it.rg && it.rg[k] ? '<span class="rg">' + fmtS(k, it.rg[k][0] * eff({ stats: { [k]: 1 }, slot: it.slot, plus: pl }, k)) + '–' + fmtS(k, it.rg[k][1] * eff({ stats: { [k]: 1 }, slot: it.slot, plus: pl }, k)) + '</span>' : '') + d + '</div>'; }
-  if (cmp && cmp.uid !== it.uid) for (const k of STATORDER) if (k in cmp.stats && !(k in it.stats)) { worse++; if (SHIFT) h += '<div class="ln dn"><span>-' + fmtS(k, eff(cmp, k)) + ' ' + esc(text('stat.' + k, I.stat[k].n)) + '</span><span>▼</span></div>'; }
+  for (const k of STATORDER) if (k in it.stats) { const v = eff(it, k, pl); let d = ''; if (cmp && cmp.uid !== it.uid) { const df = v - (k in cmp.stats ? eff(cmp, k) : 0); if (df > 0.049) better++; else if (df < -0.049) worse++; if (SHIFT && Math.abs(df) > 0.049) d = '<span class="' + (df > 0 ? 'up' : 'dn') + '">' + (df > 0 ? '<i class="sl-tri up"></i>' : '<i class="sl-tri dn"></i>') + fmtS(k, Math.abs(df)) + '</span>'; } h += '<div class="ln"><span>' + statIco(k) + '+' + fmtS(k, v) + ' ' + esc(text('stat.' + k, I.stat[k].n)) + '</span>' + (SHIFT && it.rg && it.rg[k] ? '<span class="rg">' + fmtS(k, it.rg[k][0] * eff({ stats: { [k]: 1 }, slot: it.slot, plus: pl }, k)) + '–' + fmtS(k, it.rg[k][1] * eff({ stats: { [k]: 1 }, slot: it.slot, plus: pl }, k)) + '</span>' : '') + d + '</div>'; }
+  if (cmp && cmp.uid !== it.uid) for (const k of STATORDER) if (k in cmp.stats && !(k in it.stats)) { worse++; if (SHIFT) h += '<div class="ln dn"><span>-' + fmtS(k, eff(cmp, k)) + ' ' + esc(text('stat.' + k, I.stat[k].n)) + '</span><span><i class="sl-tri dn"></i></span></div>'; }
   if (it.afx && I.affixes[it.afx.k]) h += '<div class="ln afx"><span>+' + (+it.afx.v).toFixed(1) + ' ' + esc(text('affix.' + it.afx.k, I.affixes[it.afx.k].n)) + '</span>' + (SHIFT && it.rg && it.rg['afx:' + it.afx.k] ? '<span class="rg">' + it.rg['afx:' + it.afx.k][0].toFixed(1) + '–' + it.rg['afx:' + it.afx.k][1].toFixed(1) + '</span>' : '') + '</div>';
-  if (!SHIFT && cmp && cmp.uid !== it.uid && (better || worse)) h += '<div class="cmpsum">' + (better ? '<span class="up">▲ ' + esc(text('inventory.better', '{count} better', { count: better })) + '</span> ' : '') + (worse ? '<span class="dn">▼ ' + esc(text('inventory.worse', '{count} worse', { count: worse })) + '</span> ' : '') + '<span class="mu">' + esc(text('inventory.thanEquipped', 'than equipped')) + '</span></div>';
-  if (it.lk) h += '<div class="mu" style="color:#ffb04a">🔒 ' + esc(text('inventory.lockedLine', 'Locked: cannot be sold, merged or traded. Ctrl+click to unlock.')) + '</div>';
+  if (!SHIFT && cmp && cmp.uid !== it.uid && (better || worse)) h += '<div class="cmpsum">' + (better ? '<span class="up"><i class="sl-tri up"></i>' + esc(text('inventory.better', '{count} better', { count: better })) + '</span> ' : '') + (worse ? '<span class="dn"><i class="sl-tri dn"></i>' + esc(text('inventory.worse', '{count} worse', { count: worse })) + '</span> ' : '') + '<span class="mu">' + esc(text('inventory.thanEquipped', 'than equipped')) + '</span></div>';
+  if (it.lk) h += '<div class="mu" style="color:var(--sl-warn)">' + Icons.img('stat/locked') + ' ' + esc(text('inventory.lockedLine', 'Locked: cannot be sold, merged or traded. Ctrl+click to unlock.')) + '</div>';
   if (SHIFT && it.rg) h += '<div class="mu" style="font-size:0.6875rem">' + esc(text('inventory.rangeHint', 'Possible values for this item level and rarity') + (pl ? ' (+' + pl + ')' : '')) + '</div>';
   else if (it.rg) h += '<div class="mu" style="font-size:0.6875rem">' + esc(text('inventory.shiftForDetails', 'Shift: comparison and possible values · Ctrl+click: lock')) + '</div>';
   if (it.psk) h += '<div class="ln" style="color:#ff8a9a;margin-top:2px"><span>' + esc(text('inventory.mythicPassives', 'Mythic: passive skill ranks')) + '</span></div>' + Object.keys(it.psk).map(k => '<div class="ln" style="color:#ff6a80"><span>+' + it.psk[k] + ' ' + esc(text('passive.' + k, PAS[k] ? PAS[k][0] : k)) + '</span></div>').join('');
@@ -387,7 +390,7 @@ function showTip(el) {
   else if (kind === 'cons') { const it = I.items[id]; h = '<b class="nm" style="color:' + (it.color || '#fff') + '">' + esc(itemName(id, it.n)) + '</b><div>' + esc(itemDescription(id, it.d)) + '</div><div class="mu">' + esc(text('shop.buyPrice', 'Merchant price {gold}g', { gold: it.price })) + '</div>'; }
   if (!h) { tip.style.display = 'none'; return; } tip.innerHTML = h; tip.style.display = 'block';
 }
-document.addEventListener('mousemove', e => { if (!hoveredSkillElement && tip.style.display === 'block') { const w = tip.offsetWidth, hh = tip.offsetHeight; tip.style.left = Math.max(8, e.clientX + 16 + w > innerWidth - 8 ? e.clientX - w - 16 : e.clientX + 16) + 'px'; tip.style.top = Math.max(8, Math.min(innerHeight - hh - 8, e.clientY + 12)) + 'px'; } });
+document.addEventListener('mousemove', e => { if (!hoveredSkillElement && tip.style.display === 'block') { const w = tip.offsetWidth, hh = tip.offsetHeight; tip.style.left = Math.max(8, e.clientX + 16 + w > innerWidth - 8 ? e.clientX - w - 16 : e.clientX + 16) + 'px'; let top = e.clientY + 12; if (top + hh > innerHeight - 8) top = e.clientY - hh - 12 >= 8 ? e.clientY - hh - 12 : innerHeight - hh - 8; tip.style.top = Math.max(8, top) + 'px'; } }); // below the cursor, else above it, never off-screen
 document.addEventListener('mouseout', e => {
   if (hoveredSkillElement) {
     if (e.relatedTarget instanceof Node && hoveredSkillElement.contains(e.relatedTarget)) return;
@@ -496,10 +499,10 @@ function buildSmith() {
   if (!it) { $('smcard').innerHTML = '<div class="mu">' + esc(text("smith.noEquipment", "No equipment.")) + '</div>'; $('smgo').disabled = true; return; }
   if (it.plus >= 9) { $('smcard').innerHTML = '<div class="itemcard">' + tipItem(it) + '<div class="up" style="margin-top:6px">' + esc(text("smith.maxUpgrade", "Maximum level reached (+9).")) + '</div></div>'; $('smgo').disabled = true; return; }
   const c = ForgeMath.upCostFor(it, I.forgePolicy), ch = Math.round(I.upRate[it.plus] * 100);
-  let rows = ''; for (const k of STATORDER) if (k in it.stats) rows += '<div class="ln"><span>' + esc(text('stat.' + k, I.stat[k].n)) + '</span><span>' + fmtS(k, eff(it, k)) + ' → <b class="up">' + fmtS(k, eff(it, k, it.plus + 1)) + '</b></span></div>';
-  $('smcard').innerHTML = '<div class="itemcard"><b class="nm" style="color:' + RC[it.rar] + '">' + esc(gearName(it.name)) + ' +' + it.plus + ' → +' + (it.plus + 1) + '</b><div class="mu">' + text("inventory.equipped", "Equipped") + ' · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + it.ilvl + '</div><div style="margin:6px 0">' + rows + '</div>' +
+  let rows = ''; for (const k of STATORDER) if (k in it.stats) rows += '<div class="ln"><span>' + esc(text('stat.' + k, I.stat[k].n)) + '</span><span>' + fmtS(k, eff(it, k)) + '<i class="sl-arrow"></i><b class="up">' + fmtS(k, eff(it, k, it.plus + 1)) + '</b></span></div>';
+  $('smcard').innerHTML = '<div class="itemcard"><b class="nm" style="color:' + RC[it.rar] + '">' + esc(gearName(it.name)) + ' +' + it.plus + '<i class="sl-arrow"></i>+' + (it.plus + 1) + '</b><div class="mu">' + text("inventory.equipped", "Equipped") + ' · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + it.ilvl + '</div><div style="margin:6px 0">' + rows + '</div>' +
     '<div class="ln"><span>' + esc(text("smith.cost", "Cost")) + '</span><b style="color:' + (me.g >= c ? '#ffd77a' : '#ff7a6a') + '">' + GameText.number(c) + 'g</b></div><div class="ln"><span>' + esc(text("smith.chance", "Success chance")) + '</span><b style="color:' + (ch >= 70 ? '#6fe39a' : ch >= 40 ? '#ffd24a' : '#ff7a6a') + '">' + ch + '%</b></div>' +
-    (it.plus >= 5 ? '<div class="dn" style="margin-top:4px">' + esc(text('smith.failureLevel', '⚠ Failure drops the item to +{level}', { level: it.plus - 1 })) + '</div>' : '<div class="mu" style="margin-top:4px">' + esc(text("smith.goldOnly", "Failure only costs gold.")) + '</div>') + '</div>';
+    (it.plus >= 5 ? '<div class="dn" style="margin-top:4px">' + esc(text('smith.failureLevel', 'Failure drops the item to +{level}', { level: it.plus - 1 })) + '</div>' : '<div class="mu" style="margin-top:4px">' + esc(text("smith.goldOnly", "Failure only costs gold.")) + '</div>') + '</div>';
   $('smauto').disabled = forgePending || me.g < c;
   $('smgo').disabled = forgePending || me.g < c; $('smgo').textContent = text("smith.upgradeFor", "Upgrade for {cost}g", { cost: GameText.number(c) });
 }
@@ -520,7 +523,7 @@ function buildMystic() {
   $('mycard').innerHTML = '<div class="itemcard">' + tipItem(it) + '<div class="ln" style="margin-top:6px"><span>' + esc(text('mystic.cost', 'Cost')) + '</span><b style="color:' + (SOULS >= c ? '#c9a0ff' : '#ff7a6a') + '">' + c + ' ' + esc(text('mystic.souls', 'souls')) + '</b></div><div class="mu" style="margin-top:4px">' + esc(text('mystic.keeps', 'Keeps the name, rarity, item level and + upgrades. All stats are rolled again.')) + '</div></div>';
   $('mygo').disabled = SOULS < c; $('mygo').textContent = text('mystic.rerollFor', 'Reroll for {cost} souls', { cost: c });
 }
-function onReroll() { const r = $('myres'); r.textContent = text('mystic.done', '✦ The souls reshape the item.'); r.style.color = '#c9a0ff'; sfx('lvl'); }
+function onReroll() { const r = $('myres'); r.innerHTML = Icons.img('currency/souls') + esc(text('mystic.done', 'The souls reshape the item.')); r.style.color = '#c9a0ff'; sfx('lvl'); }
 const fmtTime = ms => { const s = Math.ceil(ms / 1000); return s >= 60 ? Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : s + 's'; };
 // ---------- Blacksmith: Mythic merge ----------
 function buildMythicMerge() {
@@ -554,8 +557,8 @@ let TEAM = null, TRADE = null, ASK = null;
 function onTeam(m) { TEAM = m.team; if (isOpen('teamw')) buildTeam(); }
 function buildTeam() {
   const t = TEAM, mine = t && I && t.leader === I.id;
-  const members = t ? t.members.map(p => '<div class="row"><div class="t"><b>' + (p.id === t.leader ? '👑 ' : '') + esc(p.n) + '</b> <span class="mu">' + esc(text('team.memberInfo', 'Lv {level} · {where}', { level: p.l, where: p.map ? text('portal.regionShort', 'Region {index}', { index: p.map }) : text('portal.founding', 'The Founding Lands') })) + '</span><div class="bar teamhp"><i></i></div></div>' +
-    (p.id === I.id ? '' : '<button data-trwith="' + esc(p.n) + '">' + esc(text('team.trade', 'Trade')) + '</button>' + (mine ? ' <button data-teamop="kick" data-name="' + esc(p.n) + '">✕</button>' : '')) + '</div>').join('') : '<div class="mu">' + esc(text('team.none', 'You are not in a team. Invite a hero by name - only team members can trade with each other.')) + '</div>';
+  const members = t ? t.members.map(p => '<div class="row"><div class="t"><b>' + (p.id === t.leader ? Icons.img('ui/crown') : '') + esc(p.n) + '</b> <span class="mu">' + esc(text('team.memberInfo', 'Lv {level} · {where}', { level: p.l, where: p.map ? text('portal.regionShort', 'Region {index}', { index: p.map }) : text('portal.founding', 'The Founding Lands') })) + '</span><div class="bar teamhp"><i></i></div></div>' +
+    (p.id === I.id ? '' : '<button data-trwith="' + esc(p.n) + '">' + esc(text('team.trade', 'Trade')) + '</button>' + (mine ? ' <button data-teamop="kick" data-name="' + esc(p.n) + '" class="is-icon" aria-label="' + esc(text('team.kick', 'Remove')) + '">' + Icons.img('ui/cross') + '</button>' : '')) + '</div>').join('') : '<div class="mu">' + esc(text('team.none', 'You are not in a team. Invite a hero by name - only team members can trade with each other.')) + '</div>';
   $('teamb').innerHTML = members + '<div class="teaminv"><input id="teamname" maxlength="14" placeholder="' + esc(text('team.namePlaceholder', 'Hero name')) + '"><button data-teamop="invite" class="pri">' + esc(text('team.invite', 'Invite')) + '</button></div>' +
     (t ? '<div class="itemcard" style="margin-top:8px;font-size:0.75rem"><div class="ln"><span>' + esc(text('team.sharing', 'XP and gold sharing')) + '</span>' + (mine ? '<button data-teamop="share">' + esc(t.share ? text('team.on', 'ON') : text('team.off', 'OFF')) + '</button>' : '<b>' + esc(t.share ? text('team.on', 'ON') : text('team.off', 'OFF')) + '</b>') + '</div>' +
       '<div class="mu" style="margin-top:4px">' + esc(text('team.rulesCurrent', 'Nearby contributors share XP; nearby members share gold. Health scaling depends on enemy category; each extra party member adds {damage}% damage.', { damage: Math.round((WORLD.scaling?.partyDamage || 0) * 100) })) + '</div></div>' : '') +
@@ -578,7 +581,7 @@ function buildTrade() {
   $('trpick').innerHTML = BAG.filter(it => !t.mine.uids.includes(it.uid)).map(it => slotHtml(it, 'data-tr="' + it.uid + '" data-tip="tr:' + it.uid + '"')).join('');
   if (document.activeElement !== $('trgold')) $('trgold').value = t.mine.gold || '';
   $('trtheirgold').textContent = GameText.number(t.theirs.gold || 0) + 'g';
-  const tick = ok => ok ? '<b style="color:#8fd18f">✔ ' + esc(text('trade.accepted', 'accepted')) + '</b>' : '<span class="mu">' + esc(text('trade.waiting', 'not accepted yet')) + '</span>';
+  const tick = ok => ok ? '<b class="up">' + Icons.img('ui/check') + esc(text('trade.accepted', 'accepted')) + '</b>' : '<span class="mu">' + esc(text('trade.waiting', 'not accepted yet')) + '</span>';
   $('trstate').innerHTML = esc(text('trade.you', 'You')) + ': ' + tick(t.mine.ok) + ' · ' + esc(t.with) + ': ' + tick(t.theirs.ok);
   $('trok').disabled = t.mine.ok;
 }
@@ -587,11 +590,11 @@ const STALL_NAME = { merchant: "Merchant's stall", smith: "Blacksmith's forge", 
 function buildCamp() {
   const st = WORLD && WORLD.settlement; if (!st || !(st.kind === 'camp' || st.stalls)) { $('campb').innerHTML = ''; return; }
   const village = st.kind === 'village';
-  { const title = document.querySelector('#campw .win-h b span'); if (title) title.textContent = village ? text('npc.villageBoard', '📜 Village board') : text('npc.camp', '🏕 Encampment board'); }
+  { const title = document.querySelector('#campw .win-h b span'); if (title) title.textContent = village ? text('npc.villageBoard', 'Village board') : text('npc.camp', 'Encampment board'); }
   // Each unbuilt stall shows how much is raised. Heroes can give any part of their gold; the biggest contributor gets the deed.
   const row = k => { const b = st.built[k], cost = st.cost[k], donors = (st.funds && st.funds[k]) || {};
     const name = '<div class="t">' + esc(text('camp.stall.' + k, STALL_NAME[k])) + '<small>';
-    if (b) return '<div class="row">' + name + esc(text('camp.builtBy', 'Built by {name}', { name: b.by })) + (b.donors > 1 ? ' · ' + esc(text('camp.withHelp', 'with {count} heroes', { count: b.donors })) : '') + '</small></div><b style="color:#8fd18f">✔</b></div>';
+    if (b) return '<div class="row">' + name + esc(text('camp.builtBy', 'Built by {name}', { name: b.by })) + (b.donors > 1 ? ' · ' + esc(text('camp.withHelp', 'with {count} heroes', { count: b.donors })) : '') + '</small></div>' + Icons.img('ui/check') + '</div>';
     const raised = Object.values(donors).reduce((s, v) => s + v, 0), left = Math.max(0, cost - raised), mine = Object.hasOwn(donors, I.name) ? donors[I.name] : 0;
     const top = Object.keys(donors).sort((a, c) => donors[c] - donors[a])[0];
     const pct = Math.min(100, raised / cost * 100), give = Math.min(left, me.g);
@@ -637,7 +640,7 @@ function buildChronicle() {
     '<div class="uni-head"><b>' + esc(u.name) + '</b><span>' + esc(text('universe.publicIdentity', 'Founded {date}', { date: dateText(u.foundedAt) })) + '</span></div>' +
     '<div class="uni-tier"><div><span class="mu">' + esc(text('universe.worldTier', 'World Tier')) + '</span><b>' + u.tier + '</b></div><div><span class="mu">' + esc(text('universe.frontier', 'Frontier region')) + '</span><b>' + esc(regionName(f)) + '</b><small>' + esc(text('universe.levels', 'Levels {min}-{max}', { min: f.levels[0], max: f.levels[1] })) + '</small></div><div><span class="mu">' + esc(text('universe.worldBoss', 'World Boss')) + '</span><b style="color:#ffd24a">' + esc(bossName(wb)) + '</b></div></div>' +
     '<div class="mu" style="font-size:0.75rem;margin:6px 0">' + esc(f.playable ? text('universe.frontierHint', 'Defeat the World Boss in its own region to advance this universe to the next World Tier.') : text('universe.frontierLocked', 'This region has been charted from the history of this universe, but it cannot be entered yet.')) + '</div>' +
-    '<details class="howto"><summary>' + esc(text('chronicle.howTitle', 'How does the World Tier grow?')) + '</summary><p>' + esc(text('chronicle.how', 'Every zone has one World Boss (👑), chosen by the server\'s seed. Defeat it in its own zone and the World Tier rises by one, revealing the next region. After the seventh, a World Portal opens in the village centre and leads to new maps. Every first victory is written into this chronicle.')) + '</p></details>' + '<div class="hd2">' + esc(text('universe.chronicle', 'Chronicle')) + '</div><div class="uni-list">' + u.history.slice().reverse().map(e => '<div class="uni-row"><span class="mu">' + esc(dateText(e.at)) + '</span><div>' + esc(entryText(e)) + others(e) + '</div></div>').join('') + '</div>' +
+    '<details class="howto"><summary>' + esc(text('chronicle.howTitle', 'How does the World Tier grow?')) + '</summary><p>' + esc(text('chronicle.how', 'Every zone has one World Boss (marked with a crown), chosen by the server\'s seed. Defeat it in its own zone and the World Tier rises by one, revealing the next region. After the seventh, a World Portal opens in the village centre and leads to new maps. Every first victory is written into this chronicle.')) + '</p></details>' + '<div class="hd2">' + esc(text('universe.chronicle', 'Chronicle')) + '</div><div class="uni-list">' + u.history.slice().reverse().map(e => '<div class="uni-row"><span class="mu">' + esc(dateText(e.at)) + '</span><div>' + esc(entryText(e)) + others(e) + '</div></div>').join('') + '</div>' +
     '<div class="hd2">' + esc(text('universe.legends', 'Legends')) + '</div><div class="uni-list">' + (u.legends.length ? u.legends.map((l, i) => '<div class="uni-row"><span class="mu">' + (i + 1) + '.</span><div><b>' + esc(l.name) + '</b><small>' + esc(text('universe.renown', '{renown} renown · {deeds} deeds in the chronicle', { renown: l.renown, deeds: l.deeds })) + '</small></div></div>').join('') : '<div class="mu">' + esc(text('universe.noLegends', 'No hero has entered the chronicle yet.')) + '</div>') + '</div>';
 }
 function onForge(m) {
@@ -661,13 +664,13 @@ function onForge(m) {
     if (isOpen('smithw')) buildSmith();
     return;
   }
-  const r = $('smres'); r.textContent = m.ok ? text("smith.success", "✔ Success! Now +{level}", { level: m.plus }) : (m.drop ? text("smith.dropped", "✖ Failed - dropped to +{level}", { level: m.plus }) : text("smith.failed", "✖ Failed")); r.style.color = m.ok ? '#6fe39a' : '#ff7a6a';
+  const r = $('smres'); r.innerHTML = Icons.img(m.ok ? 'ui/check' : 'ui/cross') + esc(m.ok ? text("smith.success", "Success! Now +{level}", { level: m.plus }) : (m.drop ? text("smith.dropped", "Failed - dropped to +{level}", { level: m.plus }) : text("smith.failed", "Failed"))); r.style.color = m.ok ? '#6fe39a' : '#ff7a6a';
   sfx(m.ok ? 'lvl' : 'fail'); if (m.ok && m.plus >= 7) toast(text("smith.forged", "Forged +{level}!", { level: m.plus }), '#ffd24a');
 }
 
 // ---------- skills ----------
 const SK_ACT = ['s1', 'mend', 'frenzy'], SK_PAS = ['vit', 'might', 'swift', 'crit', 'critdmg', 'lifesteal', 'guard', 'haste', 'focus', 'fortune']; let skTab = 'act';
-const PAS = { vit: ['Vitality', '❤️', 'max HP', 5, '%'], might: ['Might', '💪', 'damage', 5, '%'], swift: ['Swiftness', '💨', 'move speed', 4, '%'], crit: ['Precision', '🎯', 'critical hit chance', 1.5, '%'], critdmg: ['Brutality', '💥', 'critical hit damage', 12, '%'], lifesteal: ['Bloodthirst', '🩸', 'of damage dealt healed (lifesteal)', 0.8, '%'], guard: ['Iron Skin', '🛡️', 'less damage taken', 2.5, '%'], haste: ['Haste', '⚡', 'attack speed', 3.5, '%'], focus: ['Focus', '🔷', 'max MP and +10% MP regen per rank', 5, '%'], fortune: ['Fortune', '💰', 'gold find', 1, '%'] };
+const PAS = { vit: ['Vitality', 'stat/hp', 'max HP', 5, '%'], might: ['Might', 'stat/damage', 'damage', 5, '%'], swift: ['Swiftness', 'stat/movespeed', 'move speed', 4, '%'], crit: ['Precision', 'stat/crit', 'critical hit chance', 1.5, '%'], critdmg: ['Brutality', 'stat/critdmg', 'critical hit damage', 12, '%'], lifesteal: ['Bloodthirst', 'stat/lifesteal', 'of damage dealt healed (lifesteal)', 0.8, '%'], guard: ['Iron Skin', 'stat/defense', 'less damage taken', 2.5, '%'], haste: ['Haste', 'stat/speed', 'attack speed', 3.5, '%'], focus: ['Focus', 'stat/mana', 'max MP and +10% MP regen per rank', 5, '%'], fortune: ['Fortune', 'currency/gold', 'gold find', 1, '%'] };
 const passiveTooltipDescriptions = {
   vit: 'Increases base maximum health by {bonus}%.',
   might: 'Increases damage dealt by {bonus}%.',
@@ -716,7 +719,7 @@ function skillInfo(k) {
   const p = PAS[k], gb = SKB[k] || 0, re = effectivePassiveRank(k); return [text('passive.' + k, p[0]) + (gb ? ' (+' + gb + ' ' + text('skill.fromGear', 'from gear') + ')' : ''), '', skillIcon(k), (re ? '+' + passivePercent(k, re) + '% ' + text('passive.' + k + '.effect', p[2]) + ' · ' : '') + ((me.sk[k] || 0) >= maxSkillRank(k) ? text('skill.maxRank', 'maximum rank') : text('skill.nextRank', 'next rank +{bonus}%', { bonus: Math.round((passivePercent(k, re + 1) - passivePercent(k, re)) * 100) / 100 }))];
 }
 function buildSkills() {
-  if (!I || !me) return; $('spn').textContent = me.sp ? text("skill.points", "★ Points: {count}", { count: me.sp }) : text("skill.noPoints", "no points"); $('spn').style.color = me.sp ? '#ffe97a' : '';
+  if (!I || !me) return; $('spn').innerHTML = me.sp ? Icons.img('ui/star') + esc(text("skill.points", "Points: {count}", { count: me.sp })) : esc(text("skill.noPoints", "no points")); $('spn').style.color = me.sp ? '#ffe97a' : '';
   const passiveTab = skTab === 'pas';
   const list = passiveTab ? SK_PAS : SK_ACT;
   const hoveredPassive = hoveredSkillElement?.dataset.passiveSkill;
@@ -837,7 +840,7 @@ function setH(id, v) { if (_hc[id] !== v) { _hc[id] = v; $(id).innerHTML = v; } 
 function setD(id, v) { const k = 'd:' + id; if (_hc[k] !== v) { _hc[k] = v; $(id).style.display = v; } }
 function setBar(id, v, mx, t) { SharedResources.updateResourceBar($(id), v, mx, t, { step: .5, label: id }); }
 function hudInit() {
-  const c = I.classes[I.cls]; $('who').innerHTML = esc(I.name) + ' <small>' + esc(className(I.cls, c.name)) + '</small>'; $('portrait').innerHTML = uiImg('skill-' + clsKey(I.cls));
+  const c = I.classes[I.cls]; $('who').innerHTML = esc(I.name) + ' <small>' + esc(className(I.cls, c.name)) + '</small>'; $('portrait').innerHTML = uiImg('skill-' + classIconKey(I.cls));
   const sk = document.querySelectorAll('#hotbar [data-sk]'); ['s1', 'mend', 'frenzy'].forEach((k, i) => sk[i].querySelector('.ic').innerHTML = skillIcon(k));
   document.querySelectorAll('#hotbar [data-it]').forEach(el => el.querySelector('.ic').innerHTML = consIcon(el.dataset.it));
   [text('class.' + I.cls + '.s1', c.s1), c.s2, c.s3].forEach((n, i) => sk[i].querySelector('.nm').textContent = text('class.' + I.cls + '.s' + (i + 1), n)); buildShop();
@@ -845,15 +848,15 @@ function hudInit() {
 function hud() {
   setT('plvl', me.l); setBar('hp', me.hp, me.mh, me.hp + ' / ' + me.mh); setBar('mp', me.mp, me.mm, me.mp + ' / ' + me.mm);
   setBar('xpbar', me.xp, me.xn, text("zone.levelShort", "Lv ") + me.l + ' · ' + Math.floor(me.xp / me.xn * 1000) / 10 + '%');
-  setT('goldl', '💰 ' + GameText.number(me.g) + '   🔮 ' + GameText.number(me.so || 0) + '   🎒 ' + me.bag + '/' + I.bagMax); setD('sppill', me.sp > 0 ? 'block' : 'none');
-  setH('buffs', Object.keys(me.buf).map(k => '<span class="bf">'  + esc(text('buff.' + k, BUFFN[k] || k)) + ' ' + fmtTime(me.buf[k]) + '</span>').join(''));
+  setH('goldl', currencyRow([['gold', 'currency/gold', GameText.number(me.g)], ['souls', 'currency/souls', GameText.number(me.so || 0)], ['bag', 'stat/bag', me.bag + '/' + I.bagMax]])); setD('sppill', me.sp > 0 ? 'block' : 'none');
+  setH('buffs', Object.keys(me.buf).map(k => '<span class="bf">' + Icons.img(BUFFICON[k] || 'stat/xp') + esc(text('buff.' + k, BUFFN[k] || k)) + ' ' + fmtTime(me.buf[k]) + '</span>').join(''));
   if (!_hot) _hot = { sk: [...document.querySelectorAll('#hotbar [data-sk]')].map(el => ({ el, rk: el.querySelector('.rk'), u: el.querySelector('u') })), it: [...document.querySelectorAll('#hotbar [data-it]')].map(el => ({ el, em: el.querySelector('em'), k: el.dataset.it })) };
   _hot.sk.forEach((h, i) => { const r = me.sk[['s1', 'mend', 'frenzy'][i]], c = [me.c1, me.c2, me.c3][i]; if (c > cdMax[i]) cdMax[i] = c; const cd = Math.round(Math.min(100, c / cdMax[i] * 100)); if (h.r !== r) { h.r = r; h.el.classList.toggle('lock', r < 1); h.rk.textContent = r ? 'R' + r : ''; } if (h.cd !== cd) { h.cd = cd; h.u.style.setProperty('--p', cd); } });
   _hot.it.forEach(h => { const n = me.inv[h.k] || 0; if (h.n !== n) { h.n = n; h.em.textContent = n; h.el.classList.toggle('lock', !n); } });
   setD('dead', me.dead ? 'flex' : 'none'); if (me.dead) setT('deadsec', text("hud.respawn", "Respawning in {seconds}s", { seconds: Math.ceil(me.dead / 1000) }));
   const low = me.hp / me.mh < 0.3 && !me.dead; if (_hc.low !== low) { _hc.low = low; $('hurtfx').classList.toggle('low', low); if (!low) $('hurtfx').style.opacity = 0; }
   const T = me.tg && mo.find(m => m.id === me.tg);
-  if (T) { const t = I.types[T.ty]; setD('tgt', 'block'); setH('tgtn', (t.wb ? '<span style="color:#ffd24a">👑 </span>' : t.boss ? '<span style="color:#ffd24a">★ </span>' : '') + (T.al ? '<span style="color:#ffb04a">' + esc(text("mob.alpha", "Alpha ")) + '</span>' : '') + esc(shownMobName(T, t)) + ' ' + monsterLevelLabel(T.l, me.l) + (t.wb ? '<span class="tag" style="background:#ffd24a;color:#000">' + esc(text("mob.worldBossTag", "WORLD BOSS")) + '</span>' : t.boss ? '<span class="tag" style="background:#ffd24a;color:#000">' + esc(text("mob.bossTag", "BOSS")) + '</span>' : T.al ? '<span class="tag" style="background:#ffb04a;color:#000">' + esc(text("mob.alphaTag", "ALPHA")) + '</span>' : '')); const b = $('tgt').querySelector('.bar'), tx = GameText.number(T.hp) + ' / ' + GameText.number(T.mh); SharedResources.updateResourceBar(b, T.hp, T.mh, tx, { step: 1, label: $('tgtn').textContent }); } else setD('tgt', 'none');
+  if (T) { const t = I.types[T.ty]; setD('tgt', 'block'); setH('tgtn', (t.wb ? Icons.img('ui/crown', 'rank-ico') : t.boss ? Icons.img('boss/region', 'rank-ico') : T.al ? Icons.img('boss/alpha', 'rank-ico') : '') + (T.al ? '<span style="color:#ffb04a">' + esc(text("mob.alpha", "Alpha ")) + '</span>' : '') + esc(shownMobName(T, t)) + ' ' + monsterLevelLabel(T.l, me.l) + (t.wb ? '<span class="tag" style="background:#ffd24a;color:#000">' + esc(text("mob.worldBossTag", "WORLD BOSS")) + '</span>' : t.boss ? '<span class="tag" style="background:#ffd24a;color:#000">' + esc(text("mob.bossTag", "BOSS")) + '</span>' : T.al ? '<span class="tag" style="background:#ffb04a;color:#000">' + esc(text("mob.alphaTag", "ALPHA")) + '</span>' : '')); const b = $('tgt').querySelector('.bar'), tx = GameText.number(T.hp) + ' / ' + GameText.number(T.mh); SharedResources.updateResourceBar(b, T.hp, T.mh, tx, { step: 1, label: $('tgtn').textContent }); } else setD('tgt', 'none');
   const damageChanged = _hc.inventoryDamage !== me.dmg;
   _hc.inventoryDamage = me.dmg;
   const s = me.sp + '|' + me.g + '|' + me.l + '|' + JSON.stringify(me.sk) + JSON.stringify(me.inv);

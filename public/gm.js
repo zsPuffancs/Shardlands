@@ -15,36 +15,34 @@
 
   // ---------------- styles ----------------
   const css = `
-  .gm-layer{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(6,5,4,.62);font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#efe4cf}
+  /* drawn with the design system tokens (ds/tokens.css) so the GM tools match the rest of the interface */
+  .gm-layer{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(5,6,8,.66);font-family:var(--sl-font);color:var(--sl-text)}
   .gm-layer[hidden]{display:none}
-  .gm-card{width:min(440px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;background:linear-gradient(#241d15,#16120d);border:1px solid #8a6a2c;border-radius:8px;box-shadow:0 0 0 1px #000,0 18px 60px #000a,0 0 40px #d4a03a22;padding:20px 22px}
+  .gm-card{position:relative;width:min(440px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;padding:20px 22px;border:1px solid var(--sl-ink);border-radius:var(--sl-rad-l);background:linear-gradient(180deg,#161a20 0,var(--sl-s0) 140px);box-shadow:var(--sl-shadow),inset 0 0 0 1px var(--sl-edge),inset 0 2px 0 -1px var(--sl-gold-lo);animation:sl-open var(--sl-med) var(--sl-ease)}
   .gm-card.wide{width:min(720px,calc(100vw - 32px))}
-  .gm-card h2{margin:0 0 2px;font:700 22px Georgia,'Times New Roman',serif;letter-spacing:.08em;color:#f2c862;text-shadow:0 0 12px #d4a03a55}
-  .gm-card .gm-sub{margin:0 0 14px;color:#b9a684;font-size:12.5px}
-  .gm-card label{display:block;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#b9a684;margin:10px 0 4px}
-  .gm-card input,.gm-card select{width:100%;box-sizing:border-box;background:#0d0b08;border:1px solid #5d4922;color:#f3ead8;border-radius:4px;padding:8px 10px;font:14px system-ui,sans-serif}
-  .gm-card input:focus,.gm-card select:focus,.gm-card button:focus-visible{outline:2px solid #f2c862;outline-offset:1px}
+  .gm-card h2{display:flex;align-items:center;gap:10px;margin:0 0 4px;font:600 20px/1.2 var(--sl-font-title);letter-spacing:.06em;color:var(--sl-title);text-shadow:0 1px 2px #000}
+  .gm-card h2::before{content:'';flex:none;width:26px;height:26px;background:url(icons/gm/badge.png) center/contain no-repeat}
+  .gm-card .gm-sub{margin:0 0 14px;color:var(--sl-text-2);font-size:var(--sl-fs-s)}
+  .gm-card label{display:block;font:600 var(--sl-fs-xs)/1 var(--sl-font);letter-spacing:var(--sl-track);text-transform:uppercase;color:var(--sl-text-2);margin:12px 0 6px}
+  .gm-card input,.gm-card select{width:100%;box-sizing:border-box}
   .gm-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
   .gm-row>*{flex:1 1 120px;min-width:0}
-  .gm-card button{cursor:pointer;background:#2c2318;color:#f3ead8;border:1px solid #7a5d27;border-radius:4px;padding:8px 12px;font:600 13px system-ui,sans-serif}
-  .gm-card button:hover{border-color:#f2c862}
-  .gm-card button.pri{background:linear-gradient(#e3b452,#a8781f);color:#1b1309;border-color:#f2c862}
-  .gm-card button.danger{border-color:#a3412f;color:#ffcfc3}
-  .gm-card button[aria-pressed=true]{background:#f2c862;color:#1b1309}
-  .gm-err{min-height:18px;margin-top:10px;color:#ff9c86;font-size:12.5px}
-  .gm-ok{color:#9be3a4}
-  .gm-tabs{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0 14px;border-bottom:1px solid #4a3a1c;padding-bottom:8px}
-  .gm-tabs button{flex:0 0 auto;padding:6px 10px;font-weight:500}
+  .gm-card button.danger{color:#ffd8d0;background:linear-gradient(180deg,#5a2320,#3a1614);box-shadow:inset 0 0 0 1px #8a3a32}
+  .gm-card button[aria-pressed=true]{color:var(--sl-title);background:linear-gradient(180deg,var(--sl-s4),var(--sl-s3));box-shadow:inset 0 0 0 1px var(--sl-gold-lo),inset 0 -2px 0 var(--sl-gold)}
+  .gm-err{min-height:18px;margin-top:10px;color:var(--sl-bad);font-size:var(--sl-fs-s)}
+  .gm-ok{color:var(--sl-good)}
+  .gm-tabs{display:flex;gap:2px;flex-wrap:wrap;margin:8px 0 14px;padding:2px;background:var(--sl-s1);border-radius:var(--sl-rad);box-shadow:var(--sl-well)}
+  .gm-tabs button{flex:1 1 auto;min-height:28px;border:0;background:transparent;box-shadow:none;color:var(--sl-text-2);text-shadow:none}
   .gm-sec{display:grid;gap:12px}
-  .gm-group{border:1px solid #3d3017;border-radius:6px;padding:10px 12px;display:grid;gap:8px}
-  .gm-group h3{margin:0;font:600 12px system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#d9b866}
-  .gm-confirm{border:1px solid #a3412f;background:#2a1511;border-radius:6px;padding:10px 12px;display:grid;gap:8px}
-  .gm-log{font-size:12.5px;color:#cbbd9f;min-height:18px}
-  .gm-note{font-size:12.5px;line-height:1.5;color:#cbbd9f}
-  .gm-note code{background:#0d0b08;border:1px solid #3d3017;border-radius:3px;padding:1px 5px;color:#f2c862}
+  .gm-group{border:1px solid var(--sl-ink);border-radius:var(--sl-rad);padding:12px;display:grid;gap:8px;background:var(--sl-s1);box-shadow:inset 0 0 0 1px var(--sl-line)}
+  .gm-group h3{display:flex;align-items:center;gap:8px;margin:0;font:600 var(--sl-fs-xs)/1 var(--sl-font);letter-spacing:var(--sl-track);text-transform:uppercase;color:var(--sl-gold)}
+  .gm-confirm{border:1px solid var(--sl-ink);background:#24110f;border-radius:var(--sl-rad);padding:12px;display:grid;gap:8px;box-shadow:inset 0 0 0 1px #8a3a32}
+  .gm-log{font-size:var(--sl-fs-s);color:var(--sl-text-2);min-height:18px}
+  .gm-note{font-size:var(--sl-fs-s);line-height:1.5;color:var(--sl-text-2)}
+  .gm-note code{background:var(--sl-s1);border:1px solid var(--sl-line);border-radius:3px;padding:1px 5px;color:var(--sl-gold-hi)}
   .gm-vault-row{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center}
   .gm-vault-row .gm-row button{flex:0 0 auto}
-  .gm-secret{font:13px ui-monospace,Consolas,monospace;word-break:break-all;color:#f3ead8}
+  .gm-secret{font:13px ui-monospace,Consolas,monospace;word-break:break-all;color:var(--sl-text)}
   .gm-emblem{position:absolute;left:0;top:0;width:124px;height:78px;pointer-events:none;will-change:transform;filter:drop-shadow(0 0 4px rgba(255,196,80,.45)) drop-shadow(0 1px 1px #000)}
   .gm-emblem svg{width:100%;height:100%;overflow:visible}
   .gm-emblem i{position:absolute;width:3px;height:3px;border-radius:50%;background:#ffe39a;box-shadow:0 0 5px #ffc14d;opacity:0;animation:gm-spark 2.6s linear infinite}

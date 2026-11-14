@@ -72,7 +72,7 @@ const AdventureUI = (() => {
     keys = {}; held = false; event.stopImmediatePropagation();
     if (event.key === 'Escape') { event.preventDefault(); closeWin('journalw'); }
   }, true);
-  const journalButton = document.createElement('button'); journalButton.textContent = '📖'; journalButton.dataset.open = 'journalw'; journalButton.dataset.titleText = 'adventure.title'; journalButton.title = text('adventure.title', "Adventurer's Journal"); $('mapbtns').appendChild(journalButton);
+  const journalButton = document.createElement('button'); journalButton.innerHTML = window.Icons ? Icons.img('menu/journal') : ''; journalButton.dataset.open = 'journalw'; journalButton.dataset.titleText = 'adventure.title'; journalButton.title = text('adventure.title', "Adventurer's Journal"); $('mapbtns').appendChild(journalButton);
   const previousCamp = buildCamp;
   buildCamp = function () { previousCamp(); $('campb').insertAdjacentHTML('beforeend', '<button type="button" data-open="journalw">' + esc(text('adventure.contracts', 'Village contracts')) + '</button>'); };
   const previousTeam = buildTeam;
