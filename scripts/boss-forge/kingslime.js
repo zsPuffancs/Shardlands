@@ -32,7 +32,7 @@ function jelly(D) {
   for (const [b, p] of [[B.rimF, [0, 3, 19]], [B.rimB, [0, 3, -19]], [B.rimL, [20, 3, 0]], [B.rimR, [-20, 3, 0]]]) S.add(EL(p, [10, 3.6, 10]), { bone: b, tag: 'jelly', k: 4 });
   // the face: eye sockets, a wide mouth that can open
   both(s => S.sub(EL([s * 6.6, 28, 18.6], [3.6, 4.4, 2.6]), { k: .8 }));
-  S.sub(EL([0, 18.6, 19.8], [8.6, 2.4 + (key === 'b' ? 1 : 0), 3.4]), { k: 1 });
+  S.sub(EL([0, 18.6, 20.4], [8.6, 3.4 + (key === 'b' ? 1 : 0), 5.6]), { k: .9 });
   // B: drips around the lower rim and crystals breaking out of the skin
   if (key === 'b') { for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2 + R() * .3, r = 22; const top = [Math.cos(a) * r, 10 + R() * 6, Math.sin(a) * r * .92]; S.add(RC(top, add(top, [Math.cos(a) * 1.5, -6 - R() * 4, Math.sin(a) * 1.5]), 1.8, .9), { bone: B.body, tag: 'jelly', k: 1.5 }); } }
   // C: a cape of jelly draped from the crown to the ground behind it
@@ -61,12 +61,12 @@ function inner(D) {
 function regalia(D) {
   const S = new Sculpt(), key = D.key, R = rng(D.seed + 2);
   // the crown
-  const c = [0, 44.4, -1], r = key === 'c' ? 7 : 6.4;
-  S.add(TO(c, r, 1.1, null), { bone: B.crown, tag: key === 'b' ? 'darkmetal' : 'trim', k: .3 });
-  const n = key === 'b' ? 9 : 6, h = key === 'c' ? 8 : key === 'b' ? 6 : 4;
-  for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, b0 = add(c, [Math.cos(a) * r, 0, Math.sin(a) * r]); S.add(RC(b0, add(b0, [Math.cos(a) * .6, h * (i % 2 ? .7 : 1), Math.sin(a) * .6]), key === 'b' ? .9 : 1.2, .15), { bone: B.crown, tag: key === 'b' ? 'metal' : 'trim', k: .25 });
-    if (key !== 'b' && !(i % 2)) S.add(EL(add(b0, [0, 1.6, 0]), [.9, 1.1, .7]), { bone: B.crown, tag: 'gem', k: .1 }); }
-  if (key === 'c') { S.add(EL(add(c, [0, 1.5, r]), [1.6, 2, 1]), { bone: B.crown, tag: 'gem', k: .2 }); S.add(TO([0, 54, -2], 11, .35, [[1, 0, 0], [0, 0, 1], [0, -1, 0]]), { bone: B.halo, tag: 'glow', k: .1 });
+  const c = [0, 43.6, -1], r = key === 'c' ? 9.6 : 9;
+  S.add(TO(c, r, 1.6, null), { bone: B.crown, tag: key === 'b' ? 'darkmetal' : 'trim', k: .3 });
+  const n = key === 'b' ? 9 : 6, h = key === 'c' ? 11.5 : key === 'b' ? 8.5 : 6;
+  for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, b0 = add(c, [Math.cos(a) * r, 0, Math.sin(a) * r]); S.add(RC(b0, add(b0, [Math.cos(a) * .6, h * (i % 2 ? .7 : 1), Math.sin(a) * .6]), key === 'b' ? 1.3 : 1.7, .2), { bone: B.crown, tag: key === 'b' ? 'metal' : 'trim', k: .25 });
+    if (key !== 'b' && !(i % 2)) S.add(EL(add(b0, [0, 2.2, 0]), [1.3, 1.6, 1]), { bone: B.crown, tag: 'gem', k: .1 }); }
+  if (key === 'c') { S.add(EL(add(c, [0, 2, r]), [2.2, 2.8, 1.4]), { bone: B.crown, tag: 'gem', k: .2 }); S.add(TO([0, 54, -2], 11, .35, [[1, 0, 0], [0, 0, 1], [0, -1, 0]]), { bone: B.halo, tag: 'glow', k: .1 });
     for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; S.add(EL([Math.cos(a) * 13, 54 + Math.sin(a) * 13, -2], [1, 1.3, 1]), { bone: B.halo, tag: 'droplet', k: .1 }); } }
   // eyes: big glossy domes with pupils
   both(s => { S.add(EL([s * 6.6, 28, 17.6], [3.4, 4.2, 2.4]), { bone: B.face, tag: 'eyewhite', k: .3 }); S.add(EL([s * 6.2, 27.4, 19.6], [1.6, 2.2, 1]), { bone: B.face, tag: 'pupil', k: .2 }); });
@@ -92,6 +92,8 @@ function clips() {
 
 function custom(D) {
   return ({ p, n, s, tag, fine, big }) => {
+    if (tag === 'jelly') { const q = [p[0] / 10, (p[1] - 18.6) / (4.6 + (D.key === 'b' ? 1 : 0)), (p[2] - 20.4) / 7], m = Math.hypot(q[0], q[1], q[2]);
+      if (m < 1.08) { const deep = clamp((1.15 - m) / .8 + (20 - p[2]) / 6, 0, 1); return { c: mul(mixc(D.jelly, D.deep, .55), lerp(.78, .42, deep)), a: 1, sp: .9, gl: .9, ty: 3, st: .1 }; } }
     if (tag === 'jelly' || tag === 'cape') { const rim = clamp(1 - Math.abs(n[1]) * .2 - .4, 0, 1), depth = clamp(1 - p[1] / 44, 0, 1);
       const c = mixc(mixc(D.jelly, D.deep, depth * .6), [1, 1, 1], Math.max(0, n[1] - .7) * .9 * (fine > .4 ? 1 : .4)); return { c, a: lerp(.5, .78, rim) - (tag === 'cape' ? 0 : .1), sp: 1, gl: .97, ty: 3, st: .15 }; }
     if (tag === 'core') return { c: D.core, a: .02, sp: 1, gl: 1, ty: 0, st: 0 };
