@@ -23,3 +23,6 @@
 /gm-accounts.json
 /gm-accounts.json.*
 /gm-audit.log
+
+# local-only audit reports (contain unfixed security findings; the repository is public)
+docs/audits/
