@@ -162,8 +162,145 @@ function meadows(D) {
   return { parts: [['stone', lower, .8, .4], ['stoneTop', upper, .8, .4], ...chunkS.map((c, i) => ['chunk' + i, c, .75, .2]), ['roots', roots, .8, .5], ['detail', fine, .46, .3]], bones, chunks: chunkInfo, B };
 }
 
+// ---------------- shared pieces for the biome stones ----------------
+// the surface point at height y in direction ang (radians around the y axis), marching inward from outside
+const radial = (S, y, ang, off = [0, 0, 0]) => { const d = [Math.cos(ang), 0, Math.sin(ang)]; return surf(S, add(add(mul(d, 45), [0, y, 0]), off), mul(d, -1), 50); };
+// a carved glyph: grooves cut into `cut`, glowing inlays added to `fine` (on bone)
+function glyphAt(cut, fine, p, nrm, s, seed, bone, tag = 'rune') { const Rg = rng(seed), up = [0, 1, 0], rt = norm(cross(up, nrm)), strokes = 2 + Math.floor(Rg() * 3);
+  for (let k = 0; k < strokes; k++) { const a = Math.floor(Rg() * 4) * Math.PI / 4, l = s * lerp(.5, 1, Rg()), off = add(mul(rt, (Rg() - .5) * s * .8), mul(up, (Rg() - .5) * s * .9)), dir = add(mul(rt, Math.cos(a)), mul(up, Math.sin(a)));
+    const fr = [norm(dir), norm(cross(nrm, dir)), nrm], q = add(p, off);
+    cut.sub(BX(q, [l / 2, .5, .8], fr, .1), { k: .15 }); fine.add(BX(add(q, mul(nrm, -.12)), [l / 2 - .1, .34, .5], fr, .08), { bone, tag, k: .05 }); } }
+// a glowing seam crawling over the surface from start (projected radially onto S each step)
+function seamOn(S, fine, bone, start, dir, n, w, seed, tag = 'crack') { const Rs = rng(seed); let p = start, d = norm(dir);
+  for (let i = 0; i < n; i++) { d = norm(add(d, [(Rs() - .5) * .8, (Rs() - .5) * .7, (Rs() - .5) * .8])); const q0 = add(p, mul(d, 2.6)), ang = Math.atan2(q0[2], q0[0]), hit = radial(S, q0[1], ang); if (!hit || len(sub(hit, p)) > 6) break;
+    fine.add(RC(p, hit, w * (1 - i / n * .6), w * (1 - (i + 1) / n * .6)), { bone, tag, k: .1 }); p = hit; } }
+// a jagged shard: a long thin prism with a sharp tip, along dir
+function shard(S, base, dir, length, r, o, spin = 0) { const d = norm(dir), fr = along(d, spin), body = length * .7;
+  S.add(BX(add(base, mul(d, body / 2)), [r, body / 2, r * .7], fr, r * .08), Object.assign({ k: .3 }, o));
+  S.add(RC(add(base, mul(d, body - r * .3)), add(base, mul(d, length)), r * .95, .06), Object.assign({ k: .3 }, o)); }
+const BONES_BASE = (top, cc, crown, fis) => [{ name: 'root', parent: -1, pos: [0, 0, 0] }, { name: 'top', parent: 0, pos: top }, { name: 'core', parent: 0, pos: cc }, { name: 'crown', parent: 1, pos: crown },
+  { name: 'crack2', parent: 0, pos: fis }, { name: 'crack3', parent: 0, pos: fis }, { name: 'leak', parent: 0, pos: cc }];
+const B0 = { root: 0, top: 1, core: 2, crown: 3, crack2: 4, crack3: 5, leak: 6 };
+
+// ---------------- the Infernal Heart (Ember Wastes) ----------------
+// A fractured obsidian spire ringed by leaning black shards, split open on a molten core; lava veins run through the
+// glass, volcanic crystals jut from the cracks, and it stands in a cooling lava pool with a scorched crust.
+const EMBER = { key: 'ember', seed: 1401, obsidian: [.07, .065, .075], obsidianHi: [.2, .17, .2], ash: [.2, .18, .17], magma: [1, .42, .08], magmaHot: [1, .85, .4],
+  glow: [1, .5, .12], crystal: [1, .3, .06], coreCol: [1, .62, .2], crust: [.12, .09, .08], colors: { skin: [.07, .065, .075] } };
+function ember(D) {
+  const R = rng(D.seed), B = B0, slab = new Sculpt(), chunkS = [], ground = new Sculpt(), fine = new Sculpt();
+  // the central spire: stacked angular blocks, each twisted and tilted, narrowing to a broken glass blade
+  const tw = y => [Math.sin(y * .05) * 1.5, 0, 0];
+  for (let i = 0; i < 6; i++) { const y = 7 + i * 13.5, w = lerp(13, 6.5, i / 5), d = lerp(10.5, 5.5, i / 5);
+    slab.add(BX(add([0, y, 0], tw(y)), [w, 8.5, d], euler(i * .32 + (R() - .5) * .2, (R() - .5) * .1, (R() - .5) * .12), .5), { bone: y > 58 ? B.top : B.root, tag: 'obsidian', k: 2.2 }); }
+  shard(slab, add([0, 80, 0], tw(80)), [.1, 1, -.05], 26, 4.2, { bone: B.top, tag: 'obsidian' }, .7);
+  shard(slab, add([-3, 74, 1], tw(74)), [-.45, 1, .1], 18, 2.8, { bone: B.top, tag: 'obsidian' }, 1.6);
+  // conchoidal fractures: slicing planes and scooped bites leave sharp glassy edges
+  for (let i = 0; i < 22; i++) { const y = 6 + R() * 82, a = R() * Math.PI * 2, w = lerp(13, 6, y / 90) + 6;
+    slab.sub(i % 3 ? EL([Math.cos(a) * w, y, Math.sin(a) * w * .8], [lerp(2.5, 5, R()), lerp(3, 7, R()), lerp(2.5, 5, R())]) : BX([Math.cos(a) * (w + 3), y, Math.sin(a) * (w + 3) * .8], [6, lerp(4, 9, R()), 6], euler(-a, (R() - .5) * .6, (R() - .5) * .6), .1), { k: .5 }); }
+  // the split: a jagged vertical rift in the front exposing the molten heart
+  slab.sub(BX([0, 40, 9], [3.2, 15, 9], euler(0, 0, .12), .2), { k: .8 }); slab.sub(EL([0, 40, 7], [6.5, 9, 6]), { k: 1 });
+  slab.build(4);
+  const front = (x, y) => surf(slab, [x, y, 40], [0, 0, -1], 50);
+  const cc = [0, 40, 2];
+  fine.add(EL(cc, [4.6, 7.5, 4]), { bone: B.core, tag: 'core', k: .8, c: cc });
+  cluster(fine, add(cc, [0, -4, 0]), [0, 1, .3], 5, 10, D.seed + 5, { bone: B.core, tag: 'coreCrystal' });
+  // leaning shards around the spire: the breakable pieces
+  const SPIRES = [[.6, 15, 26, 3.6, 2], [2.2, 13, 30, 4, 3], [3.4, 16, 22, 3.2, 2], [4.6, 14, 28, 3.8, 3], [5.6, 15, 20, 3, 4], [1.4, 18, 16, 2.6, 4]];
+  const chunkInfo = [];
+  SPIRES.forEach(([a, r, l, w, stage], i) => { const base = [Math.cos(a) * r, -1, Math.sin(a) * r * .9], dir = norm([Math.cos(a) * .45, 1, Math.sin(a) * .45]), bone = CHUNK_BONE0 + i, S = new Sculpt(); chunkS.push(S);
+    shard(S, base, dir, l, w, { bone, tag: 'obsidian' }, a * 2); if (i % 2 === 0) shard(S, add(base, mul(dir, l * .3)), norm(add(dir, [Math.cos(a + 1.4) * .5, .1, Math.sin(a + 1.4) * .5])), l * .45, w * .55, { bone, tag: 'obsidian' }, a);
+    for (let k = 0; k < 3; k++) S.sub(EL(add(base, mul(dir, l * lerp(.2, .7, R()))), [lerp(1, 2.2, R()), lerp(1.5, 3, R()), lerp(1, 2.2, R())]), { k: .3 });
+    // a vein of magma up each shard
+    for (let k = 0; k < 4; k++) { const t0 = .1 + k * .17, p0 = add(base, mul(dir, l * t0)), p1 = add(base, mul(dir, l * (t0 + .16))), nrm = norm([Math.cos(a), 0, Math.sin(a)]); S.add(RC(add(p0, mul(nrm, w * .55)), add(p1, mul(nrm, w * .5)), .45, .3), { bone, tag: 'magma', k: .1 }); }
+    chunkInfo.push({ c: add(base, mul(dir, l * .4)), h: [w, l * .4, w], parent: B.root, stage, bone }); });
+  // a broken blade from the crown that falls at stage 3, and a front plate over the rift that falls at stage 2
+  { const bone = CHUNK_BONE0 + SPIRES.length, S = new Sculpt(); chunkS.push(S); shard(S, add([4, 70, 1], tw(70)), [.5, 1, .15], 16, 2.6, { bone, tag: 'obsidian' }, .3); chunkInfo.push({ c: [6, 76, 2], h: [2.6, 6, 2.6], parent: B.top, stage: 3, bone }); }
+  { const bone = CHUNK_BONE0 + SPIRES.length + 1, S = new Sculpt(); chunkS.push(S); const p = front(-3.5, 42) || [-3.5, 42, 9]; S.add(BX(add(p, [-1, 0, -.6]), [4.2, 11, 1.8], euler(.15, 0, .08), .3), { bone, tag: 'obsidian', k: 1 });
+    S.sub(BX(add(p, [1.5, 4, 1]), [2, 5, 4], euler(0, 0, .6), .1), { k: .3 }); chunkInfo.push({ c: add(p, [-1, 0, -.6]), h: [4.2, 11, 1.8], parent: B.root, stage: 2, bone }); }
+  // lava veins threading the spire (always glowing), drips from ledges
+  for (let i = 0; i < 8; i++) seamOn(slab, fine, i < 5 ? B.root : B.top, radial(slab, 8 + i * 9, i * 1.9) || [0, 8, 10], [Math.cos(i * 1.9 + 1.6), 1, Math.sin(i * 1.9 + 1.6)], 7, .55, D.seed + 20 + i, 'magma');
+  for (let i = 0; i < 10; i++) { const a = R() * Math.PI * 2, y = 14 + R() * 60, p = radial(slab, y, a); if (!p) continue; const l = lerp(2.5, 6, R()); fine.add(RC(add(p, [0, .5, 0]), add(p, [0, -l, 0]), .7, .25), { bone: y > 58 ? B.top : B.root, tag: 'magma', k: .3 }); }
+  // volcanic crystals in the cracks and around the base
+  for (const [p, dir, n, size] of [[radial(slab, 22, .3), [1, .6, .3], 5, 9], [radial(slab, 56, 3.6), [-1, .8, -.2], 4, 8], [[-17, 0, 12], [-.3, 1, .5], 6, 11], [[18, 0, -6], [.5, 1, -.2], 5, 9], [[3, 0, 22], [.1, 1, .6], 4, 7]])
+    if (p) cluster(fine, p, dir, n, size, D.seed + Math.round(p[1] * 7 + p[0]), { bone: B.root, tag: 'crystal' });
+  // the cooling lava pool: a scorched crust split by molten seams, scattered black glass
+  ground.add(EL([0, -1.6, 0], [34, 3, 30]), { bone: B.root, tag: 'crust', k: 2 });
+  for (let i = 0; i < 18; i++) { const a = R() * Math.PI * 2, r = lerp(14, 32, R()), b = [Math.cos(a) * r, -.5, Math.sin(a) * r * .9]; shard(ground, b, [Math.cos(a) * lerp(.2, 1.5, R()), 1, Math.sin(a) * lerp(.2, 1.5, R())], lerp(2.5, 7, R()), lerp(.6, 1.4, R()), { bone: B.root, tag: 'obsidian' }, R() * 3); }
+  // runes burned into the glass
+  for (let i = 0; i < 9; i++) { const a = [2.4, 3.9, .8][i % 3] + (R() - .5) * .3, y = 10 + Math.floor(i / 3) * 12, p = radial(slab, y, a); if (!p || chunkInfo.some(c => c.stage < 4 && len(sub(p, c.c)) < 9)) continue; glyphAt(slab, fine, p, norm([Math.cos(a), 0, Math.sin(a)]), 4.2, D.seed + 40 + i, B.root); }
+  slab.build(4);
+  const fis = front(0, 40) || [0, 40, 9];
+  for (let i = 0; i < 5; i++) seamOn(slab, fine, B.crack2, add(fis, [(i - 2) * 2, (i - 2) * 4, -1]), [Math.cos(i * 1.3), Math.sin(i * 1.7) * 1.2, .3], 7, .6, D.seed + 60 + i);
+  for (let i = 0; i < 7; i++) seamOn(slab, fine, B.crack3, radial(slab, 12 + i * 10, i * 2.2 + .4) || fis, [Math.cos(i * 2.1), 1, Math.sin(i * 2.1)], 9, .75, D.seed + 80 + i);
+  // stage 3: molten blobs boiling out of the heart, a column of heat
+  for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2, p = add(cc, [Math.cos(a) * lerp(6, 11, (i % 3) / 2), (i % 3 - 1) * 8, 7 + Math.sin(a) * 3]); fine.add(EL(p, [1.1, 1.5, 1.1]), { bone: B.leak, tag: 'leak', k: .2 }); }
+  tube(fine, [add(cc, [0, -6, 6]), add(cc, [1, -14, 9]), add(cc, [-1, -26, 11]), [0, 1, 18]], 1.4, .8, { bone: B.leak, tag: 'leak' });
+  const bones = BONES_BASE([0, 60, 0], cc, [1, 96, -2], fis); chunkInfo.forEach((c, i) => bones.push({ name: 'chunk' + i, parent: c.parent, pos: c.c }));
+  const split = bone => { const S = new Sculpt(); for (const sh of slab.shapes) if (sh.op === 'sub' || sh.bone === bone) S.shapes.push(sh); S.build(4); return S; };
+  const lower = split(B.root), upper = split(B.top);
+  chunkS.forEach(c => c.build(3)); ground.build(3); fine.build(2.5);
+  return { parts: [['stone', lower, .7, .4], ['stoneTop', upper, .65, .4], ...chunkS.map((c, i) => ['chunk' + i, c, .6, .2]), ['ground', ground, .8, .5], ['detail', fine, .46, .3]], bones, chunks: chunkInfo, B, topTilt: [1, 0, -.3] };
+}
+
+// ---------------- the Frozen Relic (Frostfang Peaks) ----------------
+// An ancient carved stone locked inside a glacier: thick ice slabs wrap it, ice crystals burst from the crown,
+// icicles hang from every ledge and snow banks against its foot; the core glows through the ice.
+const FROST = { key: 'frost', seed: 1501, stone: [.58, .63, .7], stoneDark: [.3, .34, .42], snow: [.9, .94, 1], ice: [.6, .82, .95], iceDeep: [.12, .3, .52], glow: [.5, .9, 1],
+  crystal: [.55, .85, 1], colors: { skin: [.36, .4, .46] } };
+function frost(D) {
+  const R = rng(D.seed), B = B0, slab = new Sculpt(), chunkS = [], ice = new Sculpt(), fine = new Sculpt();
+  // the relic: a squared, carved stone pillar with a stepped capital
+  for (let i = 0; i < 4; i++) { const y = 9 + i * 17, w = lerp(12.5, 9.5, i / 3), d = lerp(11, 8.5, i / 3);
+    slab.add(BX([0, y, 0], [w, 10, d], euler(i * .05, 0, (R() - .5) * .04), 2), { bone: y > 58 ? B.top : B.root, tag: 'stone', k: 5 }); }
+  slab.add(BX([0, 72, 0], [12, 3, 10.5], euler(.05, 0, 0), 1), { bone: B.top, tag: 'stone', k: 1.5 }); slab.add(BX([0, 77.5, 0], [8.5, 3, 7.5], euler(.05, 0, 0), 1), { bone: B.top, tag: 'stone', k: 1.5 });
+  for (const y of [18, 35, 52]) slab.sub(BX([0, y, 0], [16, .45, 14], null, .1), { k: .5 });
+  for (let i = 0; i < 30; i++) { const y = 4 + R() * 82, sx = R() < .5 ? -1 : 1, sz = R() < .5 ? -1 : 1, w = lerp(12.5, 9.5, y / 86), d = lerp(11, 8.5, y / 86);
+    slab.sub(EL([sx * w, y, sz * d], [lerp(1, 2.8, R()), lerp(1.5, 4, R()), lerp(1, 2.8, R())]), { k: .8 }); }
+  slab.sub(EL([0, 40, 9.5], [6, 9, 5]), { k: 1.4 }); // the heart's niche
+  slab.build(4);
+  const cc = [0, 40, 5];
+  fine.add(EL(cc, [3.6, 6, 3.4]), { bone: B.core, tag: 'core', k: .6, c: cc });
+  cluster(fine, add(cc, [0, -3.5, 0]), [0, 1, .2], 6, 9, D.seed + 5, { bone: B.core, tag: 'coreCrystal' });
+  // frozen runes carved round the pillar
+  for (let i = 0; i < 12; i++) { const a = [1.57, 0, 3.14, 4.71][i % 4] + (R() - .5) * .2, y = 12 + Math.floor(i / 4) * 17 + (R() - .5) * 3, p = radial(slab, y, a); if (!p || (Math.abs(a - 1.57) < .4 && Math.abs(y - 40) < 13)) continue; glyphAt(slab, fine, p, norm([Math.cos(a), 0, Math.sin(a)]), 4.6, D.seed + 40 + i, y > 58 ? B.top : B.root); }
+  slab.build(4);
+  // the glacier: thick, tilted ice slabs wrapped around the lower stone and sheathing the back
+  for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2 + 2.2, r = 10 + R() * 3, y = lerp(10, 34, R()), c = [Math.cos(a) * r, y, Math.sin(a) * r];
+    shard(ice, [c[0], 0, c[2]], [Math.cos(a) * .35, 1, Math.sin(a) * .35], lerp(30, 46, R()), lerp(4.5, 6.5, R()), { bone: B.root, tag: 'ice' }, a); }
+  ice.add(EL([0, 3, 0], [20, 6, 18]), { bone: B.root, tag: 'ice', k: 4 });
+  for (let i = 0; i < 26; i++) ice.sub(EL([(R() - .5) * 46, R() * 40, (R() - .5) * 40], [lerp(1, 3, R()), lerp(1, 3, R()), lerp(1, 3, R())]), { k: .6 });
+  // snowbanks drifted against the north side
+  for (let i = 0; i < 6; i++) { const a = -1.2 + i * .45, r = 17 + R() * 5; ice.add(EL([Math.cos(a) * r, 1, Math.sin(a) * r], [lerp(6, 10, R()), lerp(2.5, 4, R()), lerp(5, 8, R())]), { bone: B.root, tag: 'snow', k: 3 }); }
+  // ice crystals bursting from the crown and the flanks (crown crystals ride the top bone)
+  cluster(fine, [0, 79, 0], [0, 1, 0], 9, 22, D.seed + 7, { bone: B.crown, tag: 'crystal' });
+  for (const [p, dir, n, size] of [[radial(slab, 28, .4), [1, .55, .3], 6, 14], [radial(slab, 60, 3.4), [-1, .7, -.2], 5, 12], [[-19, 2, 12], [-.4, 1, .4], 7, 15], [[19, 2, -10], [.5, 1, -.3], 6, 13], [[5, 1, 22], [.2, 1, .7], 4, 9], [[-6, 1, -21], [-.1, 1, -.7], 5, 11]])
+    if (p) cluster(fine, p, dir, n, size, D.seed + Math.round(p[1] * 7 + p[0]), { bone: p[1] > 58 ? B.top : B.root, tag: 'crystal' });
+  // icicles under the capital and the ice ledges
+  for (let i = 0; i < 26; i++) { const a = i / 26 * Math.PI * 2, top = i % 2 ? 69 : 44, p = radial(slab, top, a); if (!p) continue; const q = add(p, mul(norm([Math.cos(a), 0, Math.sin(a)]), 1.2)), l = lerp(3, 9, R()); fine.add(RC(q, add(q, [0, -l, 0]), lerp(.6, 1.1, R()), .05), { bone: top > 58 ? B.top : B.root, tag: 'icicle', k: .3, root: q, L: l }); }
+  // breakable ice: the frozen shell over the heart, slabs on the flanks, crown shards
+  const chunkInfo = [];
+  const CH = [[[-4, 40, 11.5], [5, 10, 2], [.12, 0, .05], B.root, 2], [[4.5, 37, 11.5], [4.5, 9, 2], [-.1, 0, -.06], B.root, 3], [[14, 30, 2], [2.2, 12, 6], [.05, 0, -.1], B.root, 2],
+    [[-14, 22, -1], [2.4, 14, 6.5], [-.06, 0, .1], B.root, 3], [[0, 26, -13.5], [8, 12, 2.4], [.05, 0, .03], B.root, 4], [[-6, 96, 2], [2, 9, 2], [.4, 0, .3], B.top, 3], [[7, 94, -2], [2, 8, 2], [-.4, 0, -.2], B.top, 4]];
+  CH.forEach(([c, h, e, parent, stage], i) => { const bone = CHUNK_BONE0 + i, S = new Sculpt(); chunkS.push(S);
+    if (i >= 5) shard(S, [c[0] * .3, 86, c[2] * .3], norm(sub(c, [c[0] * .3, 86, c[2] * .3])), h[1] * 1.6, h[0], { bone, tag: 'crystal' }, i);
+    else { shard(S, [c[0], c[1] - h[1], c[2]], [e[0], 1, e[2] + (c[2] > 5 ? .1 : 0)], h[1] * 2.2, h[0] * .9, { bone, tag: 'ice' }, i); for (let k = 0; k < 3; k++) S.sub(EL(add(c, [(R() - .5) * h[0] * 2, (R() - .5) * h[1] * 2, (R() - .5) * h[2] * 2]), [lerp(.8, 1.8, R()), lerp(.8, 2.2, R()), lerp(.8, 1.8, R())]), { k: .5 }); }
+    chunkInfo.push({ c, h, parent, stage, bone }); });
+  const fis = surf(slab, [0, 40, 40], [0, 0, -1], 50) || [0, 40, 9];
+  for (let i = 0; i < 6; i++) seamOn(slab, fine, B.crack2, radial(slab, 30 + i * 6, 1.57 + (i - 2.5) * .35) || fis, [Math.cos(i * 1.7), Math.sin(i * 1.3) * 1.3, .4], 7, .5, D.seed + 60 + i);
+  for (let i = 0; i < 8; i++) seamOn(slab, fine, B.crack3, radial(slab, 10 + i * 9, i * 2.3) || fis, [Math.cos(i * 2.1), 1, Math.sin(i * 2.1)], 10, .65, D.seed + 80 + i);
+  // stage 3: freezing mist and shards of light spilling from the heart
+  for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2, p = add(cc, [Math.cos(a) * lerp(7, 13, (i % 3) / 2), (i % 3 - 1) * 8, 7 + Math.sin(a) * 4]); crystal(fine, p, [Math.cos(a), .6, Math.sin(a) + .5], 3.5, .5, { bone: B.leak, tag: 'leak' }); }
+  const bones = BONES_BASE([0, 60, 0], cc, [0, 86, 0], fis); chunkInfo.forEach((c, i) => bones.push({ name: 'chunk' + i, parent: c.parent, pos: c.c }));
+  const split = bone => { const S = new Sculpt(); for (const sh of slab.shapes) if (sh.op === 'sub' || sh.bone === bone) S.shapes.push(sh); S.build(4); return S; };
+  const lower = split(B.root), upper = split(B.top);
+  chunkS.forEach(c => c.build(3)); ice.build(3); fine.build(2.5);
+  return { parts: [['stone', lower, .75, .4], ['stoneTop', upper, .7, .4], ...chunkS.map((c, i) => ['chunk' + i, c, .6, .2]), ['ice', ice, .8, .5], ['detail', fine, .52, .3]], bones, chunks: chunkInfo, B, topTilt: [-1, 0, .3] };
+}
+
 // ---------------- painting ----------------
 function custom(D) {
+  if (PAINT[D.key]) return PAINT[D.key](D);
   return ({ p, n, s, tag, fine, big }) => {
     if (tag === 'rock') {
       const strata = Math.sin(p[1] * .9 + big * 6) * .5 + .5, streak = F.noise3(p[0] * .7, p[1] * .08, p[2] * .7, D.seed + 9);
@@ -190,6 +327,50 @@ function custom(D) {
   };
 }
 
+
+// shared glow pieces of every biome stone
+function glowPaint(D, tag, t) {
+  switch (tag) {
+    case 'rune': return { c: D.glow, a: .06, sp: .5, gl: .5, ty: 0, st: 0 };
+    case 'crack': return { c: mixc(D.glow, [1, 1, .9], .25), a: .03, sp: .5, gl: .5, ty: 0, st: 0 };
+    case 'leak': return { c: mixc(D.glow, [1, 1, 1], .3), a: .02, sp: .5, gl: .5, ty: 0, st: 0 };
+    case 'core': return { c: D.coreCol || mixc(D.glow, [1, 1, .95], .55), a: .01, sp: 1, gl: 1, ty: 0, st: 0 };
+    case 'coreCrystal': return { c: mixc(D.crystal, D.glow, .4 + t * .5), a: .12, sp: 1, gl: .95, ty: 0, st: 0 };
+  }
+  return null;
+}
+const PAINT = {
+  ember: D => ({ p, n, s, tag, fine, big }) => {
+    const t = s.root && s.L ? clamp(len(sub(p, s.root)) / s.L, 0, 1) : .5, g = glowPaint(D, tag, t); if (g) return g;
+    if (tag === 'obsidian') { // black volcanic glass: glossy, faint purple sheen, ash dusting the upper faces, hot near the heart
+      const heat = clamp(1 - len(sub(p, [0, 40, 4])) / 16, 0, 1), ashy = clamp((n[1] - .45) * 2 + (big - .5), 0, 1);
+      let c = mixc(D.obsidian, D.obsidianHi, clamp(fine * .6 + (big - .5) * .8, 0, 1)); c = mixc(c, D.ash, ashy * .7);
+      if (heat > .2 && Math.abs(F.noise3(p[0] * .5, p[1] * .35, p[2] * .5, 7) - .5) < .025 + heat * .03) return { c: mixc(D.magma, D.magmaHot, heat), a: .15, sp: .6, gl: .7, ty: 0, st: 0 };
+      return { c: mixc(c, [.3, .08, .03], heat * .6), sp: ashy > .5 ? .2 : 1, gl: ashy > .5 ? .3 : .92, ty: ashy > .5 ? 5 : 4, st: ashy > .5 ? .8 : .3 }; }
+    if (tag === 'magma') return { c: mixc(D.magma, D.magmaHot, fine), a: .04, sp: .5, gl: .5, ty: 0, st: 0 };
+    if (tag === 'crust') { const vein = Math.abs(F.noise3(p[0] * .22, 0, p[2] * .22, 3) - .5) < .035; if (vein) return { c: mixc(D.magma, D.magmaHot, fine), a: .08, sp: .5, gl: .5, ty: 0, st: 0 };
+      return { c: mul(mixc(D.crust, D.ash, clamp(big * 1.2 - .2, 0, 1)), .85 + fine * .3), sp: .25, gl: .35, ty: 5, st: 1 }; }
+    if (tag === 'crystal') return { c: mixc(mul(D.crystal, .45), mixc(D.crystal, [1, .8, .5], .4), t), a: lerp(.5, .2, t), sp: 1, gl: .95, ty: 5, st: .15 };
+    return null;
+  },
+  frost: D => ({ p, n, s, tag, fine, big }) => {
+    const t = s.root && s.L ? clamp(len(sub(p, s.root)) / s.L, 0, 1) : .5, g = glowPaint(D, tag, t); if (g) return g;
+    if (tag === 'stone') { // weathered blue-grey stone under rime: snow on every ledge, frost feathering the edges
+      const snowy = clamp((n[1] - .35) * 2.5 + (big - .45) * 1.2, 0, 1), rime = F.noise3(p[0] * 1.4, p[1] * 1.4, p[2] * 1.4, 5);
+      if (snowy > .4) return { c: mul(D.snow, .9 + fine * .1), sp: .3, gl: .45, ty: 2, st: .4 };
+      let c = mixc(D.stone, D.stoneDark, clamp(.3 + (big - .5) * 1.1, 0, 1)); c = mul(c, .86 + fine * .26); if (rime > .7) c = mixc(c, D.snow, .55);
+      return { c, sp: .25, gl: .4, ty: 5, st: 1 }; }
+    if (tag === 'ice') { // glacier ice: deep blue at the base, pale towards the surface, lit from inside near the heart
+      const glowN = clamp(1 - len(sub(p, [0, 40, 6])) / 20, 0, 1), c = mixc(mixc(D.iceDeep, D.ice, clamp(p[1] / 30 + fine * .4, 0, 1)), D.glow, glowN * .6);
+      if (n[1] > .75 && big > .5) return { c: D.snow, sp: .3, gl: .5, ty: 2, st: .3 };
+      return { c, a: lerp(.7, .3, glowN), sp: 1, gl: .97, ty: 5, st: .12 }; }
+    if (tag === 'snow') return { c: mul(D.snow, .92 + fine * .08), sp: .3, gl: .45, ty: 2, st: .5 };
+    if (tag === 'crystal') return { c: mixc(mul(D.crystal, .55), [.92, .98, 1], t), a: lerp(.6, .3, t), sp: 1, gl: .98, ty: 5, st: .1 };
+    if (tag === 'icicle') return { c: mixc(D.ice, [.95, 1, 1], t), a: .7, sp: 1, gl: .98, ty: 5, st: .1 };
+    return null;
+  },
+};
+
 // ---------------- clips ----------------
 // Intact / Damaged / Near loop (4 s) and pose the stage; Break (1.8 s) plays once when the stone is destroyed.
 function clips(info) {
@@ -203,7 +384,7 @@ function clips(info) {
     s.rot[B.crown] = qAxis([0, 1, 0], Math.sin(ph) * .03);
     s.scl[B.crack2] = stage >= 2 ? ONE : Z; s.scl[B.crack3] = stage >= 3 ? ONE : Z;
     const lk = stage >= 3 ? 1 + Math.sin(ph * 3) * .15 : 1e-3; s.scl[B.leak] = [lk, lk, lk]; s.rot[B.leak] = qAxis([0, 1, 0], ph);
-    if (stage >= 3) s.rot[B.top] = qAxis(norm([1, 0, .4]), .07 + Math.sin(ph * 2) * .006);
+    if (stage >= 3) s.rot[B.top] = qAxis(norm(info.topTilt || [1, 0, .4]), .07 + Math.sin(ph * 2) * .006);
     chunks.forEach((c, i) => { if (c.stage <= stage) { const f = fallen(c, i); s.pos[c.bone] = f.pos; s.rot[c.bone] = f.rot; } else if (stage >= 2 && c.stage === stage + 1) s.rot[c.bone] = qAxis([0, 0, 1], Math.sin(ph * 6 + i) * .015); });
     return s;
   };
@@ -219,7 +400,7 @@ function clips(info) {
   return { Intact: { dur: 4, track: t => pose(1, t) }, Damaged: { dur: 4, track: t => pose(2, t) }, Near: { dur: 4, track: t => pose(3, t) }, Break: { dur: 1.8, track: brk } };
 }
 
-const DESIGNS = { meadows: { D: MEADOWS, fn: meadows } };
+const DESIGNS = { meadows: { D: MEADOWS, fn: meadows }, ember: { D: EMBER, fn: ember }, frost: { D: FROST, fn: frost } };
 function build(id, { lod = 0 } = {}) {
   const { D: D0, fn } = DESIGNS[id], D = Object.assign({}, D0), t0 = Date.now(), info = fn(D);
   const parts = info.parts.map(([n, S, h, f]) => [n, S, lod ? Math.max(h * 2.4, 1) : h, f]);

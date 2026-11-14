@@ -6,7 +6,9 @@
 // unavailable, the primitive stone (stoneModel) is drawn exactly as before.
 (function () {
   const DESIGNS = {
-    meadows: { types: ['stone'], rim: [.06, .14, .05], glow: [.42, 1, .48], leaf: [.3, .62, .18], dust: [.45, .44, .38] },
+    meadows: { types: ['stone'], rim: [.06, .14, .05], glow: [.42, 1, .48], leaf: [.3, .62, .18], dust: [.45, .44, .38], fall: 60 },  // leaves drift down
+    ember: { types: ['emberstone'], rim: [.18, .05, .01], glow: [1, .5, .12], leaf: [1, .72, .25], dust: [.22, .2, .19], fall: -90 }, // embers and smoke rise
+    frost: { types: ['froststone'], rim: [.06, .12, .2], glow: [.5, .9, 1], leaf: [.88, .96, 1], dust: [.82, .9, .98], fall: 25 },    // snow and freezing mist
   };
   const BY_TYPE = {}; for (const [id, d] of Object.entries(DESIGNS)) for (const ty of d.types) BY_TYPE[ty] = id;
   const STAGE_CLIP = [null, 'Intact', 'Damaged', 'Near'];
@@ -67,7 +69,7 @@
     if (!best || typeof burst !== 'function') return false; const d = DESIGNS[best.id];
     if (typeof addRing === 'function') { addRing(x, z, 20, 150, d.glow, 900, 2, .8); addRing(x, z, 10, 90, d.leaf, 700, 3, .5); }
     for (let i = 0; i < 10; i++) { const a = i / 10 * 6.283, r = 60 + (i % 3) * 30, px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r;
-      burst(px, 2, pz, 5, d.glow, 50, 1, 1.8, 1, -90); burst(px, 4, pz, 4, d.leaf, 60, 1.4, 1.6, .2, 60); }
+      burst(px, 2, pz, 5, d.glow, 50, 1, 1.8, 1, -90); burst(px, 4, pz, 4, d.leaf, 60, 1.4, 1.6, .2, d.fall); }
     burst(x, 45, z, 26, d.glow, 120, 1, 2, 1, -40);
     if (typeof sfx === 'function') sfx('boss', x, z);
     return true;
@@ -87,7 +89,7 @@
     for (let i = ghosts.length - 1; i >= 0; i--) {
       const g = ghosts[i], s = (now - g.t0) / 1000 * pace; if (s > 1.8) { ghosts.splice(i, 1); continue; }
       if (!g.boomed && s > .35 && typeof burst === 'function') { g.boomed = true; const d = g.d;
-        burst(g.x, 40, g.z, 90, d.glow, 260, 1.2, 2.6, 1, 120); burst(g.x, 30, g.z, 50, d.dust, 180, 1.4, 3.2, 0, 300); burst(g.x, 50, g.z, 40, d.leaf, 150, 2, 1.8, .2, 90);
+        burst(g.x, 40, g.z, 90, d.glow, 260, 1.2, 2.6, 1, 120); burst(g.x, 30, g.z, 50, d.dust, 180, 1.4, 3.2, 0, 300); burst(g.x, 50, g.z, 40, d.leaf, 150, 2, 1.8, .2, d.fall * 1.5);
         if (typeof addRing === 'function') { addRing(g.x, g.z, 10, 160, d.glow, 700, 3, 1); addRing(g.x, g.z, 6, 90, [1, 1, 1], 400, 5, 1); } }
       GL.pose(g.md, 'Break', s, null, 0, 1, g.nodes);
       GL.drawHero(g.md, g.nodes, g.x, 0, g.z, g.yaw, 1, { rim: g.d.rim, emc: s < .35 ? [s, s, s] : null });
