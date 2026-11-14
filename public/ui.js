@@ -6,12 +6,15 @@ let SKB = {}, SOULS = 0, mySel = null;
 const SLOTICON = { weapon: '⚔️', helm: '⛑️', armor: '🛡️', boots: '🥾', ring: '💍', amulet: '📿', sword: '⚔️', bow: '🏹', staff: '🪄' };
 const SLOTNAME = { weapon: 'Weapon', helm: 'Helm', armor: 'Armor', boots: 'Boots', ring: 'Ring', amulet: 'Amulet' };
 const STATORDER = ['dmg', 'hp', 'mp', 'def', 'crit', 'spd'];
+const STATICON = { dmg: 'stat/damage', hp: 'stat/hp', mp: 'stat/mana', def: 'stat/defense', crit: 'stat/crit', spd: 'stat/movespeed' };
+const statIco = k => window.Icons ? Icons.img(STATICON[k] || '', 'stat-ico') : '';
 const BUFFN = { atk: '⚔ Fury', def: '🛡 Iron', spd: '💨 Swift', xp: '📖 Wisdom', rage: '🔥 Rage' };
 const SK = ['s1', 'mend', 'frenzy', 'vit', 'might', 'swift'];
 const CLSICON = { blade: '⚔️', archer: '🏹', mage: '🔮' }, S1ICON = { blade: '🌀', archer: '🎯', mage: '✴️' };
 const ITEMICON = { hp: '❤️', hp2: '💖', mp: '💧', atk: '⚔️', def: '🛡️', spd: '💨', xp: '📖', ret: '🏠', reset: '♻️' };
 const RNAME = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'], CONS_ICON = { hp: 1, mp: 1, hp2: 1, atk: 1, def: 1, spd: 1, xp: 1, ret: 1, reset: 1 };
-const uiImg = (f, cls) => '<img class="ui-ico' + (cls ? ' ' + cls : '') + '" src="ui/icons/' + f + '.png" alt="" draggable="false">';
+// icons come from the registry (ds/icons.js); the old ui/icons file stays as the fallback for names it does not map yet
+const uiImg = (f, cls) => { const n = window.Icons && Icons.legacy(f); return n ? Icons.img(n, 'ui-ico' + (cls ? ' ' + cls : '')) : '<img class="ui-ico' + (cls ? ' ' + cls : '') + '" src="ui/icons/' + f + '.png" alt="" draggable="false">'; };
 const iconOf = it => uiImg('gear-' + (it.slot === 'weapon' ? ({ sword: 1, bow: 1, staff: 1 }[it.fam] ? it.fam : 'sword') : it.slot) + '-' + (RNAME[it.rar] || 'common'));
 const slotIcon = s => uiImg('slot-empty-' + s), consIcon = k => uiImg('item-' + (CONS_ICON[k] ? k : 'hp'));
 const clsKey = cls => ['blade', 'archer', 'mage'].includes(cls) ? cls : ({ sword: 'blade', bow: 'archer', staff: 'mage' }[I && I.classes[cls] && I.classes[cls].fam] || 'blade');
@@ -307,10 +310,11 @@ function ilvlCompare(it, cmp) {
 }
 function tipItem(it, cmp, plusOverride) {
   const pl = plusOverride === undefined ? it.plus || 0 : plusOverride;
-  let h = '<b class="nm" style="color:' + RC[it.rar] + '">' + esc(gearName(it.name)) + (pl ? ' +' + pl : '') + '</b><div class="mu">' + esc(text('rarity.' + (it.rar), I.rarity[it.rar])) + ' ' + (it.slot === 'weapon' ? esc(text('weapon.' + it.fam, { sword: 'Sword', bow: 'Bow', staff: 'Staff' }[it.fam] || 'Weapon')) : esc(text('slot.' + it.slot, SLOTNAME[it.slot]))) + ' · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + it.ilvl + ilvlCompare(it, cmp) + '</div><div style="margin:5px 0">';
+  // header: the item's icon in a rarity frame, then name and type (layout only; the content is unchanged)
+  let h = '<div class="tip-head"><span class="slot tip-ico r' + it.rar + '">' + iconOf(it) + '</span><div class="tip-title"><b class="nm" style="color:' + RC[it.rar] + '">' + esc(gearName(it.name)) + (pl ? ' +' + pl : '') + '</b><div class="mu">' + esc(text('rarity.' + (it.rar), I.rarity[it.rar])) + ' ' + (it.slot === 'weapon' ? esc(text('weapon.' + it.fam, { sword: 'Sword', bow: 'Bow', staff: 'Staff' }[it.fam] || 'Weapon')) : esc(text('slot.' + it.slot, SLOTNAME[it.slot]))) + ' · ' + esc(text('inventory.itemLevelShort', 'iLvl')) + ' ' + it.ilvl + ilvlCompare(it, cmp) + '</div></div></div><div class="tip-stats">';
   // Without Shift the tooltip stays short: stats plus a one-line verdict. Shift adds each stat's change and its possible range.
   let better = 0, worse = 0;
-  for (const k of STATORDER) if (k in it.stats) { const v = eff(it, k, pl); let d = ''; if (cmp && cmp.uid !== it.uid) { const df = v - (k in cmp.stats ? eff(cmp, k) : 0); if (df > 0.049) better++; else if (df < -0.049) worse++; if (SHIFT && Math.abs(df) > 0.049) d = '<span class="' + (df > 0 ? 'up' : 'dn') + '">' + (df > 0 ? '▲' : '▼') + fmtS(k, Math.abs(df)) + '</span>'; } h += '<div class="ln"><span>+' + fmtS(k, v) + ' ' + esc(text('stat.' + k, I.stat[k].n)) + '</span>' + (SHIFT && it.rg && it.rg[k] ? '<span class="rg">' + fmtS(k, it.rg[k][0] * eff({ stats: { [k]: 1 }, slot: it.slot, plus: pl }, k)) + '–' + fmtS(k, it.rg[k][1] * eff({ stats: { [k]: 1 }, slot: it.slot, plus: pl }, k)) + '</span>' : '') + d + '</div>'; }
+  for (const k of STATORDER) if (k in it.stats) { const v = eff(it, k, pl); let d = ''; if (cmp && cmp.uid !== it.uid) { const df = v - (k in cmp.stats ? eff(cmp, k) : 0); if (df > 0.049) better++; else if (df < -0.049) worse++; if (SHIFT && Math.abs(df) > 0.049) d = '<span class="' + (df > 0 ? 'up' : 'dn') + '">' + (df > 0 ? '▲' : '▼') + fmtS(k, Math.abs(df)) + '</span>'; } h += '<div class="ln"><span>' + statIco(k) + '+' + fmtS(k, v) + ' ' + esc(text('stat.' + k, I.stat[k].n)) + '</span>' + (SHIFT && it.rg && it.rg[k] ? '<span class="rg">' + fmtS(k, it.rg[k][0] * eff({ stats: { [k]: 1 }, slot: it.slot, plus: pl }, k)) + '–' + fmtS(k, it.rg[k][1] * eff({ stats: { [k]: 1 }, slot: it.slot, plus: pl }, k)) + '</span>' : '') + d + '</div>'; }
   if (cmp && cmp.uid !== it.uid) for (const k of STATORDER) if (k in cmp.stats && !(k in it.stats)) { worse++; if (SHIFT) h += '<div class="ln dn"><span>-' + fmtS(k, eff(cmp, k)) + ' ' + esc(text('stat.' + k, I.stat[k].n)) + '</span><span>▼</span></div>'; }
   if (it.afx && I.affixes[it.afx.k]) h += '<div class="ln afx"><span>+' + (+it.afx.v).toFixed(1) + ' ' + esc(text('affix.' + it.afx.k, I.affixes[it.afx.k].n)) + '</span>' + (SHIFT && it.rg && it.rg['afx:' + it.afx.k] ? '<span class="rg">' + it.rg['afx:' + it.afx.k][0].toFixed(1) + '–' + it.rg['afx:' + it.afx.k][1].toFixed(1) + '</span>' : '') + '</div>';
   if (!SHIFT && cmp && cmp.uid !== it.uid && (better || worse)) h += '<div class="cmpsum">' + (better ? '<span class="up">▲ ' + esc(text('inventory.better', '{count} better', { count: better })) + '</span> ' : '') + (worse ? '<span class="dn">▼ ' + esc(text('inventory.worse', '{count} worse', { count: worse })) + '</span> ' : '') + '<span class="mu">' + esc(text('inventory.thanEquipped', 'than equipped')) + '</span></div>';

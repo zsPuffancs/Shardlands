@@ -1,0 +1,4 @@
+Bundled fonts (subset to Latin + Latin Extended-A for English and Hungarian, WOFF):
+- Lora (Variable) - Copyright 2011 The Lora Project Authors. SIL Open Font License 1.1.
+- Inter (Regular, SemiBold, Bold) - Copyright 2016-2023 The Inter Project Authors. SIL Open Font License 1.1.
+Full licence text: https://openfontlicense.org

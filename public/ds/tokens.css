@@ -1,0 +1,65 @@
+/* Shardlands design tokens. Every colour, size and timing in the UI comes from here.
+   Add a rarity, currency colour or surface by adding a token - components never use literal colours. */
+@font-face { font-family: 'SL Serif'; src: url(fonts/Lora-Variable.woff) format('woff'); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: 'SL Sans'; src: url(fonts/Inter-Regular.woff) format('woff'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'SL Sans'; src: url(fonts/Inter-SemiBold.woff) format('woff'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'SL Sans'; src: url(fonts/Inter-Bold.woff) format('woff'); font-weight: 700; font-display: swap; }
+
+:root {
+  /* surfaces: charcoal and graphite, from deepest to raised */
+  --sl-ink: #07080a;
+  --sl-s0: #0e1013;   /* window body */
+  --sl-s1: #15181d;   /* inset wells, slots */
+  --sl-s2: #1c2027;   /* raised rows, buttons */
+  --sl-s3: #262b33;   /* hover */
+  --sl-s4: #313741;   /* pressed / selected fill */
+  --sl-glass: rgba(10, 12, 15, .92);
+
+  /* metal lines */
+  --sl-line: #2c3139;          /* hairline separators */
+  --sl-edge: #3a4049;          /* component borders */
+  --sl-edge-hi: #59606b;       /* top highlight of bevels */
+  --sl-steel: #8d96a3;
+
+  /* gold accent (important elements only) */
+  --sl-gold: #d6a957;
+  --sl-gold-hi: #f3d590;
+  --sl-gold-lo: #8a6524;
+  --sl-gold-glow: rgba(214, 169, 87, .28);
+
+  /* text */
+  --sl-text: #e9e4da;
+  --sl-text-2: #b3ada2;        /* secondary */
+  --sl-text-3: #7f7a72;        /* muted / disabled */
+  --sl-title: #f1dcaa;
+
+  /* meaning */
+  --sl-good: #6fd98a; --sl-bad: #ff7b6b; --sl-warn: #ffb44a; --sl-info: #7ab8ff;
+  --sl-hp: #d9433a; --sl-hp-hi: #ff8a74; --sl-mp: #3a7fe0; --sl-mp-hi: #8cc4ff;
+  --sl-xp: #c9962e; --sl-xp-hi: #ffe08a; --sl-shield: #9fd6ff; --sl-boss: #b0262a;
+  --sl-gold-coin: #ffd77a; --sl-soul: #c7a2ff;
+
+  /* rarities (index = item.rar). A new rarity is one more line here plus one in RARITY (ds/registry.js) */
+  --sl-r0: #b8bec8; --sl-r1: #5fd16f; --sl-r2: #4f9dff; --sl-r3: #b06cff; --sl-r4: #ff9a2e; --sl-r5: #ff4d5e;
+
+  /* type */
+  --sl-font: 'SL Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --sl-font-title: 'SL Serif', Georgia, 'Times New Roman', serif;
+  --sl-fs-xs: .6875rem; --sl-fs-s: .75rem; --sl-fs-m: .8125rem; --sl-fs-l: .9375rem; --sl-fs-xl: 1.125rem; --sl-fs-2xl: 1.5rem;
+  --sl-track: .08em;           /* uppercase labels */
+
+  /* space (4 px grid), radii, sizes */
+  --sl-1: 4px; --sl-2: 8px; --sl-3: 12px; --sl-4: 16px; --sl-5: 20px; --sl-6: 24px;
+  --sl-rad: 4px; --sl-rad-l: 6px;
+  --sl-slot: 46px; --sl-slot-eq: 52px; --sl-icon-s: 16px; --sl-icon-m: 20px; --sl-icon-l: 28px;
+
+  /* depth */
+  --sl-bevel: inset 0 1px 0 rgba(255, 255, 255, .06), inset 0 -1px 0 rgba(0, 0, 0, .5);
+  --sl-well: inset 0 1px 3px rgba(0, 0, 0, .7), inset 0 0 0 1px rgba(0, 0, 0, .4);
+  --sl-shadow: 0 10px 30px rgba(0, 0, 0, .55), 0 2px 6px rgba(0, 0, 0, .5);
+  --sl-frame: 0 0 0 1px var(--sl-ink), inset 0 0 0 1px var(--sl-edge), inset 0 1px 0 1px rgba(255, 255, 255, .04);
+
+  /* motion */
+  --sl-fast: 110ms; --sl-med: 170ms; --sl-ease: cubic-bezier(.2, .7, .2, 1);
+}
+@media (prefers-reduced-motion: reduce) { :root { --sl-fast: 0ms; --sl-med: 0ms; } }
