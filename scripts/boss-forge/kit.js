@@ -65,7 +65,8 @@ function hand(S, s, tag, { r = 1, bony = false } = {}) {
 // ---------------- a skeleton (Ossuary King, Reaper) ----------------
 // long bones with knobbed ends, a ribcage, a spine, a pelvis; tag 'bone'. parts: { ribs, spine, pelvis, arms, legs }
 function boneLimb(S, a, b, r, bone, o = {}) { S.add(RC(a, b, r, r * .85), Object.assign({ bone, tag: 'bone', k: .4 }, o)); for (const [p, k] of [[a, 1.45], [b, 1.35]]) S.add(EL(p, [r * k, r * k * .9, r * k]), Object.assign({ bone, tag: 'bone', k: .35 }, o)); }
-function skeleton(S, { ribs = true, spine = true, pelvis = true, arms = true, legs = true, scale = 1, thick = 1 } = {}) {
+function skeleton(S, { ribs = true, spine = true, pelvis = true, arms = true, legs = true, scale = 1, thick = 1, limb } = {}) {
+  const lt = limb === undefined ? thick : limb; // limb bone thickness (defaults to the body's)
   const o = (bone, extra) => Object.assign({ bone, tag: 'bone', k: .3 }, extra);
   if (spine) for (let i = 0; i < 14; i++) { const y = 42 + i * 2.05, z = -2.6 + Math.sin(i / 13 * Math.PI) * 1.4, bone = i < 4 ? B.root : i < 8 ? B.spine : B.chest;
     S.add(EL([0, y, z], [1.5 * thick, .8 * thick, 1.3 * thick]), o(bone)); S.add(RC([0, y, z - 1], [0, y - .8, z - 2.6], .45, .25), o(bone)); both(s => S.add(RC([0, y, z - .4], [s * 1.9, y + .2, z - .8], .35, .25), o(bone))); }
@@ -77,9 +78,9 @@ function skeleton(S, { ribs = true, spine = true, pelvis = true, arms = true, le
   if (pelvis) { both(s => S.add(EL([s * 5.6, 43, -.6], [4, 3.6, 2], mulR(rotZ(s * -.5), rotY(s * .4))), o(B.root))); S.add(EL([0, 39.5, 1.6], [3.6, 1.4, 1.4]), o(B.root));
     both(s => S.sub(EL([s * 5.4, 42.6, 1.4], [1.6, 1.4, 3]), { k: .2 })); }
   both(s => { const L = LR(s), f = p => [s * p[0], p[1], p[2]];
-    if (arms) { S.add(EL(f([11.4, 65.4, -.4]), [2.2, 1.8, 2.2]), o(B['uarm' + L])); boneLimb(S, f([13, 64.4, 0]), f([14.6, 50, 1.4]), 1.15 * thick, B['uarm' + L]); boneLimb(S, f([14.6, 50, 1.4]), f([15.4, 38.4, 3.2]), .85 * thick, B['farm' + L]);
+    if (arms) { S.add(EL(f([11.4, 65.4, -.4]), [2.2, 1.8, 2.2]), o(B['uarm' + L])); boneLimb(S, f([13, 64.4, 0]), f([14.6, 50, 1.4]), 1.15 * lt, B['uarm' + L]); boneLimb(S, f([14.6, 50, 1.4]), f([15.4, 38.4, 3.2]), .85 * lt, B['farm' + L]);
       S.add(RC(f([14.4, 49.4, 2.4]), f([15.6, 38.6, 4]), .6, .5), o(B['farm' + L])); hand(S, s, 'bone', { r: .82, bony: true }); }
-    if (legs) { boneLimb(S, f([6.4, 41, 0]), f([7, 22, 1.2]), 1.5 * thick, B['thigh' + L]); boneLimb(S, f([7, 22, 1.2]), f([7, 5, 0]), 1.2 * thick, B['shin' + L]); S.add(RC(f([8.4, 21, .4]), f([8.2, 5.6, -.6]), .55, .45), o(B['shin' + L]));
+    if (legs) { boneLimb(S, f([6.4, 41, 0]), f([7, 22, 1.2]), 1.5 * lt, B['thigh' + L]); boneLimb(S, f([7, 22, 1.2]), f([7, 5, 0]), 1.2 * lt, B['shin' + L]); S.add(RC(f([8.4, 21, .4]), f([8.2, 5.6, -.6]), .55, .45), o(B['shin' + L]));
       S.add(EL(f([7, 2, 2.4]), [1.9, 1.4, 4.2]), o(B['foot' + L])); for (let i = 0; i < 4; i++) S.add(RC(f([6 + i * .8, 1.6, 5.4]), f([5.8 + i * .9, .8, 8.4]), .42, .32), o(B['foot' + L], { k: .15 })); }
   });
 }

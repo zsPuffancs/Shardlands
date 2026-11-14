@@ -15,7 +15,7 @@ const DESIGN = [
   { key: 'a', name: 'alpha', seed: 4102, colors: { bone: [.72, .68, .58], metal: [.28, .26, .24], darkmetal: [.1, .09, .09], mail: [.24, .22, .2], cloth: [.36, .08, .08], leather: [.2, .13, .08], wood: [.24, .16, .1], trim: [.6, .2, .12], glow: [.3, 1, .9] }, eye: [.4, 1, .95] },
 ];
 
-function bones(D) { const S = new Sculpt(); K.skeleton(S, { thick: 1.55 }); K.skull(S, SK, { r: 5.2, jawOpen: .2 });
+function bones(D) { const S = new Sculpt(); K.skeleton(S, { thick: 1.45, limb: .95 }); K.skull(S, SK, { r: 5.2, jawOpen: .2 });
   // the neck: cervical vertebrae from the ribcage up into the skull
   for (let i = 0; i < 5; i++) { const y = 66 + i * 1.6, bone = i < 2 ? B.neck : B.head; S.add(EL([0, y, -1.6 + i * .3], [1.5, .75, 1.3]), { bone, tag: 'bone', k: .3 }); S.add(RC([0, y, -1.6 + i * .3], [0, y - .4, -3.4 + i * .3], .5, .25), { bone, tag: 'bone', k: .2 }); }
   return S; }
@@ -75,7 +75,7 @@ function custom(D) {
 function build(variant, { lod = 0 } = {}) {
   const D = Object.assign({}, DESIGN[variant]), t0 = Date.now();
   const b = bones(D); b.build(3); const g = gear(D); g.build(3); const w = weapon(D); w.build(3); const d = details(D); d.build(2);
-  const R = lod ? [1.5, 1.4, 1.2, .8] : [.85, .82, .6, .42];
+  const R = lod ? [1.1, 1.3, 1.1, .8] : [.85, .82, .6, .42];
   const { parts, log } = K.finish(D, [['bones', b, R[0], .8], ['gear', g, R[1], .7], ['weapon', w, R[2], .5], ['detail', d, R[3], .5]], custom(D));
   log.push((Date.now() - t0) + ' ms');
   return { parts, bones: BONES, clips: lod ? null : H.clips({ weight: .4, grip: -.1, stance: .5, kneelDrop: 12, fallDrop: 10 }), log, design: D };
