@@ -22,14 +22,18 @@ const DESIGN = [
 
 function body(D) {
   const S = new Sculpt(), R = rng(D.seed), A = (sh, o) => S.add(sh, Object.assign({ tag: 'rock' }, o));
-  const lump = (c, r, bone, k = 1.4) => { A(EL(c, r, null), { bone, k }); for (let i = 0; i < 3; i++) S.sub(EL(add(c, [(R() - .5) * r[0] * 2, (R() - .5) * r[1] * 2, (R() - .5) * r[2] * 2]), [r[0] * .4, r[1] * .4, r[2] * .4]), { k: .8 }); };
+  const rot = () => { const a = (R() - .5) * .9, b = (R() - .5) * .9, c = (R() - .5) * .9, ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b), cc = Math.cos(c), sc = Math.sin(c);
+    return [[cb * cc, cb * sc, -sb], [sa * sb * cc - ca * sc, sa * sb * sc + ca * cc, sa * cb], [ca * sb * cc + sa * sc, ca * sb * sc - sa * cc, ca * cb]]; };
+  const lump = (c, r, bone, k = 1.4) => { A(BX(c, mul(r, .82), rot(), Math.min(r[0], r[1], r[2]) * .22), { bone, k: Math.min(k, 1.2) });
+    for (let i = 0; i < 3; i++) { const q = add(c, [(R() - .5) * r[0] * 1.4, (R() - .5) * r[1] * 1.4, (R() - .5) * r[2] * 1.4]); A(BX(q, mul(r, lerp(.35, .55, R())), rot(), .4), { bone, k: .9 }); }
+    for (let i = 0; i < 2; i++) S.sub(BX(add(c, mul([(R() - .5) * 2, (R() - .5) * 2, (R() - .5) * 2], r[0])), mul(r, .3), rot(), .1), { k: .3 }); };
   // a massive hunched torso of boulders
   lump([0, 60, 0], [15, 11, 11], B.chest, 3); lump([0, 66, -5], [13, 7, 9], B.chest, 3); both(s => lump([s * 12, 68, -2], [8, 7.4, 8], B.chest, 3));
   lump([0, 48, 1], [11, 7, 8.6], B.spine, 3); lump([0, 40, 0], [10, 5, 7], B.root, 3);
   // the head: a small brutish boulder sunk between the shoulders, a heavy jaw
   lump(add([0, 76, 1], DROP), [5.6, 5, 5.4], B.head, 1.6); A(EL(add([0, 77.8, 5], DROP), [5.4, 1.6, 2]), { bone: B.head, k: .8 });
   both(s => S.sub(EL(add([s * 2.2, 76.6, 6.2], DROP), [1, .7, .9]), { k: .3 }));
-  lump(add([0, 71.6, 4.6], DROP), [5.4, 2.8, 4.4], B.jaw, 1.2); S.sub(BX(add([0, 73.4, 8.4], DROP), [3.6, .7, 3]), { k: .5 });
+  lump(add([0, 71.6, 4.6], DROP), [5.4, 2.8, 4.4], B.jaw, 1.2); S.sub(BX(add([0, 73.2, 8.4], DROP), [2.6, .45, 2.4]), { k: .3 });
   // arms: huge, long, knuckle-walking fists
   both(s => { const L = LR(s), f = p => [s * p[0], p[1], p[2]];
     lump(f([15, 64, 0]), [7, 7, 7], B['uarm' + L], 2); A(RC(f([15, 62, 0]), f([17, 47, 2]), 6.4, 5.4), { bone: B['uarm' + L], k: 2 });
@@ -43,7 +47,7 @@ function body(D) {
 function extras(D) {
   const S = new Sculpt(), key = D.key, R = rng(D.seed + 5);
   // the molten core and the burning maw
-  S.add(EL([0, 61, 9.4], [5, 5, 2.6]), { bone: B.chest, tag: 'core', k: .6 }); S.add(EL(add([0, 73.4, 7.4], DROP), [3, .6, 2]), { bone: B.head, tag: 'core', k: .3 });
+  S.add(EL([0, 61, 9.4], [5, 5, 2.6]), { bone: B.chest, tag: 'core', k: .6 }); S.add(EL(add([0, 73.2, 7], DROP), [2.2, .32, 1.4]), { bone: B.head, tag: 'core', k: .2 });
   both(s => S.add(EL(add([s * 2.2, 76.6, 6.6], DROP), [.8, .5, .5]), { bone: B.head, tag: 'core', k: .1 }));
   // spires: a few on the shoulders (A), many and flame-tipped as a crown (C)
   const spire = (base, dir, l, r, bone) => { S.add(RC(base, add(base, mul(norm(dir), l * .8)), r, r * .5), { bone, tag: 'obsidian', k: .3 }); S.add(RC(add(base, mul(norm(dir), l * .8)), add(base, mul(norm(dir), l)), r * .5, .05), { bone, tag: key === 'c' ? 'flame' : 'obsidian', k: .2, root: base, L: l }); };
@@ -67,7 +71,7 @@ function custom(D) {
     if (tag === 'obsidian') return { c: mul([.05, .045, .055], .8 + fine * .5), sp: 1, gl: .95, ty: 4, st: .3 };
     if (tag === 'iron') return { c: mul([.2, .17, .15], .8 + fine * .4), sp: .8, gl: .6, ty: 8, st: .7 };
     if (tag === 'rock') { // basalt with magma glowing in the seams between boulders (deep in the creases), more on the ancient
-      const seam = Math.abs(F.noise3(p[0] * .22, p[1] * .22, p[2] * .22, 3) - .5) < (D.key === 'c' ? .022 : .013);
+      const seam = Math.abs(F.noise3(p[0] * .22, p[1] * .22, p[2] * .22, 3) - .5) < (D.key === 'c' ? .014 : .008) && big < .55;
       if (seam) return { c: mixc(D.lava, D.lavaHot, fine), a: .06, sp: .5, gl: .5, ty: 0, st: 0 };
       const ash = clamp((n[1] - .5) * 2, 0, 1) * .5; return { c: mixc(mixc(D.rock, D.rockDark, clamp((big - .4) * 1.4, 0, 1)), [.35, .33, .32], ash), sp: .2, gl: .35, ty: 5, st: 1 }; }
     return null;
