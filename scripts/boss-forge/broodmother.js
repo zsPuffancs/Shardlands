@@ -55,7 +55,7 @@ function extras(D) {
   both(s => LEGS.forEach((l, i) => { const [hip, knee, ankle] = legPts(s, i), n = (s > 0 ? 'L' : 'R') + i; for (let k = 0; k < 7; k++) { const t = (k + .5) / 7, p = add(hip, mul(sub(knee, hip), t)), d = norm(add(sub(knee, hip), [0, 6, 0])); S.add(RC(p, add(p, add(mul(d, 1.6), [s * .8, 1.2, 0])), .28, .05), { bone: B['leg' + n + 'a'], tag: 'hair', k: .05 }); }
     if (key !== 'a') for (let k = 0; k < 3; k++) { const t = (k + .5) / 3, p = add(knee, mul(sub(ankle, knee), t)); key === 'b' ? S.add(RC(p, add(p, [s * 1.4, 3, 0]), .8, .05), { bone: B['leg' + n + 'b'], tag: 'spike', k: .1 }) : K.crystals(S, p, [s * .3, 1, 0], { count: 1, length: 4, r: .7, seed: D.seed + i * 3 + k, bone: B['leg' + n + 'b'], tag: 'crystal', spread: .1 }); } }));
   // A: a silk egg sac beneath the abdomen with glowing eggs
-  if (key === 'a') { S.add(EL([0, 10, -16], [6, 5, 6.4]), { bone: B.abdomen, tag: 'silk', k: 1 }); for (let i = 0; i < 8; i++) S.add(EL(add([0, 10, -16], [(R() - .5) * 9, (R() - .5) * 6, (R() - .5) * 9]), [1.2, 1.2, 1.2]), { bone: B.abdomen, tag: 'egg', k: .4 }); }
+  if (key === 'a' && !D.noSac) { S.add(EL([0, 10, -16], [6, 5, 6.4]), { bone: B.abdomen, tag: 'silk', k: 1 }); for (let i = 0; i < 8; i++) S.add(EL(add([0, 10, -16], [(R() - .5) * 9, (R() - .5) * 6, (R() - .5) * 9]), [1.2, 1.2, 1.2]), { bone: B.abdomen, tag: 'egg', k: .4 }); }
   // B: chitin armour plates and spines along the abdomen, venom glands, a second blade pair
   if (key === 'b') { for (let i = 0; i < 5; i++) S.add(EL([0, 33 - i * .6, -6 - i * 4.6], [8 - Math.abs(i - 2), 1.4, 3.2]), { bone: B.abdomen, tag: 'plate', k: .6 });
     for (let i = 0; i < 6; i++) { const z = -4 - i * 4; both(s => S.add(RC([s * 6, 31 - i * .4, z], [s * 9, 38 - i * .6, z - 2], 1, .1), { bone: B.abdomen, tag: 'spike', k: .2 })); }
@@ -111,12 +111,13 @@ function custom(D) {
   };
 }
 
-function build(variant, { lod = 0 } = {}) {
-  const D = Object.assign({}, DESIGN[variant]), t0 = Date.now();
+function build(variant, opts) { return buildWith(DESIGN[variant], opts); }
+function buildWith(design, { lod = 0 } = {}) {
+  const D = Object.assign({}, design), t0 = Date.now();
   const b = body(D); b.build(3); const ex = extras(D); ex.build(2);
-  const R = lod ? [.9, .55] : [.42, .3];
+  const R = D.res ? (lod ? D.res[1] : D.res[0]) : lod ? [.9, .55] : [.42, .3];
   const { parts, log } = K.finish(D, [['body', b, R[0], .9], ['extras', ex, R[1], .5]], custom(D));
   log.push((Date.now() - t0) + ' ms');
   return { parts, bones: BONES, clips: lod ? null : clips(), log, design: D };
 }
-module.exports = { build, DESIGN, BONES, B };
+module.exports = { build, buildWith, DESIGN, BONES, B };

@@ -6,6 +6,14 @@
 // model; farther ones keep the cheap primitive stand-in. A dying enemy plays its Death clip where it fell.
 (function () {
   const BOSSES = {
+    wolf: { file: 'wolf', height: 49, rim: [[.06, .06, .07], [.12, .05, .03]], fx: [[.9, .9, .9], [1, .5, .2]] },
+    frostwolf: { file: 'frostwolf', height: 48, rim: [[.06, .1, .16], [.06, .12, .18]], fx: [[.6, .9, 1], [.5, .9, 1]] },
+    slime: { file: 'slime', height: 46, rim: [[.05, .14, .05], [.08, .14, .02]], fx: [[.6, 1, .5], [.7, 1, .2]] },
+    boar: { file: 'boar', height: 44, rim: [[.08, .05, .03], [.14, .04, .02]], fx: [[.8, .7, .5], [1, .3, .1]] },
+    shroom: { file: 'shroom', height: 80, rim: [[.12, .04, .03], [.08, .14, .05]], fx: [[1, .9, .8], [.6, 1, .5]] },
+    goblin: { file: 'goblin', height: 79, rim: [[.06, .1, .04], [.14, .05, .03]], fx: [[.9, .9, .7], [1, .5, .2]] },
+    orc: { file: 'orc', height: 88, rim: [[.06, .1, .04], [.1, .1, .1]], fx: [[1, .7, .3], [1, 1, .9]] },
+    spider: { file: 'spider', height: 36, rim: [[.08, .04, .1], [.14, .03, .03]], fx: [[.8, .5, 1], [1, .2, .1]] },
     skeleton: { file: 'skeleton', height: 83, rim: [[.06, .08, .08], [.05, .12, .12]], fx: [[.35, 1, 1], [.3, 1, .9]] },
   };
   const DEF = { atk: 'Attack', skill: 'Attack2', idle: ['Idle'], run: ['Run'] };
@@ -33,7 +41,7 @@
     const now = performance.now(); if (now !== frameAt) { frameAt = now; drawn = 0; }
     if (drawn >= MAX_NEAR || (typeof cam !== 'undefined' && Math.hypot(e.rx - cam.x, e.ry - cam.z) > NEAR)) return false;
     const v = m.al ? 1 : 0, hm = load(def.file + '-' + 'na'[v]); if (!hm) return false; drawn++;
-    const sc = scaleFor(def, o) * (m.al ? 1.3 : 1);
+    const sc = scaleFor(def, o); // o is already the Alpha's model object (1.3x) for Alphas
     animChar(e, hm.md, { dead: false }, now);
     const far = hm.far && typeof cam !== 'undefined' && Math.hypot(e.rx - cam.x, e.ry - cam.z) > 640;
     GL.drawHero(far ? hm.far : hm.md, e.nodes, e.rx, 0, e.ry, e.yaw, sc, { rim: def.rim[v], emc: e.flash > now - 110 ? [.4, .4, .4] : null, shadow: hm.far || undefined });

@@ -60,6 +60,9 @@ function inner(D) {
 
 function regalia(D) {
   const S = new Sculpt(), key = D.key, R = rng(D.seed + 2);
+  if (D.noCrown) { both(s => { S.add(EL([s * 6.6, 28, 17.6], [3.4, 4.2, 2.4]), { bone: B.face, tag: 'eyewhite', k: .3 }); S.add(EL([s * 6.2, 27.4, 19.6], [1.6, 2.2, 1]), { bone: B.face, tag: 'pupil', k: .2 }); });
+    if (D.spines) for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2, b0 = [Math.cos(a) * 12, 38, Math.sin(a) * 11]; S.add(RC(b0, add(b0, [Math.cos(a) * 3, 6, Math.sin(a) * 3]), 1.2, .1), { bone: B.top, tag: 'gem', k: .3 }); }
+    return S; }
   // the crown
   const c = [0, 43.6, -1], r = key === 'c' ? 9.6 : 9;
   S.add(TO(c, r, 1.6, null), { bone: B.crown, tag: key === 'b' ? 'darkmetal' : 'trim', k: .3 });
@@ -106,12 +109,13 @@ function custom(D) {
   };
 }
 
-function build(variant, { lod = 0 } = {}) {
-  const D = Object.assign({}, DESIGN[variant]), t0 = Date.now();
+function build(variant, opts) { return buildWith(DESIGN[variant], opts); }
+function buildWith(design, { lod = 0 } = {}) {
+  const D = Object.assign({}, design), t0 = Date.now();
   const J = jelly(D); J.build(4); const I = inner(D); I.build(2.5); const Rg = regalia(D); Rg.build(2.5);
-  const R = lod ? [1.1, .7, .6] : [.5, .3, .25];
+  const R = D.res ? (lod ? D.res[1] : D.res[0]) : lod ? [1.1, .7, .6] : [.5, .3, .25];
   const { parts, log } = K.finish(D, [['jelly', J, R[0], 6], ['inside', I, R[1], .5], ['regalia', Rg, R[2], .6]], custom(D));
   log.push((Date.now() - t0) + ' ms');
   return { parts, bones: BONES, clips: lod ? null : clips(), log, design: D };
 }
-module.exports = { build, DESIGN, BONES, B };
+module.exports = { build, buildWith, DESIGN, BONES, B };

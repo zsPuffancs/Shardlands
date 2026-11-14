@@ -77,7 +77,7 @@ function armour(D) {
   both(s => { const L = LR(s), f = p => [s * p[0], p[1], p[2]];
     if (key === 'c') { K.skull(S, f([15.6, 70.6, 1]), { r: 3.6, jawOpen: .3, bone: B['uarm' + L], jawBone: B['uarm' + L] }); S.add(EL(f([14.4, 66.6, 0]), [6.6, 3.2, 7]), o('fur', B['uarm' + L], { k: 1 }));
       for (let i = 0; i < 2; i++) S.add(RC(f([17 + i, 73, -1 + i * 2]), f([22 + i * 2, 80, -3 + i * 2]), .9, .15), o('horn', B['uarm' + L], { k: .2 })); }
-    else { for (let j = 0; j < 4; j++) S.add(EL(f([14.2 + j * .6, 68.4 - j * 2.4, 0]), [6.6 - j * .5, 2.6, 7.2 - j * .5], rotZ(s * -.45)), o(j ? 'metal' : 'trim', B['uarm' + L], { k: .3, color: key === 'b' ? (j ? D.colors.darkmetal : D.colors.trim) : undefined }));
+    else if (!D.noPauldrons) { for (let j = 0; j < 4; j++) S.add(EL(f([14.2 + j * .6, 68.4 - j * 2.4, 0]), [6.6 - j * .5, 2.6, 7.2 - j * .5], rotZ(s * -.45)), o(j ? 'metal' : 'trim', B['uarm' + L], { k: .3, color: key === 'b' ? (j ? D.colors.darkmetal : D.colors.trim) : undefined }));
       if (key === 'b') for (let j = 0; j < 3; j++) S.add(RC(f([15 + j * 2.4, 71 - j * 1.4, -2 + j * 2]), f([18 + j * 3.4, 79 - j * 1.6, -3 + j * 2.4]), 1.3, .1), o('metal', B['uarm' + L], { k: .2 }));
       for (let i = 0; i < 6; i++) S.add(EL(f([14.4 + i * .5, 69.6 - i * .3, -4 + i * 1.6]), [.45, .45, .45]), o('trim', B['uarm' + L], { k: .1 })); }
     // bracers
@@ -87,6 +87,7 @@ function armour(D) {
   if (key !== 'b') { S.add(EL([0, 66.4, -3.6], [15.4, 4.8, 9]), o('fur', B.chest, { k: 2 })); }
   else { const top = []; for (let i = 0; i <= 8; i++) { const a = (i / 8 - .5) * 2.4; top.push([Math.sin(a) * 13.6, 67 - Math.abs(Math.sin(a)) * 1.5, -5 - Math.cos(a) * 3.6]); }
     K.sheet(S, top, 40, { bone: B.back, tag: 'cloth', thick: .8, folds: 6, foldDepth: 1.4, flare: .16, rag: .3, seed: D.seed, boneOf: t => (t < .4 ? B.back : B.skirtB) }); }
+  if (D.boneSpikes) both(s => { const ub = B['uarm' + (s > 0 ? 'L' : 'R')]; S.add(EL([s * 14.4, 68.6, 0], [6, 3, 6.6], rotZ(s * -.4)), o('bone', ub, { k: .4 })); for (let j = 0; j < 5; j++) S.add(RC([s * (13 + j * 1.6), 70.6 - j * .8, -3 + j * 1.6], [s * (16 + j * 2.6), 80 - j * 1.2, -4 + j * 2], 1.4, .1), o('bone', ub, { k: .2 })); });
   // B: a horned iron half-helm and trophy skulls on the belt; three war banners on poles from the back
   if (key === 'b') {
     S.add(SC(EL(h0([0, 80.6, .6]), [6.2, 4, 6.4])), o('darkmetal', B.head, { k: .4 })); S.add(SC(TO(h0([0, 78.8, .6]), 6.2, .7, [[1, 0, 0], [0, 1, 0], [0, 0, 1.05]])), o('trim', B.head));
@@ -123,6 +124,7 @@ function addLocks(S, D) {
 function weapon(D) {
   const S = new Sculpt(), key = D.key, dir = norm(D.key === 'c' ? [-.3, 1, .3] : [0, 1, .25]), at = t => add(GRIP, mul(dir, t)), fr = frameOf(dir), o = (tag, extra) => Object.assign({ tag, bone: B.weapon, k: .3 }, extra);
   const out = mul(fr[0], -1), up = dir, fwd = fr[2], P = (u, v) => add(add(at(0), mul(out, u)), mul(up, v));
+  if (D.club) { const R = rng(D.seed + 9); S.add(RC(at(-6), at(26), 1.4, 3.6), o('wood', { k: .5 })); for (let i = 0; i < 10; i++) { const t = 12 + R() * 14, a = R() * Math.PI * 2, r = 1.4 + (t + 6) / 32 * 2.2, nn = add(mul(fr[0], Math.cos(a)), mul(fr[2], Math.sin(a))); S.add(RC(add(at(t), mul(nn, r - .3)), add(at(t), mul(nn, r + 1.8)), .45, .06), o('metal', { k: .1 })); } return S; }
   if (key !== 'c') {
     S.add(RC(at(-7), at(12), 1.2, 1.1), o('leather')); for (const t of [-6, -2, 2, 6, 10]) S.add(TO(at(t), 1.35, .3, fr), o('darkmetal'));
     S.add(EL(at(-7.8), [1.7, 1.7, 1.7]), o('metal')); S.add(BX(at(12.4), [3.4, .9, 1.6], [out, up, fwd], .3), o('darkmetal'));
@@ -169,7 +171,7 @@ function custom(D) {
     if (tag === 'eye') { const q = mul(sub(p, s.c), 1 / HS), r0 = Math.hypot(q[0], q[1] * 1.6); return { c: mixc(mul(D.eye, .45), mixc(D.eye, [1, 1, .8], .6), clamp(1.1 - r0, 0, 1)), a: .05, sp: 1, gl: 1, ty: 0, st: 0 }; }
     if (tag === 'skin') {
       let c = mixc(D.colors.skin, D.colors.skinDark, clamp(.3 + (big - .5) * .9 - n[1] * .15, 0, 1)); c = mul(c, .9 + fine * .2);
-      if (D.key === 'b' && ((hp[1] > 76 && hp[1] < 79 && Math.abs(hp[0]) < 5 && hp[2] > 4) || (Math.abs(p[0]) > 12 && p[1] > 52 && p[1] < 60 && Math.abs(Math.sin(p[1] * 1.3)) < .3))) c = mixc(c, [.5, .04, .03], .85); // red war paint
+      if ((D.key === 'b' || D.paint) && ((hp[1] > 76 && hp[1] < 79 && Math.abs(hp[0]) < 5 && hp[2] > 4) || (Math.abs(p[0]) > 12 && p[1] > 52 && p[1] < 60 && Math.abs(Math.sin(p[1] * 1.3)) < .3))) c = mixc(c, D.paint || [.5, .04, .03], .85); // war paint
       if (D.key === 'c') { let dm = 9; for (const [a, b] of TATTOO) dm = Math.min(dm, segDist(p, a, b)); if (dm < .45 && p[1] < 66) return { c: D.colors.glow, a: .1, sp: .5, gl: .5, ty: 0, st: 0 }; }
       if (D.key === 'c' && segDist(hp, [2.6, 81, 6], [4.4, 74, 6.6]) < .5) c = [.55, .58, .45];
       return { c, sp: .35, gl: .5, ty: 3, st: .8 };
@@ -182,15 +184,16 @@ function custom(D) {
   };
 }
 
-function build(variant, { lod = 0 } = {}) {
-  const D = Object.assign({}, DESIGN[variant]), t0 = Date.now();
+function build(variant, opts) { return buildWith(DESIGN[variant], opts); }
+function buildWith(design, { lod = 0 } = {}) {
+  const D = Object.assign({}, design), t0 = Date.now();
   const body = anatomy(D); body.build(4); const arm = armour(D); arm.build(3);
   const n = addLocks(arm, D) + addLocks(body, D); body.build(3); arm.build(3);
   const weap = weapon(D); weap.build(3); const fine = details(D); fine.build(2);
-  const R = lod ? [1.2, 1.15, .9, .35] : [.52, .56, .4, .17];
+  const R = D.res ? (lod ? D.res[1] : D.res[0]) : lod ? [1.2, 1.15, .9, .35] : [.52, .56, .4, .17];
   const { parts, log } = K.finish(D, [['body', body, R[0], 1.6], ['armour', arm, R[1], .8], ['weapon', weap, R[2], .5], ['detail', fine, R[3], .5]], custom(D));
   log.push('locks: ' + n + ', ' + (Date.now() - t0) + ' ms');
   return { parts, bones: BONES, clips: lod ? null : H.clips({ weight: 1, grip: -.1, banner: D.key === 'b', stance: 1 }), log, design: D };
 }
 
-module.exports = { build, DESIGN, BONES, B };
+module.exports = { build, buildWith, DESIGN, BONES, B };

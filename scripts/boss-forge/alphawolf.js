@@ -69,14 +69,14 @@ function anatomy(D) {
 
 // fur over everything, a thick ruff round the neck and chest, a brush tail
 function addFur(S, D) {
-  const heavy = D.key === 'b' ? 1.25 : 1;
+  const heavy = (D.key === 'b' ? 1.25 : 1) * (D.fur || 1);
   return K.locks(S, D.seed * 31 + 7, (p, n, s) => {
     if (s.tag === 'nose' || s.tag === 'muzzle' && p[2] > 26) return null;
     if (s.tail) return { chance: .95, len: [4, 7], r: 1.1, flow: [0, -.6, -1], up: .4, tag: 'fur', bone: s.bone };
     if (s.bone === B.neck || (s.bone === B.chest && p[2] > 8 && p[1] > 26) || (s.bone === B.head && p[2] < 19)) return { chance: .95, len: [5 * heavy, 9 * heavy], r: 1.3, flow: [0, -.6, -.8], up: .3, tag: 'ruff', bone: s.bone };
     if (p[1] < 9) return null;
     return { chance: .5, len: [2.4, 4.2], r: .85, flow: s.flow || [0, -.6, -.6], up: .2, tag: 'fur', bone: s.bone };
-  }, 1.05);
+  }, D.lockRes || 1.05);
 }
 
 function extras(D) {
@@ -100,6 +100,12 @@ function extras(D) {
     both(s => { for (let i = 0; i < 5; i++) { const b = [s * (4 + i * .6), 40 + (i % 2), 8 - i * 3]; S.add(RC(b, add(b, [s * .8, 5 + (i % 2) * 2, -2]), 1.1, .1), { bone: B.chest, tag: 'spirit', k: .5, root: b, L: 7 }); } });
     for (let i = 0; i < 7; i++) { const a = (i / 6 - .5) * 2.2; S.add(EL([Math.sin(a) * 1.6, 43.4 + Math.cos(a) * 1.2, 22.4], [.35, .35, .35]), { bone: B.head, tag: 'glow', k: .2 }); }
   }
+  // species features for the basic enemies built on this body
+  if (D.iceSpine) [[0, 43.6, 4], [0, 42, -2], [0, 40.6, -8], [0, 39.6, -14]].forEach((q, i) => K.crystals(S, q, [0, 1, -.3], { count: 3, length: 6 + (i % 2) * 2, r: 1.2, seed: D.seed + i, bone: i < 2 ? B.chest : B.root, tag: 'ice', spread: .35 }));
+  if (D.horns) both(s => { let p = [s * 2.4, 43, 19], d = norm([s * .3, .5, -1]); for (let i = 0; i < 5; i++) { const q = add(p, mul(d, 1.8)); S.add(RC(p, q, .9 - i * .14, .8 - i * .14), { bone: B.head, tag: 'horn', k: .2, root: [s * 2.4, 43, 19], L: 9 }); p = q; d = norm(add(d, [0, .2, .1])); } });
+  if (D.sabre) both(s => { const a = [s * 1.5, 37.8, 29.4]; S.add(RC(a, add(a, [0, -4.2, .2]), .55, .08), { bone: B.head, tag: 'tooth', k: .05, root: a, L: 4.2 }); });
+  if (D.maneFlames) for (let i = 0; i < 9; i++) { const z = 16 - i * 3.6, b = [0, 42.4 - i * .5, z]; S.add(RC(b, add(b, [0, 4 + (i % 2) * 2, -2]), 1.2, .1), { bone: i < 3 ? B.neck : i < 6 ? B.chest : B.root, tag: 'flame', k: .4, root: b, L: 6 }); }
+  if (D.hackles) for (let i = 0; i < 8; i++) { const b = [0, 42.6 - i * .3, 10 - i * 3]; S.add(RC(b, add(b, [0, 3.4, -1.4]), .9, .1), { bone: i < 4 ? B.chest : B.root, tag: 'ruffTip', k: .3 }); }
   return S;
 }
 
@@ -109,6 +115,8 @@ function custom(D) {
   return ({ p, n, s, tag, fine, big }) => {
     if (tag === 'eye') { const q = sub(p, s.c), r0 = Math.hypot(q[0], q[1] * 1.4); return { c: mixc(mul(D.eye, .5), mixc(D.eye, [1, 1, .9], .5), clamp(1 - r0, 0, 1)), a: .04, sp: 1, gl: 1, ty: 0, st: 0 }; }
     if (tag === 'nose') return { c: [.05, .05, .05], sp: .9, gl: .9, ty: 3, st: .3 };
+    if (tag === 'flame') { const t = s.root ? clamp(len(sub(p, s.root)) / s.L, 0, 1) : .5; return { c: mixc(D.colors.glow, [1, .9, .5], t), a: .06, sp: .5, gl: .5, ty: 0, st: 0 }; }
+    if (tag === 'ruffTip') return { c: D.pale, sp: .1, gl: .2, ty: 1, st: 1 };
     if (tag === 'claw') return { c: [.12, .11, .1], sp: .7, gl: .8, ty: 4, st: .5 };
     if (tag === 'spirit') { const t = s.root ? clamp(len(sub(p, s.root)) / s.L, 0, 1) : .5; return { c: mixc(D.colors.glow, [.9, 1, 1], t), a: lerp(.3, .05, t), sp: .5, gl: .5, ty: 0, st: 0 }; }
     if (tag === 'fur' || tag === 'ruff' || tag === 'muzzle') {
@@ -116,6 +124,8 @@ function custom(D) {
       let c = mixc(D.coat, D.back, dorsal * .7 + (big - .5) * .4); c = mixc(c, D.pale, Math.max(under * .8, tag === 'ruff' ? .5 : 0, tag === 'muzzle' && p[1] < 39 ? .7 : 0)); c = mul(c, .88 + fine * .2 + t * .08);
       if (D.key === 'c') { let dm = 9; for (const [a, b] of RUNES) dm = Math.min(dm, segDist(p, a, b)); if (dm < .55 && !s.root) return { c: D.colors.glow, a: .08, sp: .5, gl: .5, ty: 0, st: 0 };
         if (t > .8 && (tag === 'ruff' || p[2] < -26)) return { c: mixc(D.pale, D.colors.glow, .7), a: .35, sp: .3, gl: .4, ty: 2, st: .6 }; }
+      if (D.seams && !s.root && Math.abs(F.noise3(p[0] * .35, p[1] * .35, p[2] * .35, 8) - .5) < .025) return { c: D.colors.glow, a: .08, sp: .5, gl: .5, ty: 0, st: 0 };
+      if (D.eyeBurn && tag === 'muzzle') {}
       const scar = D.key !== 'c' && tag === 'muzzle' && Math.abs(Math.sin(p[2] * 2.2 + p[0] * 3)) < .08 && p[0] > 0; if (scar) c = mixc(c, [.62, .5, .48], .7);
       return { c, sp: .12, gl: .25, ty: tag === 'muzzle' ? 3 : 1, st: tag === 'muzzle' ? .5 : 1 };
     }
@@ -123,12 +133,13 @@ function custom(D) {
   };
 }
 
-function build(variant, { lod = 0 } = {}) {
-  const D = Object.assign({}, DESIGN[variant]), t0 = Date.now();
+function build(variant, opts) { return buildWith(DESIGN[variant], opts); }
+function buildWith(design, { lod = 0 } = {}) {
+  const D = Object.assign({}, design), t0 = Date.now();
   const body = anatomy(D); body.build(4); const n = addFur(body, D); body.build(3); const ex = extras(D); ex.build(2);
-  const R = lod ? [1, .5] : [.42, .2];
+  const R = D.res ? (lod ? D.res[1] : D.res[0]) : lod ? [1, .5] : [.42, .2];
   const { parts, log } = K.finish(D, [['body', body, R[0], 2], ['extras', ex, R[1], .5]], custom(D));
   log.push('locks ' + n + ', ' + (Date.now() - t0) + ' ms');
   return { parts, bones: BONES, clips: lod ? null : V.clips(Object.assign({ hunch: 0 }, D, { eclipseRot: (ph, E) => E(Math.sin(ph) * .02, 0, 0) })), log, design: D };
 }
-module.exports = { build, DESIGN, BONES, B };
+module.exports = { build, buildWith, DESIGN, BONES, B };
