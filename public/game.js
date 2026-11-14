@@ -411,6 +411,7 @@ function onEvent(f) {
   if (f.k === 'atk') { if (E) { E.atkT = now; E.skill = false; faceAttackTarget(E, f, now); } fxAttack(f, E); return; }
   if (f.k === 'die' && I.types[f.v] && I.types[f.v].st && window.MetinStones && MetinStones.shatter(f.x, f.y, f.v)) return;
   if (f.k === 'die' && window.RegionBossModels) RegionBossModels.died(f.x, f.y, f.v);
+  if (f.k === 'die' && window.EnemyModels) EnemyModels.died(f.x, f.y, f.v);
   if (f.k === 'die') { const t = I.types[f.v], c = hex(t ? t.c : '#cccccc'), big = t && (t.boss || f.b); burst(f.x, 18, f.y, big ? 70 : 22, c, 200, 1.1, 2.2, .25, 560); addRing(f.x, f.y, 4, big ? 80 : 40, big ? [1, .7, .3] : [.85, .85, .85], 500, 14, .2); sfx(big ? 'boss' : 'die', f.x, f.y); return; }
   if (f.k === 'hurt') {
     const A = f.a && ents.get(f.a); if (A) { A.atkT = now; A.skill = false; A.yaw = Math.atan2(f.x - A.rx, f.y - A.ry); fxClaw(f.x, f.y, A.yaw); }
@@ -758,7 +759,7 @@ function frame(now) {
       if (m.wl && typeof WorldBossModels !== 'undefined') o = WorldBossModels.model(m.wl, t) || o; // dedicated World Boss appearance
       if (m.id === me.tg) { const pu = 1 + Math.sin(now / 150) * .1, rr = (t.r * (m.al ? 1.3 : 1) + 12) * pu; D(M.ring, e.rx, 2.5, e.ry, rr, 1, rr, now / 600, 0, [1, .2, .2], 1, .95); }
       if (m.al) { const rr = t.r * 1.3 + 14 + Math.sin(now / 200 + m.id) * 3; D(M.ring, e.rx, 2, e.ry, rr, 1, rr, -now / 700, 0, [1, .55, .1], 1, .7); }
-      const mc = MOBCHAR[m.ty] || (t.as && MOBCHAR[t.as]); if (t.boss && window.RegionBossModels && RegionBossModels.draw(e, t, m, o)) { /* sculpted Region Boss */ } else if (t.st) { if (!(window.MetinStones && MetinStones.draw(e, t, m))) stoneModel(e, t); } else if (mc && CHARS[mc.m] && nChar < 26 && hd < 750) { nChar++; const gr = mc.gear && !t.wb && !t.boss ? gearFor(CHARS[mc.m], mc.gear, m.id, m.al) : null; drawChar(e, mc.m, { h: 64 * mc.sc * (m.al ? 1.3 : 1) * (t.wb ? 1.5 : 1), tint: gr ? gr.body : mc.tint, emc: mc.emc, gear: gr }, now); } else if (i < full || hd < 420) { if (blob) D(M.disc, e.rx, 1, e.ry, t.r * 1.1, 1, t.r * 1.1, 0, 0, [0, 0, 0], 0, .3); o.fn(e, o); } else lod(e, t, o, m.al);
+      const mc = MOBCHAR[m.ty] || (t.as && MOBCHAR[t.as]); if (t.boss && window.RegionBossModels && RegionBossModels.draw(e, t, m, o)) { /* sculpted Region Boss */ } else if (!t.boss && !t.st && window.EnemyModels && EnemyModels.draw(e, t, m, o)) { /* sculpted enemy */ } else if (t.st) { if (!(window.MetinStones && MetinStones.draw(e, t, m))) stoneModel(e, t); } else if (mc && CHARS[mc.m] && nChar < 26 && hd < 750) { nChar++; const gr = mc.gear && !t.wb && !t.boss ? gearFor(CHARS[mc.m], mc.gear, m.id, m.al) : null; drawChar(e, mc.m, { h: 64 * mc.sc * (m.al ? 1.3 : 1) * (t.wb ? 1.5 : 1), tint: gr ? gr.body : mc.tint, emc: mc.emc, gear: gr }, now); } else if (i < full || hd < 420) { if (blob) D(M.disc, e.rx, 1, e.ry, t.r * 1.1, 1, t.r * 1.1, 0, 0, [0, 0, 0], 0, .3); o.fn(e, o); } else lod(e, t, o, m.al);
       if ((hd < 620 && nl < 45) || m.id === me.tg || ((t.boss || m.al || t.st) && hd < 1100)) {
         nl++;
         const nameColor = t.st ? t.c : t.boss ? '#ffd24a' : m.al ? '#ffb04a' : '#fff';
@@ -767,6 +768,7 @@ function frame(now) {
     }
     if (window.MetinStones) MetinStones.frame();
     if (window.RegionBossModels) RegionBossModels.frame();
+    if (window.EnemyModels) EnemyModels.frame();
     for (const o of pl) { const e = ents.get(o.id); if (!onScreen(e.rx, e.ry, 160)) continue; drawPlayer(e, o.c, o.w, o.d, o.rg); label('p' + o.id, esc(o.n) + ' <span style="color:#aaa">' + esc(text("zone.levelShort", "Lv ")) + o.l + '</span>', o.gm ? 'pl gm' : 'pl', e.rx, 92, e.ry, o.hp / o.mh, 120); if (o.gm && window.GM) GM.emblem('p' + o.id, e.rx, e.ry, o.gm); }
     drawPlayer(S, I.cls, me.w, me.dead, me.buf.rage);
     const heroNameplate = '<span class="hero-name">' + esc(I.name) + '</span><span class="hero-level">' +
