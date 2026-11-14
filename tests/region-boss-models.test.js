@@ -5,7 +5,7 @@
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const ROOT = path.join(__dirname, '..'), DIR = path.join(ROOT, 'public/assets/region-bosses');
-const IDS = ['warlord', 'boneking', 'ogrechief', 'yetiking', 'voidlord', 'deathlord'];
+const IDS = ['warlord', 'boneking', 'ogrechief', 'yetiking', 'voidlord', 'deathlord', 'alphawolf', 'kingslime', 'broodmother'];
 
 function glb(file) {
   const b = fs.readFileSync(file), jl = b.readUInt32LE(12), g = JSON.parse(b.slice(20, 20 + jl).toString());
@@ -31,7 +31,7 @@ test('variant from the monster id; primitive model without the hero renderer; bo
   assert.deepEqual([0, 1, 2, 3, 4, 5].map(R.variantOf), [0, 1, 2, 0, 1, 2]);
   assert.equal(R.draw({ rx: 0, ry: 0, yaw: 0 }, { boss: true }, { id: 1, ty: 'warlord' }, { top: 74, sc: 1.6 }), false, 'no GL: the caller draws the primitive model');
   assert.equal(R.draw({}, { boss: true }, { id: 1, ty: 'wolf' }, {}), false);
-  assert.equal(R.draw({}, { boss: true, wb: 1 }, { id: 1, ty: 'warlord' }, {}), false, 'World Bosses keep their own models');
+  assert.equal(R.draw({}, { boss: true, wb: 1 }, { id: 1, ty: 'warlord', wl: 7 }, {}), false, 'World Bosses with a dedicated look keep it');
   assert.ok(Math.abs(R.scaleFor(R.BOSSES.warlord, { top: 74, sc: 1.6 }) * R.BOSSES.warlord.height - 74 * 1.6 * .9) < 1e-9);
   const game = fs.readFileSync(path.join(ROOT, 'public/game.js'), 'utf8');
   assert.match(game, /if \(t\.boss && window\.RegionBossModels && RegionBossModels\.draw\(e, t, m, o\)\)/);

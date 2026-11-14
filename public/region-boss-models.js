@@ -14,6 +14,9 @@
     yetiking: { file: 'yetiking', height: 88, rim: [[.08, .12, .18], [.06, .12, .2], [.06, .16, .14]], fx: [[.8, .92, 1], [.5, .85, 1], [.45, 1, .8]] },
     voidlord: { file: 'voidlord', height: 96, rim: [[.12, .04, .18], [.16, .04, .2], [.1, .08, .2]], fx: [[.85, .35, 1], [1, .3, 1], [.7, .65, 1]] },
     deathlord: { file: 'deathlord', height: 87, rim: [[.05, .12, .07], [.05, .14, .08], [.07, .1, .16]], fx: [[.35, 1, .55], [.3, 1, .6], [.55, .85, 1]] },
+    alphawolf: { file: 'alphawolf', height: 49, rim: [[.08, .08, .1], [.16, .05, .03], [.06, .12, .18]], fx: [[.85, .85, .9], [1, .35, .15], [.45, .85, 1]] },
+    kingslime: { file: 'kingslime', height: 47, rim: [[.06, .16, .06], [.08, .14, .02], [.18, .12, .02]], fx: [[.6, 1, .5], [.65, 1, .2], [1, .85, .45]] },
+    broodmother: { file: 'broodmother', height: 36, rim: [[.12, .04, .14], [.06, .14, .04], [.12, .08, .2]], fx: [[1, .35, .3], [.55, 1, .2], [.75, .55, 1]] },
   };
   const DEF = { atk: 'Attack', skill: 'Attack2', idle: ['Idle'], run: ['Run'] };
   const MODELS = new Map(), seen = new Map(), ghosts = [];
@@ -34,7 +37,9 @@
 
   // draw a living Region Boss; false = not premium / not loaded (the caller draws the primitive model)
   function draw(e, t, m, o) {
-    const def = BOSSES[m.ty]; if (!def || t.wb || m.wl || typeof animChar !== 'function') return false;
+    // a World Boss with its own dedicated look (m.wl) keeps it; a boss type that is also this universe's World Boss
+    // but has no dedicated look gets the sculpted model too (scaled like its primitive model)
+    const def = BOSSES[m.ty]; if (!def || m.wl || typeof animChar !== 'function') return false;
     const v = variantOf(m.id), hm = load(def.file + '-' + 'abc'[v]); if (!hm) return false;
     const now = performance.now(), sc = scaleFor(def, o);
     animChar(e, hm.md, { dead: false }, now);
