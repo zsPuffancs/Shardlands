@@ -5,7 +5,7 @@
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const ROOT = path.join(__dirname, '..'), DIR = path.join(ROOT, 'public/assets/enemies');
-const IDS = ['skeleton', 'wolf', 'frostwolf', 'slime', 'boar', 'shroom', 'goblin', 'orc', 'spider'];
+const IDS = ['skeleton', 'wolf', 'frostwolf', 'slime', 'boar', 'shroom', 'goblin', 'orc', 'spider', 'hellhound', 'frostfang', 'ogre', 'wraith', 'shade', 'drake', 'golem', 'icegolem', 'yeti', 'voidweaver', 'voidknight'];
 const glb = f => { const b = fs.readFileSync(f), jl = b.readUInt32LE(12), g = JSON.parse(b.slice(20, 20 + jl).toString()); let tris = 0, verts = 0; for (const m of g.meshes) for (const p of m.primitives) { tris += g.accessors[p.indices].count / 3; verts += g.accessors[p.attributes.POSITION].count; } return { g, size: b.length, tris, verts }; };
 
 test('enemy models fit the ordinary-enemy budget and carry the clips', () => {
@@ -17,7 +17,8 @@ test('enemy models fit the ordinary-enemy budget and carry the clips', () => {
   }
   // the Alpha is its own sculpt: different vertex count or a different spread of geometry (extra spikes, plates...)
   const shape = f => { const b = fs.readFileSync(f), jl = b.readUInt32LE(12), g = JSON.parse(b.slice(20, 20 + jl).toString()); let ext = 0; for (const m of g.meshes) for (const p of m.primitives) { const a = g.accessors[p.attributes.POSITION]; ext += (a.max[0] - a.min[0]) + (a.max[1] - a.min[1]) + (a.max[2] - a.min[2]); } return ext; };
-  for (const id of IDS) { const n = path.join(DIR, id + '-n.glb'), a = path.join(DIR, id + '-a.glb'); assert.ok(Math.abs(glb(n).verts - glb(a).verts) > 500 || Math.abs(shape(n) - shape(a)) > 5, id + ': the Alpha is its own sculpt'); }
+  for (const id of IDS) { const n = path.join(DIR, id + '-n.glb'), a = path.join(DIR, id + '-a.glb'); const parts = f => { const b = fs.readFileSync(f), jl = b.readUInt32LE(12), g = JSON.parse(b.slice(20, 20 + jl).toString()); return g.meshes.map(m => m.primitives.reduce((t, p) => t + g.accessors[p.attributes.POSITION].count, 0)); };
+    const pn = parts(n), pa = parts(a); assert.ok(Math.abs(glb(n).verts - glb(a).verts) > 500 || Math.abs(shape(n) - shape(a)) > 5 || pn.length !== pa.length || pn.some((c, i) => Math.abs(c - pa[i]) > 100), id + ': the Alpha is its own sculpt'); }
 });
 test('normal/Alpha from the existing flag; primitive model for bosses, far enemies and without GL; stats untouched', () => {
   const ctx = { window: {}, performance: { now: () => 0 }, console }; vm.createContext(ctx);

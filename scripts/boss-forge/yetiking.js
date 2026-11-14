@@ -46,7 +46,7 @@ function extras(D) {
   both(s => { let p = h0([s * 5.6, 81, -.6]), d = norm([s * .9, .5, -.2]); for (let i = 0; i < 8; i++) { const q = add(p, mul(d, 2.3)); S.add(SC(RC(p, q, 1.9 - i * .2, 1.7 - i * .2)), o('horn', B.head, { k: .3, root: h0([s * 5.6, 81, -.6]), L: 18 })); p = q; d = norm(add(d, [s * -.12, -.12, .24])); } });
   // the crown: ice crystals (A), a jagged ice crown (B), a halo of floating shards (C)
   const crownC = h0([0, 83.4, -.6]);
-  if (key !== 'c') K.crystals(S, crownC, [0, 1, 0], { count: key === 'b' ? 11 : 7, length: key === 'b' ? 11 : 7, r: 3.6, seed: D.seed, bone: B.head, spread: .45 });
+  if (key !== 'c' && !D.noCrown) K.crystals(S, crownC, [0, 1, 0], { count: key === 'b' ? 11 : 7, length: key === 'b' ? 11 : 7, r: 3.6, seed: D.seed, bone: B.head, spread: .45 });
   else for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, c = add(h0([0, 80, -9]), [Math.cos(a) * 11, Math.sin(a) * 11, 0]); S.add(RC(add(c, [Math.cos(a) * -1.6, Math.sin(a) * -1.6, 0]), add(c, [Math.cos(a) * 2.6, Math.sin(a) * 2.6, 0]), 1, .1), o('ice', B.head, { k: .2, root: c, L: 4 })); }
   if (key === 'c') S.add(TO(h0([0, 80, -9]), 11, .35, rotX(Math.PI / 2)), o('glow', B.head, { k: .1 }));
   // fanged mouth
@@ -85,12 +85,13 @@ function custom(D) {
   };
 }
 
-function build(variant, { lod = 0 } = {}) {
-  const D = Object.assign({}, DESIGN[variant]), t0 = Date.now();
+function build(variant, opts) { return buildWith(DESIGN[variant], opts); }
+function buildWith(design, { lod = 0 } = {}) {
+  const D = Object.assign({}, design), t0 = Date.now();
   const body = anatomy(D); body.build(4); const n = addLocks(body, D); body.build(3); const ex = extras(D); ex.build(2.5);
-  const R = lod ? [1.3, .7] : [.64, .3];
+  const R = D.res ? (lod ? D.res[1] : D.res[0]) : lod ? [1.3, .7] : [.64, .3];
   const { parts, log } = K.finish(D, [['body', body, R[0], 1.6], ['extras', ex, R[1], .5]], custom(D));
   log.push('locks ' + n + ', ' + (Date.now() - t0) + ' ms');
   return { parts, bones: BONES, clips: lod ? null : H.clips({ weight: 1, grip: .1, stance: 1.2 }), log, design: D };
 }
-module.exports = { build, DESIGN, BONES, B };
+module.exports = { build, buildWith, DESIGN, BONES, B };

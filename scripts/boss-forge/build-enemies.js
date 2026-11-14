@@ -5,6 +5,7 @@
 const fs = require('fs'), path = require('path'), F = require('./forge');
 const OUT = path.join(__dirname, '../../public/assets/enemies'), C = require('./canines'), M = require('./critters');
 const ENEMIES = { skeleton: require('./skeleton'), wolf: C.make('wolf'), frostwolf: C.make('frostwolf'), hellhound: C.make('hellhound'), frostfang: C.make('frostfang'), slime: M.slime, boar: M.boar, shroom: M.shroom, goblin: require('./goblin'), orc: require('./gloom').orc, spider: require('./gloom').spider };
+Object.assign(ENEMIES, require('./lateenemies'));
 fs.mkdirSync(OUT, { recursive: true });
 const ids = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(ENEMIES);
 for (const id of ids) for (const v of [0, 1]) for (const lod of [0, 1]) {

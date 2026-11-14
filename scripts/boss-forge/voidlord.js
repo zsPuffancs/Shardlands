@@ -91,12 +91,13 @@ function custom(D) {
   };
 }
 
-function build(variant, { lod = 0 } = {}) {
-  const D = Object.assign({}, DESIGN[variant]), t0 = Date.now();
-  const body = anatomy(D); body.build(3); const r = robes(D); r.build(3); const w = weapon(D); w.build(3); const fine = details(D); fine.build(2.5);
-  const R = lod ? [1.3, 1.2, .9, .5] : [.6, .5, .38, .25];
-  const { parts, log } = K.finish(D, [['body', body, R[0], 1.2], ['robes', r, R[1], .9], ['weapon', w, R[2], .5], ['detail', fine, R[3], .5]], custom(D));
+function build(variant, opts) { return buildWith(DESIGN[variant], opts); }
+function buildWith(design, { lod = 0 } = {}) {
+  const D = Object.assign({}, design), t0 = Date.now();
+  const body = anatomy(D); body.build(3); const r = robes(D); r.build(3); const w = D.noStaff ? null : weapon(D); if (w) w.build(3); const fine = details(D); fine.build(2.5);
+  const R = D.res ? (lod ? D.res[1] : D.res[0]) : lod ? [1.3, 1.2, .9, .5] : [.6, .5, .38, .25];
+  const { parts, log } = K.finish(D, [['body', body, R[0], 1.2], ['robes', r, R[1], .9], ...(w ? [['weapon', w, R[2], .5]] : []), ['detail', fine, R[3], .5]], custom(D));
   log.push((Date.now() - t0) + ' ms');
   return { parts, bones: BONES, clips: lod ? null : H.clips({ weight: .5, grip: 0, stance: .4, hover: D.key === 'c', banner: true }), log, design: D };
 }
-module.exports = { build, DESIGN, BONES, B };
+module.exports = { build, buildWith, DESIGN, BONES, B };

@@ -50,7 +50,8 @@ function gear(D) {
   // legs wrapped in hide, bare feet
   both(s => { const L = LR(s), f = p => [s * p[0], p[1], p[2]]; for (let j = 0; j < 3; j++) S.add(TO(f([7, 12 + j * 4, .8]), 4.4, .5, rotX(.06)), o('leather', B['shin' + L])); });
   // the crown: a crude band of iron spikes (A, B) or a feather headdress (C)
-  if (key !== 'c') { const c = h0([0, 80.4, .6]); S.add(SC(TO(c, 5.4, .8, [[1, 0, 0], [0, 1, 0], [0, 0, 1.05]])), o('metal', B.head));
+  if (D.horns) both(s => { let p = h0([s * 4.6, 80, 0]), d = norm([s, .4, .2]); for (let i = 0; i < 7; i++) { const q = add(p, mul(d, 3)); S.add(SC(RC(p, q, 2 - i * .24, 1.76 - i * .24)), o('horn', B.head, { k: .2 })); p = q; d = norm(add(d, [s * -.15, .1, .25])); } });
+  if (key !== 'c' && !D.noCrown) { const c = h0([0, 80.4, .6]); S.add(SC(TO(c, 5.4, .8, [[1, 0, 0], [0, 1, 0], [0, 0, 1.05]])), o('metal', B.head));
     for (let i = 0; i < (key === 'b' ? 9 : 6); i++) { const a = i / (key === 'b' ? 9 : 6) * Math.PI * 2, b0 = add(c, [Math.sin(a) * 5.4, 0, Math.cos(a) * 5.6]); S.add(SC(RC(b0, add(b0, [Math.sin(a) * .5, key === 'b' ? 5 : 3.4, Math.cos(a) * .5]), .9, .15)), o('metal', B.head, { k: .2 })); } }
   else { const c = h0([0, 80, .2]); S.add(SC(TO(c, 5.4, .9, [[1, 0, 0], [0, 1, 0], [0, 0, 1.05]])), o('leather', B.head));
     for (let i = 0; i < 9; i++) { const a = (i / 8 - .5) * 2.4 + Math.PI, b0 = add(c, [Math.sin(a) * 5, .6, Math.cos(a) * 5.2]), tip = add(b0, [Math.sin(a) * 3, 9 + (1 - Math.abs(i - 4) / 4) * 5, Math.cos(a) * 4]);
@@ -83,7 +84,7 @@ function details(D) {
   both(s => S.add(SC(EL(h0([s * 2.2, 77.4, 6.8]), [.7, .5, .5])), { bone: B.head, tag: 'eye', k: .1, c: hd(h0([s * 2.2, 77.4, 6.8])) }));
   const tusk = (x, l, tilt) => { const b0 = h0([x, 72.4, 8]); S.add(SC(RC(b0, add(b0, [tilt, l, .6]), .8, .2)), { bone: B.jaw, tag: 'tooth', k: .2, root: b0, L: l }); };
   tusk(-2.4, D.key === 'b' ? 4.6 : 3.6, -.4); tusk(1.6, 2, .3); if (D.key !== 'a') tusk(3, 2.6, .5);
-  if (D.key === 'b') both(s => S.add(SC(TO(h0([s * 1.4, 75.2, 8.6]), .7, .2, rotX(Math.PI / 2))), { bone: B.head, tag: 'metal', k: .05 })); // a nose ring
+  if (D.key === 'b' || D.noseRing) both(s => S.add(SC(TO(h0([s * 1.4, 75.2, 8.6]), .7, .2, rotX(Math.PI / 2))), { bone: B.head, tag: 'metal', k: .05 })); // a nose ring
   return S;
 }
 
@@ -102,12 +103,13 @@ function custom(D) {
   };
 }
 
-function build(variant, { lod = 0 } = {}) {
-  const D = Object.assign({}, DESIGN[variant]), t0 = Date.now();
+function build(variant, opts) { return buildWith(DESIGN[variant], opts); }
+function buildWith(design, { lod = 0 } = {}) {
+  const D = Object.assign({}, design), t0 = Date.now();
   const body = anatomy(D); body.build(4); const g = gear(D); g.build(3); const weap = weapon(D); weap.build(3); const fine = details(D); fine.build(2);
-  const R = lod ? [1.3, 1.2, 1, .4] : [.56, .5, .45, .18];
+  const R = D.res ? (lod ? D.res[1] : D.res[0]) : lod ? [1.3, 1.2, 1, .4] : [.56, .5, .45, .18];
   const { parts, log } = K.finish(D, [['body', body, R[0], 1.8], ['gear', g, R[1], .8], ['weapon', weap, R[2], .5], ['detail', fine, R[3], .5]], custom(D));
   log.push((Date.now() - t0) + ' ms');
   return { parts, bones: BONES, clips: lod ? null : H.clips({ weight: 1, grip: -.15, stance: 1 }), log, design: D };
 }
-module.exports = { build, DESIGN, BONES, B };
+module.exports = { build, buildWith, DESIGN, BONES, B };

@@ -182,4 +182,13 @@ function makeBoss(id) {
   };
   return { build, BONES, B };
 }
-module.exports = { makeBoss, BONES, B };
+// a species with explicit variants (the basic Ember Drake), at a given resolution
+function makeCustom(id, species, res) {
+  const sp = Object.assign({ id }, species);
+  return { build: (variant, { lod = 0 } = {}) => {
+    const D = Object.assign({ seed: sp.seed + variant }, sp.V[variant]); D.colors = { skin: D.scale, horn: D.horn, glow: D.glow, bone: [.9, .94, 1] };
+    const b = body(D, sp); b.build(3.5); const w = wings(D, sp); w.build(3); const a = armour(D, sp); a.build(2.5);
+    const { parts, log } = K.finish(D, [['body', b, res[lod][0], 2], ['wings', w, res[lod][1], 1], ['armour', a, res[lod][2], .5]], custom(D, sp));
+    return { parts, bones: BONES, clips: lod ? null : clips(), log }; } };
+}
+module.exports = { makeBoss, makeCustom, SPECIES, BONES, B };

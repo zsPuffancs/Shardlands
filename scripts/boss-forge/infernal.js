@@ -78,12 +78,13 @@ function custom(D) {
   };
 }
 
-function build(variant, { lod = 0 } = {}) {
-  const D = Object.assign({}, DESIGN[variant]), t0 = Date.now();
+function build(variant, opts) { return buildWith(DESIGN[variant], opts); }
+function buildWith(design, { lod = 0 } = {}) {
+  const D = Object.assign({}, design), t0 = Date.now();
   const b = body(D); b.build(4); const ex = extras(D); ex.build(2.5);
-  const R = lod ? [1.3, .7] : [.56, .32];
+  const R = D.res ? (lod ? D.res[1] : D.res[0]) : lod ? [1.3, .7] : [.56, .32];
   const { parts, log } = K.finish(D, [['body', b, R[0], 2], ['extras', ex, R[1], .6]], custom(D));
   log.push((Date.now() - t0) + ' ms');
   return { parts, bones: BONES, clips: lod ? null : H.clips({ weight: 1, grip: .2, stance: 1.2, kneelDrop: 14 }), log, design: D };
 }
-module.exports = { build, DESIGN, BONES, B };
+module.exports = { build, buildWith, DESIGN, BONES, B };

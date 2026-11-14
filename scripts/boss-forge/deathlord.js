@@ -89,12 +89,13 @@ function custom(D) {
   };
 }
 
-function build(variant, { lod = 0 } = {}) {
-  const D = Object.assign({}, DESIGN[variant]), t0 = Date.now();
+function build(variant, opts) { return buildWith(DESIGN[variant], opts); }
+function buildWith(design, { lod = 0 } = {}) {
+  const D = Object.assign({}, design), t0 = Date.now();
   const arm = armour(D); arm.build(3); const w = weapon(D); w.build(3); const fine = details(D); fine.build(2.5);
-  const R = lod ? [1.2, .9, .5] : [.5, .38, .3];
+  const R = D.res ? (lod ? D.res[1] : D.res[0]) : lod ? [1.2, .9, .5] : [.5, .38, .3];
   const { parts, log } = K.finish(D, [['armour', arm, R[0], 1], ['weapon', w, R[1], .5], ['detail', fine, R[2], .5]], custom(D));
   log.push((Date.now() - t0) + ' ms');
   return { parts, bones: BONES, clips: lod ? null : H.clips({ weight: .9, grip: -.1, stance: .8, banner: true }), log, design: D };
 }
-module.exports = { build, DESIGN, BONES, B };
+module.exports = { build, buildWith, DESIGN, BONES, B };
