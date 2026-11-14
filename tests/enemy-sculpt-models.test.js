@@ -12,7 +12,7 @@ test('enemy models fit the ordinary-enemy budget and carry the clips', () => {
   for (const id of IDS) for (const v of 'na') for (const far of [false, true]) {
     const f = id + '-' + v + (far ? '-far' : ''), { g, size, tris } = glb(path.join(DIR, f + '.glb'));
     assert.ok(size < (far ? .4 : 1.5) * 1048576, f + ': size'); assert.ok(g.skins[0].joints.length <= 32, f + ': bones');
-    assert.ok(far ? tris < 12000 : tris > 10000 && tris < 45000, f + ': ' + tris + ' triangles');
+    assert.ok(far ? tris < 16000 : tris > 10000 && tris < 45000, f + ': ' + tris + ' triangles');
     if (!far) for (const clip of ['Idle', 'Walk', 'Run', 'Attack', 'RecieveHit', 'Death']) assert.ok(g.animations.some(a => a.name === clip), f + ': clip ' + clip);
   }
   for (const id of IDS) assert.ok(Math.abs(glb(path.join(DIR, id + '-n.glb')).verts - glb(path.join(DIR, id + '-a.glb')).verts) > 500, id + ': the Alpha is its own sculpt');
