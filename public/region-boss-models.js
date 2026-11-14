@@ -9,6 +9,11 @@
   const BOSSES = {
     // type: { file, height: the GLB's standing height in model units, fx: effect colour per variant, rim per variant }
     warlord: { file: 'warlord', height: 88, rim: [[.06, .1, .04], [.16, .03, .02], [.05, .14, .08]], fx: [[1, .6, .2], [1, .25, .1], [.35, 1, .55]] },
+    boneking: { file: 'boneking', height: 86, rim: [[.12, .08, .04], [.05, .14, .07], [.05, .14, .1]], fx: [[1, .8, .4], [.4, 1, .55], [.45, 1, .75]] },
+    ogrechief: { file: 'ogrechief', height: 78, rim: [[.1, .06, .14], [.16, .06, .03], [.05, .1, .18]], fx: [[.9, .7, .4], [1, .45, .2], [.4, .8, 1]] },
+    yetiking: { file: 'yetiking', height: 88, rim: [[.08, .12, .18], [.06, .12, .2], [.06, .16, .14]], fx: [[.8, .92, 1], [.5, .85, 1], [.45, 1, .8]] },
+    voidlord: { file: 'voidlord', height: 96, rim: [[.12, .04, .18], [.16, .04, .2], [.1, .08, .2]], fx: [[.85, .35, 1], [1, .3, 1], [.7, .65, 1]] },
+    deathlord: { file: 'deathlord', height: 87, rim: [[.05, .12, .07], [.05, .14, .08], [.07, .1, .16]], fx: [[.35, 1, .55], [.3, 1, .6], [.55, .85, 1]] },
   };
   const DEF = { atk: 'Attack', skill: 'Attack2', idle: ['Idle'], run: ['Run'] };
   const MODELS = new Map(), seen = new Map(), ghosts = [];
