@@ -298,6 +298,124 @@ function frost(D) {
   return { parts: [['stone', lower, .75, .4], ['stoneTop', upper, .7, .4], ...chunkS.map((c, i) => ['chunk' + i, c, .6, .2]), ['ice', ice, .8, .5], ['detail', fine, .52, .3]], bones, chunks: chunkInfo, B, topTilt: [-1, 0, .3] };
 }
 
+// ---------------- the Blighted Core (Gloomwood) ----------------
+// A twisted, bent spire of dark stone strangled by black corrupted roots; shelf fungi and glowing toadstools sprout
+// from its folds, swollen spore sacs pulse with poison, and a sickly green-and-violet core festers in its heart.
+const GLOOM = { key: 'gloom', seed: 1601, stone: [.2, .17, .22], stoneDark: [.07, .06, .09], slime: [.3, .5, .12], root: [.12, .07, .12], rootDark: [.04, .02, .05],
+  fungus: [.42, .3, .38], fungusUnder: [.75, .7, .5], cap: [.35, .12, .45], glow: [.55, 1, .3], glow2: [.75, .3, 1], crystal: [.6, .25, .9], coreCol: [.7, 1, .4], colors: { skin: [.2, .17, .22] } };
+function gloom(D) {
+  const R = rng(D.seed), B = B0, slab = new Sculpt(), chunkS = [], roots = new Sculpt(), fine = new Sculpt();
+  // the spire: blocks twisting and bending more the higher they go, a hooked, broken tip
+  const bend = y => [Math.sin(y * .035) * 6, 0, -Math.pow(y / 90, 2) * 6];
+  for (let i = 0; i < 8; i++) { const y = 6 + i * 11, w = lerp(13, 5.5, i / 7), d = lerp(11, 5, i / 7);
+    slab.add(BX(add([0, y, 0], bend(y)), [w, 7.5, d], euler(i * .38, (R() - .5) * .15, Math.sin(i) * .15), 2.2), { bone: y > 58 ? B.top : B.root, tag: 'gstone', k: 4.5 }); }
+  slab.add(RC(add([0, 88, 0], bend(88)), add([-6, 100, 4], bend(100)), 4.2, .6), { bone: B.top, tag: 'gstone', k: 2 });
+  // gnarled knots and deep folds
+  for (let i = 0; i < 16; i++) { const y = 8 + R() * 74, a = R() * Math.PI * 2, w = lerp(12, 6, y / 85); slab.add(EL(add([Math.cos(a) * w * .8, y, Math.sin(a) * w * .7], bend(y)), [lerp(2.5, 4.5, R()), lerp(3, 6, R()), lerp(2.5, 4.5, R())]), { bone: y > 58 ? B.top : B.root, tag: 'gstone', k: 2 }); }
+  for (let i = 0; i < 26; i++) { const y = 6 + R() * 80, a = R() * Math.PI * 2, w = lerp(13, 6, y / 85) + 1.5; slab.sub(EL(add([Math.cos(a) * w, y, Math.sin(a) * w * .85], bend(y)), [lerp(1.4, 3.4, R()), lerp(2, 5, R()), lerp(1.4, 3.4, R())]), { k: .9 }); }
+  slab.sub(EL(add([0, 38, 9], bend(38)), [6.5, 10, 6.5]), { k: 1.4 }); // the festering heart
+  slab.build(4);
+  const cc = add([0, 38, 3], bend(38));
+  fine.add(EL(cc, [4, 6.5, 3.8]), { bone: B.core, tag: 'core', k: .7, c: cc });
+  for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; fine.add(EL(add(cc, [Math.cos(a) * 3.5, Math.sin(a * 2) * 4, Math.sin(a) * 2 + 1.5]), [1.6, 1.8, 1.6]), { bone: B.core, tag: 'sac', k: .8 }); }
+  // corrupted roots: thick black roots grip the spire from the ground, crossing over the heart
+  for (let i = 0; i < 6; i++) {
+    const a0 = i / 6 * Math.PI * 2 + .3, pts = [[Math.cos(a0) * 36, -1, Math.sin(a0) * 32], [Math.cos(a0) * 22, 3, Math.sin(a0) * 19]], climb = 26 + (i % 3) * 18, turns = (i % 2 ? 1 : -1) * lerp(.6, 1.1, R());
+    for (let k = 1; k <= 7; k++) { const t = k / 7, y = 5 + t * climb, a = a0 + turns * t * Math.PI, hit = radial(slab, y, a, bend(y)); if (hit) pts.push(add(hit, mul(norm([Math.cos(a), 0, Math.sin(a)]), lerp(1.5, .5, t)))); }
+    const rp = tube(roots, pts, lerp(2.8, 3.6, R()), .5, { bone: B.root, tag: 'groot' }, 5); tube(fine, rp.filter((q, k) => k % 3 === 0).map(q => add(q, [0, 2.3, 0])).slice(1), .35, .2, { bone: B.root, tag: 'rune' }, 2);
+    for (let j = 0; j < 3; j++) { const b = add(pts[1], [(R() - .5) * 4, 0, (R() - .5) * 4]), da = a0 + (R() - .5) * 2.4, l = lerp(10, 18, R()); tube(roots, [b, add(b, [Math.cos(da) * l * .5, .8, Math.sin(da) * l * .5]), add(b, [Math.cos(da + .4) * l, -.6, Math.sin(da + .4) * l])], 1.3, .3, { bone: B.root, tag: 'groot' }, 3); }
+  }
+  // shelf fungi up the flanks, toadstool clusters at the foot, spore sacs in the crevices
+  for (let i = 0; i < 16; i++) { const y = 10 + R() * 62, a = R() * Math.PI * 2, p = radial(slab, y, a, bend(y)); if (!p) continue; const o = norm([Math.cos(a), 0, Math.sin(a)]), w = lerp(2.5, 5, R());
+    fine.add(EL(add(p, mul(o, w * .55)), [w, w * .22, w], euler(-a, 0, 0)), { bone: y > 58 ? B.top : B.root, tag: 'shelf', k: .6, root: p, L: w }); }
+  for (let i = 0; i < 22; i++) { const a = R() * Math.PI * 2, r = lerp(14, 28, R()), b = [Math.cos(a) * r, 0, Math.sin(a) * r * .9], h = lerp(2.5, 8, R()), cap = h * lerp(.45, .7, R()), lean = [(R() - .5) * .4, 1, (R() - .5) * .4];
+    const top = add(b, mul(norm(lean), h)); fine.add(RC(b, top, h * .14, h * .1), { bone: B.root, tag: 'stem', k: .2 }); fine.add(EL(add(top, [0, cap * .2, 0]), [cap, cap * .45, cap]), { bone: B.root, tag: 'glowcap', k: .3, c: top }); }
+  for (let i = 0; i < 14; i++) { const y = 6 + R() * 56, a = R() * Math.PI * 2, p = radial(slab, y, a, bend(y)); if (p) fine.add(EL(p, [lerp(1, 2.2, R()), lerp(1.2, 2.6, R()), lerp(1, 2.2, R())]), { bone: y > 58 ? B.top : B.root, tag: 'sac', k: .6 }); }
+  // the breakable pieces: bark-like stone plates over the heart, a gnarled side lobe, the hooked tip
+  const chunkInfo = [], front = (x, y) => surf(slab, add([x, y, 40], bend(y)), [0, 0, -1], 50);
+  const CH = [[-5.5, 38, [4.6, 10, 2.2], 2], [5.8, 40, [4.4, 9, 2.2], 3], [11, 22, [3.4, 8, 5], 2], [-10, 55, [3.4, 7, 4.6], 3], [0, 66, [4, 6, 3.4], 4]];
+  CH.forEach(([x, y, h, stage], i) => { const bone = CHUNK_BONE0 + i, S = new Sculpt(); chunkS.push(S); let c;
+    if (Math.abs(x) < 7) { const p = front(x, y) || add([x, y, 9], bend(y)); c = add(p, [0, 0, -h[2] * .4]); } else c = radial(slab, y, x > 0 ? 0 : Math.PI, bend(y)) || add([x, y, 0], bend(y));
+    S.add(BX(c, mul(h, .8), euler(i * .7, (R() - .5) * .2, (R() - .5) * .2), 1), { bone, tag: 'gstone', k: 2 }); for (let k = 0; k < 3; k++) S.add(EL(add(c, [(R() - .5) * h[0], (R() - .5) * h[1] * 1.2, (R() - .5) * h[2] * .6]), [h[0] * .6, h[1] * .45, h[2] * .8]), { bone, tag: 'gstone', k: 2 }); for (let k = 0; k < 3; k++) S.sub(EL(add(c, [(R() - .5) * h[0] * 2, (R() - .5) * h[1] * 2, (R() - .5) * h[2] * 2]), [1.5, 2, 1.5]), { k: .6 });
+    chunkInfo.push({ c, h, parent: y > 58 ? B.top : B.root, stage, bone }); });
+  { const bone = CHUNK_BONE0 + CH.length, S = new Sculpt(); chunkS.push(S); const a = add([-3, 96, 2], bend(96)); S.add(RC(add([0, 90, 0], bend(90)), add([-8, 101, 6], bend(101)), 2.6, .4), { bone, tag: 'gstone', k: 1 }); chunkInfo.push({ c: a, h: [2.6, 5, 2.6], parent: B.top, stage: 3, bone }); }
+  // corrupted runes
+  for (let i = 0; i < 10; i++) { const a = [2.4, 4, .9, 5.5][i % 4] + (R() - .5) * .3, y = 10 + Math.floor(i / 4) * 14 + R() * 4, p = radial(slab, y, a, bend(y)); if (!p || chunkInfo.some(c => c.stage < 4 && len(sub(p, c.c)) < 9)) continue; glyphAt(slab, fine, p, norm([Math.cos(a), 0, Math.sin(a)]), 4.4, D.seed + 40 + i, B.root); }
+  slab.build(4);
+  const fis = front(0, 38) || add([0, 38, 9], bend(38));
+  for (let i = 0; i < 6; i++) seamOn(slab, fine, B.crack2, radial(slab, 28 + i * 4, 1.57 + (i - 2.5) * .4, bend(30)) || fis, [Math.cos(i * 1.3), Math.sin(i * 1.7) * 1.2, .3], 7, .55, D.seed + 60 + i);
+  for (let i = 0; i < 8; i++) seamOn(slab, fine, B.crack3, radial(slab, 10 + i * 9, i * 2.2 + .4, bend(10 + i * 9)) || fis, [Math.cos(i * 2.1), 1, Math.sin(i * 2.1)], 9, .7, D.seed + 80 + i);
+  // stage 3: bursting spore sacs and ropes of corruption spilling out
+  for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2, p = add(cc, [Math.cos(a) * lerp(6, 12, (i % 3) / 2), (i % 3 - 1) * 8, 7 + Math.sin(a) * 4]); fine.add(EL(p, [1.4, 1.4, 1.4]), { bone: B.leak, tag: 'leak', k: .3 }); }
+  for (let i = 0; i < 3; i++) tube(fine, [add(cc, [0, 0, 5]), add(cc, [(i - 1) * 6, -8, 10]), add(cc, [(i - 1) * 10, -20, 13]), [(i - 1) * 13, 1, 20]], 1, .4, { bone: B.leak, tag: 'leak' });
+  const bones = BONES_BASE(add([0, 60, 0], bend(60)), cc, add([-3, 96, 2], bend(96)), fis); chunkInfo.forEach((c, i) => bones.push({ name: 'chunk' + i, parent: c.parent, pos: c.c }));
+  const split = bone => { const S = new Sculpt(); for (const sh of slab.shapes) if (sh.op === 'sub' || sh.bone === bone) S.shapes.push(sh); S.build(4); return S; };
+  const lower = split(B.root), upper = split(B.top);
+  chunkS.forEach(c => c.build(3)); roots.build(3); fine.build(2.5);
+  return { parts: [['stone', lower, .75, .4], ['stoneTop', upper, .7, .4], ...chunkS.map((c, i) => ['chunk' + i, c, .6, .2]), ['roots', roots, .8, .5], ['detail', fine, .48, .3]], bones, chunks: chunkInfo, B, topTilt: [.8, 0, .6] };
+}
+
+// ---------------- the Bloodforged Stone (Warfields / Ashen Barrens) ----------------
+// A brutal war monument: a massive, angular, iron-banded block on a stepped base, scarred by blade strikes and bristling
+// with the weapons of old battles driven into it; broken blades litter the ground; red runes and a blood-red core.
+const WAR = { key: 'war', seed: 1701, stone: [.32, .3, .3], stoneDark: [.12, .11, .11], iron: [.2, .19, .2], rust: [.4, .2, .1], steel: [.62, .62, .64], wood: [.28, .18, .1], leather: [.22, .13, .08],
+  glow: [1, .14, .1], crystal: [.8, .05, .05], coreCol: [1, .3, .2], colors: { skin: [.26, .23, .22] } };
+function sword(S, tip, dir, len, w, o, spin = 0) { const d = norm(dir), fr = along(d, spin), bl = len * .72, hiltEnd = add(tip, mul(d, len));
+  S.add(BX(add(tip, mul(d, bl / 2)), [w, bl / 2, Math.max(.32, w * .2)], fr, .1), Object.assign({ tag: 'blade', k: .1 }, o)); S.add(RC(tip, add(tip, mul(d, w * 1.2)), .1, w * .25), Object.assign({ tag: 'blade', k: .15 }, o));
+  const g = add(tip, mul(d, bl)); S.add(BX(g, [w * 2.6, w * .3, w * .45], fr, .1), Object.assign({ tag: 'iron', k: .1 }, o)); S.add(RC(g, hiltEnd, w * .32, w * .3), Object.assign({ tag: 'leather', k: .1 }, o)); S.add(EL(hiltEnd, [w * .5, w * .5, w * .5]), Object.assign({ tag: 'iron', k: .1 }, o)); }
+function axe(S, tip, dir, len, o) { const d = norm(dir), end = add(tip, mul(d, len)), fr = along(d, 0); S.add(RC(tip, end, .55, .5), Object.assign({ tag: 'wood', k: .1 }, o));
+  const head = add(tip, mul(d, 1.5)); S.add(BX(add(head, mul(fr[0], 2.2)), [2.4, 2.6, .3], fr, .2), Object.assign({ tag: 'blade', k: .2 }, o)); S.add(BX(add(head, mul(fr[0], -.8)), [1.2, 1, .6], fr, .2), Object.assign({ tag: 'iron', k: .2 }, o)); }
+function war(D) {
+  const R = rng(D.seed), B = B0, slab = new Sculpt(), chunkS = [], ground = new Sculpt(), fine = new Sculpt();
+  // stepped base, a massive tapering block with a heavy, notched crown
+  slab.add(BX([0, 3, 0], [22, 3, 19], euler(.1, 0, 0), .6), { bone: B.root, tag: 'wstone', k: .6 }); slab.add(BX([0, 8, 0], [17.5, 3, 15], euler(.1, 0, 0), .6), { bone: B.root, tag: 'wstone', k: .6 });
+  slab.add(BX([0, 32, 0], [14, 22, 11.5], euler(.1, 0, 0), .8), { bone: B.root, tag: 'wstone', k: 1.5 }); slab.add(BX([0, 66, 0], [12, 13, 10], euler(.12, 0, .02), .8), { bone: B.top, tag: 'wstone', k: 1.5 });
+  slab.add(BX([0, 82, 0], [15, 4, 12.5], euler(.12, 0, 0), .5), { bone: B.top, tag: 'wstone', k: .8 });
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) slab.add(BX([sx * 12.5, 89, sz * 10], [2.6, 4, 2.6], euler(.12, 0, 0), .3), { bone: B.top, tag: 'wstone', k: .4 });
+  slab.add(BX([0, 92, 0], [5, 6, 5], euler(.9, 0, 0), .3), { bone: B.top, tag: 'wstone', k: .4 });
+  // battle scars: deep slashes and chipped corners
+  for (let i = 0; i < 18; i++) { const y = 14 + R() * 64, a = Math.floor(R() * 4) * Math.PI / 2 + .1 + (R() - .5) * .5, c = [Math.cos(a) * 13.5, y, Math.sin(a) * 11], o = norm([Math.cos(a), 0, Math.sin(a)]);
+    slab.sub(BX(c, [lerp(4, 9, R()), .35, 2.2], [norm([-o[2], (R() - .5) * 1.6, o[0]]), [0, 1, 0], o].map(norm), .05), { k: .2 }); }
+  for (let i = 0; i < 12; i++) { const y = 12 + R() * 78, sx = R() < .5 ? -1 : 1, sz = R() < .5 ? -1 : 1; slab.sub(BX([sx * 14, y, sz * 11.5], [lerp(1.5, 3.5, R()), lerp(2, 5, R()), lerp(1.5, 3.5, R())], euler(R() * 3, R(), R()), .1), { k: .3 }); }
+  slab.sub(BX([0, 40, 10], [4, 9, 4], euler(.1, 0, .785), .3), { k: .5 }); // the diamond-shaped heart opening
+  slab.build(4);
+  const cc = [0, 40, 6];
+  fine.add(EL(cc, [3.4, 5.5, 3]), { bone: B.core, tag: 'core', k: .6, c: cc });
+  cluster(fine, add(cc, [0, -3, 0]), [0, 1, .2], 4, 8, D.seed + 5, { bone: B.core, tag: 'coreCrystal' });
+  // iron bands riveted round the block
+  for (const [y, w, d, bone] of [[18, 14.6, 12.1, B.root], [48, 14.6, 12.1, B.root], [74, 12.6, 10.6, B.top]]) { const fr = euler(.1, 0, 0);
+    slab.add(BX([0, y, 0], [w, 1.6, d], fr, .3), { bone, tag: 'iron', k: .2 });
+    for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2, p = radial(slab, y, a); if (p) fine.add(EL(p, [.55, .55, .55]), { bone, tag: 'iron', k: .1 }); } }
+  // war carvings: rows of runes and a carved crossed-blades emblem
+  for (let i = 0; i < 12; i++) { const a = [Math.PI / 2 + .1 + .62, Math.PI / 2 + .1 - .62, .1, Math.PI + .1, -Math.PI / 2 + .1][i % 5], y = [28, 33, 58, 62, 26, 36][i % 6], p = radial(slab, y + (i > 6 ? 5 : 0), a); if (!p) continue; glyphAt(slab, fine, p, norm([Math.cos(a), 0, Math.sin(a)]), 4.6, D.seed + 40 + i, y > 58 ? B.top : B.root); }
+  slab.build(4);
+  // weapons driven into the stone (fixed) and lodged in the ground around it
+  const W = [[[13.6, 56, 4], [-1, -.25, .1], 'sword', B.top], [[-14, 40, -3], [1, .15, .2], 'sword', B.root], [[6, 30, -12], [-.2, .2, 1], 'axe', B.root], [[-9, 68, 10], [.3, .3, -1], 'sword', B.top], [[0, 86, 6], [0, .5, -1], 'spear', B.top], [[12, 24, -8], [-1, .3, .6], 'spear', B.root]];
+  W.forEach(([p0, d0, kind, bone], i) => { const d = mul(norm(d0), -1), base = radial(slab, p0[1], Math.atan2(p0[2], p0[0])) || p0, tip = add(base, mul(norm(d0), 3));
+    if (kind === 'sword') sword(fine, tip, d, 28, 2, { bone }, i); else if (kind === 'axe') axe(fine, tip, d, 22, { bone }); else { fine.add(RC(tip, add(tip, mul(d, 34)), .8, .7), { bone, tag: 'wood', k: .1 }); fine.add(RC(add(tip, mul(d, -3)), add(tip, mul(d, 1)), .05, .9), { bone, tag: 'blade', k: .1 }); } });
+  for (let i = 0; i < 12; i++) { const a = R() * Math.PI * 2, r = lerp(22, 34, R()), b = [Math.cos(a) * r, -1.5, Math.sin(a) * r * .9], d = norm([(R() - .5) * .8, 1, (R() - .5) * .8]);
+    if (i % 3 === 0) sword(ground, b, d, lerp(10, 18, R()) * (R() < .5 ? .55 : 1), .9, { bone: B.root }, R() * 3); else if (i % 3 === 1) axe(ground, b, d, 12, { bone: B.root }); else { ground.add(BX(add(b, [0, .2, 0]), [lerp(1.5, 3, R()), .25, .5], euler(R() * 3, 0, (R() - .5) * .3), .05), { bone: B.root, tag: 'blade', k: .1 }); } }
+  // shattered paving round the base
+  for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2 + R() * .2, r = lerp(23, 30, R()); ground.add(BX([Math.cos(a) * r, .6, Math.sin(a) * r * .9], [lerp(3, 5, R()), lerp(.8, 1.4, R()), lerp(2.5, 4, R())], euler(-a + (R() - .5) * .5, (R() - .5) * .2, (R() - .5) * .2), .4), { bone: B.root, tag: 'wstone', k: .4 }); }
+  // breakable: armour plates over the heart, corner blocks of the crown, a slab off the flank
+  const chunkInfo = [];
+  const CH = [[[-5, 40, 12], [4.4, 10, 1.8], 2], [[5.2, 40, 12], [4.4, 10, 1.8], 3], [[12.5, 89, 10], [2.8, 4.2, 2.8], 2], [[-12.5, 89, -10], [2.8, 4.2, 2.8], 3], [[14.4, 30, -4], [1.8, 10, 6], 2], [[-14.4, 62, 3], [1.8, 8, 5.5], 3], [[0, 92, 0], [5, 6, 5], 4]];
+  CH.forEach(([c, h, stage], i) => { const bone = CHUNK_BONE0 + i, S = new Sculpt(); chunkS.push(S);
+    S.add(BX(c, h, euler(i === 6 ? .9 : .1, 0, 0), .5), { bone, tag: i < 2 ? 'iron' : 'wstone', k: .5 }); if (i < 2) for (let k = 0; k < 4; k++) S.add(EL(add(c, [(k % 2 - .5) * h[0] * 1.3, (Math.floor(k / 2) - .5) * h[1] * 1.6, h[2]]), [.6, .6, .6]), { bone, tag: 'iron', k: .1 });
+    S.sub(BX(add(c, [(R() - .5) * h[0], (R() - .5) * h[1], 0]), [3, .3, h[2] * 3], euler(R(), R(), R()), .05), { k: .2 }); chunkInfo.push({ c, h, parent: c[1] > 58 ? B.top : B.root, stage, bone }); });
+  const fis = surf(slab, [0, 40, 40], [0, 0, -1], 50) || [0, 40, 12];
+  for (let i = 0; i < 6; i++) seamOn(slab, fine, B.crack2, radial(slab, 30 + i * 4, 1.67 + (i - 2.5) * .35) || fis, [Math.cos(i * 1.3), Math.sin(i * 1.7) * 1.2, .3], 7, .6, D.seed + 60 + i);
+  for (let i = 0; i < 8; i++) seamOn(slab, fine, B.crack3, radial(slab, 14 + i * 9, i * 2.2 + .4) || fis, [Math.cos(i * 2.1), 1, Math.sin(i * 2.1)], 9, .75, D.seed + 80 + i);
+  // stage 3: blood-red energy pouring from the heart and pooling at the base
+  for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2, p = add(cc, [Math.cos(a) * lerp(6, 11, (i % 3) / 2), (i % 3 - 1) * 8, 8 + Math.sin(a) * 3]); fine.add(EL(p, [1, 1.7, 1]), { bone: B.leak, tag: 'leak', k: .2 }); }
+  tube(fine, [add(cc, [0, -4, 6]), add(cc, [0, -14, 8]), add(cc, [0, -26, 9]), [0, 6, 16]], 1.3, 1, { bone: B.leak, tag: 'leak' }); fine.add(EL([0, .3, 20], [9, .5, 6]), { bone: B.leak, tag: 'leak', k: 1 });
+  const bones = BONES_BASE([0, 58, 0], cc, [0, 92, 0], fis); chunkInfo.forEach((c, i) => bones.push({ name: 'chunk' + i, parent: c.parent, pos: c.c }));
+  const split = bone => { const S = new Sculpt(); for (const sh of slab.shapes) if (sh.op === 'sub' || sh.bone === bone) S.shapes.push(sh); S.build(4); return S; };
+  const lower = split(B.root), upper = split(B.top);
+  chunkS.forEach(c => c.build(3)); ground.build(3); fine.build(2.5);
+  return { parts: [['stone', lower, .7, .4], ['stoneTop', upper, .65, .4], ...chunkS.map((c, i) => ['chunk' + i, c, .55, .2]), ['ground', ground, .55, .5], ['detail', fine, .4, .3]], bones, chunks: chunkInfo, B, topTilt: [1, 0, .5] };
+}
+
 // ---------------- painting ----------------
 function custom(D) {
   if (PAINT[D.key]) return PAINT[D.key](D);
@@ -369,6 +487,30 @@ const PAINT = {
     if (tag === 'icicle') return { c: mixc(D.ice, [.95, 1, 1], t), a: .7, sp: 1, gl: .98, ty: 5, st: .1 };
     return null;
   },
+  gloom: D => ({ p, n, s, tag, fine, big }) => {
+    const t = s.root && s.L ? clamp(len(sub(p, s.root)) / s.L, 0, 1) : .5, g = glowPaint(D, tag, t); if (g) return tag === 'rune' || tag === 'crack' ? Object.assign(g, { c: mixc(D.glow, D.glow2, F.noise3(p[0] * .2, p[1] * .2, p[2] * .2, 2)) }) : g;
+    if (tag === 'gstone') { const slimy = clamp((n[1] - .3) * 2 + (big - .5) * 1.4 + (p[1] < 12 ? .4 : 0), 0, 1);
+      if (slimy > .7) return { c: mixc(D.slime, mul(D.slime, .5), fine), sp: .9, gl: .8, ty: 3, st: .4 };
+      let c = mixc(D.stone, D.stoneDark, clamp(.3 + (big - .5) * 1.3, 0, 1)); c = mul(c, .85 + fine * .3); if (F.noise3(p[0] * .5, p[1] * .2, p[2] * .5, 4) > .68) c = mixc(c, D.glow2, .18);
+      return { c, sp: .25, gl: .4, ty: 5, st: 1 }; }
+    if (tag === 'groot') {       return { c: mixc(D.rootDark, D.root, fine), sp: .5, gl: .55, ty: 4, st: 1 }; }
+    if (tag === 'shelf') return { c: mixc(D.fungusUnder, D.fungus, clamp((n[1] + .2) * 1.2, 0, 1)), sp: .2, gl: .35, ty: 3, st: .6 };
+    if (tag === 'stem') return { c: [.6, .58, .5], sp: .2, gl: .35, ty: 3, st: .4 };
+    if (tag === 'glowcap') { const spot = F.noise3(p[0] * 2, p[1] * 2, p[2] * 2, 1) > .68; return spot ? { c: D.glow, a: .1, sp: .5, gl: .5, ty: 0, st: 0 } : { c: mixc(D.cap, D.glow2, .3), a: .55, sp: .6, gl: .7, ty: 3, st: .3 }; }
+    if (tag === 'sac') return { c: mixc(D.glow, [.9, 1, .7], fine * .5), a: .25, sp: 1, gl: .9, ty: 3, st: .3 };
+    return null;
+  },
+  war: D => ({ p, n, s, tag, fine, big }) => {
+    const t = s.root && s.L ? clamp(len(sub(p, s.root)) / s.L, 0, 1) : .5, g = glowPaint(D, tag, t); if (g) return g;
+    if (tag === 'wstone') { const soot = clamp((big - .4) * 1.5, 0, 1), stain = F.noise3(p[0] * .4, p[1] * .1, p[2] * .4, 5) > .64;
+      let c = mixc(D.stone, D.stoneDark, clamp(.25 + soot * .6, 0, 1)); c = mul(c, .85 + fine * .3); if (stain) c = mixc(c, [.22, .05, .04], .3);
+      return { c, sp: .25, gl: .4, ty: 5, st: 1 }; }
+    if (tag === 'iron') { const r = clamp((F.noise3(p[0] * .8, p[1] * .8, p[2] * .8, 6) - .5) * 2, 0, 1); return { c: mul(mixc(D.iron, D.rust, r), .85 + fine * .3), sp: r > .5 ? .3 : .9, gl: r > .5 ? .4 : .75, ty: 8, st: .6 }; }
+    if (tag === 'blade') return { c: mul(mixc(D.steel, D.rust, clamp(fine - .45, 0, 1) * 1.5), .9 + fine * .15), sp: 1, gl: .85, ty: 8, st: .35 };
+    if (tag === 'wood') return { c: mul(D.wood, .8 + fine * .3), sp: .2, gl: .35, ty: 4, st: .8 };
+    if (tag === 'leather') return { c: D.leather, sp: .3, gl: .4, ty: 3, st: .7 };
+    return null;
+  },
 };
 
 // ---------------- clips ----------------
@@ -400,7 +542,7 @@ function clips(info) {
   return { Intact: { dur: 4, track: t => pose(1, t) }, Damaged: { dur: 4, track: t => pose(2, t) }, Near: { dur: 4, track: t => pose(3, t) }, Break: { dur: 1.8, track: brk } };
 }
 
-const DESIGNS = { meadows: { D: MEADOWS, fn: meadows }, ember: { D: EMBER, fn: ember }, frost: { D: FROST, fn: frost } };
+const DESIGNS = { meadows: { D: MEADOWS, fn: meadows }, ember: { D: EMBER, fn: ember }, frost: { D: FROST, fn: frost }, gloom: { D: GLOOM, fn: gloom }, war: { D: WAR, fn: war } };
 function build(id, { lod = 0 } = {}) {
   const { D: D0, fn } = DESIGNS[id], D = Object.assign({}, D0), t0 = Date.now(), info = fn(D);
   const parts = info.parts.map(([n, S, h, f]) => [n, S, lod ? Math.max(h * 2.4, 1) : h, f]);

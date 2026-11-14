@@ -8,6 +8,8 @@
   const DESIGNS = {
     meadows: { types: ['stone'], rim: [.06, .14, .05], glow: [.42, 1, .48], leaf: [.3, .62, .18], dust: [.45, .44, .38], fall: 60 },  // leaves drift down
     ember: { types: ['emberstone'], rim: [.18, .05, .01], glow: [1, .5, .12], leaf: [1, .72, .25], dust: [.22, .2, .19], fall: -90 }, // embers and smoke rise
+    gloom: { types: ['jadestone'], rim: [.1, .04, .14], glow: [.55, 1, .3], leaf: [.7, .35, 1], dust: [.25, .2, .28], fall: -25 },  // drifting spores
+    war: { types: ['bonestone'], rim: [.16, .03, .02], glow: [1, .14, .1], leaf: [1, .65, .3], dust: [.3, .27, .25], fall: 200 },     // sparks and grit
     frost: { types: ['froststone'], rim: [.06, .12, .2], glow: [.5, .9, 1], leaf: [.88, .96, 1], dust: [.82, .9, .98], fall: 25 },    // snow and freezing mist
   };
   const BY_TYPE = {}; for (const [id, d] of Object.entries(DESIGNS)) for (const ty of d.types) BY_TYPE[ty] = id;
