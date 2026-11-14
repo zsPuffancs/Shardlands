@@ -40,12 +40,15 @@ function armour(D) {
       let p = f([18, 64, 5]); for (let i = 0; i < 8; i++) { const q = add(p, [0, -2, (i % 2 ? .5 : -.5)]); S.add(TO(mul(add(p, q), .5), 1, .3, i % 2 ? null : rotZ(Math.PI / 2)), o('metal', B['uarm' + L], { k: .05 })); p = q; } }
     if (key === 'c') S.add(RC(f([15, 70, -3]), f([24, 82, -6]), 1.8, .1), o('trim', B['uarm' + L], { k: .3 }));
     S.add(RC(f([14.6, 48, 1.6]), f([15.4, 39, 3.2]), 4, 3.4), o('metal', B['farm' + L], { k: .4 })); S.add(TO(f([15.3, 39.6, 3.2]), 3.4, .6, rotX(-.1)), o('trim', B['farm' + L])); });
-  // the great helm: a skull-like visor, a crest
-  S.add(EL([0, 78, 1], [6, 7, 6.6]), o('metal', B.head, { k: 1 })); S.add(TO([0, 79.6, 1], 6, .6, [[1, 0, 0], [0, 1, 0], [0, 0, 1.08]]), o('trim', B.head, { k: .2 })); S.add(BX([0, 75, 6.6], [4.4, 4.2, 1.4], rotX(.12), .8), o('darkmetal', B.head, { k: .4 }));
-  S.add(RC([0, 82, 6.6], [0, 70, 7.8], .7, .5), o('trim', B.head, { k: .2 })); both(s => S.add(EL([s * 5.6, 76, 1.4], [1, 3, 3]), o('trim', B.head, { k: .3 })));
-  both(s => S.sub(EL([s * 2.2, 77.4, 7.4], [1.5, .9, 1.4]), { k: .2 }));
-  for (let i = -3; i <= 3; i++) S.sub(BX([i * .9, 73.4, 8], [.2, 1.6, 2]), { k: .05 });
-  S.add(RC([0, 84, 3], [0, 85.6, -6], .9, .6), o('trim', B.head, { k: .3 }));
+  // the great helm: a tall rounded bascinet drawn to a point at the front, a ridge down the face, a narrow eye slit,
+  // breathing holes, cheek flanges and a crest
+  S.add(EL([0, 78.4, .8], [5.8, 7.4, 6.2]), o('metal', B.head, { k: 1 }));
+  S.add(EL([0, 75.6, 3.8], [5, 5.6, 4.4]), o('metal', B.head, { k: 1.4 }));
+  S.add(RC([0, 84.2, 4.2], [0, 70.4, 8.2], .55, .45), o('trim', B.head, { k: .4 }));
+  S.sub(EL([0, 78, 7.8], [4.4, .55, 2.4]), { k: .15 });
+  for (let i = 0; i < 5; i++) for (const s2 of [-1, 1]) S.sub(EL([s2 * (1.2 + (i % 3) * .9), 73.4 - Math.floor(i / 3) * 1.4, 7.6], [.3, .3, .8]), { k: .05 });
+  both(s => S.add(EL([s * 4.8, 74, 3.6], [1.2, 3.2, 2.6], rotZ(s * .2)), o('darkmetal', B.head, { k: .5 })));
+  S.add(RC([0, 85, 2.4], [0, 86.2, -6], .9, .6), o('trim', B.head, { k: .3 }));
   if (key === 'c') { for (let i = 0; i < 9; i++) { const a = (i / 8 - .5) * 2.4, b0 = [Math.sin(a) * 6, 82.6, Math.cos(a) * 6 - .6], l = 6 + (1 - Math.abs(i - 4) / 4) * 9; S.add(RC(b0, add(b0, [Math.sin(a) * 1.2, l, Math.cos(a) * .6]), .9, .1), o('trim', B.head, { k: .2 })); }
     both(s => { let p = [s * 5.6, 80, -1], d = norm([s, .4, -.3]); for (let i = 0; i < 6; i++) { const q = add(p, mul(d, 2.6)); S.add(RC(p, q, 1.5 - i * .2, 1.3 - i * .2), o('bone', B.head, { k: .2 })); p = q; d = norm(add(d, [s * -.1, .25, -.05])); } }); }
   // the cape
@@ -69,7 +72,7 @@ function weapon(D) {
 
 function details(D) {
   const S = new Sculpt();
-  both(s => S.add(EL([s * 2.2, 77.4, 6.6], [1.1, .55, .5]), { bone: B.head, tag: 'eye', k: .1, c: [s * 2.2, 77.4, 6.8] }));
+  both(s => S.add(EL([s * 2.2, 78, 6.9], [1.1, .4, .5]), { bone: B.head, tag: 'eye', k: .1, c: [s * 2.2, 77.4, 6.8] }));
   if (D.key === 'b') for (let i = 0; i < 4; i++) S.add(EL([(i - 1.5) * 3, 55 + (i % 2) * 5, 4.4], [1.6, 2.2, 1.4]), { bone: B.chest, tag: 'glow', k: .6 }); // souls in the cage
   return S;
 }
